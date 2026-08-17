@@ -11,6 +11,7 @@ import {
 import { create } from 'zustand'
 import { getDefinition } from '../nodes/registry'
 import type { DelayParams, EdgeKind, NodeParams, Osc4Params, Patch, Step } from '../types/patch'
+import { decodePatch } from './patchCode'
 
 export type FlowNodeData = { params: NodeParams }
 export type FlowNode = Node<FlowNodeData>
@@ -55,32 +56,47 @@ function makeNode(type: string, position: { x: number; y: number }, id = newId(t
 }
 
 /**
- * Starting patch: something that already sounds on Play, rather than an empty canvas.
- * Laid out vertically, which is how the cascade flows: top to bottom.
+ * The starting patch, held as its own patch code rather than built by hand: two cascades, five
+ * oscillators across four waveforms and a delay, so Play does something interesting immediately.
+ *
+ * To change it, build the patch in the app, copy the PATCH CODE field and paste it here.
  */
-function initialPatch(): { nodes: FlowNode[]; edges: FlowEdge[] } {
-  const start = makeNode('start', { x: 300, y: 20 })
-  const a = makeNode('osc4', { x: 260, y: 130 })
-  const b = makeNode('osc4', { x: 120, y: 320 })
-  const c = makeNode('osc4', { x: 420, y: 320 })
-  const bParams = b.data.params as Osc4Params
-  bParams.steps = [55, 59, 62, 67].map((note) => ({ note, active: true, velocity: 1 }))
-  const cParams = c.data.params as Osc4Params
-  cParams.steps = [36, 43, 36, 41].map((note) => ({ note, active: true, velocity: 1 }))
-  cParams.division = '1/4'
+const INITIAL_PATCH_CODE =
+  'GMQgJRSYIBQqyXQEBQ8Jn6vvfU8nlAA5kmfBWmqcvx_1_X50gGgAWyDIEBQ8Jn0_mfR9QQFDAQyPEBdwF2SZAgKHhY-B-n8HiyAjEyQEXJkmWsCh4WPwff-x4MUW5KDu'
+
+/** Store shape of a patch. Shared by the initial state, RESET and loading a code. */
+function fromPatch(patch: Patch): {
+  bpm: number
+  loop: boolean
+  nodes: FlowNode[]
+  edges: FlowEdge[]
+} {
   return {
-    nodes: [start, a, b, c],
-    edges: [
-      { id: newId('e'), source: start.id, target: a.id, type: 'cascade', data: { kind: 'event' } },
-      { id: newId('e'), source: a.id, target: b.id, type: 'cascade', data: { kind: 'event' } },
-      { id: newId('e'), source: a.id, target: c.id, type: 'cascade', data: { kind: 'event' } },
-    ],
+    bpm: patch.bpm,
+    loop: patch.loop,
+    nodes: patch.nodes.map((n) => ({
+      id: n.id,
+      type: n.type,
+      position: n.position,
+      data: { params: n.params },
+    })),
+    edges: patch.edges.map((e) => ({
+      id: e.id,
+      source: e.source,
+      target: e.target,
+      type: 'cascade',
+      data: { kind: e.kind },
+    })),
   }
 }
 
+function initialPatch(): ReturnType<typeof fromPatch> {
+  const patch = decodePatch(INITIAL_PATCH_CODE)
+  // An empty canvas is a poor default, but a broken constant must not stop the app booting.
+  return patch ? fromPatch(patch) : { bpm: 120, loop: true, nodes: [], edges: [] }
+}
+
 export const usePatchStore = create<PatchState>((set, get) => ({
-  bpm: 120,
-  loop: true,
   masterGain: 0.8,
   ...initialPatch(),
   selectedId: null,
@@ -153,24 +169,7 @@ export const usePatchStore = create<PatchState>((set, get) => ({
   },
 
   loadPatch(patch) {
-    set({
-      bpm: patch.bpm,
-      loop: patch.loop,
-      nodes: patch.nodes.map((n) => ({
-        id: n.id,
-        type: n.type,
-        position: n.position,
-        data: { params: n.params },
-      })),
-      edges: patch.edges.map((e) => ({
-        id: e.id,
-        source: e.source,
-        target: e.target,
-        type: 'cascade',
-        data: { kind: e.kind },
-      })),
-      selectedId: null,
-    })
+    set({ ...fromPatch(patch), selectedId: null })
   },
 
   resetPatch() {

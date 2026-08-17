@@ -66,7 +66,7 @@ function CanvasInner() {
           + DELAY
         </button>
         <button type="button" className="btn" onClick={() => addAtCenter('start')}>
-          + START
+          + IGNITE
         </button>
       </div>
       <DepthContext.Provider value={depths}>

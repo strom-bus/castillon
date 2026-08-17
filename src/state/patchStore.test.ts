@@ -6,6 +6,42 @@ beforeEach(() => {
   usePatchStore.getState().resetPatch()
 })
 
+describe('the starting patch', () => {
+  // It is stored as a patch code, so a bad edit to that constant would silently boot an empty
+  // canvas rather than fail loudly. This is what catches that.
+  it('decodes into the intended patch', () => {
+    const patch = toPatch()
+    expect(patch.bpm).toBe(300)
+    expect(patch.loop).toBe(true)
+    expect(patch.nodes.filter((n) => n.type === 'start')).toHaveLength(2)
+    expect(patch.nodes.filter((n) => n.type === 'osc4')).toHaveLength(5)
+    expect(patch.nodes.filter((n) => n.type === 'delay')).toHaveLength(1)
+    expect(patch.edges).toHaveLength(6)
+  })
+
+  it('covers four waveforms plus a noise colour, so Play is not one flat timbre', () => {
+    const waveforms = toPatch()
+      .nodes.filter((n) => n.type === 'osc4')
+      .map((n) => (n.params as Osc4Params).waveform)
+    expect(new Set(waveforms).size).toBeGreaterThanOrEqual(4)
+    expect(waveforms).toContain('white')
+    expect(waveforms).toContain('brown')
+  })
+
+  it('every oscillator is reachable from an ignite node', () => {
+    const patch = toPatch()
+    const reachable = new Set(patch.nodes.filter((n) => n.type === 'start').map((n) => n.id))
+    for (let pass = 0; pass < patch.nodes.length; pass++) {
+      for (const edge of patch.edges) {
+        if (reachable.has(edge.source)) reachable.add(edge.target)
+      }
+    }
+    for (const node of patch.nodes) {
+      expect(reachable.has(node.id)).toBe(true)
+    }
+  })
+})
+
 describe('connections', () => {
   it('removes a cable by id', () => {
     const { edges, removeEdge } = usePatchStore.getState()

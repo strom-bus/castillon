@@ -77,7 +77,7 @@ export function Inspector() {
   if (node.type === 'start') {
     return (
       <aside className="inspector">
-        <h2 className="inspector-title">START</h2>
+        <h2 className="inspector-title">IGNITE</h2>
         <p className="inspector-empty">
           Fires the cascade on Play. A patch can hold several: each one is an independent cascade.
         </p>

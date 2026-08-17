@@ -15,16 +15,17 @@ describe('App', () => {
     expect(screen.getByText('COLMENA')).toBeDefined()
     expect(screen.getByText('▶ PLAY')).toBeDefined()
 
-    // The starting patch: one Start and three oscillators.
-    expect(screen.getByText('START')).toBeDefined()
-    expect(screen.getAllByText('OSC 4')).toHaveLength(3)
+    // The starting patch: two independent cascades, five oscillators and a delay.
+    expect(screen.getAllByText('IGNITE')).toHaveLength(2)
+    expect(screen.getAllByText('OSC 4')).toHaveLength(5)
+    expect(screen.getByText('DELAY')).toBeDefined()
   })
 
   it('draws each sequencer four bars with their notes', () => {
     const { container } = render(<App />)
     const steps = container.querySelectorAll('.step-track')
-    // 3 oscillators x 4 steps.
-    expect(steps).toHaveLength(12)
+    // 5 oscillators x 4 steps.
+    expect(steps).toHaveLength(20)
     expect(screen.getAllByText('C3').length).toBeGreaterThan(0)
   })
 

@@ -31,7 +31,7 @@ export function StartNode({ id, selected }: NodeProps<FlowNode>) {
       style={depthStyle(colors)}
       data-testid="start-node"
     >
-      <div className="node-title">START</div>
+      <div className="node-title">IGNITE</div>
       <Handle type="source" position={Position.Bottom} className="port port-out" />
     </div>
   )

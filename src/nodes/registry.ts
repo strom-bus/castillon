@@ -32,8 +32,10 @@ export interface NodeDefinition {
 const FLASH = 0.12
 
 const start: NodeDefinition = {
+  // The type string is part of the patch-code format and must never change; only the label is
+  // what the UI shows.
   type: 'start',
-  label: 'Start',
+  label: 'Ignite',
   category: 'utility',
   defaults: () => ({}),
   schedule({ node, time, activity }) {

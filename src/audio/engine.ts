@@ -3,7 +3,7 @@ import { MAX_CUTOFF, MAX_RESONANCE, MIN_CUTOFF, MIN_RESONANCE } from './filter'
 import { fillNoise, type NoiseColor } from './noise'
 import { isNoise, pulseHarmonics, rampHarmonics } from './waveforms'
 
-/** Voice budget. See PLAN.md §2.2. */
+/** Voice budget. */
 export const MAX_VOICES = 64
 /** Above this fraction of the budget, nodes restart instead of layering. */
 export const OVERLAP_THRESHOLD = 0.75

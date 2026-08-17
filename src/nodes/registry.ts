@@ -121,7 +121,7 @@ const osc: NodeDefinition = {
     const params = node.params as OscParams
     const step = stepDuration(bpm, params.division)
 
-    // Layering (PLAN.md §2.2): only layer while there is voice budget left. Past the
+    // Only layer while there is voice budget left. Past the
     // threshold the node restarts instead of piling up, so the texture degrades on its own
     // before glitches show up.
     const stillSounding = engine.nodeBusyUntil(node.id) > time

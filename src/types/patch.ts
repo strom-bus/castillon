@@ -3,7 +3,7 @@
 export type NodeId = string
 
 /**
- * The two overlaid graphs (PLAN.md §2). The PoC only draws event cables, but the field is here
+ * The two overlaid graphs. Only event cables are drawn so far, but the field is here
  * from the start so patches never need migrating in Phase 3.
  */
 export type EdgeKind = 'event' | 'audio'

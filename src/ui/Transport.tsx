@@ -5,7 +5,7 @@ import { usePatchStore } from '../state/patchStore'
 import { MAX_BPM, MIN_BPM } from '../types/patch'
 import { PatchCode } from './PatchCode'
 
-/** Voice counter: makes the budget degradation visible (PLAN.md §2.2). */
+/** Voice counter: makes the budget degradation visible rather than mysterious. */
 function VoiceMeter({ playing }: { playing: boolean }) {
   const [voices, setVoices] = useState(0)
 

@@ -49,7 +49,7 @@ interface SchedulerDeps {
 }
 
 /**
- * Propagates triggers through the event graph (PLAN.md §2).
+ * Propagates triggers through the event graph.
  *
  * It always runs ahead of the audio clock, so it notices a cascade has drained roughly 100 ms
  * before its last note sounds. That margin is exactly what lets the Start be rescheduled in

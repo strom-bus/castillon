@@ -13,7 +13,6 @@ describe('App', () => {
 
     expect(screen.getByText('CASTILLÓN')).toBeDefined()
     expect(screen.getByText('▶ PLAY')).toBeDefined()
-    expect(screen.getByText('PANIC')).toBeDefined()
 
     // The starting patch: one Start and three oscillators.
     expect(screen.getByText('START')).toBeDefined()

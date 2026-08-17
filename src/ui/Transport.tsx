@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { MAX_VOICES } from '../audio/engine'
-import { engine, panic, play, stop } from '../audio/runtime'
+import { engine, play, stop } from '../audio/runtime'
 import { exportPatch, importPatch } from '../state/persistence'
 import { toPatch, usePatchStore } from '../state/patchStore'
 
@@ -64,14 +64,9 @@ export function Transport() {
   }, [playing])
 
   return (
-    <header className="transport">
-      <div className="brand">CASTILLÓN</div>
-
+    <div className="transport">
       <button type="button" className={`btn primary${playing ? ' on' : ''}`} onClick={toggle}>
         {playing ? '■ STOP' : '▶ PLAY'}
-      </button>
-      <button type="button" className="btn" onClick={panic} title="Cut every voice">
-        PANIC
       </button>
 
       <label className="field">
@@ -128,6 +123,6 @@ export function Transport() {
       >
         IMPORT
       </button>
-    </header>
+    </div>
   )
 }

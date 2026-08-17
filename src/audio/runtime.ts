@@ -28,8 +28,3 @@ export function stop(): void {
   activity.clear()
   activity.stop()
 }
-
-export function panic(): void {
-  engine.panic()
-  activity.clear()
-}

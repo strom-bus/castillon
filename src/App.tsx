@@ -33,6 +33,9 @@ export default function App() {
 
   return (
     <div className="app">
+      <header className="titlebar">
+        <h1 className="brand">CASTILLÓN</h1>
+      </header>
       <Transport />
       <div className="workspace">
         <Canvas />

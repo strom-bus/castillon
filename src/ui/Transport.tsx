@@ -3,65 +3,8 @@ import { MAX_VOICES } from '../audio/engine'
 import { engine, play, stop } from '../audio/runtime'
 import { usePatchStore } from '../state/patchStore'
 import { MAX_BPM, MIN_BPM } from '../types/patch'
+import { NumberInput } from './NumberInput'
 import { PatchCode } from './PatchCode'
-
-/**
- * A number field you can actually type in.
- *
- * The store clamps tempo to its legal range, which is right — but clamping on every keystroke
- * makes the field unusable: typing the "1" of 144 becomes 20 before you reach the 4, and
- * clearing the field to start over reads as 0 and snaps to 20 as well. So the draft is held
- * locally while it is being edited, committed the moment it is a legal value, and clamped only
- * on blur.
- */
-function NumberField({
-  label,
-  value,
-  min,
-  max,
-  onCommit,
-}: {
-  label: string
-  value: number
-  min: number
-  max: number
-  onCommit: (value: number) => void
-}) {
-  const [draft, setDraft] = useState<string | null>(null)
-
-  const commit = (raw: string) => {
-    const parsed = Number(raw)
-    onCommit(raw.trim() === '' || Number.isNaN(parsed) ? value : parsed)
-    setDraft(null)
-  }
-
-  return (
-    <label className="field">
-      <span>{label}</span>
-      <input
-        type="number"
-        min={min}
-        max={max}
-        value={draft ?? String(value)}
-        onChange={(e) => {
-          const raw = e.target.value
-          setDraft(raw)
-          // Arrow keys and any in-range typing take effect straight away; anything else waits,
-          // so a half-typed number never becomes the tempo.
-          const parsed = Number(raw)
-          if (raw.trim() !== '' && Number.isInteger(parsed) && parsed >= min && parsed <= max) {
-            onCommit(parsed)
-            setDraft(null)
-          }
-        }}
-        onBlur={(e) => commit(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') commit((e.target as HTMLInputElement).value)
-        }}
-      />
-    </label>
-  )
-}
 
 /** Voice counter: makes the budget degradation visible rather than mysterious. */
 function VoiceMeter({ playing }: { playing: boolean }) {
@@ -127,7 +70,10 @@ export function Transport() {
         {playing ? '■ STOP' : '▶ PLAY'}
       </button>
 
-      <NumberField label="BPM" value={bpm} min={MIN_BPM} max={MAX_BPM} onCommit={setBpm} />
+      <label className="field">
+        <span>BPM</span>
+        <NumberInput value={bpm} min={MIN_BPM} max={MAX_BPM} onCommit={setBpm} />
+      </label>
 
       <label className="field checkbox">
         <input type="checkbox" checked={loop} onChange={(e) => setLoop(e.target.checked)} />

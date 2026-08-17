@@ -11,6 +11,7 @@ import {
 import { MAX_PULSE_WIDTH, MIN_PULSE_WIDTH, WAVEFORM_NAMES, WAVEFORMS } from '../audio/waveforms'
 import { DEFAULT_DELAY_MS, DEFAULT_STEP_COUNT, STEP_COUNTS } from '../nodes/registry'
 import { usePatchStore } from '../state/patchStore'
+import { NumberInput } from './NumberInput'
 import {
   MAX_DELAY_MS,
   MIN_DELAY_MS,
@@ -63,6 +64,57 @@ function Slider({
         onChange={(e) => onChange(Number(e.target.value))}
       />
     </label>
+  )
+}
+
+/**
+ * A slider whose readout is an editable field, for values worth reaching exactly rather than by
+ * dragging. It is a div rather than a label because it holds two controls, and a label would
+ * bind clicks on its text to whichever came first.
+ */
+function TypedSlider({
+  label,
+  value,
+  min,
+  max,
+  step,
+  suffix,
+  onChange,
+}: {
+  label: string
+  value: number
+  min: number
+  max: number
+  step: number
+  suffix?: string
+  onChange: (value: number) => void
+}) {
+  return (
+    <div className="inspector-field">
+      <span className="inspector-label">
+        {label}
+        <span className="inspector-typed">
+          <NumberInput
+            value={value}
+            min={min}
+            max={max}
+            step={step}
+            ariaLabel={label}
+            onCommit={onChange}
+          />
+          {suffix}
+        </span>
+      </span>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        aria-label={`${label} slider`}
+        onChange={(e) => onChange(Number(e.target.value))}
+      />
+    </div>
   )
 }
 
@@ -124,13 +176,13 @@ export function Inspector() {
     return (
       <aside className="inspector">
         <h2 className="inspector-title">DELAY</h2>
-        <Slider
+        <TypedSlider
           label="Wait"
           value={delayParams.delayMs ?? DEFAULT_DELAY_MS}
           min={MIN_DELAY_MS}
           max={MAX_DELAY_MS}
           step={10}
-          suffix=" ms"
+          suffix="ms"
           onChange={(delayMs) => updateParams(node.id, { delayMs })}
         />
         <p className="inspector-empty">

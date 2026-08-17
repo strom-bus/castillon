@@ -509,6 +509,30 @@ input[type='range'] {
   font-variant-numeric: tabular-nums;
 }
 
+/* The editable readout: sized to its digits so it reads as a value, not as a form field. */
+.inspector-typed {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
+  color: var(--muted);
+}
+
+.inspector-typed input {
+  width: 52px;
+  padding: 1px 3px;
+  background: var(--surface-raised);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  font: inherit;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.inspector-typed input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
 .inspector select,
 .inspector input[type='range'] {
   width: 100%;

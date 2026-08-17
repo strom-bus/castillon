@@ -1,6 +1,12 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { defaultOsc4Params } from '../nodes/registry'
-import type { NodeId, Patch, PatchEdge, PatchNode } from '../types/patch'
+import {
+  MAX_DELAY_MS,
+  type NodeId,
+  type Patch,
+  type PatchEdge,
+  type PatchNode,
+} from '../types/patch'
 import { ActivityBus, type ActivityEvent } from '../viz/activity'
 import type { Engine, NoteRequest } from './engine'
 import { CascadeScheduler, MAX_DEPTH } from './scheduler'
@@ -31,6 +37,10 @@ class FakeEngine implements Engine {
 
 function osc(id: string): PatchNode {
   return { id, type: 'osc4', position: { x: 0, y: 0 }, params: defaultOsc4Params() }
+}
+
+function delayNode(id: string, delayMs: number): PatchNode {
+  return { id, type: 'delay', position: { x: 0, y: 0 }, params: { delayMs } }
 }
 
 function edge(source: string, target: string): PatchEdge {
@@ -221,6 +231,92 @@ describe('CascadeScheduler', () => {
     scheduler.drain(10)
     expect(engine.notes.filter((n) => n.nodeId === 'a')).toHaveLength(4)
     expect(engine.notes.filter((n) => n.nodeId === 'b')).toHaveLength(4)
+    scheduler.stop()
+  })
+})
+
+describe('delay node', () => {
+  it('pushes the branch below it back by its wait', () => {
+    const patch = patchOf(
+      [
+        { id: 's', type: 'start', position: { x: 0, y: 0 }, params: {} },
+        delayNode('d', 750),
+        osc('a'),
+      ],
+      [edge('s', 'd'), edge('d', 'a')],
+    )
+    const scheduler = build(patch)
+    scheduler.start()
+    scheduler.drain(10)
+
+    const first = engine.notes.find((n) => n.nodeId === 'a')
+    expect(first).toBeDefined()
+    // The Start fires at START_OFFSET; the oscillator waits 750 ms beyond that.
+    const startTime = events.find((e) => e.kind === 'node' && e.id === 's')!.time
+    expect(first!.time - startTime).toBeCloseTo(0.75, 6)
+    scheduler.stop()
+  })
+
+  it('makes no sound of its own', () => {
+    const patch = patchOf(
+      [{ id: 's', type: 'start', position: { x: 0, y: 0 }, params: {} }, delayNode('d', 200)],
+      [edge('s', 'd')],
+    )
+    const scheduler = build(patch)
+    scheduler.start()
+    scheduler.drain(10)
+    expect(engine.notes).toHaveLength(0)
+    scheduler.stop()
+  })
+
+  it('flashes for exactly as long as it waits, which is what drives the progress bar', () => {
+    const patch = patchOf(
+      [{ id: 's', type: 'start', position: { x: 0, y: 0 }, params: {} }, delayNode('d', 1200)],
+      [edge('s', 'd')],
+    )
+    const scheduler = build(patch)
+    scheduler.start()
+    scheduler.drain(10)
+    const flash = events.find((e) => e.kind === 'node' && e.id === 'd')
+    expect(flash?.duration).toBeCloseTo(1.2, 6)
+    scheduler.stop()
+  })
+
+  it('the loop waits for the delay before restarting', () => {
+    const patch = patchOf(
+      [
+        { id: 's', type: 'start', position: { x: 0, y: 0 }, params: {} },
+        osc('a'),
+        delayNode('d', 500),
+      ],
+      [edge('s', 'a'), edge('a', 'd')],
+      true,
+    )
+    const scheduler = build(patch)
+    scheduler.start()
+    scheduler.drain(10)
+
+    const aTimes = engine.notes
+      .filter((n) => n.nodeId === 'a')
+      .map((n) => n.time)
+      .sort((x, y) => x - y)
+
+    // One pass is A's sequence (1 s) plus the delay's wait (0.5 s).
+    expect(aTimes.length).toBeGreaterThan(4)
+    expect(aTimes[4] - aTimes[0]).toBeCloseTo(1.5, 6)
+    scheduler.stop()
+  })
+
+  it('clamps an out-of-range wait instead of trusting the patch', () => {
+    const patch = patchOf(
+      [{ id: 's', type: 'start', position: { x: 0, y: 0 }, params: {} }, delayNode('d', 999999)],
+      [edge('s', 'd')],
+    )
+    const scheduler = build(patch)
+    scheduler.start()
+    scheduler.drain(100)
+    const flash = events.find((e) => e.kind === 'node' && e.id === 'd')
+    expect(flash?.duration).toBeCloseTo(MAX_DELAY_MS / 1000, 6)
     scheduler.stop()
   })
 })

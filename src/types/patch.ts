@@ -14,9 +14,11 @@ export type PropagateMode = 'onEnd' | 'onStart' | 'onStep'
 
 /**
  * `pulse` is not a native Web Audio type: it is synthesised with a `PeriodicWave`
- * (see audio/waveforms.ts). The rest are native.
+ * (see audio/waveforms.ts). The three noise colours are played back from generated buffers
+ * (see audio/noise.ts). The rest are native oscillator types.
  */
-export type Waveform = 'sine' | 'triangle' | 'sawtooth' | 'square' | 'pulse'
+export type Waveform =
+  'sine' | 'triangle' | 'sawtooth' | 'square' | 'pulse' | 'white' | 'pink' | 'brown'
 
 export interface Step {
   /** MIDI note. C1 = 24, C6 = 84. */
@@ -41,9 +43,17 @@ export interface Osc4Params {
   propagateMode: PropagateMode
 }
 
+export interface DelayParams {
+  /** How long the trigger is held before being passed on, in milliseconds. */
+  delayMs: number
+}
+
 export type StartParams = Record<string, never>
 
-export type NodeParams = Osc4Params | StartParams
+export type NodeParams = Osc4Params | DelayParams | StartParams
+
+export const MIN_DELAY_MS = 10
+export const MAX_DELAY_MS = 4000
 
 export interface PatchNode {
   id: NodeId

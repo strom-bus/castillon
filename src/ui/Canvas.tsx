@@ -61,6 +61,9 @@ function CanvasInner() {
         <button type="button" className="btn" onClick={() => addAtCenter('osc4')}>
           + OSC 4
         </button>
+        <button type="button" className="btn" onClick={() => addAtCenter('delay')}>
+          + DELAY
+        </button>
         <button type="button" className="btn" onClick={() => addAtCenter('start')}>
           + START
         </button>

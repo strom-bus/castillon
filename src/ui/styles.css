@@ -211,6 +211,48 @@ input[type='range'] {
   border-color: var(--accent);
 }
 
+/* ---------- Delay ---------- */
+
+.delay-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  width: 116px;
+}
+
+.delay-value {
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  text-align: center;
+  color: var(--text);
+}
+
+.delay-track {
+  height: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.delay-fill {
+  height: 100%;
+  width: 0;
+  background: var(--accent);
+  animation-name: delay-fill;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+@keyframes delay-fill {
+  from {
+    width: 0;
+  }
+  to {
+    width: 100%;
+  }
+}
+
 /* ---------- Step bars ---------- */
 
 .steps {

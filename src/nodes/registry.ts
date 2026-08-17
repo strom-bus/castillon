@@ -1,6 +1,7 @@
 import { midiToFreq, stepDuration } from '../audio/clock'
 import { MAX_VOICES, OVERLAP_THRESHOLD, type Engine } from '../audio/engine'
-import type { NodeParams, Osc4Params, PatchNode } from '../types/patch'
+import type { DelayParams, NodeParams, Osc4Params, PatchNode } from '../types/patch'
+import { MAX_DELAY_MS, MIN_DELAY_MS } from '../types/patch'
 import type { ActivityBus } from '../viz/activity'
 
 export interface ScheduleArgs {
@@ -38,6 +39,32 @@ const start: NodeDefinition = {
   schedule({ node, time, activity }) {
     activity.push({ kind: 'node', id: node.id, time, duration: FLASH })
     return { endTime: time, outgoing: [time] }
+  },
+}
+
+export const DEFAULT_DELAY_MS = 500
+
+export function defaultDelayParams(): DelayParams {
+  return { delayMs: DEFAULT_DELAY_MS }
+}
+
+/**
+ * Holds the trigger and passes it on later. It is an *event* delay, not an audio effect: it makes
+ * no sound of its own, it just shifts when the branch below it starts. Chain accounting picks the
+ * wait up through `endTime`, so the loop waits for it before restarting.
+ */
+const delay: NodeDefinition = {
+  type: 'delay',
+  label: 'Delay',
+  category: 'utility',
+  defaults: defaultDelayParams,
+  schedule({ node, time, activity }) {
+    const params = node.params as DelayParams
+    const ms = Math.min(MAX_DELAY_MS, Math.max(MIN_DELAY_MS, params.delayMs ?? DEFAULT_DELAY_MS))
+    const wait = ms / 1000
+    // The flash lasts the whole wait, which is what drives the progress bar in the UI.
+    activity.push({ kind: 'node', id: node.id, time, duration: wait })
+    return { endTime: time + wait, outgoing: [time + wait] }
   },
 }
 
@@ -114,7 +141,7 @@ const osc4: NodeDefinition = {
   },
 }
 
-export const NODE_DEFINITIONS: NodeDefinition[] = [start, osc4]
+export const NODE_DEFINITIONS: NodeDefinition[] = [start, osc4, delay]
 
 const byType = new Map(NODE_DEFINITIONS.map((d) => [d.type, d]))
 

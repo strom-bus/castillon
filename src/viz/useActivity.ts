@@ -2,13 +2,23 @@ import { useEffect, useState } from 'react'
 import { activity } from '../audio/runtime'
 import { edgeKey, nodeKey } from './activity'
 
+export interface NodeActivity {
+  pulsing: boolean
+  currentStep: number
+  /** Bumped on every trigger, so an animation can be restarted by keying off it. */
+  runId: number
+  /** Seconds the current activation lasts. Drives the delay node's progress bar. */
+  duration: number
+}
+
 /**
  * A node's visual state. Component-local state, not the global store: that way one note
  * repaints one node instead of the hundred others on the canvas.
  */
-export function useNodeActivity(id: string): { pulsing: boolean; currentStep: number } {
+export function useNodeActivity(id: string): NodeActivity {
   const [pulsing, setPulsing] = useState(false)
   const [currentStep, setCurrentStep] = useState(-1)
+  const [run, setRun] = useState({ id: 0, duration: 0 })
 
   useEffect(() => {
     let nodeTimer: number | undefined
@@ -17,6 +27,7 @@ export function useNodeActivity(id: string): { pulsing: boolean; currentStep: nu
     const unsubscribe = activity.subscribe(nodeKey(id), (event) => {
       if (event.kind === 'node') {
         setPulsing(true)
+        setRun((previous) => ({ id: previous.id + 1, duration: event.duration }))
         window.clearTimeout(nodeTimer)
         nodeTimer = window.setTimeout(() => setPulsing(false), event.duration * 1000)
       } else if (event.kind === 'step') {
@@ -33,7 +44,7 @@ export function useNodeActivity(id: string): { pulsing: boolean; currentStep: nu
     }
   }, [id])
 
-  return { pulsing, currentStep }
+  return { pulsing, currentStep, runId: run.id, duration: run.duration }
 }
 
 export function useEdgeActivity(id: string): boolean {

@@ -1,5 +1,6 @@
 import type { NodeId, Waveform } from '../types/patch'
-import { pulseHarmonics } from './waveforms'
+import { fillNoise, type NoiseColor } from './noise'
+import { isNoise, pulseHarmonics } from './waveforms'
 
 /** Voice budget. See PLAN.md §2.2. */
 export const MAX_VOICES = 64
@@ -28,7 +29,7 @@ interface Voice {
   /** When the voice goes fully silent, release included. */
   end: number
   gain: GainNode
-  osc: OscillatorNode
+  source: AudioScheduledSourceNode
 }
 
 /**
@@ -58,6 +59,10 @@ function fadeOut(param: AudioParam, at: number, seconds: number): void {
 
 const STEAL_FADE = 0.008
 const MIN_RAMP = 0.005
+/** Noise plays back at rate 1 on this note (C4), and shifts with the sequencer from there. */
+const NOISE_REFERENCE_FREQ = 261.6255653005986
+/** Long enough that the loop point is not audible as a pattern. */
+const NOISE_SECONDS = 3
 
 export class AudioEngine implements Engine {
   private ctx: AudioContext | null = null
@@ -65,6 +70,7 @@ export class AudioEngine implements Engine {
   private voices: Voice[] = []
   private masterGainValue = 0.8
   private pulseWaves = new Map<number, PeriodicWave>()
+  private noiseBuffers = new Map<NoiseColor, AudioBuffer>()
 
   /** Must be called from a user gesture: browsers block audio otherwise. */
   async start(): Promise<void> {
@@ -116,13 +122,7 @@ export class AudioEngine implements Engine {
 
     if (this.voicesAt(req.time) >= MAX_VOICES) this.stealOldest(req.time)
 
-    const osc = this.ctx.createOscillator()
-    if (req.waveform === 'pulse') {
-      osc.setPeriodicWave(this.pulseWave(req.pulseWidth))
-    } else {
-      osc.type = req.waveform
-    }
-    osc.frequency.setValueAtTime(req.freq, req.time)
+    const source = this.createSource(req)
 
     const gain = this.ctx.createGain()
     gain.gain.setValueAtTime(0, req.time)
@@ -130,18 +130,53 @@ export class AudioEngine implements Engine {
     gain.gain.setValueAtTime(req.gain, holdEnd)
     gain.gain.linearRampToValueAtTime(0, end)
 
-    osc.connect(gain).connect(this.master)
-    osc.start(req.time)
-    osc.stop(end + 0.01)
+    source.connect(gain).connect(this.master)
+    source.start(req.time)
+    source.stop(end + 0.01)
 
-    const voice: Voice = { nodeId: req.nodeId, start: req.time, end, gain, osc }
-    osc.onended = () => {
-      osc.disconnect()
+    const voice: Voice = { nodeId: req.nodeId, start: req.time, end, gain, source }
+    source.onended = () => {
+      source.disconnect()
       gain.disconnect()
       const i = this.voices.indexOf(voice)
       if (i !== -1) this.voices.splice(i, 1)
     }
     this.voices.push(voice)
+  }
+
+  /**
+   * Noise is a looping buffer rather than an oscillator, and its playback rate follows the note
+   * so the sequencer still does something musical: higher notes give brighter noise.
+   */
+  private createSource(req: NoteRequest): AudioScheduledSourceNode {
+    const ctx = this.ctx as AudioContext
+
+    if (isNoise(req.waveform)) {
+      const source = ctx.createBufferSource()
+      source.buffer = this.noiseBuffer(req.waveform)
+      source.loop = true
+      source.playbackRate.setValueAtTime(req.freq / NOISE_REFERENCE_FREQ, req.time)
+      return source
+    }
+
+    const osc = ctx.createOscillator()
+    if (req.waveform === 'pulse') {
+      osc.setPeriodicWave(this.pulseWave(req.pulseWidth))
+    } else {
+      osc.type = req.waveform
+    }
+    osc.frequency.setValueAtTime(req.freq, req.time)
+    return osc
+  }
+
+  private noiseBuffer(color: NoiseColor): AudioBuffer {
+    const cached = this.noiseBuffers.get(color)
+    if (cached) return cached
+    const ctx = this.ctx as AudioContext
+    const buffer = ctx.createBuffer(1, Math.floor(ctx.sampleRate * NOISE_SECONDS), ctx.sampleRate)
+    fillNoise(color, buffer.getChannelData(0))
+    this.noiseBuffers.set(color, buffer)
+    return buffer
   }
 
   voicesAt(time: number): number {

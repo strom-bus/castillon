@@ -2,7 +2,8 @@ import { Handle, Position, type NodeProps } from '@xyflow/react'
 import type { CSSProperties } from 'react'
 import { WAVEFORM_LABELS } from '../audio/waveforms'
 import type { FlowNode } from '../state/patchStore'
-import type { Osc4Params } from '../types/patch'
+import { DEFAULT_DELAY_MS } from '../nodes/registry'
+import type { DelayParams, Osc4Params } from '../types/patch'
 import { useNodeColors, type NodeColors } from '../viz/depth'
 import { useNodeActivity } from '../viz/useActivity'
 import { StepBars } from './StepBars'
@@ -55,6 +56,36 @@ export function Osc4Node({ id, data, selected }: NodeProps<FlowNode>) {
         </span>
       </div>
       <StepBars nodeId={id} steps={params.steps} currentStep={currentStep} />
+      <Handle type="source" position={Position.Bottom} className="port port-out" />
+    </div>
+  )
+}
+
+export function DelayNode({ id, data, selected }: NodeProps<FlowNode>) {
+  const { pulsing, runId, duration } = useNodeActivity(id)
+  const colors = useNodeColors(id)
+  const params = data.params as DelayParams
+  const ms = params.delayMs ?? DEFAULT_DELAY_MS
+
+  return (
+    <div
+      className={`node node-delay${pulsing ? ' pulsing' : ''}${selected ? ' selected' : ''}`}
+      style={depthStyle(colors)}
+    >
+      <Handle type="target" position={Position.Top} className="port port-in" />
+      <div className="node-header">
+        <span className="node-title">DELAY</span>
+        <span className="node-meta">ms</span>
+      </div>
+      <div className="delay-body">
+        <span className="delay-value">{ms}</span>
+        {/* Keyed by runId so the fill animation restarts from zero on every trigger. */}
+        <div className="delay-track">
+          {pulsing && (
+            <div key={runId} className="delay-fill" style={{ animationDuration: `${duration}s` }} />
+          )}
+        </div>
+      </div>
       <Handle type="source" position={Position.Bottom} className="port port-out" />
     </div>
   )

@@ -10,7 +10,7 @@ import {
 } from '@xyflow/react'
 import { create } from 'zustand'
 import { getDefinition } from '../nodes/registry'
-import type { EdgeKind, NodeParams, Osc4Params, Patch, Step } from '../types/patch'
+import type { DelayParams, EdgeKind, NodeParams, Osc4Params, Patch, Step } from '../types/patch'
 
 export type FlowNodeData = { params: NodeParams }
 export type FlowNode = Node<FlowNodeData>
@@ -33,7 +33,7 @@ interface PatchState {
   onConnect(connection: Connection): void
   addNode(type: string, position: { x: number; y: number }): void
   select(id: string | null): void
-  updateParams(id: string, partial: Partial<Osc4Params>): void
+  updateParams(id: string, partial: Partial<Osc4Params & DelayParams>): void
   updateStep(id: string, index: number, partial: Partial<Step>): void
   setBpm(bpm: number): void
   setLoop(loop: boolean): void

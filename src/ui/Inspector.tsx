@@ -1,7 +1,16 @@
 import { DIVISIONS } from '../audio/clock'
 import { MAX_PULSE_WIDTH, MIN_PULSE_WIDTH, WAVEFORM_NAMES, WAVEFORMS } from '../audio/waveforms'
+import { DEFAULT_DELAY_MS } from '../nodes/registry'
 import { usePatchStore } from '../state/patchStore'
-import type { Division, Osc4Params, PropagateMode, Waveform } from '../types/patch'
+import {
+  MAX_DELAY_MS,
+  MIN_DELAY_MS,
+  type DelayParams,
+  type Division,
+  type Osc4Params,
+  type PropagateMode,
+  type Waveform,
+} from '../types/patch'
 
 const PROPAGATE_LABELS: Record<PropagateMode, string> = {
   onEnd: 'When it ends (cascade)',
@@ -71,6 +80,28 @@ export function Inspector() {
         <h2 className="inspector-title">START</h2>
         <p className="inspector-empty">
           Fires the cascade on Play. A patch can hold several: each one is an independent cascade.
+        </p>
+      </aside>
+    )
+  }
+
+  if (node.type === 'delay') {
+    const delayParams = node.data.params as DelayParams
+    return (
+      <aside className="inspector">
+        <h2 className="inspector-title">DELAY</h2>
+        <Slider
+          label="Wait"
+          value={delayParams.delayMs ?? DEFAULT_DELAY_MS}
+          min={MIN_DELAY_MS}
+          max={MAX_DELAY_MS}
+          step={10}
+          suffix=" ms"
+          onChange={(delayMs) => updateParams(node.id, { delayMs })}
+        />
+        <p className="inspector-empty">
+          Holds the trigger and passes it on later. It makes no sound of its own — it shifts when
+          the branch below it starts, so it is how two branches are pulled out of step.
         </p>
       </aside>
     )

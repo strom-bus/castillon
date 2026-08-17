@@ -1,6 +1,16 @@
 import type { Waveform } from '../types/patch'
+import type { NoiseColor } from './noise'
 
-export const WAVEFORMS: Waveform[] = ['square', 'pulse', 'sawtooth', 'triangle', 'sine']
+export const WAVEFORMS: Waveform[] = [
+  'square',
+  'pulse',
+  'sawtooth',
+  'triangle',
+  'sine',
+  'white',
+  'pink',
+  'brown',
+]
 
 /** Short labels, so they fit in the node header. */
 export const WAVEFORM_LABELS: Record<Waveform, string> = {
@@ -9,6 +19,9 @@ export const WAVEFORM_LABELS: Record<Waveform, string> = {
   sawtooth: 'SAW',
   triangle: 'TRI',
   sine: 'SIN',
+  white: 'WHT',
+  pink: 'PNK',
+  brown: 'BRN',
 }
 
 export const WAVEFORM_NAMES: Record<Waveform, string> = {
@@ -17,6 +30,15 @@ export const WAVEFORM_NAMES: Record<Waveform, string> = {
   sawtooth: 'Sawtooth',
   triangle: 'Triangle',
   sine: 'Sine',
+  white: 'White noise',
+  pink: 'Pink noise',
+  brown: 'Brown noise',
+}
+
+const NOISE_COLORS: NoiseColor[] = ['white', 'pink', 'brown']
+
+export function isNoise(waveform: Waveform): waveform is NoiseColor {
+  return (NOISE_COLORS as string[]).includes(waveform)
 }
 
 /** Too thin a pulse has almost no energy left; a useful duty cycle lives in this range. */

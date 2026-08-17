@@ -12,10 +12,15 @@ export const MAX_DEPTH = 16
 /** Margin before the first event, so nothing is scheduled in the past. */
 const START_OFFSET = 0.06
 /**
- * A cascade cannot repeat faster than this. Without the floor, a Start with no children
- * completes its chain in zero time and the loop becomes an infinite one.
+ * Only a cascade of genuinely zero length gets held back, and only far enough that the loop
+ * cannot run away — an Ignite with no children completes instantly and would otherwise restart
+ * forever inside a single tick.
+ *
+ * Because it now applies only to zero-length chains, it can stay generous. As a blanket floor
+ * it could not: at 300 BPM four 1/16 steps last 200 ms, so it was quietly stretching every
+ * loop faster than a quarter second.
  */
-const MIN_CHAIN_DURATION = 0.25
+const EMPTY_CHAIN_DELAY = 0.25
 /** Firebreak: never process more than this many events in a single tick. */
 const MAX_EVENTS_PER_TICK = 2000
 /** How long a cable stays lit. */
@@ -162,7 +167,8 @@ export class CascadeScheduler {
     if (!this.running || !patch.loop) return
     if (!patch.nodes.some((n) => n.id === chain.startNodeId)) return
 
-    const next = Math.max(chain.lastEnd, chain.startTime + MIN_CHAIN_DURATION)
+    const next =
+      chain.lastEnd > chain.startTime ? chain.lastEnd : chain.startTime + EMPTY_CHAIN_DELAY
     this.beginChain(chain.startNodeId, next)
   }
 

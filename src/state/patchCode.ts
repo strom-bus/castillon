@@ -8,8 +8,10 @@ import {
 import { cutoffToSlider, MAX_RESONANCE, MIN_RESONANCE, sliderToCutoff } from '../audio/filter'
 import { FILTER_TYPES } from '../audio/filter'
 import {
+  MAX_BPM,
   MAX_DELAY_MS,
   MAX_NOTE,
+  MIN_BPM,
   MIN_DELAY_MS,
   MIN_NOTE,
   type DelayParams,
@@ -145,7 +147,7 @@ export function encodePatch(patch: Patch): string {
   const writer = new BitWriter()
 
   writer.write(CODE_VERSION, 4)
-  writer.write(clamp(Math.round(patch.bpm), 20, 300) - 20, 9)
+  writer.write(clamp(Math.round(patch.bpm), MIN_BPM, MAX_BPM) - MIN_BPM, 10)
   writer.write(patch.loop ? 1 : 0, 1)
 
   const nodes = patch.nodes.filter((n) => (NODE_TYPES as readonly string[]).includes(n.type))
@@ -184,7 +186,7 @@ export function decodePatch(code: string): Patch | null {
     const reader = new BitReader(fromBase64Url(code.trim()))
 
     if (reader.read(4) !== CODE_VERSION) return null
-    const bpm = reader.read(9) + 20
+    const bpm = reader.read(10) + MIN_BPM
     const loop = reader.read(1) === 1
 
     const nodeCount = reader.readVarint()

@@ -97,5 +97,12 @@ export interface Patch {
   edges: PatchEdge[]
 }
 
+/**
+ * The ceiling is a musical convention, not an engine limit. Past roughly 1000 the steps get
+ * shorter than an envelope and notes stop being notes, so that is where it sits.
+ */
+export const MIN_BPM = 20
+export const MAX_BPM = 1000
+
 export const MIN_NOTE = 24 // C1
 export const MAX_NOTE = 84 // C6

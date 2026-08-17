@@ -187,6 +187,29 @@ describe('CascadeScheduler', () => {
     scheduler.stop()
   })
 
+  it('restarts a fast loop exactly when it ends, without padding it out', () => {
+    // Four 1/16 steps at 300 BPM last 200 ms. A blanket quarter-second floor used to stretch
+    // every loop shorter than that, which quietly slowed down fast patches.
+    const a = osc('a')
+    ;(a.params as ReturnType<typeof defaultOscParams>).division = '1/16'
+    const patch: Patch = {
+      version: 1,
+      bpm: 300,
+      loop: true,
+      nodes: [{ id: 's', type: 'start', position: { x: 0, y: 0 }, params: {} }, a],
+      edges: [edge('s', 'a')],
+    }
+    const scheduler = build(patch)
+    scheduler.start()
+    scheduler.drain(4)
+
+    const times = engine.notes.map((n) => n.time).sort((x, y) => x - y)
+    expect(times.length).toBeGreaterThan(8)
+    // One turn is exactly four steps of 50 ms, not the 250 ms the old floor forced.
+    expect(times[4] - times[0]).toBeCloseTo(0.2, 6)
+    scheduler.stop()
+  })
+
   it('does not relaunch when loop is off', () => {
     const patch = patchOf(
       [{ id: 's', type: 'start', position: { x: 0, y: 0 }, params: {} }, osc('a')],
@@ -209,7 +232,7 @@ describe('CascadeScheduler', () => {
     const scheduler = build(patch)
     scheduler.start()
     scheduler.drain(2)
-    // Degenerate chain: bounded by MIN_CHAIN_DURATION (0.25 s), it does not fire endlessly.
+    // Degenerate chain: bounded by EMPTY_CHAIN_DELAY (0.25 s), it does not fire endlessly.
     const flashes = events.filter((e) => e.kind === 'node')
     expect(flashes.length).toBeLessThanOrEqual(12)
     expect(flashes.length).toBeGreaterThan(0)

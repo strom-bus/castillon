@@ -10,6 +10,7 @@ import {
 } from '@xyflow/react'
 import { create } from 'zustand'
 import { getDefinition, normaliseStepCount, resizeSteps } from '../nodes/registry'
+import { MAX_BPM, MIN_BPM } from '../types/patch'
 import type { DelayParams, EdgeKind, NodeParams, OscParams, Patch, Step } from '../types/patch'
 import { decodePatch } from './patchCode'
 
@@ -62,7 +63,7 @@ function makeNode(type: string, position: { x: number; y: number }, id = newId(t
  * To change it, build the patch in the app, copy the PATCH CODE field and paste it here.
  */
 const INITIAL_PATCH_CODE =
-  'GMQgJBSYIBQlZLoCAoeHNB4zP1fe-p5PKABZkmfBWmqMeDzy_H_X9fnSAaABNkGQICh4FahTM-n8z6PqCAoYCGR4gLuAnZJkCAoeC4YU2Pgfp_B4sgIxMkBFxMky1gUPBtBQbH4Pv_Y8GBKLcl3A'
+  'FGIQEgpMEAoSsl0BAUPDmg8Zn6vvfU8nlAAsyTPgrTVGPB55fj_r-vzpANAAmyDIEBQ8CtQpmfT-Z9H1BAUMBDI8QF3ATskyBAUPBcMKbHwP0_g8WQEYmSAi4mSZawKHg2goNj8H3_seDAlFuS7g'
 
 /** Types that have been renamed. A patch saved under the old name still loads. */
 const RENAMED_TYPES: Record<string, string> = {
@@ -198,7 +199,7 @@ export const usePatchStore = create<PatchState>((set, get) => ({
   },
 
   setBpm(bpm) {
-    set({ bpm: Math.min(300, Math.max(20, Math.round(bpm))) })
+    set({ bpm: Math.min(MAX_BPM, Math.max(MIN_BPM, Math.round(bpm))) })
   },
 
   setLoop(loop) {

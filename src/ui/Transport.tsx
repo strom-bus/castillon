@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { MAX_VOICES } from '../audio/engine'
 import { engine, play, stop } from '../audio/runtime'
 import { usePatchStore } from '../state/patchStore'
+import { MAX_BPM, MIN_BPM } from '../types/patch'
 import { PatchCode } from './PatchCode'
 
 /** Voice counter: makes the budget degradation visible (PLAN.md §2.2). */
@@ -72,8 +73,8 @@ export function Transport() {
         <span>BPM</span>
         <input
           type="number"
-          min={20}
-          max={300}
+          min={MIN_BPM}
+          max={MAX_BPM}
           value={bpm}
           onChange={(e) => setBpm(Number(e.target.value))}
         />

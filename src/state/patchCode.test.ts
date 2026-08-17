@@ -130,7 +130,7 @@ describe('patch code', () => {
   })
 
   it('round-trips bpm and loop across their range', () => {
-    for (const bpm of [20, 97, 120, 300]) {
+    for (const bpm of [20, 97, 120, 300, 640, 1000]) {
       for (const loop of [true, false]) {
         const decoded = decodePatch(encodePatch({ ...DEMO, bpm, loop }))!
         expect(decoded.bpm).toBe(bpm)

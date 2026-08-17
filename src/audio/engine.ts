@@ -1,6 +1,7 @@
-import type { NodeId, Waveform } from '../types/patch'
+import type { FilterType, NodeId, Waveform } from '../types/patch'
+import { MAX_CUTOFF, MAX_RESONANCE, MIN_CUTOFF, MIN_RESONANCE } from './filter'
 import { fillNoise, type NoiseColor } from './noise'
-import { isNoise, pulseHarmonics } from './waveforms'
+import { isNoise, pulseHarmonics, rampHarmonics } from './waveforms'
 
 /** Voice budget. See PLAN.md §2.2. */
 export const MAX_VOICES = 64
@@ -21,6 +22,10 @@ export interface NoteRequest {
   /** Milliseconds. */
   attack: number
   release: number
+  filterType: FilterType
+  /** Hz. */
+  cutoff: number
+  resonance: number
 }
 
 interface Voice {
@@ -30,6 +35,8 @@ interface Voice {
   end: number
   gain: GainNode
   source: AudioScheduledSourceNode
+  /** Everything to unhook when the voice ends. */
+  chain: AudioNode[]
 }
 
 /**
@@ -57,6 +64,10 @@ function fadeOut(param: AudioParam, at: number, seconds: number): void {
   param.linearRampToValueAtTime(0, at + seconds)
 }
 
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, Number.isFinite(value) ? value : min))
+}
+
 const STEAL_FADE = 0.008
 const MIN_RAMP = 0.005
 /** Noise plays back at rate 1 on this note (C4), and shifts with the sequencer from there. */
@@ -70,6 +81,7 @@ export class AudioEngine implements Engine {
   private voices: Voice[] = []
   private masterGainValue = 0.8
   private pulseWaves = new Map<number, PeriodicWave>()
+  private rampWaveCache: PeriodicWave | null = null
   private noiseBuffers = new Map<NoiseColor, AudioBuffer>()
 
   /** Must be called from a user gesture: browsers block audio otherwise. */
@@ -126,14 +138,26 @@ export class AudioEngine implements Engine {
     gain.gain.setValueAtTime(req.gain, holdEnd)
     gain.gain.linearRampToValueAtTime(0, end)
 
-    source.connect(gain).connect(this.master)
+    // One biquad per voice, so a filter sweep tracks each note rather than a shared bus.
+    const chain: AudioNode[] = [source, gain]
+    let tail: AudioNode = source
+    if (req.filterType !== 'off') {
+      const filter = this.ctx.createBiquadFilter()
+      filter.type = req.filterType
+      filter.frequency.setValueAtTime(clamp(req.cutoff, MIN_CUTOFF, MAX_CUTOFF), req.time)
+      filter.Q.setValueAtTime(clamp(req.resonance, MIN_RESONANCE, MAX_RESONANCE), req.time)
+      tail.connect(filter)
+      chain.splice(1, 0, filter)
+      tail = filter
+    }
+    tail.connect(gain).connect(this.master)
+
     source.start(req.time)
     source.stop(end + 0.01)
 
-    const voice: Voice = { nodeId: req.nodeId, start: req.time, end, gain, source }
+    const voice: Voice = { nodeId: req.nodeId, start: req.time, end, gain, source, chain }
     source.onended = () => {
-      source.disconnect()
-      gain.disconnect()
+      for (const node of chain) node.disconnect()
       const i = this.voices.indexOf(voice)
       if (i !== -1) this.voices.splice(i, 1)
     }
@@ -158,6 +182,8 @@ export class AudioEngine implements Engine {
     const osc = ctx.createOscillator()
     if (req.waveform === 'pulse') {
       osc.setPeriodicWave(this.pulseWave(req.pulseWidth))
+    } else if (req.waveform === 'ramp') {
+      osc.setPeriodicWave(this.rampWave())
     } else {
       osc.type = req.waveform
     }
@@ -203,6 +229,14 @@ export class AudioEngine implements Engine {
       fadeOut(v.gain.gain, at, STEAL_FADE)
       v.end = at + STEAL_FADE
     }
+  }
+
+  private rampWave(): PeriodicWave {
+    if (!this.rampWaveCache) {
+      const { real, imag } = rampHarmonics()
+      this.rampWaveCache = (this.ctx as AudioContext).createPeriodicWave(real, imag)
+    }
+    return this.rampWaveCache
   }
 
   /** Pulse waves are cached per duty cycle: rebuilding one per note is expensive. */

@@ -1,5 +1,6 @@
 import { Handle, Position, type NodeProps } from '@xyflow/react'
 import type { CSSProperties } from 'react'
+import { FILTER_LABELS } from '../audio/filter'
 import { WAVEFORM_LABELS } from '../audio/waveforms'
 import type { FlowNode } from '../state/patchStore'
 import { DEFAULT_DELAY_MS } from '../nodes/registry'
@@ -42,6 +43,7 @@ export function OscNode({ id, data, selected }: NodeProps<FlowNode>) {
   const colors = useNodeColors(id)
   const params = data.params as OscParams
   const waveform = params.waveform ?? 'square'
+  const filter = FILTER_LABELS[params.filterType ?? 'off']
 
   return (
     <div
@@ -52,7 +54,8 @@ export function OscNode({ id, data, selected }: NodeProps<FlowNode>) {
       <div className="node-header">
         <span className="node-title">OSC</span>
         <span className="node-meta">
-          {WAVEFORM_LABELS[waveform]} · {params.division}
+          {WAVEFORM_LABELS[waveform]}
+          {filter && ` ${filter}`} · {params.division}
         </span>
       </div>
       <StepBars nodeId={id} steps={params.steps} currentStep={currentStep} />

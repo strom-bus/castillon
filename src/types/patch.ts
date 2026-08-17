@@ -14,11 +14,26 @@ export type PropagateMode = 'onEnd' | 'onStart' | 'onStep'
 
 /**
  * `pulse` is not a native Web Audio type: it is synthesised with a `PeriodicWave`
- * (see audio/waveforms.ts). The three noise colours are played back from generated buffers
+ * (see audio/waveforms.ts). The noise colours are played back from generated buffers
  * (see audio/noise.ts). The rest are native oscillator types.
  */
 export type Waveform =
-  'sine' | 'triangle' | 'sawtooth' | 'square' | 'pulse' | 'white' | 'pink' | 'brown'
+  | 'sine'
+  | 'triangle'
+  | 'sawtooth'
+  | 'ramp'
+  | 'square'
+  | 'pulse'
+  | 'white'
+  | 'pink'
+  | 'brown'
+  | 'blue'
+
+/**
+ * A per-voice filter lives inside the oscillator rather than as its own node: a separate Filter
+ * node would need audio cables, which is Phase 3. `off` skips the biquad entirely.
+ */
+export type FilterType = 'off' | 'lowpass' | 'highpass' | 'bandpass'
 
 export interface Step {
   /** MIDI note. C1 = 24, C6 = 84. */
@@ -40,6 +55,11 @@ export interface OscParams {
   release: number
   /** Fraction of the step the note lasts. 0.6 is percussive, 1 is legato. */
   gate: number
+  filterType: FilterType
+  /** Hz. Edited on a log slider; see audio/filter.ts. */
+  cutoff: number
+  /** Biquad Q. */
+  resonance: number
   propagateMode: PropagateMode
 }
 

@@ -3,7 +3,7 @@
  * Web Audio: brown falls off faster than pink, and pink faster than white.
  */
 
-export type NoiseColor = 'white' | 'pink' | 'brown'
+export type NoiseColor = 'white' | 'pink' | 'brown' | 'blue'
 
 type Random = () => number
 
@@ -51,10 +51,33 @@ export function fillBrown(data: Float32Array, random: Random = Math.random): voi
   }
 }
 
+/**
+ * Blue noise, +3 dB per octave: the mirror image of pink. Differentiating a signal adds
+ * +6 dB/octave, so differentiating pink's -3 lands exactly on +3.
+ *
+ * Differentiation also collapses the amplitude, so the result is renormalised to sit at the
+ * same level as the other colours instead of being inaudible next to them.
+ */
+export function fillBlue(data: Float32Array, random: Random = Math.random): void {
+  const pink = new Float32Array(data.length + 1)
+  fillPink(pink, random)
+
+  let peak = 0
+  for (let i = 0; i < data.length; i++) {
+    data[i] = pink[i + 1] - pink[i]
+    peak = Math.max(peak, Math.abs(data[i]))
+  }
+  if (peak === 0) return
+
+  const scale = 0.7 / peak
+  for (let i = 0; i < data.length; i++) data[i] *= scale
+}
+
 const FILLERS: Record<NoiseColor, (data: Float32Array, random?: Random) => void> = {
   white: fillWhite,
   pink: fillPink,
   brown: fillBrown,
+  blue: fillBlue,
 }
 
 export function fillNoise(color: NoiseColor, data: Float32Array, random?: Random): void {

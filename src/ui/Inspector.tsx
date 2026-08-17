@@ -1,4 +1,13 @@
 import { DIVISIONS } from '../audio/clock'
+import {
+  cutoffToSlider,
+  FILTER_NAMES,
+  FILTER_TYPES,
+  formatCutoff,
+  MAX_RESONANCE,
+  MIN_RESONANCE,
+  sliderToCutoff,
+} from '../audio/filter'
 import { MAX_PULSE_WIDTH, MIN_PULSE_WIDTH, WAVEFORM_NAMES, WAVEFORMS } from '../audio/waveforms'
 import { DEFAULT_DELAY_MS, DEFAULT_STEP_COUNT, STEP_COUNTS } from '../nodes/registry'
 import { usePatchStore } from '../state/patchStore'
@@ -7,6 +16,7 @@ import {
   MIN_DELAY_MS,
   type DelayParams,
   type Division,
+  type FilterType,
   type OscParams,
   type PropagateMode,
   type Waveform,
@@ -51,6 +61,29 @@ function Slider({
         step={step}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
+      />
+    </label>
+  )
+}
+
+/**
+ * Cutoff has its own control because it is edited in log space: the slider carries a 0–1
+ * position while the patch stores Hz, so every octave gets the same travel.
+ */
+function CutoffSlider({ value, onChange }: { value: number; onChange: (hz: number) => void }) {
+  return (
+    <label className="inspector-field">
+      <span className="inspector-label">
+        Cutoff
+        <em>{formatCutoff(value)} Hz</em>
+      </span>
+      <input
+        type="range"
+        min={0}
+        max={1}
+        step={0.001}
+        value={cutoffToSlider(value)}
+        onChange={(e) => onChange(Math.round(sliderToCutoff(Number(e.target.value))))}
       />
     </label>
   )
@@ -165,6 +198,34 @@ export function Inspector() {
           ))}
         </select>
       </label>
+
+      <label className="inspector-field">
+        <span className="inspector-label">Filter</span>
+        <select
+          value={params.filterType ?? 'off'}
+          onChange={(e) => set({ filterType: e.target.value as FilterType })}
+        >
+          {FILTER_TYPES.map((type) => (
+            <option key={type} value={type}>
+              {FILTER_NAMES[type]}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      {(params.filterType ?? 'off') !== 'off' && (
+        <>
+          <CutoffSlider value={params.cutoff ?? 2000} onChange={(cutoff) => set({ cutoff })} />
+          <Slider
+            label="Resonance"
+            value={params.resonance ?? 1}
+            min={MIN_RESONANCE}
+            max={MAX_RESONANCE}
+            step={0.1}
+            onChange={(resonance) => set({ resonance })}
+          />
+        </>
+      )}
 
       <label className="inspector-field">
         <span className="inspector-label">Propagation</span>

@@ -5,6 +5,8 @@ import {
   normaliseStepCount,
   STEP_COUNTS,
 } from '../nodes/registry'
+import { cutoffToSlider, MAX_RESONANCE, MIN_RESONANCE, sliderToCutoff } from '../audio/filter'
+import { FILTER_TYPES } from '../audio/filter'
 import {
   MAX_DELAY_MS,
   MAX_NOTE,
@@ -41,10 +43,13 @@ const WAVEFORM_CODES: Waveform[] = [
   'pulse',
   'sawtooth',
   'triangle',
+  // Appended, so existing positions are untouched.
   'sine',
   'white',
   'pink',
   'brown',
+  'blue',
+  'ramp',
 ]
 
 const DIVISION_CODES: Division[] = ['1/4', '1/8', '1/16']
@@ -70,7 +75,7 @@ function writeOsc(writer: BitWriter, raw: OscParams): void {
   const params = { ...defaultOscParams(), ...raw }
 
   const waveform = Math.max(0, WAVEFORM_CODES.indexOf(params.waveform))
-  writer.write(waveform, 3)
+  writer.write(waveform, 4)
   writer.write(quantise(params.pulseWidth, 100, 5, 95), 7)
   writer.write(Math.max(0, DIVISION_CODES.indexOf(params.division)), 2)
   writer.write(quantise(params.gain, 100, 0, 100), 7)
@@ -78,6 +83,12 @@ function writeOsc(writer: BitWriter, raw: OscParams): void {
   writer.write(quantise(params.release, 1, 5, 2000), 11)
   writer.write(quantise(params.gate, 100, 5, 100), 7)
   writer.write(Math.max(0, PROPAGATE_CODES.indexOf(params.propagateMode)), 2)
+
+  writer.write(Math.max(0, FILTER_TYPES.indexOf(params.filterType)), 2)
+  // Cutoff travels as its position on the log slider, not as Hz: 10 bits there is finer than
+  // the ear, where 10 bits of raw Hz would be coarse down low and wasted up top.
+  writer.write(Math.round(cutoffToSlider(params.cutoff) * 1023), 10)
+  writer.write(quantise(params.resonance, 10, MIN_RESONANCE * 10, MAX_RESONANCE * 10), 8)
 
   const count = normaliseStepCount(params.steps?.length ?? DEFAULT_STEP_COUNT)
   writer.write(STEP_COUNTS.indexOf(count), 2)
@@ -91,7 +102,7 @@ function writeOsc(writer: BitWriter, raw: OscParams): void {
 }
 
 function readOsc(reader: BitReader): OscParams {
-  const waveform = WAVEFORM_CODES[reader.read(3)] ?? 'square'
+  const waveform = WAVEFORM_CODES[reader.read(4)] ?? 'square'
   const pulseWidth = reader.read(7) / 100
   const division = DIVISION_CODES[reader.read(2)] ?? '1/8'
   const gain = reader.read(7) / 100
@@ -99,6 +110,10 @@ function readOsc(reader: BitReader): OscParams {
   const release = reader.read(11)
   const gate = reader.read(7) / 100
   const propagateMode = PROPAGATE_CODES[reader.read(2)] ?? 'onEnd'
+
+  const filterType = FILTER_TYPES[reader.read(2)] ?? 'off'
+  const cutoff = sliderToCutoff(reader.read(10) / 1023)
+  const resonance = reader.read(8) / 10
 
   const count = STEP_COUNTS[reader.read(2)] ?? DEFAULT_STEP_COUNT
 
@@ -110,7 +125,20 @@ function readOsc(reader: BitReader): OscParams {
     steps.push({ note, active, velocity })
   }
 
-  return { waveform, pulseWidth, steps, division, gain, attack, release, gate, propagateMode }
+  return {
+    waveform,
+    pulseWidth,
+    steps,
+    division,
+    gain,
+    attack,
+    release,
+    gate,
+    filterType,
+    cutoff,
+    resonance,
+    propagateMode,
+  }
 }
 
 export function encodePatch(patch: Patch): string {

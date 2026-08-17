@@ -62,7 +62,7 @@ function makeNode(type: string, position: { x: number; y: number }, id = newId(t
  * To change it, build the patch in the app, copy the PATCH CODE field and paste it here.
  */
 const INITIAL_PATCH_CODE =
-  'GMQgJRSYIBQqyXQEBQ8GZ-r731PJ5QAOZJnwVpqjy_H_X9fnSAaABbIMgQFDwZn0_mfR9QQFDAQyPEBdwF2SZAgKHg2Pgfp_B4sgIxMkBFyZJlrAoeDY_B9_7HgxRbkoO4A'
+  'GMQgJBSYIBQlZLoCAoeHNB4zP1fe-p5PKABZkmfBWmqMeDzy_H_X9fnSAaABNkGQICh4FahTM-n8z6PqCAoYCGR4gLuAnZJkCAoeC4YU2Pgfp_B4sgIxMkBFxMky1gUPBtBQbH4Pv_Y8GBKLcl3A'
 
 /** Store shape of a patch. Shared by the initial state, RESET and loading a code. */
 function fromPatch(patch: Patch): {

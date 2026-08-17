@@ -73,11 +73,13 @@ describe('patch code', () => {
       'square',
       'pulse',
       'sawtooth',
+      'ramp',
       'triangle',
       'sine',
       'white',
       'pink',
       'brown',
+      'blue',
     ] as const) {
       const decoded = decodePatch(encodePatch(patchOf([osc('a', { waveform })])))!
       const params = decoded.nodes[0].params as ReturnType<typeof defaultOscParams>
@@ -97,6 +99,29 @@ describe('patch code', () => {
     expect(params.steps.map((s) => s.note)).toEqual([24, 84, 60, 47])
     expect(params.steps.map((s) => s.active)).toEqual([true, false, true, true])
     expect(params.steps[2].velocity).toBeCloseTo(0.6, 1)
+  })
+
+  it('round-trips the filter', () => {
+    for (const filterType of ['off', 'lowpass', 'highpass', 'bandpass'] as const) {
+      const decoded = decodePatch(
+        encodePatch(patchOf([osc('a', { filterType, cutoff: 1200, resonance: 6.4 })])),
+      )!
+      const params = decoded.nodes[0].params as ReturnType<typeof defaultOscParams>
+      expect(params.filterType).toBe(filterType)
+      expect(params.resonance).toBeCloseTo(6.4, 1)
+      // Cutoff travels as a log-slider position, so it comes back within a fraction of a percent.
+      expect(params.cutoff / 1200).toBeCloseTo(1, 2)
+    }
+  })
+
+  it('keeps cutoff accurate across the whole range, not just in the middle', () => {
+    for (const cutoff of [20, 80, 440, 2000, 9000, 18000]) {
+      const decoded = decodePatch(
+        encodePatch(patchOf([osc('a', { filterType: 'lowpass', cutoff })])),
+      )!
+      const back = (decoded.nodes[0].params as ReturnType<typeof defaultOscParams>).cutoff
+      expect(back / cutoff).toBeCloseTo(1, 2)
+    }
   })
 
   it('round-trips the delay wait', () => {
@@ -151,8 +176,9 @@ describe('patch code', () => {
     const decoded = decodePatch(code)!
     expect(decoded.nodes).toHaveLength(200)
     expect(decoded.edges).toHaveLength(199)
-    // Roughly 20 characters a node, versus several hundred as JSON.
-    expect(code.length / 200).toBeLessThan(25)
+    // The real claim is the ratio against JSON; the absolute bound just catches a blow-up.
+    expect(code.length).toBeLessThan(JSON.stringify(patchOf(nodes, edges)).length / 15)
+    expect(code.length / 200).toBeLessThan(35)
   })
 
   it('drops edges pointing at nodes that are not in the patch', () => {

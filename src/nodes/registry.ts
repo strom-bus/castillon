@@ -106,6 +106,9 @@ export function defaultOscParams(): OscParams {
     attack: 4,
     release: 40,
     gate: 0.6,
+    filterType: 'off',
+    cutoff: 2000,
+    resonance: 1,
     propagateMode: 'onEnd',
   }
 }
@@ -145,6 +148,9 @@ const osc: NodeDefinition = {
         gain: params.gain * s.velocity,
         attack: params.attack,
         release: params.release,
+        filterType: params.filterType ?? 'off',
+        cutoff: params.cutoff ?? 2000,
+        resonance: params.resonance ?? 1,
       })
     }
 

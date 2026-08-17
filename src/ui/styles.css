@@ -367,6 +367,24 @@ input[type='range'] {
   width: 26px;
 }
 
+/* Longer sequences get narrower bars, so a 16-step node stays a sane width. */
+.steps-8 .step {
+  width: 18px;
+}
+
+.steps-16 .step {
+  width: 11px;
+}
+
+.steps-16 {
+  gap: 4px;
+}
+
+.steps-16 .step-toggle {
+  width: 8px;
+  height: 8px;
+}
+
 .step-track {
   position: relative;
   width: 100%;

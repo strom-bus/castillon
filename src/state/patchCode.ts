@@ -1,4 +1,10 @@
-import { defaultDelayParams, defaultOsc4Params, STEP_COUNT } from '../nodes/registry'
+import {
+  defaultDelayParams,
+  defaultOsc4Params,
+  DEFAULT_STEP_COUNT,
+  normaliseStepCount,
+  STEP_COUNTS,
+} from '../nodes/registry'
 import {
   MAX_DELAY_MS,
   MAX_NOTE,
@@ -21,10 +27,14 @@ import { BitReader, BitWriter } from './bits'
  * Every field is packed at its real width and the whole thing is base64url'd. A four-node patch
  * lands around 80 characters against roughly 1500 for the same patch as JSON.
  *
- * The three tables below are **append-only**. Reordering them silently changes what every code
+ * The lookup tables below are **append-only**. Reordering one silently changes what every code
  * ever generated decodes to, so new values go on the end and nothing moves.
+ *
+ * Version 1 held exactly four steps per oscillator. Version 2 stores the sequence length, so
+ * v1 codes still decode — they simply mean "four steps".
  */
-const CODE_VERSION = 1
+const CODE_VERSION = 2
+const SUPPORTED_VERSIONS = [1, 2]
 
 const NODE_TYPES = ['start', 'osc4', 'delay'] as const
 
@@ -71,7 +81,10 @@ function writeOsc4(writer: BitWriter, raw: Osc4Params): void {
   writer.write(quantise(params.gate, 100, 5, 100), 7)
   writer.write(Math.max(0, PROPAGATE_CODES.indexOf(params.propagateMode)), 2)
 
-  for (let i = 0; i < STEP_COUNT; i++) {
+  const count = normaliseStepCount(params.steps?.length ?? DEFAULT_STEP_COUNT)
+  writer.write(STEP_COUNTS.indexOf(count), 2)
+
+  for (let i = 0; i < count; i++) {
     const step = params.steps[i] ?? { note: 60, active: false, velocity: 1 }
     writer.write(step.active ? 1 : 0, 1)
     writer.write(clamp(Math.round(step.note), MIN_NOTE, MAX_NOTE) - MIN_NOTE, 6)
@@ -79,7 +92,7 @@ function writeOsc4(writer: BitWriter, raw: Osc4Params): void {
   }
 }
 
-function readOsc4(reader: BitReader): Osc4Params {
+function readOsc4(reader: BitReader, version: number): Osc4Params {
   const waveform = WAVEFORM_CODES[reader.read(3)] ?? 'square'
   const pulseWidth = reader.read(7) / 100
   const division = DIVISION_CODES[reader.read(2)] ?? '1/8'
@@ -89,8 +102,11 @@ function readOsc4(reader: BitReader): Osc4Params {
   const gate = reader.read(7) / 100
   const propagateMode = PROPAGATE_CODES[reader.read(2)] ?? 'onEnd'
 
+  // Version 1 predates selectable lengths and always meant four.
+  const count = version >= 2 ? STEP_COUNTS[reader.read(2)] : DEFAULT_STEP_COUNT
+
   const steps = []
-  for (let i = 0; i < STEP_COUNT; i++) {
+  for (let i = 0; i < count; i++) {
     const active = reader.read(1) === 1
     const note = reader.read(6) + MIN_NOTE
     const velocity = reader.read(4) / 15
@@ -142,7 +158,8 @@ export function decodePatch(code: string): Patch | null {
   try {
     const reader = new BitReader(fromBase64Url(code.trim()))
 
-    if (reader.read(4) !== CODE_VERSION) return null
+    const version = reader.read(4)
+    if (!SUPPORTED_VERSIONS.includes(version)) return null
     const bpm = reader.read(9) + 20
     const loop = reader.read(1) === 1
 
@@ -158,7 +175,7 @@ export function decodePatch(code: string): Patch | null {
 
       let params: PatchNode['params'] = {}
       if (type === 'osc4') {
-        params = readOsc4(reader)
+        params = readOsc4(reader, version)
       } else if (type === 'delay') {
         params = { delayMs: reader.read(9) * 10 }
       }

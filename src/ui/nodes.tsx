@@ -50,7 +50,7 @@ export function Osc4Node({ id, data, selected }: NodeProps<FlowNode>) {
     >
       <Handle type="target" position={Position.Top} className="port port-in" />
       <div className="node-header">
-        <span className="node-title">OSC 4</span>
+        <span className="node-title">OSC</span>
         <span className="node-meta">
           {WAVEFORM_LABELS[waveform]} · {params.division}
         </span>

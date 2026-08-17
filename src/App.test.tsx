@@ -17,7 +17,7 @@ describe('App', () => {
 
     // The starting patch: two independent cascades, five oscillators and a delay.
     expect(screen.getAllByText('IGNITE')).toHaveLength(2)
-    expect(screen.getAllByText('OSC 4')).toHaveLength(5)
+    expect(screen.getAllByText('OSC')).toHaveLength(5)
     expect(screen.getByText('DELAY')).toBeDefined()
   })
 
@@ -35,7 +35,8 @@ describe('App', () => {
 
     render(<App />)
     const inspector = document.querySelector('.inspector') as HTMLElement
-    expect(within(inspector).getByText('OSC 4')).toBeDefined()
+    expect(within(inspector).getByText('OSC')).toBeDefined()
+    expect(within(inspector).getByText('Steps')).toBeDefined()
     expect(within(inspector).getByText('Division')).toBeDefined()
     expect(within(inspector).getByText('Propagation')).toBeDefined()
   })

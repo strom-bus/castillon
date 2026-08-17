@@ -1,6 +1,6 @@
 import { DIVISIONS } from '../audio/clock'
 import { MAX_PULSE_WIDTH, MIN_PULSE_WIDTH, WAVEFORM_NAMES, WAVEFORMS } from '../audio/waveforms'
-import { DEFAULT_DELAY_MS } from '../nodes/registry'
+import { DEFAULT_DELAY_MS, DEFAULT_STEP_COUNT, STEP_COUNTS } from '../nodes/registry'
 import { usePatchStore } from '../state/patchStore'
 import {
   MAX_DELAY_MS,
@@ -59,6 +59,7 @@ function Slider({
 export function Inspector() {
   const node = usePatchStore((s) => s.nodes.find((n) => n.id === s.selectedId))
   const updateParams = usePatchStore((s) => s.updateParams)
+  const setStepCount = usePatchStore((s) => s.setStepCount)
 
   if (!node) {
     return (
@@ -113,7 +114,7 @@ export function Inspector() {
 
   return (
     <aside className="inspector">
-      <h2 className="inspector-title">OSC 4</h2>
+      <h2 className="inspector-title">OSC</h2>
 
       <label className="inspector-field">
         <span className="inspector-label">Waveform</span>
@@ -136,6 +137,20 @@ export function Inspector() {
           onChange={(pulseWidth) => set({ pulseWidth })}
         />
       )}
+
+      <label className="inspector-field">
+        <span className="inspector-label">Steps</span>
+        <select
+          value={params.steps?.length ?? DEFAULT_STEP_COUNT}
+          onChange={(e) => setStepCount(node.id, Number(e.target.value))}
+        >
+          {STEP_COUNTS.map((count) => (
+            <option key={count} value={count}>
+              {count}
+            </option>
+          ))}
+        </select>
+      </label>
 
       <label className="inspector-field">
         <span className="inspector-label">Division</span>

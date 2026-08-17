@@ -6,6 +6,9 @@ import { MAX_NOTE, MIN_NOTE, type Step } from '../types/patch'
 /** Pixels of vertical drag per semitone. */
 const PIXELS_PER_SEMITONE = 4
 
+/** Note names stop fitting past this many bars, so they are dropped rather than squashed. */
+const MAX_BARS_WITH_LABELS = 8
+
 interface Props {
   nodeId: string
   steps: Step[]
@@ -13,9 +16,12 @@ interface Props {
 }
 
 /**
- * The 4 steps as vertical bars, hardware-sequencer style: height is pitch, so the shape of the
+ * The steps as vertical bars, hardware-sequencer style: height is pitch, so the shape of the
  * melody reads at a glance while taking no more room than text would.
  * Drag vertically to tune; the square underneath arms or mutes the step.
+ *
+ * Bars get narrower as the sequence gets longer, so a 16-step node stays a reasonable width
+ * instead of running off the canvas.
  */
 export function StepBars({ nodeId, steps, currentStep }: Props) {
   const updateStep = usePatchStore((s) => s.updateStep)
@@ -45,8 +51,10 @@ export function StepBars({ nodeId, steps, currentStep }: Props) {
     }
   }, [])
 
+  const showLabels = steps.length <= MAX_BARS_WITH_LABELS
+
   return (
-    <div className="steps nodrag">
+    <div className={`steps nodrag steps-${steps.length}`}>
       {steps.map((step, index) => {
         const ratio = (step.note - MIN_NOTE) / (MAX_NOTE - MIN_NOTE)
         return (
@@ -72,7 +80,7 @@ export function StepBars({ nodeId, steps, currentStep }: Props) {
               }}
               title={step.active ? 'Mute step' : 'Arm step'}
             />
-            <span className="step-note">{noteName(step.note)}</span>
+            {showLabels && <span className="step-note">{noteName(step.note)}</span>}
           </div>
         )
       })}

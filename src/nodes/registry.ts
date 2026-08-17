@@ -1,6 +1,6 @@
 import { midiToFreq, stepDuration } from '../audio/clock'
 import { MAX_VOICES, OVERLAP_THRESHOLD, type Engine } from '../audio/engine'
-import type { DelayParams, NodeParams, Osc4Params, PatchNode } from '../types/patch'
+import type { DelayParams, NodeParams, Osc4Params, PatchNode, Step } from '../types/patch'
 import { MAX_DELAY_MS, MIN_DELAY_MS } from '../types/patch'
 import type { ActivityBus } from '../viz/activity'
 
@@ -70,7 +70,29 @@ const delay: NodeDefinition = {
   },
 }
 
-export const STEP_COUNT = 4
+/** Selectable sequence lengths. Append-only: the patch code stores the index into this. */
+export const STEP_COUNTS = [2, 4, 8, 16] as const
+
+export type StepCount = (typeof STEP_COUNTS)[number]
+
+export const DEFAULT_STEP_COUNT: StepCount = 4
+
+/** A patch could name any length; the engine only ever runs one of the four. */
+export function normaliseStepCount(count: number): StepCount {
+  return (STEP_COUNTS as readonly number[]).includes(count)
+    ? (count as StepCount)
+    : DEFAULT_STEP_COUNT
+}
+
+/**
+ * Grows or shrinks a sequence by repeating it rather than padding with defaults. Doubling a
+ * four-step phrase gives the same phrase twice, which is what a hardware sequencer does and
+ * what you almost always want before editing the new half.
+ */
+export function resizeSteps(steps: Step[], count: number): Step[] {
+  const source = steps.length > 0 ? steps : defaultOsc4Params().steps
+  return Array.from({ length: count }, (_, i) => ({ ...source[i % source.length] }))
+}
 
 /** Default arpeggio: a freshly created node already sounds like something. */
 const DEFAULT_NOTES = [48, 52, 55, 60] // C3 E3 G3 C4
@@ -106,9 +128,10 @@ const osc4: NodeDefinition = {
       engine.releaseNodeVoices(node.id, time)
     }
 
-    activity.push({ kind: 'node', id: node.id, time, duration: step * STEP_COUNT })
+    const count = normaliseStepCount(params.steps?.length ?? DEFAULT_STEP_COUNT)
+    activity.push({ kind: 'node', id: node.id, time, duration: step * count })
 
-    for (let i = 0; i < STEP_COUNT; i++) {
+    for (let i = 0; i < count; i++) {
       const at = time + i * step
       const s = params.steps[i]
       activity.push({ kind: 'step', id: node.id, step: i, time: at, duration: step })
@@ -127,14 +150,14 @@ const osc4: NodeDefinition = {
       })
     }
 
-    const endTime = time + STEP_COUNT * step
+    const endTime = time + count * step
     let outgoing: number[]
     switch (params.propagateMode) {
       case 'onStart':
         outgoing = [time]
         break
       case 'onStep':
-        outgoing = Array.from({ length: STEP_COUNT }, (_, i) => time + i * step)
+        outgoing = Array.from({ length: count }, (_, i) => time + i * step)
         break
       default:
         outgoing = [endTime]

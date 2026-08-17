@@ -9,7 +9,7 @@ import {
   type NodeChange,
 } from '@xyflow/react'
 import { create } from 'zustand'
-import { getDefinition } from '../nodes/registry'
+import { getDefinition, normaliseStepCount, resizeSteps } from '../nodes/registry'
 import type { DelayParams, EdgeKind, NodeParams, Osc4Params, Patch, Step } from '../types/patch'
 import { decodePatch } from './patchCode'
 
@@ -37,6 +37,7 @@ interface PatchState {
   select(id: string | null): void
   updateParams(id: string, partial: Partial<Osc4Params & DelayParams>): void
   updateStep(id: string, index: number, partial: Partial<Step>): void
+  setStepCount(id: string, count: number): void
   setBpm(bpm: number): void
   setLoop(loop: boolean): void
   setMasterGain(gain: number): void
@@ -62,7 +63,7 @@ function makeNode(type: string, position: { x: number; y: number }, id = newId(t
  * To change it, build the patch in the app, copy the PATCH CODE field and paste it here.
  */
 const INITIAL_PATCH_CODE =
-  'GMQgJRSYIBQqyXQEBQ8Jn6vvfU8nlAA5kmfBWmqcvx_1_X50gGgAWyDIEBQ8Jn0_mfR9QQFDAQyPEBdwF2SZAgKHhY-B-n8HiyAjEyQEXJkmWsCh4WPwff-x4MUW5KDu'
+  'KMQgJRSYIBQqyXQEBQ8GZ-r731PJ5QAOZJnwVpqjy_H_X9fnSAaABbIMgQFDwZn0_mfR9QQFDAQyPEBdwF2SZAgKHg2Pgfp_B4sgIxMkBFyZJlrAoeDY_B9_7HgxRbkoO4A'
 
 /** Store shape of a patch. Shared by the initial state, RESET and loading a code. */
 function fromPatch(patch: Patch): {
@@ -152,6 +153,21 @@ export const usePatchStore = create<PatchState>((set, get) => ({
         const params = n.data.params as Osc4Params
         const steps = params.steps.map((s, i) => (i === index ? { ...s, ...partial } : s))
         return { ...n, data: { params: { ...params, steps } } }
+      }),
+    })
+  },
+
+  setStepCount(id, count) {
+    set({
+      nodes: get().nodes.map((n) => {
+        if (n.id !== id) return n
+        const params = n.data.params as Osc4Params
+        return {
+          ...n,
+          data: {
+            params: { ...params, steps: resizeSteps(params.steps, normaliseStepCount(count)) },
+          },
+        }
       }),
     })
   },

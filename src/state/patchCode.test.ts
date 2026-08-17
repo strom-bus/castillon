@@ -162,6 +162,41 @@ describe('patch code', () => {
     expect(decoded.edges).toHaveLength(0)
   })
 
+  it('round-trips every sequence length', () => {
+    for (const count of [2, 4, 8, 16]) {
+      const steps = Array.from({ length: count }, (_, i) => ({
+        note: 40 + i,
+        active: i % 2 === 0,
+        velocity: 1,
+      }))
+      const decoded = decodePatch(encodePatch(patchOf([osc('a', { steps })])))!
+      const params = decoded.nodes[0].params as ReturnType<typeof defaultOsc4Params>
+      expect(params.steps).toHaveLength(count)
+      expect(params.steps.map((s) => s.note)).toEqual(steps.map((s) => s.note))
+      expect(params.steps.map((s) => s.active)).toEqual(steps.map((s) => s.active))
+    }
+  })
+
+  it('a longer sequence costs only what its extra steps need', () => {
+    const stepsOf = (count: number) =>
+      Array.from({ length: count }, () => ({ note: 60, active: true, velocity: 1 }))
+    const short = encodePatch(patchOf([osc('a', { steps: stepsOf(2) })])).length
+    const long = encodePatch(patchOf([osc('a', { steps: stepsOf(16) })])).length
+    // 14 extra steps at 11 bits each is around 20 more characters, not a different order.
+    expect(long - short).toBeLessThan(30)
+  })
+
+  it('still reads version 1 codes, which had no sequence length', () => {
+    // Generated before lengths were selectable. It has to keep decoding to four steps.
+    const V1 = 'EyQQSwCFGCAUIMkyBAUPCx9z7_5PJ5QAIZJkCAoeF_8f5v1-dIBoAEMgyBAUPCZ9P5n0fAxZwA'
+    const decoded = decodePatch(V1)
+    expect(decoded).not.toBeNull()
+    expect(decoded!.nodes).toHaveLength(4)
+    for (const node of decoded!.nodes.filter((n) => n.type === 'osc4')) {
+      expect((node.params as ReturnType<typeof defaultOsc4Params>).steps).toHaveLength(4)
+    }
+  })
+
   it('returns null instead of throwing on junk', () => {
     expect(decodePatch('')).toBeNull()
     expect(decodePatch('not a real code')).toBeNull()

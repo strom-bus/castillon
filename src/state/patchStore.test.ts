@@ -90,6 +90,53 @@ describe('connections', () => {
   })
 })
 
+describe('sequence length', () => {
+  function firstOsc() {
+    return usePatchStore.getState().nodes.find((n) => n.type === 'osc4')!
+  }
+
+  it('doubles by repeating the phrase, not by padding with defaults', () => {
+    const osc = firstOsc()
+    const before = (osc.data.params as Osc4Params).steps.map((s) => s.note)
+    usePatchStore.getState().setStepCount(osc.id, 8)
+
+    const after = (firstOsc().data.params as Osc4Params).steps.map((s) => s.note)
+    expect(after).toHaveLength(8)
+    expect(after).toEqual([...before, ...before])
+  })
+
+  it('shrinks by keeping the front of the phrase', () => {
+    const osc = firstOsc()
+    const before = (osc.data.params as Osc4Params).steps.map((s) => s.note)
+    usePatchStore.getState().setStepCount(osc.id, 2)
+
+    const after = (firstOsc().data.params as Osc4Params).steps.map((s) => s.note)
+    expect(after).toEqual(before.slice(0, 2))
+  })
+
+  it('round-trips 2, 4, 8 and 16', () => {
+    const osc = firstOsc()
+    for (const count of [2, 4, 8, 16]) {
+      usePatchStore.getState().setStepCount(osc.id, count)
+      expect((firstOsc().data.params as Osc4Params).steps).toHaveLength(count)
+    }
+  })
+
+  it('refuses a length the engine cannot run', () => {
+    const osc = firstOsc()
+    usePatchStore.getState().setStepCount(osc.id, 7)
+    expect((firstOsc().data.params as Osc4Params).steps).toHaveLength(4)
+  })
+
+  it('leaves other nodes alone', () => {
+    const [first, second] = usePatchStore.getState().nodes.filter((n) => n.type === 'osc4')
+    usePatchStore.getState().setStepCount(first.id, 16)
+
+    const other = usePatchStore.getState().nodes.find((n) => n.id === second.id)!
+    expect((other.data.params as Osc4Params).steps).toHaveLength(4)
+  })
+})
+
 describe('serialisation', () => {
   it('round-trips a patch through toPatch and loadPatch', () => {
     const original = toPatch()

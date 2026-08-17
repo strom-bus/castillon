@@ -20,6 +20,7 @@ function CanvasInner() {
   const onConnect = usePatchStore((s) => s.onConnect)
   const addNode = usePatchStore((s) => s.addNode)
   const select = usePatchStore((s) => s.select)
+  const removeEdge = usePatchStore((s) => s.removeEdge)
 
   const wrapper = useRef<HTMLDivElement>(null)
   const { screenToFlowPosition } = useReactFlow()
@@ -79,6 +80,9 @@ function CanvasInner() {
           onConnect={onConnect}
           isValidConnection={isValidConnection}
           onNodeClick={(_, node) => select(node.id)}
+          // Clicking a cable removes it. The wide transparent hit path in CascadeEdge is what
+          // makes a 2 px bezier clickable at all.
+          onEdgeClick={(_, edge) => removeEdge(edge.id)}
           onPaneClick={() => select(null)}
           defaultEdgeOptions={{ type: 'cascade' }}
           proOptions={{ hideAttribution: true }}

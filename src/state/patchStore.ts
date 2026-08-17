@@ -32,6 +32,7 @@ interface PatchState {
   onEdgesChange(changes: EdgeChange<FlowEdge>[]): void
   onConnect(connection: Connection): void
   addNode(type: string, position: { x: number; y: number }): void
+  removeEdge(id: string): void
   select(id: string | null): void
   updateParams(id: string, partial: Partial<Osc4Params & DelayParams>): void
   updateStep(id: string, index: number, partial: Partial<Step>): void
@@ -108,6 +109,10 @@ export const usePatchStore = create<PatchState>((set, get) => ({
   addNode(type, position) {
     const node = makeNode(type, position)
     set({ nodes: [...get().nodes, node], selectedId: node.id })
+  },
+
+  removeEdge(id) {
+    set({ edges: get().edges.filter((e) => e.id !== id) })
   },
 
   select(id) {

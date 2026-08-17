@@ -308,9 +308,10 @@ input[type='range'] {
   cursor: pointer;
 }
 
+/* Armed steps follow their node's depth hue, not the white chrome accent. */
 .step-toggle.on {
-  background: var(--accent-dim);
-  border-color: var(--accent-dim);
+  background: color-mix(in srgb, var(--accent) 45%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 60%, transparent);
 }
 
 .step-note {
@@ -321,9 +322,23 @@ input[type='range'] {
 
 /* ---------- Cables ---------- */
 
+.edge-hit {
+  stroke: transparent;
+  stroke-width: 18;
+  pointer-events: stroke;
+  cursor: pointer;
+}
+
 .edge-base {
   stroke-width: 1.5;
   opacity: 0.4;
+}
+
+/* Hovering the hit path lights the cable up, so it is obvious what the click will remove. */
+.edge-hit:hover ~ .edge-base {
+  stroke: var(--text) !important;
+  stroke-width: 3;
+  opacity: 1;
 }
 
 .edge-pulse {

@@ -50,6 +50,11 @@ export function CascadeEdge({
           <stop offset="100%" stopColor={to} />
         </linearGradient>
       </defs>
+      {/* A wide transparent stroke: without it a 2 px bezier is almost impossible to click.
+          It comes first so the visible strokes below can react to hovering it. */}
+      <path d={path} className="edge-hit" fill="none">
+        <title>Click to remove</title>
+      </path>
       {/* Inline styles, not attributes: a stylesheet rule would win over an attribute. */}
       <path d={path} className="edge-base" style={{ stroke: `url(#${gradientId})` }} fill="none" />
       <path

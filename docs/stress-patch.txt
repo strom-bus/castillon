@@ -1,7 +1,7 @@
-Load test for Phase 1 acceptance criterion 6.
+Load test for the audio engine.
 
-24 oscillators over five cascade levels, all ten waveforms, all four filter types and all four
-sequence lengths, at 132 BPM on loop. Paste it into the PATCH CODE field.
+24 oscillators over five cascade levels, covering all ten waveforms, all four filter types and
+all four sequence lengths, at 132 BPM on loop. Paste the code below into the PATCH CODE field.
 
 What to listen and look for:
   - crackling or dropouts, which would mean the scheduler is missing its window
@@ -9,4 +9,7 @@ What to listen and look for:
   - the voice counter in the transport: past 48 of 64, nodes stop layering and restart instead,
     and the meter goes bright. That is the designed degradation, not a fault.
 
-E4RkYQGOlQPAZBICAoeAy4UDPseeYBPCZJICAoeDH4o0_v_r-j5UMgBllEgICh4VGj1a_N8zzH5P4fV_D55gHIATZBICAoeHYBR4f2-T-_-v6P3fU_O-1-b5nmPyfw-r5_ALIAUZJICAoeBcpkafHeZIEyAEWUSAgKHg4IeLD6v4f2-VDUAlZBICAoeFjoVUfu_p-d5r83zPseeYB1AJmSSAgKHhwIKdj8n8PK_h_b9P7_q_o_d_T87zX5vmefwC1AJ2USAgKHgTYPF_9fmSBNQChkEgICh4NUlDm8Z9j8nmoBdQCBkkgICh4VqGUt-n9_9f0fO_p-d5vgbUAiZRICAoeHex5zvtfm-Z5j8n8Pq_h9b9P7_6_o-d_T5UOADlkEgICh4GIhRV_D55gHgAzZJICAoeC0Io3f0-O-15_ALgA0ZRICAoeFIY9ZPYfV_D-36fn_1-ZIE4AMWQSAgKHh0eUav6P3f0_O81-b5n2Pyew-r-H9v0_P-agF4ANWSSAgKHgWCZEz7Hm-BuADZlEgICh4NznjT-_-vyPlQ7AR2QSAgKHhYKFVr83jPsfk_h9X0PnmAewEhkkgICh4ePCnh9b9P7_6_o-d_T877X5vGfY_J_D6vn8AuwEBlEgICh4EEjwp-d5kgTsBCZBICAoeDN5Q8Pq_h_b5qAXsBJZJICAoeFVZlUfu_p8d9r83zPseb4G7AQ2USAgKHh2sedj8nsPq_h_b9Pz_6_o_d_T477X5vmeMACAQRiIEojDORBUmUNZGHahyXqguLJNm6j6wtG8sA
+The code is checked on every test run (see src/state/stressPatch.test.ts), so a change to the
+patch-code format cannot rot it silently — CI fails instead.
+
+EcIyMIDHSoHgMgkBAUPAZcKBn2PPMAngskkBAUPBj8Uaf3_1_R8qGQAkyiQEBQ8KjR6tfm-Z5j8n8Pq_h88wDkAMsgkBAUPDsAo8P7fJ_f_X9H7vqfnfa_N8zzH5P4fV8_gFkAJskkBAUPAuUyNPjvMkCZACjKJAQFDwcEPFh9X8P7fKhqASsgkBAUPCx0KqP3f0_O81-b5n2PPMA6gEzJJAQFDw4EFOx-T-Hlfw_t-n9_1f0fu_p-d5r83zPP4BagE7KJAQFDwJsHi_-vzJAmoBQyCQEBQ8GqShzeM-x-TzUAuoBAySQEBQ8K1DKW_T-_-v6Pnf0_O83wNqAQsokBAUPDvY8532vzfM8x-T-H1fw-t-n9_9f0fO_p8qHABkyCQEBQ8DEQoq_h88wDwAcskkBAUPBaEUbv6fHfa8_gFwAZsokBAUPCkMesnsPq_h_b9Pz_6_MkCcAGjIJAQFDw6PKNX9H7v6fnea_N8z7H5PYfV_D-36fn_NQC8AGrJJAQFDwLBMiZ9jzfA3ABsyiQEBQ8G5zxp_f_X5HyodgI7IJAQFDwsFCq1-bxn2Pyfw-r6HzzAPYCQySQEBQ8PHhTw-t-n9_9f0fO_p-d9r83jPsfk_h9Xz-AXYCAyiQEBQ8CCR4U_O8yQJ2AgsgkBAUPBm8oeH1fw_t81AL2AhMkkBAUPCqsyqP3f0-O-1-b5n2PN8DdgJLKJAQFDw7WPOx-T2H1fw_t-n5_9f0fu_p8d9r83zPGABAIIxECURhnIgqTKGsjDtQ5L1QXFkmzdR9YWjeWA

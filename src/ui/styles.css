@@ -149,6 +149,8 @@ input[type='range'] {
 .node {
   background: var(--surface);
   border: 1px solid var(--border-strong);
+  /* Franja de profundidad: hace legible el degradado de la cascada aun con el patch parado. */
+  border-top: 2px solid color-mix(in srgb, var(--accent) 50%, transparent);
   color: var(--text);
   font-size: 10px;
   letter-spacing: 0.1em;

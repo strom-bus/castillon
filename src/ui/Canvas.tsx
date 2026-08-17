@@ -7,8 +7,9 @@ import {
   useReactFlow,
   type IsValidConnection,
 } from '@xyflow/react'
-import { useCallback, useRef } from 'react'
+import { useCallback, useMemo, useRef } from 'react'
 import { usePatchStore, type FlowEdge } from '../state/patchStore'
+import { computeDepths, DepthContext, EMPTY_DEPTHS, sameDepths } from '../viz/depth'
 import { edgeTypes, nodeTypes } from './flowTypes'
 
 function CanvasInner() {
@@ -22,6 +23,17 @@ function CanvasInner() {
 
   const wrapper = useRef<HTMLDivElement>(null)
   const { screenToFlowPosition } = useReactFlow()
+
+  // Arrastrar un nodo produce un array `nodes` nuevo en cada frame, pero no cambia la
+  // estructura del grafo. Conservando la referencia anterior cuando el resultado es igual,
+  // el arrastre no repinta todos los nodos por un color que no ha cambiado.
+  const previousDepths = useRef(EMPTY_DEPTHS)
+  const depths = useMemo(() => {
+    const next = computeDepths(nodes, edges)
+    if (sameDepths(next, previousDepths.current)) return previousDepths.current
+    previousDepths.current = next
+    return next
+  }, [nodes, edges])
 
   /** Sin auto-conexiones ni cables duplicados. */
   const isValidConnection = useCallback<IsValidConnection<FlowEdge>>((connection) => {
@@ -53,26 +65,28 @@ function CanvasInner() {
           + START
         </button>
       </div>
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        nodeTypes={nodeTypes}
-        edgeTypes={edgeTypes}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onConnect={onConnect}
-        isValidConnection={isValidConnection}
-        onNodeClick={(_, node) => select(node.id)}
-        onPaneClick={() => select(null)}
-        defaultEdgeOptions={{ type: 'cascade' }}
-        proOptions={{ hideAttribution: true }}
-        minZoom={0.2}
-        maxZoom={2}
-        fitView
-      >
-        <Background variant={BackgroundVariant.Dots} gap={24} size={1} color="#1e1e1e" />
-        <Controls showInteractive={false} />
-      </ReactFlow>
+      <DepthContext.Provider value={depths}>
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          onConnect={onConnect}
+          isValidConnection={isValidConnection}
+          onNodeClick={(_, node) => select(node.id)}
+          onPaneClick={() => select(null)}
+          defaultEdgeOptions={{ type: 'cascade' }}
+          proOptions={{ hideAttribution: true }}
+          minZoom={0.2}
+          maxZoom={2}
+          fitView
+        >
+          <Background variant={BackgroundVariant.Dots} gap={24} size={1} color="#1e1e1e" />
+          <Controls showInteractive={false} />
+        </ReactFlow>
+      </DepthContext.Provider>
     </div>
   )
 }

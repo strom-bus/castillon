@@ -1,6 +1,6 @@
 import type { Division } from '../types/patch'
 
-/** Cuántos negras dura un paso, según la división. */
+/** How many quarter notes a step lasts, per division. */
 const DIVISION_BEATS: Record<Division, number> = {
   '1/4': 1,
   '1/8': 0.5,
@@ -9,12 +9,12 @@ const DIVISION_BEATS: Record<Division, number> = {
 
 export const DIVISIONS = Object.keys(DIVISION_BEATS) as Division[]
 
-/** Duración de un paso en segundos. */
+/** Step length in seconds. */
 export function stepDuration(bpm: number, division: Division): number {
   return (60 / bpm) * DIVISION_BEATS[division]
 }
 
-/** Duración de un compás de 4/4 en segundos. */
+/** Length of one 4/4 bar in seconds. */
 export function barDuration(bpm: number): number {
   return (60 / bpm) * 4
 }

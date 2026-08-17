@@ -1,10 +1,10 @@
-/** Modelo de datos del patch. Todo aquí es serializable a JSON: ningún objeto de Web Audio. */
+/** Patch data model. Everything here is JSON-serialisable: no Web Audio objects. */
 
 export type NodeId = string
 
 /**
- * Los dos grafos superpuestos (PLAN.md §2). En el PoC sólo se dibujan cables de evento,
- * pero el campo existe desde ya para no tener que migrar patches en la Fase 3.
+ * The two overlaid graphs (PLAN.md §2). The PoC only draws event cables, but the field is here
+ * from the start so patches never need migrating in Phase 3.
  */
 export type EdgeKind = 'event' | 'audio'
 
@@ -12,23 +12,31 @@ export type Division = '1/4' | '1/8' | '1/16'
 
 export type PropagateMode = 'onEnd' | 'onStart' | 'onStep'
 
+/**
+ * `pulse` is not a native Web Audio type: it is synthesised with a `PeriodicWave`
+ * (see audio/waveforms.ts). The rest are native.
+ */
+export type Waveform = 'sine' | 'triangle' | 'sawtooth' | 'square' | 'pulse'
+
 export interface Step {
-  /** Nota MIDI. C1 = 24, C6 = 84. */
+  /** MIDI note. C1 = 24, C6 = 84. */
   note: number
   active: boolean
   velocity: number
 }
 
 export interface Osc4Params {
-  waveform: 'square'
+  waveform: Waveform
+  /** Pulse duty cycle, 0–1. Only used with `waveform: 'pulse'`. */
+  pulseWidth: number
   steps: Step[]
   division: Division
   /** 0–1 */
   gain: number
-  /** Milisegundos. */
+  /** Milliseconds. */
   attack: number
   release: number
-  /** Fracción del paso que dura la nota. 0.6 = percusivo, 1 = legato. */
+  /** Fraction of the step the note lasts. 0.6 is percussive, 1 is legato. */
   gate: number
   propagateMode: PropagateMode
 }

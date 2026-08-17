@@ -5,7 +5,7 @@ import { ActivityBus, type ActivityEvent } from '../viz/activity'
 import type { Engine, NoteRequest } from './engine'
 import { CascadeScheduler, MAX_DEPTH } from './scheduler'
 
-/** Motor falso: registra lo que se le pide sin tocar Web Audio. */
+/** Fake engine: records what it is asked for without touching Web Audio. */
 class FakeEngine implements Engine {
   notes: NoteRequest[] = []
   released: { nodeId: NodeId; at: number }[] = []
@@ -59,12 +59,12 @@ beforeEach(() => {
   events = []
 })
 
-/** A 120 BPM con división 1/8, un paso dura 0.25 s y una secuencia de 4 pasos, 1 s. */
+/** At 120 BPM with a 1/8 division a step lasts 0.25 s, and a 4-step sequence lasts 1 s. */
 const STEP = 0.25
 const SEQUENCE = STEP * 4
 
 describe('CascadeScheduler', () => {
-  it('propaga en cascada: el hijo empieza cuando el padre termina su secuencia', () => {
+  it('cascades: the child starts when the parent finishes its sequence', () => {
     const patch = patchOf(
       [{ id: 's', type: 'start', position: { x: 0, y: 0 }, params: {} }, osc('a'), osc('b')],
       [edge('s', 'a'), edge('a', 'b')],
@@ -78,12 +78,12 @@ describe('CascadeScheduler', () => {
 
     expect(first).toHaveLength(4)
     expect(second).toHaveLength(4)
-    // El primer paso de B cae exactamente donde termina la secuencia de A.
+    // B's first step lands exactly where A's sequence ends.
     expect(second[0] - first[0]).toBeCloseTo(SEQUENCE, 6)
     scheduler.stop()
   })
 
-  it('ramifica: dos hijos del mismo nodo arrancan a la vez', () => {
+  it('branches: two children of the same node start together', () => {
     const patch = patchOf(
       [
         { id: 's', type: 'start', position: { x: 0, y: 0 }, params: {} },
@@ -105,7 +105,7 @@ describe('CascadeScheduler', () => {
     scheduler.stop()
   })
 
-  it('respeta el modo de propagación onStart', () => {
+  it('honours the onStart propagation mode', () => {
     const a = osc('a')
     ;(a.params as ReturnType<typeof defaultOsc4Params>).propagateMode = 'onStart'
     const patch = patchOf(
@@ -122,7 +122,7 @@ describe('CascadeScheduler', () => {
     scheduler.stop()
   })
 
-  it('corta los ciclos en MAX_DEPTH en vez de colgarse', () => {
+  it('cuts cycles at MAX_DEPTH instead of hanging', () => {
     const patch = patchOf(
       [{ id: 's', type: 'start', position: { x: 0, y: 0 }, params: {} }, osc('a'), osc('b')],
       [edge('s', 'a'), edge('a', 'b'), edge('b', 'a')],
@@ -131,13 +131,13 @@ describe('CascadeScheduler', () => {
     scheduler.start()
     scheduler.drain(1000)
 
-    // Cada nodo del ciclo programa 4 notas por vuelta, y hay MAX_DEPTH vueltas como mucho.
+    // Each node in the cycle schedules 4 notes per pass, and there are at most MAX_DEPTH passes.
     expect(engine.notes.length).toBeLessThanOrEqual((MAX_DEPTH + 1) * 4)
     expect(engine.notes.length).toBeGreaterThan(0)
     scheduler.stop()
   })
 
-  it('relanza la cascada cuando todas las ramas han terminado', () => {
+  it('relaunches the cascade once every branch has finished', () => {
     const patch = patchOf(
       [{ id: 's', type: 'start', position: { x: 0, y: 0 }, params: {} }, osc('a'), osc('b')],
       [edge('s', 'a'), edge('a', 'b')],
@@ -152,14 +152,14 @@ describe('CascadeScheduler', () => {
       .map((n) => n.time)
       .sort((x, y) => x - y)
 
-    // Sin loop sólo habría 4 notas de A; con loop hay varias vueltas.
+    // Without loop there would only be 4 notes from A; with loop there are several passes.
     expect(aTimes.length).toBeGreaterThan(4)
-    // Una vuelta completa dura lo que la rama más larga: A (1 s) + B (1 s).
+    // A full pass lasts as long as the longest branch: A (1 s) + B (1 s).
     expect(aTimes[4] - aTimes[0]).toBeCloseTo(SEQUENCE * 2, 6)
     scheduler.stop()
   })
 
-  it('el reinicio del loop se decide por delante del reloj de audio', () => {
+  it('the loop restart is decided ahead of the audio clock', () => {
     const patch = patchOf(
       [{ id: 's', type: 'start', position: { x: 0, y: 0 }, params: {} }, osc('a')],
       [edge('s', 'a')],
@@ -167,17 +167,17 @@ describe('CascadeScheduler', () => {
     )
     const scheduler = build(patch)
     scheduler.start()
-    // El reloj falso está en 0; drenamos sólo el horizonte de look-ahead.
+    // The fake clock sits at 0; drain only the look-ahead horizon.
     scheduler.drain(0.1)
 
-    // Con la primera vuelta programada, la siguiente ya debe estar en cola aunque no haya sonado.
+    // With the first pass scheduled, the next must already be queued though nothing has sounded.
     scheduler.drain(1.2)
     const times = engine.notes.map((n) => n.time).sort((x, y) => x - y)
     expect(times.length).toBeGreaterThan(4)
     scheduler.stop()
   })
 
-  it('no relanza si el loop está apagado', () => {
+  it('does not relaunch when loop is off', () => {
     const patch = patchOf(
       [{ id: 's', type: 'start', position: { x: 0, y: 0 }, params: {} }, osc('a')],
       [edge('s', 'a')],
@@ -190,7 +190,7 @@ describe('CascadeScheduler', () => {
     scheduler.stop()
   })
 
-  it('un Start sin hijos no produce un bucle infinito', () => {
+  it('a Start with no children does not spin forever', () => {
     const patch = patchOf(
       [{ id: 's', type: 'start', position: { x: 0, y: 0 }, params: {} }],
       [],
@@ -199,14 +199,14 @@ describe('CascadeScheduler', () => {
     const scheduler = build(patch)
     scheduler.start()
     scheduler.drain(2)
-    // Cadena degenerada: se limita por MIN_CHAIN_DURATION (0.25 s), no se dispara sin fin.
+    // Degenerate chain: bounded by MIN_CHAIN_DURATION (0.25 s), it does not fire endlessly.
     const flashes = events.filter((e) => e.kind === 'node')
     expect(flashes.length).toBeLessThanOrEqual(12)
     expect(flashes.length).toBeGreaterThan(0)
     scheduler.stop()
   })
 
-  it('varios nodos Start lanzan cascadas independientes', () => {
+  it('several Start nodes launch independent cascades', () => {
     const patch = patchOf(
       [
         { id: 's1', type: 'start', position: { x: 0, y: 0 }, params: {} },
@@ -225,7 +225,7 @@ describe('CascadeScheduler', () => {
   })
 })
 
-describe('política de solapamiento', () => {
+describe('layering policy', () => {
   function retrigger(voices: number) {
     const patch = patchOf(
       [{ id: 's', type: 'start', position: { x: 0, y: 0 }, params: {} }, osc('a')],
@@ -233,18 +233,18 @@ describe('política de solapamiento', () => {
     )
     const scheduler = build(patch)
     engine.voices = voices
-    engine.busy.set('a', 1000) // el nodo sigue sonando siempre
+    engine.busy.set('a', 1000) // the node is always still sounding
     scheduler.start()
     scheduler.drain(10)
     scheduler.stop()
     return engine.released
   }
 
-  it('se superpone mientras hay presupuesto de voces', () => {
+  it('layers while there is voice budget left', () => {
     expect(retrigger(10)).toHaveLength(0)
   })
 
-  it('degrada a reinicio al pasar del 75 % del presupuesto', () => {
+  it('degrades to a restart past 75 % of the budget', () => {
     expect(retrigger(60).length).toBeGreaterThan(0)
   })
 })

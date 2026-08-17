@@ -1,6 +1,6 @@
 /**
- * jsdom no implementa nada de esto, y React Flow lo necesita para medir el lienzo.
- * Sin estos stubs no se puede montar la app en los tests.
+ * jsdom implements none of this, and React Flow needs it to measure the canvas.
+ * Without these stubs the app cannot be mounted in tests.
  */
 
 class ResizeObserverStub {

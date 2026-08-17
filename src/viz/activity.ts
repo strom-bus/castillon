@@ -1,9 +1,9 @@
 /**
- * Cola de eventos visuales, desacoplada del audio y del store de React.
+ * Queue of visual events, decoupled from both the audio and the React store.
  *
- * El scheduler programa el audio hasta 100 ms por delante; si la UI reaccionase en ese momento,
- * el destello iría adelantado al sonido. Así que los eventos visuales se encolan con su timestamp
- * y se despachan en `requestAnimationFrame` cuando el reloj de audio los alcanza.
+ * The scheduler queues audio up to 100 ms ahead; if the UI reacted at that moment the flash
+ * would run ahead of the sound. So visual events are queued with their timestamp and dispatched
+ * from `requestAnimationFrame` once the audio clock catches up to them.
  */
 
 export type ActivityEvent =

@@ -3,8 +3,8 @@ import { activity } from '../audio/runtime'
 import { edgeKey, nodeKey } from './activity'
 
 /**
- * Estado visual de un nodo. Es estado local del componente, no del store global: así una nota
- * repinta un nodo y no los cien que haya en el lienzo.
+ * A node's visual state. Component-local state, not the global store: that way one note
+ * repaints one node instead of the hundred others on the canvas.
  */
 export function useNodeActivity(id: string): { pulsing: boolean; currentStep: number } {
   const [pulsing, setPulsing] = useState(false)

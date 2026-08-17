@@ -3,22 +3,22 @@ import type { NodeId, Patch, PatchNode } from '../types/patch'
 import type { ActivityBus } from '../viz/activity'
 import type { Engine } from './engine'
 
-/** Cuánto se programa por delante del reloj de audio. */
+/** How far ahead of the audio clock work is scheduled. */
 export const LOOKAHEAD = 0.1
-/** Cada cuánto despierta el scheduler. */
+/** How often the scheduler wakes up. */
 export const TICK_MS = 25
-/** Tope de profundidad de una cadena; también es lo que corta los ciclos. */
+/** Chain depth cap; it is also what breaks cycles. */
 export const MAX_DEPTH = 16
-/** Margen antes del primer evento, para no programar en el pasado. */
+/** Margin before the first event, so nothing is scheduled in the past. */
 const START_OFFSET = 0.06
 /**
- * Una cascada no puede repetirse más rápido que esto. Sin este mínimo, un Start sin hijos
- * completa su cadena en duración cero y el loop se convierte en un bucle infinito.
+ * A cascade cannot repeat faster than this. Without the floor, a Start with no children
+ * completes its chain in zero time and the loop becomes an infinite one.
  */
 const MIN_CHAIN_DURATION = 0.25
-/** Cortafuegos: nunca procesar más de estos eventos en un solo tick. */
+/** Firebreak: never process more than this many events in a single tick. */
 const MAX_EVENTS_PER_TICK = 2000
-/** Duración del destello de un cable. */
+/** How long a cable stays lit. */
 const EDGE_FLASH = 0.2
 
 export interface TriggerEvent {
@@ -29,9 +29,9 @@ export interface TriggerEvent {
 }
 
 interface Chain {
-  /** Triggers de esta cascada aún sin procesar. Al llegar a cero, la cascada ha terminado. */
+  /** Triggers of this cascade still unprocessed. At zero, the cascade is done. */
   pending: number
-  /** Instante en que termina la rama más larga. */
+  /** When the longest branch ends. */
   lastEnd: number
   startNodeId: NodeId
   startTime: number
@@ -44,14 +44,14 @@ interface SchedulerDeps {
 }
 
 /**
- * Propaga triggers por el grafo de eventos (PLAN.md §2).
+ * Propagates triggers through the event graph (PLAN.md §2).
  *
- * Trabaja siempre por delante del reloj de audio, así que detecta que una cascada se ha
- * vaciado ~100 ms antes de que suene su última nota. Ese margen es justo lo que permite
- * reprogramar el Start a tiempo y que el loop no tenga un hueco audible en cada vuelta.
+ * It always runs ahead of the audio clock, so it notices a cascade has drained roughly 100 ms
+ * before its last note sounds. That margin is exactly what lets the Start be rescheduled in
+ * time, so the loop has no audible gap on each pass.
  */
 export class CascadeScheduler {
-  /** Ordenada por `time` ascendente. */
+  /** Sorted by ascending `time`. */
   private queue: TriggerEvent[] = []
   private chains = new Map<number, Chain>()
   private nextChainId = 1
@@ -90,7 +90,7 @@ export class CascadeScheduler {
     this.drain(this.deps.engine.now() + LOOKAHEAD)
   }
 
-  /** Procesa todo lo que caiga dentro del horizonte. Público para poder probarlo sin relojes. */
+  /** Processes everything inside the horizon. Public so it can be tested without clocks. */
   drain(horizon: number): void {
     const patch = this.deps.getPatch()
     const nodeById = new Map<NodeId, PatchNode>(patch.nodes.map((n) => [n.id, n]))
@@ -122,7 +122,7 @@ export class CascadeScheduler {
     const node = nodeById.get(event.nodeId)
     const definition = node ? getDefinition(node.type) : undefined
     if (!node || !definition) {
-      // El nodo se borró mientras su trigger viajaba. La rama muere aquí.
+      // The node was deleted while its trigger was in flight. The branch dies here.
       this.settle(event.chainId, patch)
       return
     }
@@ -157,7 +157,7 @@ export class CascadeScheduler {
     this.settle(event.chainId, patch)
   }
 
-  /** Si la cascada se ha vaciado, la cierra y —si toca— la vuelve a lanzar. */
+  /** If the cascade has drained, closes it and — when appropriate — fires it again. */
   private settle(chainId: number, patch: Patch): void {
     const chain = this.chains.get(chainId)
     if (!chain || chain.pending > 0) return

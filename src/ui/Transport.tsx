@@ -4,7 +4,7 @@ import { engine, panic, play, stop } from '../audio/runtime'
 import { exportPatch, importPatch } from '../state/persistence'
 import { toPatch, usePatchStore } from '../state/patchStore'
 
-/** Contador de voces: hace visible la degradación por presupuesto (PLAN.md §2.2). */
+/** Voice counter: makes the budget degradation visible (PLAN.md §2.2). */
 function VoiceMeter({ playing }: { playing: boolean }) {
   const [voices, setVoices] = useState(0)
 
@@ -24,7 +24,7 @@ function VoiceMeter({ playing }: { playing: boolean }) {
 
   const ratio = voices / MAX_VOICES
   return (
-    <div className="meter" title="Voces sonando / presupuesto">
+    <div className="meter" title="Voices sounding / budget">
       <div className="meter-bar">
         <div
           className={`meter-fill${ratio >= 0.75 ? ' hot' : ''}`}
@@ -70,8 +70,8 @@ export function Transport() {
       <button type="button" className={`btn primary${playing ? ' on' : ''}`} onClick={toggle}>
         {playing ? '■ STOP' : '▶ PLAY'}
       </button>
-      <button type="button" className="btn" onClick={panic} title="Corta todas las voces">
-        PÁNICO
+      <button type="button" className="btn" onClick={panic} title="Cut every voice">
+        PANIC
       </button>
 
       <label className="field">
@@ -110,13 +110,13 @@ export function Transport() {
         type="button"
         className="btn"
         onClick={() => {
-          if (confirm('¿Descartar el patch actual y volver al de ejemplo?')) resetPatch()
+          if (confirm('Discard the current patch and load the example again?')) resetPatch()
         }}
       >
         RESET
       </button>
       <button type="button" className="btn" onClick={() => exportPatch(toPatch())}>
-        EXPORTAR
+        EXPORT
       </button>
       <button
         type="button"
@@ -126,7 +126,7 @@ export function Transport() {
           if (patch) loadPatch(patch)
         }}
       >
-        IMPORTAR
+        IMPORT
       </button>
     </header>
   )

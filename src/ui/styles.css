@@ -1,4 +1,4 @@
-/* Estética: negro minimalista, sin bordes redondeados, sin sombras, sin degradados. */
+/* Look: minimal black. No rounded corners, no shadows, no gradient fills. */
 
 .app {
   display: flex;
@@ -12,7 +12,7 @@
   min-height: 0;
 }
 
-/* ---------- Transporte ---------- */
+/* ---------- Transport ---------- */
 
 .transport {
   display: flex;
@@ -115,7 +115,7 @@ input[type='range'] {
   font-variant-numeric: tabular-nums;
 }
 
-/* ---------- Lienzo ---------- */
+/* ---------- Canvas ---------- */
 
 .canvas {
   position: relative;
@@ -144,25 +144,35 @@ input[type='range'] {
   background: var(--border);
 }
 
-/* ---------- Nodos ---------- */
+/* ---------- Nodes ---------- */
 
 .node {
   background: var(--surface);
-  border: 1px solid var(--border-strong);
-  /* Franja de profundidad: hace legible el degradado de la cascada aun con el patch parado. */
-  border-top: 2px solid color-mix(in srgb, var(--accent) 50%, transparent);
+  /* The frame itself is the depth gradient: the hue enters at the top edge and leaves at the
+     bottom one, where the outgoing cable picks it up. Dimmed while resting, full while playing. */
+  border: 1px solid transparent;
+  border-image: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--depth-top, var(--border-strong)) 40%, var(--border)),
+      color-mix(in srgb, var(--depth-bottom, var(--border-strong)) 40%, var(--border))
+    )
+    1;
   color: var(--text);
   font-size: 10px;
   letter-spacing: 0.1em;
-  transition: border-color 90ms linear;
 }
 
 .node.selected {
-  border-color: var(--text);
+  border-image: linear-gradient(180deg, var(--text), var(--text)) 1;
 }
 
 .node.pulsing {
-  border-color: var(--accent);
+  border-image: linear-gradient(
+      180deg,
+      var(--depth-top, var(--accent)),
+      var(--depth-bottom, var(--accent))
+    )
+    1;
 }
 
 .node-start {
@@ -201,7 +211,7 @@ input[type='range'] {
   border-color: var(--accent);
 }
 
-/* ---------- Barras de pasos ---------- */
+/* ---------- Step bars ---------- */
 
 .steps {
   display: flex;
@@ -270,13 +280,12 @@ input[type='range'] {
 /* ---------- Cables ---------- */
 
 .edge-base {
-  stroke: var(--border-strong);
   stroke-width: 1.5;
+  opacity: 0.4;
 }
 
 .edge-pulse {
-  stroke: var(--accent);
-  stroke-width: 2;
+  stroke-width: 2.5;
   stroke-dasharray: 5 11;
   opacity: 0;
   pointer-events: none;

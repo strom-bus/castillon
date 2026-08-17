@@ -2,9 +2,9 @@ import { CascadeEdge } from './CascadeEdge'
 import { Osc4Node, StartNode } from './nodes'
 
 /**
- * Los mapas que React Flow usa para resolver `node.type` y `edge.type`.
- * Viven en su propio archivo para que los módulos de componentes sólo exporten componentes
- * y el hot reload siga funcionando.
+ * The maps React Flow uses to resolve `node.type` and `edge.type`.
+ * They live in their own file so component modules only export components and hot reload
+ * keeps working.
  */
 export const nodeTypes = {
   start: StartNode,

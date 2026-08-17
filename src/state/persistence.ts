@@ -6,7 +6,7 @@ export function savePatch(patch: Patch): void {
   try {
     localStorage.setItem(KEY, JSON.stringify(patch))
   } catch {
-    // Cuota llena o almacenamiento bloqueado: no vale la pena romper la app por esto.
+    // Quota full or storage blocked: not worth breaking the app over.
   }
 }
 

@@ -1,19 +1,23 @@
-import type { NodeId } from '../types/patch'
+import type { NodeId, Waveform } from '../types/patch'
+import { pulseHarmonics } from './waveforms'
 
-/** Presupuesto de voces. Ver PLAN.md §2.2. */
+/** Voice budget. See PLAN.md §2.2. */
 export const MAX_VOICES = 64
-/** Por encima de esta fracción del presupuesto, los nodos reinician en vez de superponerse. */
+/** Above this fraction of the budget, nodes restart instead of layering. */
 export const OVERLAP_THRESHOLD = 0.75
 
 export interface NoteRequest {
   nodeId: NodeId
-  /** Instante absoluto del reloj de audio. */
+  /** Absolute time on the audio clock. */
   time: number
   freq: number
-  /** Segundos que la nota está "pulsada", sin contar la liberación. */
+  waveform: Waveform
+  /** Duty cycle, only relevant with `waveform: 'pulse'`. */
+  pulseWidth: number
+  /** Seconds the note is held down, release not included. */
   duration: number
   gain: number
-  /** Milisegundos. */
+  /** Milliseconds. */
   attack: number
   release: number
 }
@@ -21,28 +25,28 @@ export interface NoteRequest {
 interface Voice {
   nodeId: NodeId
   start: number
-  /** Instante en que la voz deja de sonar del todo (incluida la liberación). */
+  /** When the voice goes fully silent, release included. */
   end: number
   gain: GainNode
   osc: OscillatorNode
 }
 
 /**
- * Interfaz que consume el scheduler. Existe para poder probar el scheduler sin Web Audio
- * (ver scheduler.test.ts).
+ * What the scheduler consumes. It exists so the scheduler can be tested without Web Audio
+ * (see scheduler.test.ts).
  */
 export interface Engine {
   now(): number
   playNote(req: NoteRequest): void
-  /** Cuántas voces estarán sonando en ese instante. */
+  /** How many voices will be sounding at that instant. */
   voicesAt(time: number): number
-  /** Hasta cuándo sigue sonando lo que este nodo programó. */
+  /** How long what this node scheduled keeps sounding. */
   nodeBusyUntil(nodeId: NodeId): number
-  /** Corta las voces vivas de un nodo, para reiniciar su secuencia. */
+  /** Cuts a node's live voices, to restart its sequence. */
   releaseNodeVoices(nodeId: NodeId, at: number): void
 }
 
-/** Baja un parámetro a cero sin producir un clic, respetando lo ya programado. */
+/** Ramps a param to zero without clicking, respecting what is already scheduled. */
 function fadeOut(param: AudioParam, at: number, seconds: number): void {
   if (typeof param.cancelAndHoldAtTime === 'function') {
     param.cancelAndHoldAtTime(at)
@@ -60,8 +64,9 @@ export class AudioEngine implements Engine {
   private master: GainNode | null = null
   private voices: Voice[] = []
   private masterGainValue = 0.8
+  private pulseWaves = new Map<number, PeriodicWave>()
 
-  /** Debe llamarse desde un gesto del usuario: los navegadores bloquean el audio si no. */
+  /** Must be called from a user gesture: browsers block audio otherwise. */
   async start(): Promise<void> {
     if (!this.ctx) {
       this.ctx = new AudioContext()
@@ -69,7 +74,7 @@ export class AudioEngine implements Engine {
       const master = this.ctx.createGain()
       master.gain.value = this.masterGainValue
 
-      // Limitador: evita que la salida sature al ramificarse muchas voces.
+      // Limiter: keeps the output from clipping once many voices branch out.
       const limiter = this.ctx.createDynamicsCompressor()
       limiter.threshold.value = -6
       limiter.knee.value = 0
@@ -104,7 +109,7 @@ export class AudioEngine implements Engine {
 
     const attack = Math.max(MIN_RAMP, req.attack / 1000)
     const release = Math.max(MIN_RAMP, req.release / 1000)
-    // El ataque nunca puede pasarse del final de la nota, o nunca llegaría al volumen pedido.
+    // Attack must never outrun the note, or it would never reach the requested level.
     const rise = Math.min(attack, req.duration * 0.9)
     const holdEnd = req.time + req.duration
     const end = holdEnd + release
@@ -112,7 +117,11 @@ export class AudioEngine implements Engine {
     if (this.voicesAt(req.time) >= MAX_VOICES) this.stealOldest(req.time)
 
     const osc = this.ctx.createOscillator()
-    osc.type = 'square'
+    if (req.waveform === 'pulse') {
+      osc.setPeriodicWave(this.pulseWave(req.pulseWidth))
+    } else {
+      osc.type = req.waveform
+    }
     osc.frequency.setValueAtTime(req.freq, req.time)
 
     const gain = this.ctx.createGain()
@@ -155,7 +164,7 @@ export class AudioEngine implements Engine {
     }
   }
 
-  /** Corta todo inmediatamente, sin clics. El botón de pánico. */
+  /** Cuts everything at once, without clicks. The panic button. */
   panic(): void {
     if (!this.ctx) return
     const at = this.ctx.currentTime
@@ -163,6 +172,18 @@ export class AudioEngine implements Engine {
       fadeOut(v.gain.gain, at, STEAL_FADE)
       v.end = at + STEAL_FADE
     }
+  }
+
+  /** Pulse waves are cached per duty cycle: rebuilding one per note is expensive. */
+  private pulseWave(duty: number): PeriodicWave {
+    const ctx = this.ctx as AudioContext
+    const key = Math.round(duty * 100)
+    const cached = this.pulseWaves.get(key)
+    if (cached) return cached
+    const { real, imag } = pulseHarmonics(key / 100)
+    const wave = ctx.createPeriodicWave(real, imag)
+    this.pulseWaves.set(key, wave)
+    return wave
   }
 
   private stealOldest(at: number): void {

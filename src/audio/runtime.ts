@@ -4,8 +4,8 @@ import { AudioEngine } from './engine'
 import { CascadeScheduler } from './scheduler'
 
 /**
- * Instancias únicas del motor. Viven fuera de React a propósito: el audio no puede depender
- * del ciclo de render, y el store de React no debe re-renderizar en cada nota.
+ * The engine's single instances. They deliberately live outside React: audio cannot depend on
+ * the render cycle, and the React store must not re-render on every note.
  */
 export const engine = new AudioEngine()
 export const activity = new ActivityBus(() => engine.now())
@@ -15,7 +15,7 @@ export const scheduler = new CascadeScheduler({
   getPatch: () => toPatch(),
 })
 
-/** Debe llamarse desde un gesto del usuario (política de autoplay del navegador). */
+/** Must be called from a user gesture (browser autoplay policy). */
 export async function play(): Promise<void> {
   await engine.start()
   activity.start()

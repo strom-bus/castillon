@@ -1,15 +1,19 @@
 import { createContext, useContext } from 'react'
 
 /**
- * Color por profundidad: la cascada va del verde en el origen al rojo en las ramas más hondas.
+ * Cascade colouring: green at the source, red at the deepest branch.
  *
- * La profundidad es estructural, no de ejecución: se calcula recorriendo el grafo en anchura
- * desde los nodos Start. Así el color es estable —no parpadea de una vuelta a otra— y el patch
- * se lee como un mapa aunque esté parado.
+ * Depth is structural, not runtime: a breadth-first walk from the Start nodes. That keeps the
+ * colour stable between passes instead of flickering, and lets the patch read as a map even
+ * when stopped.
+ *
+ * The scale is continuous rather than one flat colour per level. Each node spans the first half
+ * of its level and the cable leaving it spans the second half, so the hue flows without seams
+ * from one node, down its cable, and into the next.
  */
 
 export interface DepthInfo {
-  /** Distancia de cada nodo al Start más cercano. Los no alcanzables no están en el mapa. */
+  /** Distance from each node to the nearest Start. Unreachable nodes are absent. */
   depths: Map<string, number>
   max: number
 }
@@ -17,6 +21,11 @@ export interface DepthInfo {
 export const EMPTY_DEPTHS: DepthInfo = { depths: new Map(), max: 0 }
 
 export const DepthContext = createContext<DepthInfo>(EMPTY_DEPTHS)
+
+export const UNREACHABLE_COLOR = 'var(--muted)'
+
+/** How much of a level the node body covers; the cable covers the rest. */
+const NODE_SPAN = 0.55
 
 interface NodeLike {
   id: string
@@ -46,7 +55,7 @@ export function computeDepths(nodes: NodeLike[], edges: EdgeLike[]): DepthInfo {
     const next: string[] = []
     for (const id of queue) {
       for (const child of children.get(id) ?? []) {
-        // El primer camino que llega manda: un nodo se pinta por su rama más corta.
+        // First path to arrive wins: a node is coloured by its shortest branch.
         if (depths.has(child)) continue
         depths.set(child, depth)
         next.push(child)
@@ -66,16 +75,72 @@ export function sameDepths(a: DepthInfo, b: DepthInfo): boolean {
   return true
 }
 
-/** Verde (145°) en el origen → rojo (0°) en la rama más honda, pasando por amarillo y naranja. */
-export function depthColor(depth: number, max: number): string {
-  const t = max <= 0 ? 0 : Math.min(1, depth / max)
-  return `hsl(${Math.round(145 - 145 * t)} 70% 55%)`
+/**
+ * Continuous position along the cascade → colour. `t` runs 0 (source) to 1 (deepest),
+ * sweeping hue from green through yellow and orange to red.
+ */
+export function colorAt(t: number): string {
+  const clamped = Math.min(1, Math.max(0, t))
+  return `hsl(${(145 - 145 * clamped).toFixed(1)} 72% 55%)`
 }
 
-/** Color de un nodo. Los nodos que ningún Start alcanza quedan en gris: nunca van a sonar. */
-export function useDepthColor(id: string | undefined): string {
+/** Kept for the depth scale legend and for tests. */
+export function depthColor(depth: number, max: number): string {
+  return colorAt(max <= 0 ? 0 : depth / max)
+}
+
+function positionOf(depth: number, max: number): number {
+  return max <= 0 ? 0 : depth / max
+}
+
+export interface NodeColors {
+  /** Hue entering at the top of the node. */
+  top: string
+  /** Hue used by the node's inner accents. */
+  mid: string
+  /** Hue leaving at the bottom, where its outgoing cable picks up. */
+  bottom: string
+  reachable: boolean
+}
+
+export function useNodeColors(id: string | undefined): NodeColors {
   const { depths, max } = useContext(DepthContext)
-  if (id === undefined) return 'var(--muted)'
-  const depth = depths.get(id)
-  return depth === undefined ? 'var(--muted)' : depthColor(depth, max)
+  const depth = id === undefined ? undefined : depths.get(id)
+
+  if (depth === undefined) {
+    return {
+      top: UNREACHABLE_COLOR,
+      mid: UNREACHABLE_COLOR,
+      bottom: UNREACHABLE_COLOR,
+      reachable: false,
+    }
+  }
+
+  const start = positionOf(depth, max)
+  const end = positionOf(depth + NODE_SPAN, max)
+  return {
+    top: colorAt(start),
+    mid: colorAt((start + end) / 2),
+    bottom: colorAt(end),
+    reachable: true,
+  }
+}
+
+/**
+ * A cable continues where its source node left off and arrives exactly at the hue its target
+ * begins with, so the descent reads as one unbroken sweep.
+ */
+export function useEdgeColors(source: string, target: string): { from: string; to: string } {
+  const { depths, max } = useContext(DepthContext)
+  const sourceDepth = depths.get(source)
+  const targetDepth = depths.get(target)
+
+  if (sourceDepth === undefined || targetDepth === undefined) {
+    return { from: UNREACHABLE_COLOR, to: UNREACHABLE_COLOR }
+  }
+
+  return {
+    from: colorAt(positionOf(sourceDepth + NODE_SPAN, max)),
+    to: colorAt(positionOf(targetDepth, max)),
+  }
 }

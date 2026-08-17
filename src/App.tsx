@@ -18,7 +18,7 @@ export default function App() {
     if (stored) loadPatch(stored)
   }, [loadPatch])
 
-  // Autoguardado con retardo: el arrastre de un nodo dispara decenas de cambios por segundo.
+  // Debounced autosave: dragging a node fires dozens of changes per second.
   useEffect(() => {
     let timer: number | undefined
     const unsubscribe = usePatchStore.subscribe(() => {

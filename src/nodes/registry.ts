@@ -5,7 +5,7 @@ import type { ActivityBus } from '../viz/activity'
 
 export interface ScheduleArgs {
   node: PatchNode
-  /** Instante absoluto en que el nodo recibe el trigger. */
+  /** Absolute time at which the node receives the trigger. */
   time: number
   bpm: number
   engine: Engine
@@ -13,9 +13,9 @@ export interface ScheduleArgs {
 }
 
 export interface ScheduleResult {
-  /** Cuándo termina el nodo su trabajo. Marca el final de la rama. */
+  /** When the node finishes its work. Marks the end of the branch. */
   endTime: number
-  /** Instantes en los que este nodo dispara a sus hijos. */
+  /** Times at which this node fires its children. */
   outgoing: number[]
 }
 
@@ -27,7 +27,7 @@ export interface NodeDefinition {
   schedule(args: ScheduleArgs): ScheduleResult
 }
 
-/** Duración del destello de un nodo que no tiene duración propia. */
+/** Flash length for a node with no duration of its own. */
 const FLASH = 0.12
 
 const start: NodeDefinition = {
@@ -43,12 +43,13 @@ const start: NodeDefinition = {
 
 export const STEP_COUNT = 4
 
-/** Arpegio por defecto: un nodo recién creado ya suena a algo. */
+/** Default arpeggio: a freshly created node already sounds like something. */
 const DEFAULT_NOTES = [48, 52, 55, 60] // C3 E3 G3 C4
 
 export function defaultOsc4Params(): Osc4Params {
   return {
     waveform: 'square',
+    pulseWidth: 0.5,
     steps: DEFAULT_NOTES.map((note) => ({ note, active: true, velocity: 1 })),
     division: '1/8',
     gain: 0.25,
@@ -68,9 +69,9 @@ const osc4: NodeDefinition = {
     const params = node.params as Osc4Params
     const step = stepDuration(bpm, params.division)
 
-    // Solapamiento (PLAN.md §2.2): superponer sólo mientras haya presupuesto de voces.
-    // Al pasar del umbral, el nodo reinicia en lugar de acumular, y la textura se degrada
-    // sola antes de que aparezcan los glitches.
+    // Layering (PLAN.md §2.2): only layer while there is voice budget left. Past the
+    // threshold the node restarts instead of piling up, so the texture degrades on its own
+    // before glitches show up.
     const stillSounding = engine.nodeBusyUntil(node.id) > time
     if (stillSounding && engine.voicesAt(time) >= MAX_VOICES * OVERLAP_THRESHOLD) {
       engine.releaseNodeVoices(node.id, time)
@@ -87,6 +88,9 @@ const osc4: NodeDefinition = {
         nodeId: node.id,
         time: at,
         freq: midiToFreq(s.note),
+        // ?? keeps patches saved before waveforms existed playable.
+        waveform: params.waveform ?? 'square',
+        pulseWidth: params.pulseWidth ?? 0.5,
         duration: step * params.gate,
         gain: params.gain * s.velocity,
         attack: params.attack,

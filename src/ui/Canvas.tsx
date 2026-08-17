@@ -24,9 +24,9 @@ function CanvasInner() {
   const wrapper = useRef<HTMLDivElement>(null)
   const { screenToFlowPosition } = useReactFlow()
 
-  // Arrastrar un nodo produce un array `nodes` nuevo en cada frame, pero no cambia la
-  // estructura del grafo. Conservando la referencia anterior cuando el resultado es igual,
-  // el arrastre no repinta todos los nodos por un color que no ha cambiado.
+  // Dragging a node yields a fresh `nodes` array every frame without changing the graph's
+  // structure. Keeping the previous reference when the result matches means a drag does not
+  // repaint every node over a colour that did not change.
   const previousDepths = useRef(EMPTY_DEPTHS)
   const depths = useMemo(() => {
     const next = computeDepths(nodes, edges)
@@ -35,7 +35,7 @@ function CanvasInner() {
     return next
   }, [nodes, edges])
 
-  /** Sin auto-conexiones ni cables duplicados. */
+  /** No self-connections and no duplicate cables. */
   const isValidConnection = useCallback<IsValidConnection<FlowEdge>>((connection) => {
     if (connection.source === connection.target) return false
     return !usePatchStore

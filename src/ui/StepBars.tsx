@@ -3,7 +3,7 @@ import { noteName } from '../audio/clock'
 import { usePatchStore } from '../state/patchStore'
 import { MAX_NOTE, MIN_NOTE, type Step } from '../types/patch'
 
-/** Píxeles de arrastre vertical por semitono. */
+/** Pixels of vertical drag per semitone. */
 const PIXELS_PER_SEMITONE = 4
 
 interface Props {
@@ -13,9 +13,9 @@ interface Props {
 }
 
 /**
- * Los 4 pasos como barras verticales, estilo secuenciador hardware: la altura es la nota,
- * así que la silueta de la melodía se lee de un vistazo sin ocupar más que el texto.
- * Se arrastra en vertical para afinar; el cuadrado de abajo activa o silencia el paso.
+ * The 4 steps as vertical bars, hardware-sequencer style: height is pitch, so the shape of the
+ * melody reads at a glance while taking no more room than text would.
+ * Drag vertically to tune; the square underneath arms or mutes the step.
  */
 export function StepBars({ nodeId, steps, currentStep }: Props) {
   const updateStep = usePatchStore((s) => s.updateStep)
@@ -59,7 +59,7 @@ export function StepBars({ nodeId, steps, currentStep }: Props) {
               onPointerMove={(e) => onPointerMove(e, index)}
               onPointerUp={endDrag}
               onPointerCancel={endDrag}
-              title={`Paso ${index + 1} · ${noteName(step.note)} · arrastra para afinar`}
+              title={`Step ${index + 1} · ${noteName(step.note)} · drag to tune`}
             >
               <div className="step-bar" style={{ height: `${Math.round(ratio * 100)}%` }} />
             </div>
@@ -70,7 +70,7 @@ export function StepBars({ nodeId, steps, currentStep }: Props) {
                 e.stopPropagation()
                 updateStep(nodeId, index, { active: !step.active })
               }}
-              title={step.active ? 'Silenciar paso' : 'Activar paso'}
+              title={step.active ? 'Mute step' : 'Arm step'}
             />
             <span className="step-note">{noteName(step.note)}</span>
           </div>

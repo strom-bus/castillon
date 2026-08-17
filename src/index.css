@@ -1,4 +1,4 @@
-/* Estética: negro minimalista. Sin bordes redondeados, sin sombras, sin degradados. */
+/* Look: minimal black. No rounded corners, no shadows, no gradient fills. */
 :root {
   --bg: #000000;
   --surface: #0d0d0d;

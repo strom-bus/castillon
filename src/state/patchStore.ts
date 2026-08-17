@@ -54,8 +54,8 @@ function makeNode(type: string, position: { x: number; y: number }, id = newId(t
 }
 
 /**
- * Patch inicial: algo que ya suena al pulsar Play, en vez de un lienzo vacío.
- * Dispuesto en vertical, que es como fluye la cascada: de arriba hacia abajo.
+ * Starting patch: something that already sounds on Play, rather than an empty canvas.
+ * Laid out vertically, which is how the cascade flows: top to bottom.
  */
 function initialPatch(): { nodes: FlowNode[]; edges: FlowEdge[] } {
   const start = makeNode('start', { x: 300, y: 20 })
@@ -177,7 +177,7 @@ export const usePatchStore = create<PatchState>((set, get) => ({
   },
 }))
 
-/** Vista serializable del store: lo que consumen el scheduler y la persistencia. */
+/** Serialisable view of the store: what the scheduler and persistence consume. */
 export function toPatch(state: PatchState = usePatchStore.getState()): Patch {
   return {
     version: 1,

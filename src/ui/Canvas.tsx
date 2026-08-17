@@ -97,6 +97,7 @@ function CanvasInner() {
           <Controls showInteractive={false} />
         </ReactFlow>
       </DepthContext.Provider>
+      <span className="colophon">COLMENA</span>
     </div>
   )
 }

@@ -47,6 +47,7 @@ export function Transport() {
   const setLoop = usePatchStore((s) => s.setLoop)
   const setMasterGain = usePatchStore((s) => s.setMasterGain)
   const loadPatch = usePatchStore((s) => s.loadPatch)
+  const resetPatch = usePatchStore((s) => s.resetPatch)
 
   useEffect(() => {
     engine.setMasterGain(masterGain)
@@ -105,6 +106,15 @@ export function Transport() {
 
       <div className="spacer" />
 
+      <button
+        type="button"
+        className="btn"
+        onClick={() => {
+          if (confirm('¿Descartar el patch actual y volver al de ejemplo?')) resetPatch()
+        }}
+      >
+        RESET
+      </button>
       <button type="button" className="btn" onClick={() => exportPatch(toPatch())}>
         EXPORTAR
       </button>

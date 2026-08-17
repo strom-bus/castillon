@@ -12,7 +12,7 @@ export function StartNode({ id, selected }: NodeProps<FlowNode>) {
       data-testid="start-node"
     >
       <div className="node-title">START</div>
-      <Handle type="source" position={Position.Right} className="port port-out" />
+      <Handle type="source" position={Position.Bottom} className="port port-out" />
     </div>
   )
 }
@@ -23,13 +23,13 @@ export function Osc4Node({ id, data, selected }: NodeProps<FlowNode>) {
 
   return (
     <div className={`node node-osc4${pulsing ? ' pulsing' : ''}${selected ? ' selected' : ''}`}>
-      <Handle type="target" position={Position.Left} className="port port-in" />
+      <Handle type="target" position={Position.Top} className="port port-in" />
       <div className="node-header">
         <span className="node-title">OSC 4</span>
         <span className="node-meta">{params.division}</span>
       </div>
       <StepBars nodeId={id} steps={params.steps} currentStep={currentStep} />
-      <Handle type="source" position={Position.Right} className="port port-out" />
+      <Handle type="source" position={Position.Bottom} className="port port-out" />
     </div>
   )
 }

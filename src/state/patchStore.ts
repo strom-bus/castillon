@@ -39,6 +39,7 @@ interface PatchState {
   setLoop(loop: boolean): void
   setMasterGain(gain: number): void
   loadPatch(patch: Patch): void
+  resetPatch(): void
   clear(): void
 }
 
@@ -52,12 +53,15 @@ function makeNode(type: string, position: { x: number; y: number }, id = newId(t
   }
 }
 
-/** Patch inicial: algo que ya suena al pulsar Play, en vez de un lienzo vacío. */
+/**
+ * Patch inicial: algo que ya suena al pulsar Play, en vez de un lienzo vacío.
+ * Dispuesto en vertical, que es como fluye la cascada: de arriba hacia abajo.
+ */
 function initialPatch(): { nodes: FlowNode[]; edges: FlowEdge[] } {
-  const start = makeNode('start', { x: 40, y: 180 })
-  const a = makeNode('osc4', { x: 220, y: 140 })
-  const b = makeNode('osc4', { x: 480, y: 40 })
-  const c = makeNode('osc4', { x: 480, y: 300 })
+  const start = makeNode('start', { x: 300, y: 20 })
+  const a = makeNode('osc4', { x: 260, y: 130 })
+  const b = makeNode('osc4', { x: 120, y: 320 })
+  const c = makeNode('osc4', { x: 420, y: 320 })
   const bParams = b.data.params as Osc4Params
   bParams.steps = [55, 59, 62, 67].map((note) => ({ note, active: true, velocity: 1 }))
   const cParams = c.data.params as Osc4Params
@@ -162,6 +166,10 @@ export const usePatchStore = create<PatchState>((set, get) => ({
       })),
       selectedId: null,
     })
+  },
+
+  resetPatch() {
+    set({ ...initialPatch(), selectedId: null })
   },
 
   clear() {

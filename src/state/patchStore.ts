@@ -64,29 +64,55 @@ function makeNode(type: string, position: { x: number; y: number }, id = newId(t
 const INITIAL_PATCH_CODE =
   'GMQgJBSYIBQlZLoCAoeHNB4zP1fe-p5PKABZkmfBWmqMeDzy_H_X9fnSAaABNkGQICh4FahTM-n8z6PqCAoYCGR4gLuAnZJkCAoeC4YU2Pgfp_B4sgIxMkBFxMky1gUPBtBQbH4Pv_Y8GBKLcl3A'
 
-/** Store shape of a patch. Shared by the initial state, RESET and loading a code. */
+/** Types that have been renamed. A patch saved under the old name still loads. */
+const RENAMED_TYPES: Record<string, string> = {
+  osc4: 'osc',
+}
+
+/**
+ * Store shape of a patch. Shared by the initial state, RESET and loading a code.
+ *
+ * Nodes of a type the registry does not know are dropped, along with their cables. React Flow
+ * renders an unrecognised type as its own default node — a blank white box with no ports — and
+ * a patch that silently turns into blank boxes is worse than one that arrives short.
+ */
 function fromPatch(patch: Patch): {
   bpm: number
   loop: boolean
   nodes: FlowNode[]
   edges: FlowEdge[]
 } {
+  const nodes: FlowNode[] = []
+  const kept = new Set<string>()
+
+  for (const node of patch.nodes) {
+    const type = RENAMED_TYPES[node.type] ?? node.type
+    const definition = getDefinition(type)
+    if (!definition) continue
+    kept.add(node.id)
+    nodes.push({
+      id: node.id,
+      type,
+      position: node.position,
+      // Merged over the defaults, so a patch saved before a parameter existed still carries a
+      // value for it instead of leaving holes for every reader to guard against.
+      data: { params: { ...definition.defaults(), ...node.params } },
+    })
+  }
+
   return {
     bpm: patch.bpm,
     loop: patch.loop,
-    nodes: patch.nodes.map((n) => ({
-      id: n.id,
-      type: n.type,
-      position: n.position,
-      data: { params: n.params },
-    })),
-    edges: patch.edges.map((e) => ({
-      id: e.id,
-      source: e.source,
-      target: e.target,
-      type: 'cascade',
-      data: { kind: e.kind },
-    })),
+    nodes,
+    edges: patch.edges
+      .filter((e) => kept.has(e.source) && kept.has(e.target))
+      .map((e) => ({
+        id: e.id,
+        source: e.source,
+        target: e.target,
+        type: 'cascade',
+        data: { kind: e.kind },
+      })),
   }
 }
 

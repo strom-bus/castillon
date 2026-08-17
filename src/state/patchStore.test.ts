@@ -42,6 +42,50 @@ describe('the starting patch', () => {
   })
 })
 
+describe('loading a patch the app did not write', () => {
+  // React Flow renders an unrecognised node type as its own default node: a blank white box
+  // with no ports. These are the guards against a patch quietly turning into blank boxes.
+  const base = () => ({ version: 1 as const, bpm: 120, loop: true, nodes: [], edges: [] })
+
+  it('accepts a node saved under a type that has since been renamed', () => {
+    usePatchStore.getState().loadPatch({
+      ...base(),
+      nodes: [{ id: 'x', type: 'osc4', position: { x: 0, y: 0 }, params: {} }],
+    })
+    const [node] = usePatchStore.getState().nodes
+    expect(node.type).toBe('osc')
+    expect((node.data.params as OscParams).steps).toHaveLength(4)
+  })
+
+  it('drops a node of a type the registry does not know', () => {
+    usePatchStore.getState().loadPatch({
+      ...base(),
+      nodes: [
+        { id: 'good', type: 'osc', position: { x: 0, y: 0 }, params: {} },
+        { id: 'alien', type: 'wormhole', position: { x: 0, y: 0 }, params: {} },
+      ],
+      edges: [{ id: 'e', kind: 'event', source: 'good', target: 'alien' }],
+    })
+    expect(usePatchStore.getState().nodes.map((n) => n.id)).toEqual(['good'])
+    // Its cables go with it, rather than dangling at an id that is no longer there.
+    expect(usePatchStore.getState().edges).toHaveLength(0)
+  })
+
+  it('fills in parameters the saved patch predates', () => {
+    usePatchStore.getState().loadPatch({
+      ...base(),
+      nodes: [
+        { id: 'x', type: 'osc', position: { x: 0, y: 0 }, params: { gain: 0.9 } as OscParams },
+      ],
+    })
+    const params = usePatchStore.getState().nodes[0].data.params as OscParams
+    expect(params.gain).toBe(0.9)
+    expect(params.filterType).toBe('off')
+    expect(params.waveform).toBe('square')
+    expect(params.steps).toHaveLength(4)
+  })
+})
+
 describe('connections', () => {
   it('removes a cable by id', () => {
     const { edges, removeEdge } = usePatchStore.getState()

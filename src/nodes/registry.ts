@@ -171,7 +171,8 @@ const osc: NodeDefinition = {
 }
 
 /** Order is the palette's order. */
-export const NODE_DEFINITIONS: NodeDefinition[] = [osc, delay, start]
+/** This order is the palette's order: what a cascade needs, in the order you need it. */
+export const NODE_DEFINITIONS: NodeDefinition[] = [start, osc, delay]
 
 const byType = new Map(NODE_DEFINITIONS.map((d) => [d.type, d]))
 

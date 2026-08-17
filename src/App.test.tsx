@@ -30,7 +30,7 @@ describe('App', () => {
   })
 
   it('the inspector shows the selected node params', () => {
-    const osc = usePatchStore.getState().nodes.find((n) => n.type === 'osc4')!
+    const osc = usePatchStore.getState().nodes.find((n) => n.type === 'osc')!
     usePatchStore.getState().select(osc.id)
 
     render(<App />)

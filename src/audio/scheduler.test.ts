@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { defaultOsc4Params } from '../nodes/registry'
+import { defaultOscParams } from '../nodes/registry'
 import {
   MAX_DELAY_MS,
   type NodeId,
@@ -36,7 +36,7 @@ class FakeEngine implements Engine {
 }
 
 function osc(id: string): PatchNode {
-  return { id, type: 'osc4', position: { x: 0, y: 0 }, params: defaultOsc4Params() }
+  return { id, type: 'osc', position: { x: 0, y: 0 }, params: defaultOscParams() }
 }
 
 function delayNode(id: string, delayMs: number): PatchNode {
@@ -117,7 +117,7 @@ describe('CascadeScheduler', () => {
 
   it('honours the onStart propagation mode', () => {
     const a = osc('a')
-    ;(a.params as ReturnType<typeof defaultOsc4Params>).propagateMode = 'onStart'
+    ;(a.params as ReturnType<typeof defaultOscParams>).propagateMode = 'onStart'
     const patch = patchOf(
       [{ id: 's', type: 'start', position: { x: 0, y: 0 }, params: {} }, a, osc('b')],
       [edge('s', 'a'), edge('a', 'b')],

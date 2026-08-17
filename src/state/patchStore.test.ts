@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import type { Osc4Params } from '../types/patch'
+import type { OscParams } from '../types/patch'
 import { toPatch, usePatchStore } from './patchStore'
 
 beforeEach(() => {
@@ -14,15 +14,15 @@ describe('the starting patch', () => {
     expect(patch.bpm).toBe(300)
     expect(patch.loop).toBe(true)
     expect(patch.nodes.filter((n) => n.type === 'start')).toHaveLength(2)
-    expect(patch.nodes.filter((n) => n.type === 'osc4')).toHaveLength(5)
+    expect(patch.nodes.filter((n) => n.type === 'osc')).toHaveLength(5)
     expect(patch.nodes.filter((n) => n.type === 'delay')).toHaveLength(1)
     expect(patch.edges).toHaveLength(6)
   })
 
   it('covers four waveforms plus a noise colour, so Play is not one flat timbre', () => {
     const waveforms = toPatch()
-      .nodes.filter((n) => n.type === 'osc4')
-      .map((n) => (n.params as Osc4Params).waveform)
+      .nodes.filter((n) => n.type === 'osc')
+      .map((n) => (n.params as OscParams).waveform)
     expect(new Set(waveforms).size).toBeGreaterThanOrEqual(4)
     expect(waveforms).toContain('white')
     expect(waveforms).toContain('brown')
@@ -92,25 +92,25 @@ describe('connections', () => {
 
 describe('sequence length', () => {
   function firstOsc() {
-    return usePatchStore.getState().nodes.find((n) => n.type === 'osc4')!
+    return usePatchStore.getState().nodes.find((n) => n.type === 'osc')!
   }
 
   it('doubles by repeating the phrase, not by padding with defaults', () => {
     const osc = firstOsc()
-    const before = (osc.data.params as Osc4Params).steps.map((s) => s.note)
+    const before = (osc.data.params as OscParams).steps.map((s) => s.note)
     usePatchStore.getState().setStepCount(osc.id, 8)
 
-    const after = (firstOsc().data.params as Osc4Params).steps.map((s) => s.note)
+    const after = (firstOsc().data.params as OscParams).steps.map((s) => s.note)
     expect(after).toHaveLength(8)
     expect(after).toEqual([...before, ...before])
   })
 
   it('shrinks by keeping the front of the phrase', () => {
     const osc = firstOsc()
-    const before = (osc.data.params as Osc4Params).steps.map((s) => s.note)
+    const before = (osc.data.params as OscParams).steps.map((s) => s.note)
     usePatchStore.getState().setStepCount(osc.id, 2)
 
-    const after = (firstOsc().data.params as Osc4Params).steps.map((s) => s.note)
+    const after = (firstOsc().data.params as OscParams).steps.map((s) => s.note)
     expect(after).toEqual(before.slice(0, 2))
   })
 
@@ -118,29 +118,29 @@ describe('sequence length', () => {
     const osc = firstOsc()
     for (const count of [2, 4, 8, 16]) {
       usePatchStore.getState().setStepCount(osc.id, count)
-      expect((firstOsc().data.params as Osc4Params).steps).toHaveLength(count)
+      expect((firstOsc().data.params as OscParams).steps).toHaveLength(count)
     }
   })
 
   it('refuses a length the engine cannot run', () => {
     const osc = firstOsc()
     usePatchStore.getState().setStepCount(osc.id, 7)
-    expect((firstOsc().data.params as Osc4Params).steps).toHaveLength(4)
+    expect((firstOsc().data.params as OscParams).steps).toHaveLength(4)
   })
 
   it('leaves other nodes alone', () => {
-    const [first, second] = usePatchStore.getState().nodes.filter((n) => n.type === 'osc4')
+    const [first, second] = usePatchStore.getState().nodes.filter((n) => n.type === 'osc')
     usePatchStore.getState().setStepCount(first.id, 16)
 
     const other = usePatchStore.getState().nodes.find((n) => n.id === second.id)!
-    expect((other.data.params as Osc4Params).steps).toHaveLength(4)
+    expect((other.data.params as OscParams).steps).toHaveLength(4)
   })
 })
 
 describe('serialisation', () => {
   it('round-trips a patch through toPatch and loadPatch', () => {
     const original = toPatch()
-    usePatchStore.getState().clear()
+    usePatchStore.getState().loadPatch({ ...original, nodes: [], edges: [] })
     expect(usePatchStore.getState().nodes).toHaveLength(0)
 
     usePatchStore.getState().loadPatch(original)
@@ -149,11 +149,11 @@ describe('serialisation', () => {
 
   it('keeps params editable after a round trip', () => {
     usePatchStore.getState().loadPatch(toPatch())
-    const osc = usePatchStore.getState().nodes.find((n) => n.type === 'osc4')!
+    const osc = usePatchStore.getState().nodes.find((n) => n.type === 'osc')!
     usePatchStore.getState().updateParams(osc.id, { waveform: 'pink', gain: 0.5 })
 
     const updated = usePatchStore.getState().nodes.find((n) => n.id === osc.id)!
-    const params = updated.data.params as Osc4Params
+    const params = updated.data.params as OscParams
     expect(params.waveform).toBe('pink')
     expect(params.gain).toBe(0.5)
     // Updating one field must not drop the rest.

@@ -27,7 +27,7 @@ export interface Step {
   velocity: number
 }
 
-export interface Osc4Params {
+export interface OscParams {
   waveform: Waveform
   /** Pulse duty cycle, 0–1. Only used with `waveform: 'pulse'`. */
   pulseWidth: number
@@ -50,7 +50,7 @@ export interface DelayParams {
 
 export type StartParams = Record<string, never>
 
-export type NodeParams = Osc4Params | DelayParams | StartParams
+export type NodeParams = OscParams | DelayParams | StartParams
 
 export const MIN_DELAY_MS = 10
 export const MAX_DELAY_MS = 4000

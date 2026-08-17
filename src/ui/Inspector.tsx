@@ -7,7 +7,7 @@ import {
   MIN_DELAY_MS,
   type DelayParams,
   type Division,
-  type Osc4Params,
+  type OscParams,
   type PropagateMode,
   type Waveform,
 } from '../types/patch'
@@ -108,9 +108,9 @@ export function Inspector() {
     )
   }
 
-  const params = node.data.params as Osc4Params
+  const params = node.data.params as OscParams
   const waveform = params.waveform ?? 'square'
-  const set = (partial: Partial<Osc4Params>) => updateParams(node.id, partial)
+  const set = (partial: Partial<OscParams>) => updateParams(node.id, partial)
 
   return (
     <aside className="inspector">

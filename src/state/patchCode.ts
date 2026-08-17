@@ -1,6 +1,6 @@
 import {
   defaultDelayParams,
-  defaultOsc4Params,
+  defaultOscParams,
   DEFAULT_STEP_COUNT,
   normaliseStepCount,
   STEP_COUNTS,
@@ -12,7 +12,7 @@ import {
   MIN_NOTE,
   type DelayParams,
   type Division,
-  type Osc4Params,
+  type OscParams,
   type Patch,
   type PatchEdge,
   type PatchNode,
@@ -24,19 +24,17 @@ import { BitReader, BitWriter } from './bits'
 /**
  * The patch as the shortest shareable string we can manage.
  *
- * Every field is packed at its real width and the whole thing is base64url'd. A four-node patch
- * lands around 80 characters against roughly 1500 for the same patch as JSON.
+ * Every field is packed at its real width and the whole thing is base64url'd. The default
+ * eight-node patch lands around 130 characters against roughly 2700 as JSON.
  *
- * The lookup tables below are **append-only**. Reordering one silently changes what every code
- * ever generated decodes to, so new values go on the end and nothing moves.
- *
- * Version 1 held exactly four steps per oscillator. Version 2 stores the sequence length, so
- * v1 codes still decode — they simply mean "four steps".
+ * The lookup tables below are addressed **by position**, so their order is the wire format.
+ * Adding a value at the end is safe and renaming one in place is safe; moving or removing a
+ * value silently changes what every existing code decodes to. `version` exists for when a
+ * change cannot be made that way — bump it and branch on it in `decodePatch`.
  */
-const CODE_VERSION = 2
-const SUPPORTED_VERSIONS = [1, 2]
+const CODE_VERSION = 1
 
-const NODE_TYPES = ['start', 'osc4', 'delay'] as const
+const NODE_TYPES = ['start', 'osc', 'delay'] as const
 
 const WAVEFORM_CODES: Waveform[] = [
   'square',
@@ -68,8 +66,8 @@ function indexBitsFor(count: number): number {
   return Math.max(1, Math.ceil(Math.log2(Math.max(2, count))))
 }
 
-function writeOsc4(writer: BitWriter, raw: Osc4Params): void {
-  const params = { ...defaultOsc4Params(), ...raw }
+function writeOsc(writer: BitWriter, raw: OscParams): void {
+  const params = { ...defaultOscParams(), ...raw }
 
   const waveform = Math.max(0, WAVEFORM_CODES.indexOf(params.waveform))
   writer.write(waveform, 3)
@@ -92,7 +90,7 @@ function writeOsc4(writer: BitWriter, raw: Osc4Params): void {
   }
 }
 
-function readOsc4(reader: BitReader, version: number): Osc4Params {
+function readOsc(reader: BitReader): OscParams {
   const waveform = WAVEFORM_CODES[reader.read(3)] ?? 'square'
   const pulseWidth = reader.read(7) / 100
   const division = DIVISION_CODES[reader.read(2)] ?? '1/8'
@@ -102,8 +100,7 @@ function readOsc4(reader: BitReader, version: number): Osc4Params {
   const gate = reader.read(7) / 100
   const propagateMode = PROPAGATE_CODES[reader.read(2)] ?? 'onEnd'
 
-  // Version 1 predates selectable lengths and always meant four.
-  const count = version >= 2 ? STEP_COUNTS[reader.read(2)] : DEFAULT_STEP_COUNT
+  const count = STEP_COUNTS[reader.read(2)] ?? DEFAULT_STEP_COUNT
 
   const steps = []
   for (let i = 0; i < count; i++) {
@@ -131,8 +128,8 @@ export function encodePatch(patch: Patch): string {
     writer.writeSignedVarint(Math.round(node.position.x / POSITION_GRID))
     writer.writeSignedVarint(Math.round(node.position.y / POSITION_GRID))
 
-    if (node.type === 'osc4') {
-      writeOsc4(writer, node.params as Osc4Params)
+    if (node.type === 'osc') {
+      writeOsc(writer, node.params as OscParams)
     } else if (node.type === 'delay') {
       const { delayMs } = { ...defaultDelayParams(), ...(node.params as DelayParams) }
       writer.write(quantise(delayMs / 10, 1, MIN_DELAY_MS / 10, MAX_DELAY_MS / 10), 9)
@@ -158,8 +155,7 @@ export function decodePatch(code: string): Patch | null {
   try {
     const reader = new BitReader(fromBase64Url(code.trim()))
 
-    const version = reader.read(4)
-    if (!SUPPORTED_VERSIONS.includes(version)) return null
+    if (reader.read(4) !== CODE_VERSION) return null
     const bpm = reader.read(9) + 20
     const loop = reader.read(1) === 1
 
@@ -174,8 +170,8 @@ export function decodePatch(code: string): Patch | null {
       const y = reader.readSignedVarint() * POSITION_GRID
 
       let params: PatchNode['params'] = {}
-      if (type === 'osc4') {
-        params = readOsc4(reader, version)
+      if (type === 'osc') {
+        params = readOsc(reader)
       } else if (type === 'delay') {
         params = { delayMs: reader.read(9) * 10 }
       }

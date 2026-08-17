@@ -22,7 +22,7 @@ export const EMPTY_DEPTHS: DepthInfo = { depths: new Map(), max: 0 }
 
 export const DepthContext = createContext<DepthInfo>(EMPTY_DEPTHS)
 
-export const UNREACHABLE_COLOR = 'var(--muted)'
+const UNREACHABLE_COLOR = 'var(--muted)'
 
 /** How much of a level the node body covers; the cable covers the rest. */
 const NODE_SPAN = 0.55
@@ -122,11 +122,6 @@ export function colorAt(t: number): string {
   const s = mix(lower.s, upper.s).toFixed(1)
   const l = mix(lower.l, upper.l).toFixed(1)
   return `hsl(${h} ${s}% ${l}%)`
-}
-
-/** Kept for the depth scale legend and for tests. */
-export function depthColor(depth: number, max: number): string {
-  return colorAt(max <= 0 ? 0 : depth / max)
 }
 
 function positionOf(depth: number, max: number): number {

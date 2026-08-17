@@ -94,10 +94,6 @@ export class AudioEngine implements Engine {
     if (this.ctx.state === 'suspended') await this.ctx.resume()
   }
 
-  get started(): boolean {
-    return this.ctx !== null
-  }
-
   now(): number {
     return this.ctx ? this.ctx.currentTime : 0
   }

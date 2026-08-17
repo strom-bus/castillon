@@ -1,5 +1,5 @@
 import { CascadeEdge } from './CascadeEdge'
-import { DelayNode, Osc4Node, StartNode } from './nodes'
+import { DelayNode, OscNode, StartNode } from './nodes'
 
 /**
  * The maps React Flow uses to resolve `node.type` and `edge.type`.
@@ -8,7 +8,7 @@ import { DelayNode, Osc4Node, StartNode } from './nodes'
  */
 export const nodeTypes = {
   start: StartNode,
-  osc4: Osc4Node,
+  osc: OscNode,
   delay: DelayNode,
 }
 

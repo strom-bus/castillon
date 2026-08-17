@@ -3,7 +3,7 @@ import type { CSSProperties } from 'react'
 import { WAVEFORM_LABELS } from '../audio/waveforms'
 import type { FlowNode } from '../state/patchStore'
 import { DEFAULT_DELAY_MS } from '../nodes/registry'
-import type { DelayParams, Osc4Params } from '../types/patch'
+import type { DelayParams, OscParams } from '../types/patch'
 import { useNodeColors, type NodeColors } from '../viz/depth'
 import { useNodeActivity } from '../viz/useActivity'
 import { StepBars } from './StepBars'
@@ -37,15 +37,15 @@ export function StartNode({ id, selected }: NodeProps<FlowNode>) {
   )
 }
 
-export function Osc4Node({ id, data, selected }: NodeProps<FlowNode>) {
+export function OscNode({ id, data, selected }: NodeProps<FlowNode>) {
   const { pulsing, currentStep } = useNodeActivity(id)
   const colors = useNodeColors(id)
-  const params = data.params as Osc4Params
+  const params = data.params as OscParams
   const waveform = params.waveform ?? 'square'
 
   return (
     <div
-      className={`node node-osc4${pulsing ? ' pulsing' : ''}${selected ? ' selected' : ''}`}
+      className={`node node-osc${pulsing ? ' pulsing' : ''}${selected ? ' selected' : ''}`}
       style={depthStyle(colors)}
     >
       <Handle type="target" position={Position.Top} className="port port-in" />

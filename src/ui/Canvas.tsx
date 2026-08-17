@@ -8,6 +8,7 @@ import {
   type IsValidConnection,
 } from '@xyflow/react'
 import { useCallback, useMemo, useRef } from 'react'
+import { NODE_DEFINITIONS } from '../nodes/registry'
 import { usePatchStore, type FlowEdge } from '../state/patchStore'
 import { computeDepths, DepthContext, EMPTY_DEPTHS, sameDepths } from '../viz/depth'
 import { edgeTypes, nodeTypes } from './flowTypes'
@@ -58,16 +59,18 @@ function CanvasInner() {
 
   return (
     <div className="canvas" ref={wrapper}>
+      {/* Driven by the registry, so adding a node type really is one file plus one line. */}
       <div className="palette">
-        <button type="button" className="btn" onClick={() => addAtCenter('osc4')}>
-          + OSC 4
-        </button>
-        <button type="button" className="btn" onClick={() => addAtCenter('delay')}>
-          + DELAY
-        </button>
-        <button type="button" className="btn" onClick={() => addAtCenter('start')}>
-          + IGNITE
-        </button>
+        {NODE_DEFINITIONS.map((definition) => (
+          <button
+            key={definition.type}
+            type="button"
+            className="btn"
+            onClick={() => addAtCenter(definition.type)}
+          >
+            + {definition.label}
+          </button>
+        ))}
       </div>
       <DepthContext.Provider value={depths}>
         <ReactFlow

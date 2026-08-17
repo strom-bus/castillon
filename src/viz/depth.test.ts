@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { colorAt, computeDepths, depthColor } from './depth'
+import { colorAt, computeDepths } from './depth'
 
 const start = { id: 's', type: 'start' }
-const osc = (id: string) => ({ id, type: 'osc4' })
+const osc = (id: string) => ({ id, type: 'osc' })
 
 describe('computeDepths', () => {
   it('measures the distance to Start', () => {
@@ -80,12 +80,12 @@ function parse(color: string): { h: number; s: number; l: number } {
 
 describe('the fluorescent ramp', () => {
   it('starts fluo green and ends hot orange', () => {
-    expect(depthColor(0, 4)).toBe('hsl(148.0 82.0% 44.0%)')
-    expect(depthColor(4, 4)).toBe('hsl(14.0 100.0% 56.0%)')
+    expect(colorAt(0)).toBe('hsl(148.0 82.0% 44.0%)')
+    expect(colorAt(1)).toBe('hsl(14.0 100.0% 56.0%)')
   })
 
   it('a single-level graph stays at the green end', () => {
-    expect(depthColor(0, 0)).toBe(colorAt(0))
+    expect(colorAt(0)).toBe('hsl(148.0 82.0% 44.0%)')
   })
 
   it('marches through the hues without ever going back', () => {

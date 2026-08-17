@@ -1,6 +1,6 @@
 import { midiToFreq, stepDuration } from '../audio/clock'
 import { MAX_VOICES, OVERLAP_THRESHOLD, type Engine } from '../audio/engine'
-import type { DelayParams, NodeParams, Osc4Params, PatchNode, Step } from '../types/patch'
+import type { DelayParams, NodeParams, OscParams, PatchNode, Step } from '../types/patch'
 import { MAX_DELAY_MS, MIN_DELAY_MS } from '../types/patch'
 import type { ActivityBus } from '../viz/activity'
 
@@ -21,9 +21,10 @@ export interface ScheduleResult {
 }
 
 export interface NodeDefinition {
+  /** Identifies the type in a patch and in the patch code. */
   type: string
+  /** What the palette button says. */
   label: string
-  category: 'source' | 'sequencer' | 'utility'
   defaults(): NodeParams
   schedule(args: ScheduleArgs): ScheduleResult
 }
@@ -32,11 +33,10 @@ export interface NodeDefinition {
 const FLASH = 0.12
 
 const start: NodeDefinition = {
-  // The type string is part of the patch-code format and must never change; only the label is
-  // what the UI shows.
+  // Kept as 'start' rather than 'ignite': the type reads better than the label in a stack
+  // trace or a serialised patch, and the two do not have to match.
   type: 'start',
-  label: 'Ignite',
-  category: 'utility',
+  label: 'IGNITE',
   defaults: () => ({}),
   schedule({ node, time, activity }) {
     activity.push({ kind: 'node', id: node.id, time, duration: FLASH })
@@ -57,8 +57,7 @@ export function defaultDelayParams(): DelayParams {
  */
 const delay: NodeDefinition = {
   type: 'delay',
-  label: 'Delay',
-  category: 'utility',
+  label: 'DELAY',
   defaults: defaultDelayParams,
   schedule({ node, time, activity }) {
     const params = node.params as DelayParams
@@ -90,14 +89,14 @@ export function normaliseStepCount(count: number): StepCount {
  * what you almost always want before editing the new half.
  */
 export function resizeSteps(steps: Step[], count: number): Step[] {
-  const source = steps.length > 0 ? steps : defaultOsc4Params().steps
+  const source = steps.length > 0 ? steps : defaultOscParams().steps
   return Array.from({ length: count }, (_, i) => ({ ...source[i % source.length] }))
 }
 
 /** Default arpeggio: a freshly created node already sounds like something. */
 const DEFAULT_NOTES = [48, 52, 55, 60] // C3 E3 G3 C4
 
-export function defaultOsc4Params(): Osc4Params {
+export function defaultOscParams(): OscParams {
   return {
     waveform: 'square',
     pulseWidth: 0.5,
@@ -111,13 +110,12 @@ export function defaultOsc4Params(): Osc4Params {
   }
 }
 
-const osc4: NodeDefinition = {
-  type: 'osc4',
-  label: 'Osc 4',
-  category: 'sequencer',
-  defaults: defaultOsc4Params,
+const osc: NodeDefinition = {
+  type: 'osc',
+  label: 'OSC',
+  defaults: defaultOscParams,
   schedule({ node, time, bpm, engine, activity }) {
-    const params = node.params as Osc4Params
+    const params = node.params as OscParams
     const step = stepDuration(bpm, params.division)
 
     // Layering (PLAN.md §2.2): only layer while there is voice budget left. Past the
@@ -166,7 +164,8 @@ const osc4: NodeDefinition = {
   },
 }
 
-export const NODE_DEFINITIONS: NodeDefinition[] = [start, osc4, delay]
+/** Order is the palette's order. */
+export const NODE_DEFINITIONS: NodeDefinition[] = [osc, delay, start]
 
 const byType = new Map(NODE_DEFINITIONS.map((d) => [d.type, d]))
 

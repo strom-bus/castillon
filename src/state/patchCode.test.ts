@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { defaultOsc4Params } from '../nodes/registry'
+import { defaultOscParams } from '../nodes/registry'
 import type { Patch, PatchNode } from '../types/patch'
 import { decodePatch, encodePatch } from './patchCode'
 
-function osc(id: string, overrides: Partial<ReturnType<typeof defaultOsc4Params>> = {}): PatchNode {
+function osc(id: string, overrides: Partial<ReturnType<typeof defaultOscParams>> = {}): PatchNode {
   return {
     id,
-    type: 'osc4',
+    type: 'osc',
     position: { x: 120, y: 240 },
-    params: { ...defaultOsc4Params(), ...overrides },
+    params: { ...defaultOscParams(), ...overrides },
   }
 }
 
@@ -36,7 +36,7 @@ describe('patch code', () => {
     expect(decoded).not.toBeNull()
     expect(decoded!.bpm).toBe(120)
     expect(decoded!.loop).toBe(true)
-    expect(decoded!.nodes.map((n) => n.type)).toEqual(['start', 'osc4', 'osc4', 'delay'])
+    expect(decoded!.nodes.map((n) => n.type)).toEqual(['start', 'osc', 'osc', 'delay'])
     expect(decoded!.edges).toHaveLength(3)
   })
 
@@ -54,7 +54,7 @@ describe('patch code', () => {
 
   it('round-trips every oscillator parameter', () => {
     const decoded = decodePatch(encodePatch(DEMO))!
-    const a = decoded.nodes[1].params as ReturnType<typeof defaultOsc4Params>
+    const a = decoded.nodes[1].params as ReturnType<typeof defaultOscParams>
     expect(a.waveform).toBe('pulse')
     expect(a.pulseWidth).toBeCloseTo(0.2, 2)
     expect(a.division).toBe('1/16')
@@ -63,7 +63,7 @@ describe('patch code', () => {
     expect(a.attack).toBe(4)
     expect(a.release).toBe(40)
 
-    const b = decoded.nodes[2].params as ReturnType<typeof defaultOsc4Params>
+    const b = decoded.nodes[2].params as ReturnType<typeof defaultOscParams>
     expect(b.waveform).toBe('brown')
     expect(b.propagateMode).toBe('onStep')
   })
@@ -80,7 +80,7 @@ describe('patch code', () => {
       'brown',
     ] as const) {
       const decoded = decodePatch(encodePatch(patchOf([osc('a', { waveform })])))!
-      const params = decoded.nodes[0].params as ReturnType<typeof defaultOsc4Params>
+      const params = decoded.nodes[0].params as ReturnType<typeof defaultOscParams>
       expect(params.waveform).toBe(waveform)
     }
   })
@@ -93,7 +93,7 @@ describe('patch code', () => {
       { note: 47, active: true, velocity: 1 },
     ]
     const decoded = decodePatch(encodePatch(patchOf([osc('a', { steps })])))!
-    const params = decoded.nodes[0].params as ReturnType<typeof defaultOsc4Params>
+    const params = decoded.nodes[0].params as ReturnType<typeof defaultOscParams>
     expect(params.steps.map((s) => s.note)).toEqual([24, 84, 60, 47])
     expect(params.steps.map((s) => s.active)).toEqual([true, false, true, true])
     expect(params.steps[2].velocity).toBeCloseTo(0.6, 1)
@@ -170,7 +170,7 @@ describe('patch code', () => {
         velocity: 1,
       }))
       const decoded = decodePatch(encodePatch(patchOf([osc('a', { steps })])))!
-      const params = decoded.nodes[0].params as ReturnType<typeof defaultOsc4Params>
+      const params = decoded.nodes[0].params as ReturnType<typeof defaultOscParams>
       expect(params.steps).toHaveLength(count)
       expect(params.steps.map((s) => s.note)).toEqual(steps.map((s) => s.note))
       expect(params.steps.map((s) => s.active)).toEqual(steps.map((s) => s.active))
@@ -186,15 +186,17 @@ describe('patch code', () => {
     expect(long - short).toBeLessThan(30)
   })
 
-  it('still reads version 1 codes, which had no sequence length', () => {
-    // Generated before lengths were selectable. It has to keep decoding to four steps.
-    const V1 = 'EyQQSwCFGCAUIMkyBAUPCx9z7_5PJ5QAIZJkCAoeF_8f5v1-dIBoAEMgyBAUPCZ9P5n0fAxZwA'
-    const decoded = decodePatch(V1)
-    expect(decoded).not.toBeNull()
-    expect(decoded!.nodes).toHaveLength(4)
-    for (const node of decoded!.nodes.filter((n) => n.type === 'osc4')) {
-      expect((node.params as ReturnType<typeof defaultOsc4Params>).steps).toHaveLength(4)
-    }
+  it('rejects a code from a different format version', () => {
+    // The version nibble leads the stream, so flipping it is enough to make the code foreign.
+    const bytes = Uint8Array.from(
+      atob(encodePatch(DEMO).replace(/-/g, '+').replace(/_/g, '/')),
+      (c) => c.charCodeAt(0),
+    )
+    bytes[0] = (bytes[0] & 0x0f) | 0x90
+    let binary = ''
+    for (const b of bytes) binary += String.fromCharCode(b)
+    const foreign = btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+    expect(decodePatch(foreign)).toBeNull()
   })
 
   it('returns null instead of throwing on junk', () => {

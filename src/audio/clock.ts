@@ -14,11 +14,6 @@ export function stepDuration(bpm: number, division: Division): number {
   return (60 / bpm) * DIVISION_BEATS[division]
 }
 
-/** Length of one 4/4 bar in seconds. */
-export function barDuration(bpm: number): number {
-  return (60 / bpm) * 4
-}
-
 export function midiToFreq(note: number): number {
   return 440 * Math.pow(2, (note - 69) / 12)
 }

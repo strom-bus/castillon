@@ -10,7 +10,7 @@ import {
 } from '@xyflow/react'
 import { create } from 'zustand'
 import { getDefinition, normaliseStepCount, resizeSteps } from '../nodes/registry'
-import type { DelayParams, EdgeKind, NodeParams, Osc4Params, Patch, Step } from '../types/patch'
+import type { DelayParams, EdgeKind, NodeParams, OscParams, Patch, Step } from '../types/patch'
 import { decodePatch } from './patchCode'
 
 export type FlowNodeData = { params: NodeParams }
@@ -35,7 +35,7 @@ interface PatchState {
   addNode(type: string, position: { x: number; y: number }): void
   removeEdge(id: string): void
   select(id: string | null): void
-  updateParams(id: string, partial: Partial<Osc4Params & DelayParams>): void
+  updateParams(id: string, partial: Partial<OscParams & DelayParams>): void
   updateStep(id: string, index: number, partial: Partial<Step>): void
   setStepCount(id: string, count: number): void
   setBpm(bpm: number): void
@@ -43,7 +43,6 @@ interface PatchState {
   setMasterGain(gain: number): void
   loadPatch(patch: Patch): void
   resetPatch(): void
-  clear(): void
 }
 
 function makeNode(type: string, position: { x: number; y: number }, id = newId(type)): FlowNode {
@@ -63,7 +62,7 @@ function makeNode(type: string, position: { x: number; y: number }, id = newId(t
  * To change it, build the patch in the app, copy the PATCH CODE field and paste it here.
  */
 const INITIAL_PATCH_CODE =
-  'KMQgJRSYIBQqyXQEBQ8GZ-r731PJ5QAOZJnwVpqjy_H_X9fnSAaABbIMgQFDwZn0_mfR9QQFDAQyPEBdwF2SZAgKHg2Pgfp_B4sgIxMkBFyZJlrAoeDY_B9_7HgxRbkoO4A'
+  'GMQgJRSYIBQqyXQEBQ8GZ-r731PJ5QAOZJnwVpqjy_H_X9fnSAaABbIMgQFDwZn0_mfR9QQFDAQyPEBdwF2SZAgKHg2Pgfp_B4sgIxMkBFyZJlrAoeDY_B9_7HgxRbkoO4A'
 
 /** Store shape of a patch. Shared by the initial state, RESET and loading a code. */
 function fromPatch(patch: Patch): {
@@ -140,7 +139,7 @@ export const usePatchStore = create<PatchState>((set, get) => ({
     set({
       nodes: get().nodes.map((n) =>
         n.id === id
-          ? { ...n, data: { params: { ...(n.data.params as Osc4Params), ...partial } } }
+          ? { ...n, data: { params: { ...(n.data.params as OscParams), ...partial } } }
           : n,
       ),
     })
@@ -150,7 +149,7 @@ export const usePatchStore = create<PatchState>((set, get) => ({
     set({
       nodes: get().nodes.map((n) => {
         if (n.id !== id) return n
-        const params = n.data.params as Osc4Params
+        const params = n.data.params as OscParams
         const steps = params.steps.map((s, i) => (i === index ? { ...s, ...partial } : s))
         return { ...n, data: { params: { ...params, steps } } }
       }),
@@ -161,7 +160,7 @@ export const usePatchStore = create<PatchState>((set, get) => ({
     set({
       nodes: get().nodes.map((n) => {
         if (n.id !== id) return n
-        const params = n.data.params as Osc4Params
+        const params = n.data.params as OscParams
         return {
           ...n,
           data: {
@@ -191,10 +190,6 @@ export const usePatchStore = create<PatchState>((set, get) => ({
   resetPatch() {
     set({ ...initialPatch(), selectedId: null })
   },
-
-  clear() {
-    set({ nodes: [], edges: [], selectedId: null })
-  },
 }))
 
 /** The only parts of the store a patch is made of. */
@@ -208,7 +203,7 @@ export function toPatch(state: PatchSnapshot = usePatchStore.getState()): Patch 
     loop: state.loop,
     nodes: state.nodes.map((n) => ({
       id: n.id,
-      type: n.type ?? 'osc4',
+      type: n.type ?? 'osc',
       position: n.position,
       params: n.data.params,
     })),

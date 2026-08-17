@@ -11,7 +11,8 @@ describe('App', () => {
   it('mounts the transport, the canvas and the starting patch', () => {
     render(<App />)
 
-    expect(screen.getByText('CASTILLÓN')).toBeDefined()
+    expect(screen.getByText('Castill_ON')).toBeDefined()
+    expect(screen.getByText('COLMENA')).toBeDefined()
     expect(screen.getByText('▶ PLAY')).toBeDefined()
 
     // The starting patch: one Start and three oscillators.

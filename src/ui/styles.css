@@ -15,6 +15,10 @@
 /* ---------- Transport ---------- */
 
 .titlebar {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
   padding: 14px 16px 12px;
   border-bottom: 1px solid var(--border);
   background: var(--surface);
@@ -24,8 +28,15 @@
   margin: 0;
   font-size: 20px;
   font-weight: 700;
-  letter-spacing: 0.42em;
+  letter-spacing: 0.3em;
   color: var(--text);
+}
+
+.brand-alt {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.3em;
+  color: var(--muted);
 }
 
 .transport {

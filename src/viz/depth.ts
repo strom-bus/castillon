@@ -1,7 +1,7 @@
 import { createContext, useContext } from 'react'
 
 /**
- * Cascade colouring: green at the source, red at the deepest branch.
+ * Cascade colouring: fluorescent green at the source, hot orange at the deepest branch.
  *
  * Depth is structural, not runtime: a breadth-first walk from the Start nodes. That keeps the
  * colour stable between passes instead of flickering, and lets the patch read as a map even
@@ -75,13 +75,53 @@ export function sameDepths(a: DepthInfo, b: DepthInfo): boolean {
   return true
 }
 
+interface Stop {
+  at: number
+  h: number
+  s: number
+  l: number
+}
+
 /**
- * Continuous position along the cascade → colour. `t` runs 0 (source) to 1 (deepest),
- * sweeping hue from green through yellow and orange to red.
+ * Fluorescent marker ramp: the greens, highlighter yellow-greens and hot oranges of the
+ * folk-art reference.
+ *
+ * It is a multi-stop ramp rather than a straight sweep between two endpoints because a plain
+ * hue interpolation at fixed lightness goes muddy through the yellows — yellow needs to sit
+ * lighter and orange more saturated to read as fluorescent against black.
+ */
+const FLUO_RAMP: Stop[] = [
+  { at: 0, h: 148, s: 82, l: 44 }, // deep fluo green
+  { at: 0.28, h: 104, s: 86, l: 47 }, // green going chartreuse
+  { at: 0.52, h: 68, s: 92, l: 53 }, // highlighter yellow-green
+  { at: 0.76, h: 38, s: 100, l: 55 }, // fluo amber
+  { at: 1, h: 14, s: 100, l: 56 }, // hot fluo orange
+]
+
+/**
+ * Continuous position along the cascade → colour. `t` runs 0 (source) to 1 (deepest).
  */
 export function colorAt(t: number): string {
   const clamped = Math.min(1, Math.max(0, t))
-  return `hsl(${(145 - 145 * clamped).toFixed(1)} 72% 55%)`
+
+  let lower = FLUO_RAMP[0]
+  let upper = FLUO_RAMP[FLUO_RAMP.length - 1]
+  for (let i = 0; i < FLUO_RAMP.length - 1; i++) {
+    if (clamped >= FLUO_RAMP[i].at && clamped <= FLUO_RAMP[i + 1].at) {
+      lower = FLUO_RAMP[i]
+      upper = FLUO_RAMP[i + 1]
+      break
+    }
+  }
+
+  const span = upper.at - lower.at
+  const k = span === 0 ? 0 : (clamped - lower.at) / span
+  const mix = (a: number, b: number) => a + (b - a) * k
+
+  const h = mix(lower.h, upper.h).toFixed(1)
+  const s = mix(lower.s, upper.s).toFixed(1)
+  const l = mix(lower.l, upper.l).toFixed(1)
+  return `hsl(${h} ${s}% ${l}%)`
 }
 
 /** Kept for the depth scale legend and for tests. */

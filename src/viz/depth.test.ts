@@ -67,26 +67,54 @@ describe('computeDepths', () => {
   })
 })
 
-describe('depthColor', () => {
-  it('starts green and ends red', () => {
-    expect(depthColor(0, 4)).toBe('hsl(145.0 72% 55%)')
-    expect(depthColor(4, 4)).toBe('hsl(0.0 72% 55%)')
+/** Pulls the three numbers back out of an `hsl(h s% l%)` string. */
+function parse(color: string): { h: number; s: number; l: number } {
+  const [h, s, l] = color
+    .replace('hsl(', '')
+    .replace(')', '')
+    .replace(/%/g, '')
+    .split(' ')
+    .map(Number)
+  return { h, s, l }
+}
+
+describe('the fluorescent ramp', () => {
+  it('starts fluo green and ends hot orange', () => {
+    expect(depthColor(0, 4)).toBe('hsl(148.0 82.0% 44.0%)')
+    expect(depthColor(4, 4)).toBe('hsl(14.0 100.0% 56.0%)')
   })
 
-  it('passes through yellow-green halfway', () => {
-    expect(depthColor(2, 4)).toBe('hsl(72.5 72% 55%)')
+  it('a single-level graph stays at the green end', () => {
+    expect(depthColor(0, 0)).toBe(colorAt(0))
   })
 
-  it('a single-level graph stays green', () => {
-    expect(depthColor(0, 0)).toBe('hsl(145.0 72% 55%)')
+  it('marches through the hues without ever going back', () => {
+    let previous = Infinity
+    for (let i = 0; i <= 40; i++) {
+      const { h } = parse(colorAt(i / 40))
+      expect(h).toBeLessThanOrEqual(previous)
+      previous = h
+    }
+  })
+
+  it('stays saturated and bright enough to read as fluorescent on black', () => {
+    for (let i = 0; i <= 20; i++) {
+      const { s, l } = parse(colorAt(i / 20))
+      expect(s).toBeGreaterThanOrEqual(80)
+      expect(l).toBeGreaterThanOrEqual(42)
+      expect(l).toBeLessThanOrEqual(60)
+    }
+  })
+
+  it('lifts lightness through the yellows, which is why the ramp has middle stops', () => {
+    // A plain two-endpoint sweep at fixed lightness goes muddy here.
+    expect(parse(colorAt(0.52)).l).toBeGreaterThan(parse(colorAt(0)).l)
   })
 
   it('sweeps continuously, not one flat colour per level', () => {
     // A node covers the first part of its level and its cable the rest, so the hue keeps
     // moving between whole depths instead of stepping.
-    const quarter = colorAt(0.25)
-    const third = colorAt(0.3)
-    expect(quarter).not.toBe(third)
+    expect(colorAt(0.25)).not.toBe(colorAt(0.3))
     expect(colorAt(-1)).toBe(colorAt(0))
     expect(colorAt(9)).toBe(colorAt(1))
   })

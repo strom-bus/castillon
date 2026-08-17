@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { MAX_VOICES } from '../audio/engine'
 import { engine, play, stop } from '../audio/runtime'
-import { exportPatch, importPatch } from '../state/persistence'
-import { toPatch, usePatchStore } from '../state/patchStore'
+import { usePatchStore } from '../state/patchStore'
+import { PatchCode } from './PatchCode'
 
 /** Voice counter: makes the budget degradation visible (PLAN.md §2.2). */
 function VoiceMeter({ playing }: { playing: boolean }) {
@@ -46,7 +46,6 @@ export function Transport() {
   const setBpm = usePatchStore((s) => s.setBpm)
   const setLoop = usePatchStore((s) => s.setLoop)
   const setMasterGain = usePatchStore((s) => s.setMasterGain)
-  const loadPatch = usePatchStore((s) => s.loadPatch)
   const resetPatch = usePatchStore((s) => s.resetPatch)
 
   useEffect(() => {
@@ -110,19 +109,7 @@ export function Transport() {
       >
         RESET
       </button>
-      <button type="button" className="btn" onClick={() => exportPatch(toPatch())}>
-        EXPORT
-      </button>
-      <button
-        type="button"
-        className="btn"
-        onClick={async () => {
-          const patch = await importPatch()
-          if (patch) loadPatch(patch)
-        }}
-      >
-        IMPORT
-      </button>
+      <PatchCode />
     </div>
   )
 }

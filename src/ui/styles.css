@@ -157,6 +157,42 @@ input[type='range'] {
   color: var(--muted);
 }
 
+.patch-code {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1 1 260px;
+  max-width: 460px;
+}
+
+.patch-code-label {
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.patch-code input {
+  flex: 1;
+  min-width: 0;
+  background: var(--surface-raised);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  padding: 5px 6px;
+  font: inherit;
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+}
+
+.patch-code input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.patch-code input.invalid {
+  border-color: #ff531f;
+  color: #ff531f;
+}
+
 .meter-bar {
   width: 72px;
   height: 8px;

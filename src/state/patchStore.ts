@@ -182,8 +182,11 @@ export const usePatchStore = create<PatchState>((set, get) => ({
   },
 }))
 
-/** Serialisable view of the store: what the scheduler and persistence consume. */
-export function toPatch(state: PatchState = usePatchStore.getState()): Patch {
+/** The only parts of the store a patch is made of. */
+export type PatchSnapshot = Pick<PatchState, 'bpm' | 'loop' | 'nodes' | 'edges'>
+
+/** Serialisable view of the store: what the scheduler, the patch code and autosave consume. */
+export function toPatch(state: PatchSnapshot = usePatchStore.getState()): Patch {
   return {
     version: 1,
     bpm: state.bpm,

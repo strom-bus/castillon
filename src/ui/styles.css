@@ -360,6 +360,9 @@ input[type='range'] {
 
 .steps {
   display: flex;
+  /* Centred, so a 2-step node does not leave its bars hugging one edge of a node whose width
+     comes from the header rather than from the bars. */
+  justify-content: center;
   gap: 6px;
   padding: 8px;
 }
@@ -370,24 +373,6 @@ input[type='range'] {
   align-items: center;
   gap: 4px;
   width: 26px;
-}
-
-/* Longer sequences get narrower bars, so a 16-step node stays a sane width. */
-.steps-8 .step {
-  width: 18px;
-}
-
-.steps-16 .step {
-  width: 11px;
-}
-
-.steps-16 {
-  gap: 4px;
-}
-
-.steps-16 .step-toggle {
-  width: 8px;
-  height: 8px;
 }
 
 .step-track {

@@ -158,12 +158,18 @@ export function Inspector() {
   if (!node) {
     return (
       <aside className="inspector">
+        <p className="inspector-empty">Select a node to edit it.</p>
         <p className="inspector-empty">
-          Select a node to edit it.
-          <br />
-          <br />
-          Drag vertically on a bar to tune that step; the square underneath mutes it. Drag from one
-          port to another to connect nodes.
+          <strong>Top and bottom ports carry triggers.</strong> Ignite, Osc and Delay wire into each
+          other that way, and the cascade runs downward.
+        </p>
+        <p className="inspector-empty">
+          <strong>Side ports carry audio.</strong> An oscillator's side feeds an FX node. Several
+          effects can share one oscillator, and one effect can take several.
+        </p>
+        <p className="inspector-empty">
+          Drag vertically on a bar to tune a step; the square underneath mutes it. Click a cable to
+          remove it.
         </p>
       </aside>
     )

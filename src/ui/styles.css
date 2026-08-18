@@ -659,3 +659,12 @@ input[type='range'] {
   color: var(--muted);
   font-weight: 400;
 }
+
+.inspector-empty + .inspector-empty {
+  margin-top: 12px;
+}
+
+.inspector-empty strong {
+  color: var(--text);
+  font-weight: 400;
+}

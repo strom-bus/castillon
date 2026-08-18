@@ -32,6 +32,9 @@ parallel into the master bus. Only event cables are drawn today; explicit audio 
   it glitches. The transport shows the count.
 - **Whole-cascade loop.** When every branch has drained, the cascade fires again. Each pass lasts
   as long as its longest branch, so the cycle breathes rather than holding a fixed pulse.
+- **An FX node**, _in progress._ Effects attach to an oscillator's side ports as sends: several on
+  one oscillator, or one shared by several. The routing is built and tested; so far the only effect
+  behind the dropdown is a gain stage, with reverb, drive, echo, filter and chorus to come.
 - **Patch codes.** The entire patch packs into one short URL-safe string you can copy and paste.
   Eight nodes come to about 150 characters, against roughly 2700 as JSON.
 
@@ -79,11 +82,10 @@ src/
 
 ## Licence
 
-**GNU AGPL-3.0-only.** Copyright © 2026 Wilhelm Schütze.
+Licensed under the [GNU Affero General Public License v3.0](LICENSE).
 
-You may use, study, modify and redistribute this, and the copyright notice has to travel with it.
-The one obligation worth spelling out, because it is the whole reason for choosing this licence over
-a permissive one: **if you run a modified version of this as a network service, you have to offer
-its source to the people using it** (AGPL §13). A hosted fork cannot be closed.
+Copyright © 2026 Wilhelm Schütze.
 
-The deployed app links to this repository for exactly that reason.
+As with any AGPL project, if you run a modified version as a network service you need to make that
+version's source available to the people using it. The deployed app links back here for that
+reason.

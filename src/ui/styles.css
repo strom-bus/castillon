@@ -653,3 +653,9 @@ input[type='range'] {
   color: var(--muted);
   text-decoration: underline;
 }
+
+/* Dimmer than the name: it identifies the node without competing with what the node is. */
+.node-ordinal {
+  color: var(--muted);
+  font-weight: 400;
+}

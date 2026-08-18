@@ -625,6 +625,15 @@ input[type='range'] {
   stroke: var(--muted);
   stroke-width: 2.5;
   opacity: 0.55;
+  transition:
+    stroke 90ms linear,
+    opacity 90ms linear;
+}
+
+/* Brightens while its oscillator sounds, but never flows: see SignalEdge. */
+.edge-signal.active {
+  stroke: var(--text);
+  opacity: 1;
 }
 
 .edge-hit:hover ~ .edge-signal {

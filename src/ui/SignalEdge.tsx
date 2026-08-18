@@ -1,13 +1,15 @@
 import { getBezierPath, type EdgeProps } from '@xyflow/react'
+import { useNodeActivity } from '../viz/useActivity'
 
 /**
- * An audio cable. Static and grey, unlike the event cables.
+ * An audio cable. Grey while idle, white while its oscillator sounds.
  *
- * It carries no travelling pulse on purpose: nothing discrete happens on it. Audio is continuous,
- * so animating it would be saying something false about what it carries — and the contrast is what
- * makes the two graphs legible on one canvas.
+ * It brightens but does not flow, and that distinction is the point: something is passing through
+ * it, so it should not look dead — but nothing *discrete* is passing, so a travelling pulse would
+ * say something false about what it carries. Event cables flow; audio cables glow.
  */
 export function SignalEdge({
+  source,
   sourceX,
   sourceY,
   targetX,
@@ -15,6 +17,8 @@ export function SignalEdge({
   sourcePosition,
   targetPosition,
 }: EdgeProps) {
+  // Keyed off the oscillator feeding it, which is what is actually putting signal on the cable.
+  const { pulsing: live } = useNodeActivity(source)
   const [path] = getBezierPath({
     sourceX,
     sourceY,
@@ -29,7 +33,7 @@ export function SignalEdge({
       <path d={path} className="edge-hit" fill="none">
         <title>Click to remove</title>
       </path>
-      <path d={path} className="edge-signal" fill="none" />
+      <path d={path} className={`edge-signal${live ? ' active' : ''}`} fill="none" />
     </>
   )
 }

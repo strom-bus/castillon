@@ -540,16 +540,58 @@ input[type='range'] {
 
 /* ---------- FX ---------- */
 
-/* White and grey, and not for want of a colour: the cascade's fluorescent ramp means depth, so
-   staying out of it is what marks an effect as sitting outside the cascade. */
+/* White, black and grey, and not for want of a colour: the fluorescent ramp means cascade depth,
+   so staying out of it is what marks an effect as sitting outside the cascade.
+   The three states are told apart by weight instead — dim, mid, bright. */
 .node-fx {
   --accent: var(--text);
-  --depth-top: var(--border-strong);
-  --depth-bottom: var(--border-strong);
+  transition:
+    border-color 120ms linear,
+    background-color 120ms linear;
 }
 
-.node-fx.pulsing {
-  border-image: linear-gradient(180deg, var(--text), var(--muted)) 1;
+/* Nothing attached: inert. Nothing is reaching it, and it should not look like it is working. */
+.node-fx.idle {
+  border-image: none;
+  border: 1px dashed var(--border);
+  background: var(--bg);
+}
+
+.node-fx.idle .node-title,
+.node-fx.idle .node-meta {
+  color: var(--muted);
+}
+
+.node-fx.idle .fx-body select {
+  color: var(--muted);
+  border-color: var(--border);
+}
+
+/* Attached and waiting: solid, mid grey. Ready, but nothing is passing through yet. */
+.node-fx.wired {
+  border-image: none;
+  border: 1px solid var(--muted);
+  background: var(--surface);
+}
+
+.node-fx.wired .node-title {
+  color: var(--text);
+}
+
+/* Passing signal. */
+.node-fx.active {
+  border-image: none;
+  border: 1px solid var(--text);
+  background: var(--surface-raised);
+}
+
+.node-fx.active .node-title {
+  color: var(--text);
+}
+
+.node-fx.selected {
+  border-image: none;
+  border: 1px solid var(--text);
 }
 
 .fx-body {

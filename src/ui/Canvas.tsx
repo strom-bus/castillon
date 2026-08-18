@@ -88,6 +88,10 @@ function CanvasInner() {
           onPaneClick={() => select(null)}
           defaultEdgeOptions={{ type: 'cascade' }}
           proOptions={{ hideAttribution: true }}
+          // Both keys: Supr and Backspace sit in different places on different keyboards, and
+          // React Flow only listens for one of them by default. It ignores either while a text
+          // field has focus, so typing in the patch code is unaffected.
+          deleteKeyCode={['Delete', 'Backspace']}
           minZoom={0.2}
           maxZoom={2}
           fitView

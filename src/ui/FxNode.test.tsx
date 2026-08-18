@@ -1,3 +1,4 @@
+import { ReactFlowProvider } from '@xyflow/react'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { EFFECTS } from '../audio/effects'
@@ -6,6 +7,7 @@ import { canConnect } from '../state/connections'
 import { toPatch, usePatchStore } from '../state/patchStore'
 import type { FxParams, OscParams } from '../types/patch'
 import { Inspector } from './Inspector'
+import { FxNode } from './nodes'
 
 function addFx(): string {
   usePatchStore.getState().addNode('fx', { x: 700, y: 200 })
@@ -76,6 +78,61 @@ describe('wiring an effect to an oscillator', () => {
     wire(b.id, fx)
 
     expect(graphOf(toPatch()).sends.size).toBe(2)
+  })
+})
+
+describe('the three states of an FX node', () => {
+  function renderFx(id: string) {
+    const { container } = render(
+      <ReactFlowProvider>
+        <FxNode
+          id={id}
+          data={usePatchStore.getState().nodes.find((n) => n.id === id)!.data}
+          type="fx"
+          selected={false}
+          dragging={false}
+          draggable
+          selectable
+          deletable
+          zIndex={0}
+          isConnectable
+          positionAbsoluteX={0}
+          positionAbsoluteY={0}
+        />
+      </ReactFlowProvider>,
+    )
+    return container.querySelector('.node-fx') as HTMLElement
+  }
+
+  it('reads as idle with nothing attached', () => {
+    const fx = addFx()
+    expect(renderFx(fx).className).toContain('idle')
+  })
+
+  it('reads as wired once an oscillator reaches it', () => {
+    const fx = addFx()
+    wire(firstOsc(), fx)
+    expect(renderFx(fx).className).toContain('wired')
+  })
+
+  it('goes back to idle when the cable is removed', () => {
+    const fx = addFx()
+    wire(firstOsc(), fx)
+    const edge = usePatchStore.getState().edges.at(-1)!
+    usePatchStore.getState().removeEdge(edge.id)
+    expect(renderFx(fx).className).toContain('idle')
+  })
+
+  it('does not count an event cable as being wired', () => {
+    // Nothing can draw one to an FX node, but the state must depend on audio and not on any cable.
+    const fx = addFx()
+    usePatchStore.setState((s) => ({
+      edges: [
+        ...s.edges,
+        { id: 'bogus', source: firstOsc(), target: fx, type: 'cascade', data: { kind: 'event' } },
+      ],
+    }))
+    expect(renderFx(fx).className).toContain('idle')
   })
 })
 

@@ -86,10 +86,21 @@ export function OscNode({ id, data, selected }: NodeProps<FlowNode>) {
 export function FxNode({ id, data, selected }: NodeProps<FlowNode>) {
   const { pulsing } = useNodeActivity(id)
   const updateParams = usePatchStore((s) => s.updateParams)
+  // A boolean rather than the edge list, so this only repaints when the answer actually flips.
+  const wired = usePatchStore((s) =>
+    s.edges.some((e) => e.target === id && e.data?.kind === 'audio'),
+  )
   const params = data.params as FxParams
 
+  // Three states, and each has to be readable on its own: nothing attached, attached and waiting,
+  // and passing signal. Told apart by weight in white and grey rather than by hue, since colour
+  // here means cascade depth and an effect is not in the cascade.
+  const state = pulsing ? ' active' : wired ? ' wired' : ' idle'
+
   return (
-    <div className={`node node-fx${pulsing ? ' pulsing' : ''}${selected ? ' selected' : ''}`}>
+    <div
+      className={`node node-fx${state}${pulsing ? ' pulsing' : ''}${selected ? ' selected' : ''}`}
+    >
       <Handle type="target" id={AUDIO_LEFT} position={Position.Left} className="port port-audio" />
       <Handle
         type="target"

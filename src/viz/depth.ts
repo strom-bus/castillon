@@ -35,18 +35,24 @@ interface NodeLike {
 interface EdgeLike {
   source: string
   target: string
+  data?: { kind?: string }
 }
 
 export function computeDepths(nodes: NodeLike[], edges: EdgeLike[]): DepthInfo {
   const children = new Map<string, string[]>()
   for (const edge of edges) {
+    // Event cables only. An audio cable into an effect would otherwise be read as another level
+    // of cascade, which would count towards `max` and compress the whole ramp.
+    if (edge.data?.kind === 'audio') continue
     const list = children.get(edge.source)
     if (list) list.push(edge.target)
     else children.set(edge.source, [edge.target])
   }
 
   const depths = new Map<string, number>()
-  let queue = nodes.filter((n) => n.type === 'start').map((n) => n.id)
+  // An Ignite with nothing wired below it is seeded as no root at all, so it falls out of the map
+  // and reads as disconnected — the same way an orphaned oscillator already does.
+  let queue = nodes.filter((n) => n.type === 'start' && children.has(n.id)).map((n) => n.id)
   for (const id of queue) depths.set(id, 0)
 
   let depth = 0

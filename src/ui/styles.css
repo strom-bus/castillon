@@ -550,11 +550,12 @@ input[type='range'] {
     background-color 120ms linear;
 }
 
-/* Nothing attached: inert. Nothing is reaching it, and it should not look like it is working. */
+/* Three tones, brightening as it comes to life: the same neutral edge every resting node has,
+   then a lighter grey once something reaches it, then white while signal passes. */
 .node-fx.idle {
   border-image: none;
-  border: 1px dashed var(--border);
-  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
 }
 
 .node-fx.idle .node-title,
@@ -567,7 +568,6 @@ input[type='range'] {
   border-color: var(--border);
 }
 
-/* Attached and waiting: solid, mid grey. Ready, but nothing is passing through yet. */
 .node-fx.wired {
   border-image: none;
   border: 1px solid var(--muted);
@@ -578,7 +578,6 @@ input[type='range'] {
   color: var(--text);
 }
 
-/* Passing signal. */
 .node-fx.active {
   border-image: none;
   border: 1px solid var(--text);
@@ -609,10 +608,11 @@ input[type='range'] {
   letter-spacing: 0.06em;
 }
 
-/* Audio ports read as a different kind of thing than event ports: wider, flatter, neutral. */
+/* Same shape and size as the event ports. They are told apart by their neutral edge and by which
+   side of the node they sit on, which is enough — audio runs across, events run down. */
 .port-audio {
-  width: 7px;
-  height: 13px;
+  width: 9px;
+  height: 9px;
   background: var(--surface-raised);
   border: 1px solid var(--muted);
 }

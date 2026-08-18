@@ -79,7 +79,7 @@ src/
 
 ## Licence
 
-**GNU AGPL-3.0-only.** Copyright © 2026 COLMENA.
+**GNU AGPL-3.0-only.** Copyright © 2026 Wilhelm Schütze.
 
 You may use, study, modify and redistribute this, and the copyright notice has to travel with it.
 The one obligation worth spelling out, because it is the whole reason for choosing this licence over

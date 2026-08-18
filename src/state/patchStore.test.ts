@@ -86,6 +86,50 @@ describe('loading a patch the app did not write', () => {
   })
 })
 
+describe('ports on a loaded patch', () => {
+  // A patch code stores which nodes a cable joins but not which port. An oscillator has three
+  // source handles, so an unnamed cable would bind to whichever React Flow found first — which is
+  // how event cables ended up leaving through the audio ports.
+  it('routes event cables through the event ports', () => {
+    for (const edge of usePatchStore.getState().edges) {
+      if (edge.data?.kind !== 'event') continue
+      expect(edge.sourceHandle).toBe('out')
+      expect(edge.targetHandle).toBe('in')
+    }
+  })
+
+  it('names a handle on every cable, so none is left for React Flow to guess', () => {
+    for (const edge of usePatchStore.getState().edges) {
+      expect(edge.sourceHandle).toBeTruthy()
+      expect(edge.targetHandle).toBeTruthy()
+    }
+  })
+
+  it('attaches an audio cable on the side the effect already sits on', () => {
+    const base = { version: 1 as const, bpm: 120, loop: true }
+    const osc = { id: 'a', type: 'osc', position: { x: 200, y: 0 }, params: {} }
+    const cable = { id: 'x', kind: 'audio' as const, source: 'a', target: 'f' }
+
+    usePatchStore.getState().loadPatch({
+      ...base,
+      nodes: [osc, { id: 'f', type: 'fx', position: { x: 600, y: 0 }, params: {} }],
+      edges: [cable],
+    })
+    const toTheRight = usePatchStore.getState().edges[0]
+    expect(toTheRight.sourceHandle).toBe('audio-r')
+    expect(toTheRight.targetHandle).toBe('audio-l')
+
+    usePatchStore.getState().loadPatch({
+      ...base,
+      nodes: [osc, { id: 'f', type: 'fx', position: { x: -300, y: 0 }, params: {} }],
+      edges: [cable],
+    })
+    const toTheLeft = usePatchStore.getState().edges[0]
+    expect(toTheLeft.sourceHandle).toBe('audio-l')
+    expect(toTheLeft.targetHandle).toBe('audio-r')
+  })
+})
+
 describe('connections', () => {
   it('removes a cable by id', () => {
     const { edges, removeEdge } = usePatchStore.getState()

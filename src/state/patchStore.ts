@@ -20,7 +20,14 @@ import type {
   Patch,
   Step,
 } from '../types/patch'
-import { canConnect, connectionKind } from './connections'
+import {
+  AUDIO_LEFT,
+  AUDIO_RIGHT,
+  canConnect,
+  connectionKind,
+  EVENT_IN,
+  EVENT_OUT,
+} from './connections'
 import { decodePatch } from './patchCode'
 
 export type FlowNodeData = { params: NodeParams }
@@ -110,19 +117,34 @@ function fromPatch(patch: Patch): {
     })
   }
 
+  const positionOf = new Map(nodes.map((n) => [n.id, n.position]))
+
   return {
     bpm: patch.bpm,
     loop: patch.loop,
     nodes,
     edges: patch.edges
       .filter((e) => kept.has(e.source) && kept.has(e.target))
-      .map((e) => ({
-        id: e.id,
-        source: e.source,
-        target: e.target,
-        type: e.kind === 'audio' ? 'signal' : 'cascade',
-        data: { kind: e.kind },
-      })),
+      .map((e) => {
+        // Handles have to be named explicitly. A patch code stores which nodes a cable joins but
+        // not which port, and an oscillator has three source handles — so React Flow would bind
+        // an unnamed cable to whichever it found first, which is how event cables started coming
+        // out of the audio ports.
+        const audio = e.kind === 'audio'
+        // Which side is cosmetic, so it is chosen from the layout rather than stored: the effect
+        // attaches on the side it already sits on, and the cable stays short.
+        const rightwards = (positionOf.get(e.target)?.x ?? 0) >= (positionOf.get(e.source)?.x ?? 0)
+
+        return {
+          id: e.id,
+          source: e.source,
+          target: e.target,
+          sourceHandle: audio ? (rightwards ? AUDIO_RIGHT : AUDIO_LEFT) : EVENT_OUT,
+          targetHandle: audio ? (rightwards ? AUDIO_LEFT : AUDIO_RIGHT) : EVENT_IN,
+          type: audio ? 'signal' : 'cascade',
+          data: { kind: e.kind },
+        }
+      }),
   }
 }
 

@@ -137,6 +137,20 @@ describe('the three states of an FX node', () => {
 })
 
 describe('the FX inspector', () => {
+  it('shows the same number the node shows, so the two agree', () => {
+    const first = addFx()
+    const second = addFx()
+
+    usePatchStore.getState().select(first)
+    const one = render(<Inspector />)
+    expect(one.container.querySelector('.inspector-title')?.textContent?.trim()).toBe('FX 01')
+    one.unmount()
+
+    usePatchStore.getState().select(second)
+    const two = render(<Inspector />)
+    expect(two.container.querySelector('.inspector-title')?.textContent?.trim()).toBe('FX 02')
+  })
+
   it('offers only effects that are actually built', () => {
     // EffectKind names every effect planned; EFFECTS holds the ones with a chain behind them.
     // Offering one without the other would put a dead option in front of the user.

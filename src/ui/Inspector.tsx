@@ -11,6 +11,7 @@ import {
 } from '../audio/filter'
 import { MAX_PULSE_WIDTH, MIN_PULSE_WIDTH, WAVEFORM_NAMES, WAVEFORMS } from '../audio/waveforms'
 import { DEFAULT_DELAY_MS, DEFAULT_STEP_COUNT, STEP_COUNTS } from '../nodes/registry'
+import { formatOrdinal, nodeOrdinal } from '../state/ordinals'
 import { usePatchStore } from '../state/patchStore'
 import { NumberInput } from './NumberInput'
 import {
@@ -146,6 +147,11 @@ function CutoffSlider({ value, onChange }: { value: number; onChange: (hz: numbe
 
 export function Inspector() {
   const node = usePatchStore((s) => s.nodes.find((n) => n.id === s.selectedId))
+  // The same number the node shows on the canvas, so the panel and the node agree on which one
+  // you are looking at.
+  const ordinal = usePatchStore((s) =>
+    s.selectedId ? formatOrdinal(nodeOrdinal(s.nodes, s.selectedId)) : '',
+  )
   const updateParams = usePatchStore((s) => s.updateParams)
   const setStepCount = usePatchStore((s) => s.setStepCount)
 
@@ -166,7 +172,9 @@ export function Inspector() {
   if (node.type === 'start') {
     return (
       <aside className="inspector">
-        <h2 className="inspector-title">IGNITE</h2>
+        <h2 className="inspector-title">
+          IGNITE <span className="node-ordinal">{ordinal}</span>
+        </h2>
         <p className="inspector-empty">
           Fires the cascade on Play. A patch can hold several: each one is an independent cascade.
         </p>
@@ -181,7 +189,9 @@ export function Inspector() {
 
     return (
       <aside className="inspector">
-        <h2 className="inspector-title">FX</h2>
+        <h2 className="inspector-title">
+          FX <span className="node-ordinal">{ordinal}</span>
+        </h2>
 
         <label className="inspector-field">
           <span className="inspector-label">Effect</span>
@@ -223,7 +233,9 @@ export function Inspector() {
     const delayParams = node.data.params as DelayParams
     return (
       <aside className="inspector">
-        <h2 className="inspector-title">DELAY</h2>
+        <h2 className="inspector-title">
+          DELAY <span className="node-ordinal">{ordinal}</span>
+        </h2>
         <TypedSlider
           label="Wait"
           value={delayParams.delayMs ?? DEFAULT_DELAY_MS}
@@ -247,7 +259,9 @@ export function Inspector() {
 
   return (
     <aside className="inspector">
-      <h2 className="inspector-title">OSC</h2>
+      <h2 className="inspector-title">
+        OSC <span className="node-ordinal">{ordinal}</span>
+      </h2>
 
       <label className="inspector-field">
         <span className="inspector-label">Waveform</span>

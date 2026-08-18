@@ -2,6 +2,7 @@ import '@xyflow/react/dist/style.css'
 import './ui/styles.css'
 
 import { useEffect } from 'react'
+import { reconcile } from './audio/runtime'
 import { loadStoredPatch, savePatch } from './state/persistence'
 import { toPatch, usePatchStore } from './state/patchStore'
 import { Canvas } from './ui/Canvas'
@@ -17,6 +18,10 @@ export default function App() {
     const stored = loadStoredPatch()
     if (stored) loadPatch(stored)
   }, [loadPatch])
+
+  // The audio graph follows the patch. Unthrottled on purpose: the reconciler diffs, so a change
+  // that is not about routing costs a couple of map builds and emits nothing.
+  useEffect(() => usePatchStore.subscribe(reconcile), [])
 
   // Debounced autosave: dragging a node fires dozens of changes per second.
   useEffect(() => {

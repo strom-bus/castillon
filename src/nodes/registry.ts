@@ -1,6 +1,6 @@
 import { midiToFreq, stepDuration } from '../audio/clock'
 import { MAX_VOICES, OVERLAP_THRESHOLD, type Engine } from '../audio/engine'
-import type { DelayParams, NodeParams, OscParams, PatchNode, Step } from '../types/patch'
+import type { DelayParams, FxParams, NodeParams, OscParams, PatchNode, Step } from '../types/patch'
 import { MAX_DELAY_MS, MIN_DELAY_MS } from '../types/patch'
 import type { ActivityBus } from '../viz/activity'
 
@@ -26,7 +26,11 @@ export interface NodeDefinition {
   /** What the palette button says. */
   label: string
   defaults(): NodeParams
-  schedule(args: ScheduleArgs): ScheduleResult
+  /**
+   * Absent for nodes that are not in the event graph. An FX node has no event ports, so nothing
+   * can trigger it and the scheduler never reaches it — it processes whatever passes through.
+   */
+  schedule?(args: ScheduleArgs): ScheduleResult
 }
 
 /** Flash length for a node with no duration of its own. */
@@ -106,6 +110,7 @@ export function defaultOscParams(): OscParams {
     attack: 4,
     release: 40,
     gate: 0.6,
+    direct: 1,
     filterType: 'off',
     cutoff: 2000,
     resonance: 1,
@@ -170,9 +175,35 @@ const osc: NodeDefinition = {
   },
 }
 
-/** Order is the palette's order. */
+export function defaultFxParams(): FxParams {
+  return {
+    effect: 'gain',
+    level: 0.8,
+    decay: 2,
+    drive: 0.4,
+    time: '1/8',
+    feedback: 0.35,
+    filterType: 'lowpass',
+    cutoff: 2000,
+    resonance: 1,
+    rate: 1.5,
+    depth: 0.4,
+  }
+}
+
+/**
+ * Audio only: it has no event ports, makes no sound of its own, and is never scheduled. What it
+ * does is decided by the effect table in audio/effects.ts, and how it is wired is decided by the
+ * router in audio/router.ts. This definition exists so the palette and the store know it is real.
+ */
+const fx: NodeDefinition = {
+  type: 'fx',
+  label: 'FX',
+  defaults: defaultFxParams,
+}
+
 /** This order is the palette's order: what a cascade needs, in the order you need it. */
-export const NODE_DEFINITIONS: NodeDefinition[] = [start, osc, delay]
+export const NODE_DEFINITIONS: NodeDefinition[] = [start, osc, fx, delay]
 
 const byType = new Map(NODE_DEFINITIONS.map((d) => [d.type, d]))
 

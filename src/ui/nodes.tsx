@@ -2,9 +2,11 @@ import { Handle, Position, type NodeProps } from '@xyflow/react'
 import type { CSSProperties } from 'react'
 import { FILTER_LABELS } from '../audio/filter'
 import { WAVEFORM_LABELS } from '../audio/waveforms'
-import type { FlowNode } from '../state/patchStore'
+import { EFFECTS } from '../audio/effects'
 import { DEFAULT_DELAY_MS } from '../nodes/registry'
-import type { DelayParams, OscParams } from '../types/patch'
+import { AUDIO_LEFT, AUDIO_RIGHT, EVENT_IN, EVENT_OUT } from '../state/connections'
+import { usePatchStore, type FlowNode } from '../state/patchStore'
+import type { DelayParams, EffectKind, FxParams, OscParams } from '../types/patch'
 import { useNodeColors, type NodeColors } from '../viz/depth'
 import { useNodeActivity } from '../viz/useActivity'
 import { StepBars } from './StepBars'
@@ -33,7 +35,7 @@ export function StartNode({ id, selected }: NodeProps<FlowNode>) {
       data-testid="start-node"
     >
       <div className="node-title">IGNITE</div>
-      <Handle type="source" position={Position.Bottom} className="port port-out" />
+      <Handle type="source" id={EVENT_OUT} position={Position.Bottom} className="port port-out" />
     </div>
   )
 }
@@ -50,7 +52,16 @@ export function OscNode({ id, data, selected }: NodeProps<FlowNode>) {
       className={`node node-osc${pulsing ? ' pulsing' : ''}${selected ? ' selected' : ''}`}
       style={depthStyle(colors)}
     >
-      <Handle type="target" position={Position.Top} className="port port-in" />
+      <Handle type="target" id={EVENT_IN} position={Position.Top} className="port port-in" />
+      {/* Audio leaves on both sides, so an effect can sit wherever there is room and the cable
+          stays short. Events run down the node, audio runs across it. */}
+      <Handle type="source" id={AUDIO_LEFT} position={Position.Left} className="port port-audio" />
+      <Handle
+        type="source"
+        id={AUDIO_RIGHT}
+        position={Position.Right}
+        className="port port-audio"
+      />
       <div className="node-header">
         <span className="node-title">OSC</span>
         <span className="node-meta">
@@ -59,7 +70,51 @@ export function OscNode({ id, data, selected }: NodeProps<FlowNode>) {
         </span>
       </div>
       <StepBars nodeId={id} steps={params.steps} currentStep={currentStep} />
-      <Handle type="source" position={Position.Bottom} className="port port-out" />
+      <Handle type="source" id={EVENT_OUT} position={Position.Bottom} className="port port-out" />
+    </div>
+  )
+}
+
+/**
+ * An effect. Its dropdown lives in the node rather than only in the inspector, so what a node does
+ * is readable without selecting it.
+ *
+ * White and grey rather than a cascade hue, and deliberately so: the colour is what says this is
+ * not part of the cascade. It has no event ports at all — nothing triggers it, it processes
+ * whatever passes through — so it lights up with whichever oscillators feed it.
+ */
+export function FxNode({ id, data, selected }: NodeProps<FlowNode>) {
+  const { pulsing } = useNodeActivity(id)
+  const updateParams = usePatchStore((s) => s.updateParams)
+  const params = data.params as FxParams
+
+  return (
+    <div className={`node node-fx${pulsing ? ' pulsing' : ''}${selected ? ' selected' : ''}`}>
+      <Handle type="target" id={AUDIO_LEFT} position={Position.Left} className="port port-audio" />
+      <Handle
+        type="target"
+        id={AUDIO_RIGHT}
+        position={Position.Right}
+        className="port port-audio"
+      />
+      <div className="node-header">
+        <span className="node-title">FX</span>
+        <span className="node-meta">{Math.round((params.level ?? 0.8) * 100)}%</span>
+      </div>
+      <div className="fx-body">
+        <select
+          className="nodrag nopan"
+          value={params.effect ?? 'gain'}
+          onPointerDown={(e) => e.stopPropagation()}
+          onChange={(e) => updateParams(id, { effect: e.target.value as EffectKind })}
+        >
+          {EFFECTS.map((effect) => (
+            <option key={effect.kind} value={effect.kind}>
+              {effect.label}
+            </option>
+          ))}
+        </select>
+      </div>
     </div>
   )
 }
@@ -75,7 +130,7 @@ export function DelayNode({ id, data, selected }: NodeProps<FlowNode>) {
       className={`node node-delay${pulsing ? ' pulsing' : ''}${selected ? ' selected' : ''}`}
       style={depthStyle(colors)}
     >
-      <Handle type="target" position={Position.Top} className="port port-in" />
+      <Handle type="target" id={EVENT_IN} position={Position.Top} className="port port-in" />
       <div className="node-header">
         <span className="node-title">DELAY</span>
         <span className="node-meta">ms</span>
@@ -89,7 +144,7 @@ export function DelayNode({ id, data, selected }: NodeProps<FlowNode>) {
           )}
         </div>
       </div>
-      <Handle type="source" position={Position.Bottom} className="port port-out" />
+      <Handle type="source" id={EVENT_OUT} position={Position.Bottom} className="port port-out" />
     </div>
   )
 }

@@ -34,5 +34,11 @@
     "vite": "^8.2.0",
     "vitest": "^4.1.10"
   },
-  "description": "Sintetizador modular por nodos con ejecución en cascada"
+  "description": "Sintetizador modular por nodos con ejecución en cascada",
+  "license": "AGPL-3.0-only",
+  "author": "COLMENA",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/strom-bus/castillon.git"
+  }
 }

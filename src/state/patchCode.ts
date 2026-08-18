@@ -1,5 +1,6 @@
 import {
   defaultDelayParams,
+  defaultFxParams,
   defaultOscParams,
   DEFAULT_STEP_COUNT,
   normaliseStepCount,
@@ -9,6 +10,11 @@ import { cutoffToSlider, MAX_RESONANCE, MIN_RESONANCE, sliderToCutoff } from '..
 import { FILTER_TYPES } from '../audio/filter'
 import {
   MAX_BPM,
+  MAX_DECAY,
+  MAX_FEEDBACK,
+  MAX_RATE,
+  MIN_DECAY,
+  MIN_RATE,
   MAX_DELAY_MS,
   MAX_NOTE,
   MIN_BPM,
@@ -16,6 +22,9 @@ import {
   MIN_NOTE,
   type DelayParams,
   type Division,
+  type EdgeKind,
+  type EffectKind,
+  type FxParams,
   type OscParams,
   type Patch,
   type PatchEdge,
@@ -38,7 +47,9 @@ import { BitReader, BitWriter } from './bits'
  */
 const CODE_VERSION = 1
 
-const NODE_TYPES = ['start', 'osc', 'delay'] as const
+const NODE_TYPES = ['start', 'osc', 'delay', 'fx'] as const
+
+const EFFECT_CODES: EffectKind[] = ['gain', 'reverb', 'drive', 'echo', 'filter', 'chorus']
 
 const WAVEFORM_CODES: Waveform[] = [
   'square',
@@ -84,6 +95,7 @@ function writeOsc(writer: BitWriter, raw: OscParams): void {
   writer.write(quantise(params.attack, 1, 1, 500), 9)
   writer.write(quantise(params.release, 1, 5, 2000), 11)
   writer.write(quantise(params.gate, 100, 5, 100), 7)
+  writer.write(quantise(params.direct, 100, 0, 100), 7)
   writer.write(Math.max(0, PROPAGATE_CODES.indexOf(params.propagateMode)), 2)
 
   writer.write(Math.max(0, FILTER_TYPES.indexOf(params.filterType)), 2)
@@ -111,6 +123,7 @@ function readOsc(reader: BitReader): OscParams {
   const attack = reader.read(9)
   const release = reader.read(11)
   const gate = reader.read(7) / 100
+  const direct = reader.read(7) / 100
   const propagateMode = PROPAGATE_CODES[reader.read(2)] ?? 'onEnd'
 
   const filterType = FILTER_TYPES[reader.read(2)] ?? 'off'
@@ -136,10 +149,46 @@ function readOsc(reader: BitReader): OscParams {
     attack,
     release,
     gate,
+    direct,
     filterType,
     cutoff,
     resonance,
     propagateMode,
+  }
+}
+
+/**
+ * Every field, whether the current effect uses it or not. A handful of bits buys a format that does
+ * not change when the next effect lands, and parameters that survive switching effect.
+ */
+function writeFx(writer: BitWriter, raw: FxParams): void {
+  const params = { ...defaultFxParams(), ...raw }
+  writer.write(Math.max(0, EFFECT_CODES.indexOf(params.effect)), 4)
+  writer.write(quantise(params.level, 100, 0, 100), 7)
+  writer.write(quantise(params.decay, 10, MIN_DECAY * 10, MAX_DECAY * 10), 7)
+  writer.write(quantise(params.drive, 100, 0, 100), 7)
+  writer.write(Math.max(0, DIVISION_CODES.indexOf(params.time)), 2)
+  writer.write(quantise(params.feedback, 100, 0, MAX_FEEDBACK * 100), 7)
+  writer.write(Math.max(0, FILTER_TYPES.indexOf(params.filterType)), 2)
+  writer.write(Math.round(cutoffToSlider(params.cutoff) * 1023), 10)
+  writer.write(quantise(params.resonance, 10, MIN_RESONANCE * 10, MAX_RESONANCE * 10), 8)
+  writer.write(quantise(params.rate, 10, MIN_RATE * 10, MAX_RATE * 10), 8)
+  writer.write(quantise(params.depth, 100, 0, 100), 7)
+}
+
+function readFx(reader: BitReader): FxParams {
+  return {
+    effect: EFFECT_CODES[reader.read(4)] ?? 'gain',
+    level: reader.read(7) / 100,
+    decay: reader.read(7) / 10,
+    drive: reader.read(7) / 100,
+    time: DIVISION_CODES[reader.read(2)] ?? '1/8',
+    feedback: reader.read(7) / 100,
+    filterType: FILTER_TYPES[reader.read(2)] ?? 'lowpass',
+    cutoff: sliderToCutoff(reader.read(10) / 1023),
+    resonance: reader.read(8) / 10,
+    rate: reader.read(8) / 10,
+    depth: reader.read(7) / 100,
   }
 }
 
@@ -160,6 +209,8 @@ export function encodePatch(patch: Patch): string {
 
     if (node.type === 'osc') {
       writeOsc(writer, node.params as OscParams)
+    } else if (node.type === 'fx') {
+      writeFx(writer, node.params as FxParams)
     } else if (node.type === 'delay') {
       const { delayMs } = { ...defaultDelayParams(), ...(node.params as DelayParams) }
       writer.write(quantise(delayMs / 10, 1, MIN_DELAY_MS / 10, MAX_DELAY_MS / 10), 9)
@@ -173,6 +224,7 @@ export function encodePatch(patch: Patch): string {
 
   const bits = indexBitsFor(nodes.length)
   for (const edge of edges) {
+    writer.write(edge.kind === 'audio' ? 1 : 0, 1)
     writer.write(indexOf.get(edge.source) as number, bits)
     writer.write(indexOf.get(edge.target) as number, bits)
   }
@@ -202,6 +254,8 @@ export function decodePatch(code: string): Patch | null {
       let params: PatchNode['params'] = {}
       if (type === 'osc') {
         params = readOsc(reader)
+      } else if (type === 'fx') {
+        params = readFx(reader)
       } else if (type === 'delay') {
         params = { delayMs: reader.read(9) * 10 }
       }
@@ -215,12 +269,13 @@ export function decodePatch(code: string): Patch | null {
     const bits = indexBitsFor(nodes.length)
     const edges: PatchEdge[] = []
     for (let i = 0; i < edgeCount; i++) {
+      const kind: EdgeKind = reader.read(1) === 1 ? 'audio' : 'event'
       const source = reader.read(bits)
       const target = reader.read(bits)
       if (source >= nodes.length || target >= nodes.length) return null
       edges.push({
         id: `e${i}`,
-        kind: 'event',
+        kind,
         source: nodes[source].id,
         target: nodes[target].id,
       })

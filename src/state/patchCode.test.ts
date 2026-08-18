@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { defaultOscParams } from '../nodes/registry'
+import { defaultFxParams, defaultOscParams } from '../nodes/registry'
 import type { Patch, PatchNode } from '../types/patch'
 import { decodePatch, encodePatch } from './patchCode'
 
@@ -223,6 +223,73 @@ describe('patch code', () => {
     for (const b of bytes) binary += String.fromCharCode(b)
     const foreign = btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
     expect(decodePatch(foreign)).toBeNull()
+  })
+
+  it('round-trips an audio cable as an audio cable', () => {
+    const patch = patchOf(
+      [osc('a'), { id: 'f', type: 'fx', position: { x: 0, y: 0 }, params: defaultFxParams() }],
+      [{ id: 'x', kind: 'audio', source: 'a', target: 'f' }],
+    )
+    const decoded = decodePatch(encodePatch(patch))!
+    expect(decoded.edges).toHaveLength(1)
+    expect(decoded.edges[0].kind).toBe('audio')
+  })
+
+  it('keeps the two cable kinds apart in one patch', () => {
+    const patch = patchOf(
+      [
+        { id: 's', type: 'start', position: { x: 0, y: 0 }, params: {} },
+        osc('a'),
+        { id: 'f', type: 'fx', position: { x: 0, y: 0 }, params: defaultFxParams() },
+      ],
+      [
+        { id: 'e', kind: 'event', source: 's', target: 'a' },
+        { id: 'x', kind: 'audio', source: 'a', target: 'f' },
+      ],
+    )
+    const decoded = decodePatch(encodePatch(patch))!
+    expect(decoded.edges.map((e) => e.kind)).toEqual(['event', 'audio'])
+  })
+
+  it('round-trips every FX parameter, including ones the current effect ignores', () => {
+    // They are all encoded on purpose: it is what stops the format changing when an effect lands.
+    const params = {
+      ...defaultFxParams(),
+      effect: 'reverb' as const,
+      level: 0.42,
+      decay: 6.3,
+      drive: 0.77,
+      time: '1/16' as const,
+      feedback: 0.9,
+      filterType: 'highpass' as const,
+      cutoff: 800,
+      resonance: 11.5,
+      rate: 7.2,
+      depth: 0.66,
+    }
+    const decoded = decodePatch(
+      encodePatch(patchOf([{ id: 'f', type: 'fx', position: { x: 0, y: 0 }, params }])),
+    )!
+    const back = decoded.nodes[0].params as typeof params
+
+    expect(back.effect).toBe('reverb')
+    expect(back.level).toBeCloseTo(0.42, 2)
+    expect(back.decay).toBeCloseTo(6.3, 1)
+    expect(back.drive).toBeCloseTo(0.77, 2)
+    expect(back.time).toBe('1/16')
+    expect(back.feedback).toBeCloseTo(0.9, 2)
+    expect(back.filterType).toBe('highpass')
+    expect(back.cutoff / 800).toBeCloseTo(1, 2)
+    expect(back.resonance).toBeCloseTo(11.5, 1)
+    expect(back.rate).toBeCloseTo(7.2, 1)
+    expect(back.depth).toBeCloseTo(0.66, 2)
+  })
+
+  it('round-trips Direct on the oscillator', () => {
+    for (const direct of [0, 0.35, 1]) {
+      const decoded = decodePatch(encodePatch(patchOf([osc('a', { direct })])))!
+      expect((decoded.nodes[0].params as { direct: number }).direct).toBeCloseTo(direct, 2)
+    }
   })
 
   it('returns null instead of throwing on junk', () => {

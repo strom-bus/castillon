@@ -76,3 +76,14 @@ src/
 ```
 
 `docs/stress-patch.txt` holds a 24-oscillator patch code for load testing.
+
+## Licence
+
+**GNU AGPL-3.0-only.** Copyright © 2026 COLMENA.
+
+You may use, study, modify and redistribute this, and the copyright notice has to travel with it.
+The one obligation worth spelling out, because it is the whole reason for choosing this licence over
+a permissive one: **if you run a modified version of this as a network service, you have to offer
+its source to the people using it** (AGPL §13). A hosted fork cannot be closed.
+
+The deployed app links to this repository for exactly that reason.

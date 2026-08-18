@@ -25,6 +25,8 @@ const EMPTY_CHAIN_DELAY = 0.25
 const MAX_EVENTS_PER_TICK = 2000
 /** How long a cable stays lit. */
 const EDGE_FLASH = 0.2
+/** Fallback flash for an effect fed by a node with no duration of its own. */
+const FX_FLASH = 0.12
 
 export interface TriggerEvent {
   nodeId: NodeId
@@ -96,18 +98,24 @@ export class CascadeScheduler {
     const patch = this.deps.getPatch()
     const nodeById = new Map<NodeId, PatchNode>(patch.nodes.map((n) => [n.id, n]))
     const edgesBySource = new Map<NodeId, { id: string; target: NodeId }[]>()
+    const fxBySource = new Map<NodeId, NodeId[]>()
     for (const edge of patch.edges) {
-      if (edge.kind !== 'event') continue
-      const list = edgesBySource.get(edge.source)
-      if (list) list.push({ id: edge.id, target: edge.target })
-      else edgesBySource.set(edge.source, [{ id: edge.id, target: edge.target }])
+      if (edge.kind === 'event') {
+        const list = edgesBySource.get(edge.source)
+        if (list) list.push({ id: edge.id, target: edge.target })
+        else edgesBySource.set(edge.source, [{ id: edge.id, target: edge.target }])
+      } else if (edge.kind === 'audio') {
+        const list = fxBySource.get(edge.source)
+        if (list) list.push(edge.target)
+        else fxBySource.set(edge.source, [edge.target])
+      }
     }
 
     let processed = 0
     while (this.queue.length > 0 && this.queue[0].time <= horizon) {
       if (++processed > MAX_EVENTS_PER_TICK) break
       const event = this.queue.shift() as TriggerEvent
-      this.process(event, patch, nodeById, edgesBySource)
+      this.process(event, patch, nodeById, edgesBySource, fxBySource)
     }
   }
 
@@ -116,14 +124,16 @@ export class CascadeScheduler {
     patch: Patch,
     nodeById: Map<NodeId, PatchNode>,
     edgesBySource: Map<NodeId, { id: string; target: NodeId }[]>,
+    fxBySource: Map<NodeId, NodeId[]>,
   ): void {
     const chain = this.chains.get(event.chainId)
     if (chain) chain.pending--
 
     const node = nodeById.get(event.nodeId)
     const definition = node ? getDefinition(node.type) : undefined
-    if (!node || !definition) {
-      // The node was deleted while its trigger was in flight. The branch dies here.
+    if (!node || !definition?.schedule) {
+      // Either the node was deleted while its trigger was in flight, or it is an audio-only node
+      // that nothing should have been able to trigger. Either way the branch dies here.
       this.settle(event.chainId, patch)
       return
     }
@@ -137,6 +147,18 @@ export class CascadeScheduler {
     })
 
     if (chain && result.endTime > chain.lastEnd) chain.lastEnd = result.endTime
+
+    // Effects light up with whatever is feeding them. This belongs here rather than in the node
+    // definition, which has no idea what is wired to it — and that is what keeps effects cheap to
+    // add.
+    for (const fxId of fxBySource.get(node.id) ?? []) {
+      this.deps.activity.push({
+        kind: 'node',
+        id: fxId,
+        time: event.time,
+        duration: result.endTime - event.time || FX_FLASH,
+      })
+    }
 
     if (event.depth < MAX_DEPTH) {
       const children = edgesBySource.get(node.id)

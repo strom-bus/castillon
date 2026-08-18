@@ -11,7 +11,16 @@ import {
 import { create } from 'zustand'
 import { getDefinition, normaliseStepCount, resizeSteps } from '../nodes/registry'
 import { MAX_BPM, MIN_BPM } from '../types/patch'
-import type { DelayParams, EdgeKind, NodeParams, OscParams, Patch, Step } from '../types/patch'
+import type {
+  DelayParams,
+  EdgeKind,
+  FxParams,
+  NodeParams,
+  OscParams,
+  Patch,
+  Step,
+} from '../types/patch'
+import { canConnect, connectionKind } from './connections'
 import { decodePatch } from './patchCode'
 
 export type FlowNodeData = { params: NodeParams }
@@ -36,7 +45,7 @@ interface PatchState {
   addNode(type: string, position: { x: number; y: number }): void
   removeEdge(id: string): void
   select(id: string | null): void
-  updateParams(id: string, partial: Partial<OscParams & DelayParams>): void
+  updateParams(id: string, partial: Partial<OscParams & FxParams & DelayParams>): void
   updateStep(id: string, index: number, partial: Partial<Step>): void
   setStepCount(id: string, count: number): void
   setBpm(bpm: number): void
@@ -63,7 +72,7 @@ function makeNode(type: string, position: { x: number; y: number }, id = newId(t
  * To change it, build the patch in the app, copy the PATCH CODE field and paste it here.
  */
 const INITIAL_PATCH_CODE =
-  'FGIQEgpMEAoSsl0BAUPDmg8Zn6vvfU8nlAAsyTPgrTVGPB55fj_r-vzpANAAmyDIEBQ8CtQpmfT-Z9H1BAUMBDI8QF3ATskyBAUPBcMKbHwP0_g8WQEYmSAi4mSZawKHg2goNj8H3_seDAlFuS7g'
+  'FGIQEgpMEAoSsl0BAUPMhzQeMz9X3vqeTygAWZJnwVpq5BjweeX4_6_r86QDQAJsgyBAUPMgVqFMz6fzPo-oIChgIZHiAu4CdkmQICh5kFwwpsfA_T-DxZARiZICLiZJlrAoeZBtBQbH4Pv_Y8GAihZxK3A'
 
 /** Types that have been renamed. A patch saved under the old name still loads. */
 const RENAMED_TYPES: Record<string, string> = {
@@ -111,7 +120,7 @@ function fromPatch(patch: Patch): {
         id: e.id,
         source: e.source,
         target: e.target,
-        type: 'cascade',
+        type: e.kind === 'audio' ? 'signal' : 'cascade',
         data: { kind: e.kind },
       })),
   }
@@ -137,13 +146,13 @@ export const usePatchStore = create<PatchState>((set, get) => ({
   },
 
   onConnect(connection) {
-    const { source, target } = connection
-    if (!source || !target || source === target) return
-    const edges = get().edges
-    if (edges.some((e) => e.source === source && e.target === target)) return
+    const { nodes, edges } = get()
+    if (!canConnect({ nodes, edges }, connection)) return
+
+    const kind = connectionKind(connection) as EdgeKind
     set({
       edges: addEdge(
-        { ...connection, type: 'cascade', data: { kind: 'event' as EdgeKind } },
+        { ...connection, type: kind === 'audio' ? 'signal' : 'cascade', data: { kind } },
         edges,
       ) as FlowEdge[],
     })

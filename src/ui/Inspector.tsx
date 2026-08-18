@@ -1,4 +1,5 @@
 import { DIVISIONS } from '../audio/clock'
+import { EFFECTS, effectOr } from '../audio/effects'
 import {
   cutoffToSlider,
   FILTER_NAMES,
@@ -17,6 +18,8 @@ import {
   MIN_DELAY_MS,
   type DelayParams,
   type Division,
+  type EffectKind,
+  type FxParams,
   type FilterType,
   type OscParams,
   type PropagateMode,
@@ -171,6 +174,51 @@ export function Inspector() {
     )
   }
 
+  if (node.type === 'fx') {
+    const fxParams = node.data.params as FxParams
+    const descriptor = effectOr(fxParams.effect)
+    const setFx = (partial: Partial<FxParams>) => updateParams(node.id, partial)
+
+    return (
+      <aside className="inspector">
+        <h2 className="inspector-title">FX</h2>
+
+        <label className="inspector-field">
+          <span className="inspector-label">Effect</span>
+          <select
+            value={fxParams.effect ?? 'gain'}
+            onChange={(e) => setFx({ effect: e.target.value as EffectKind })}
+          >
+            {EFFECTS.map((effect) => (
+              <option key={effect.kind} value={effect.kind}>
+                {effect.label}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <TypedSlider
+          label="Level"
+          value={fxParams.level ?? 0.8}
+          min={0}
+          max={1}
+          step={0.01}
+          onChange={(level) => setFx({ level })}
+        />
+
+        {descriptor.params.includes('cutoff') && (
+          <CutoffSlider value={fxParams.cutoff ?? 2000} onChange={(cutoff) => setFx({ cutoff })} />
+        )}
+
+        <p className="inspector-empty">
+          Wire an oscillator's side port into this to feed it. Several effects can share one
+          oscillator and one effect can take several — each is a send, added on top of what you
+          already hear. Pull an oscillator's Direct down to hear the effect instead of alongside it.
+        </p>
+      </aside>
+    )
+  }
+
   if (node.type === 'delay') {
     const delayParams = node.data.params as DelayParams
     return (
@@ -300,6 +348,14 @@ export function Inspector() {
         max={1}
         step={0.01}
         onChange={(gain) => set({ gain })}
+      />
+      <TypedSlider
+        label="Direct"
+        value={params.direct ?? 1}
+        min={0}
+        max={1}
+        step={0.01}
+        onChange={(direct) => set({ direct })}
       />
       <Slider
         label="Gate"

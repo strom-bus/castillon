@@ -1,4 +1,5 @@
-import type { FilterType, NodeId, Waveform } from '../types/patch'
+import type { FilterType, FxParams, NodeId, Waveform } from '../types/patch'
+import { effectOr, type EffectChain } from './effects'
 import { MAX_CUTOFF, MAX_RESONANCE, MIN_CUTOFF, MIN_RESONANCE } from './filter'
 import { fillNoise, type NoiseColor } from './noise'
 import { isNoise, pulseHarmonics, rampHarmonics } from './waveforms'
@@ -26,6 +27,25 @@ export interface NoteRequest {
   /** Hz. */
   cutoff: number
   resonance: number
+}
+
+/**
+ * One oscillator's persistent output. Voices connect here rather than to the master, so moving a
+ * cable reconnects one node instead of chasing the voices already scheduled ahead of the clock.
+ */
+interface OutputBus {
+  /** What voices connect to. */
+  bus: GainNode
+  /** The share of it that reaches the master without passing through any effect. */
+  direct: GainNode
+}
+
+/** An FX node: a fixed input and output with a swappable chain between them. */
+interface EffectInstance {
+  input: GainNode
+  output: GainNode
+  chain: EffectChain
+  kind: string
 }
 
 interface Voice {
@@ -69,6 +89,8 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 const STEAL_FADE = 0.008
+/** Time constant for a parameter change that should not click. */
+const RAMP = 0.01
 const MIN_RAMP = 0.005
 /** Noise plays back at rate 1 on this note (C4), and shifts with the sequencer from there. */
 const NOISE_REFERENCE_FREQ = 261.6255653005986
@@ -80,6 +102,9 @@ export class AudioEngine implements Engine {
   private master: GainNode | null = null
   private voices: Voice[] = []
   private masterGainValue = 0.8
+  private buses = new Map<NodeId, OutputBus>()
+  private effects = new Map<NodeId, EffectInstance>()
+  private directLevels = new Map<NodeId, number>()
   private pulseWaves = new Map<number, PeriodicWave>()
   private rampWaveCache: PeriodicWave | null = null
   private noiseBuffers = new Map<NoiseColor, AudioBuffer>()
@@ -104,6 +129,11 @@ export class AudioEngine implements Engine {
       this.master = master
     }
     if (this.ctx.state === 'suspended') await this.ctx.resume()
+  }
+
+  /** False until the first Play, since nothing can be built before there is a context. */
+  get started(): boolean {
+    return this.ctx !== null
   }
 
   now(): number {
@@ -150,7 +180,7 @@ export class AudioEngine implements Engine {
       chain.splice(1, 0, filter)
       tail = filter
     }
-    tail.connect(gain).connect(this.master)
+    tail.connect(gain).connect(this.busFor(req.nodeId).bus)
 
     source.start(req.time)
     source.stop(end + 0.01)
@@ -162,6 +192,125 @@ export class AudioEngine implements Engine {
       if (i !== -1) this.voices.splice(i, 1)
     }
     this.voices.push(voice)
+  }
+
+  /**
+   * The bus for a node, created on first use. Lazily, because a node can be added and played
+   * before the router has run, and because most patches never touch most of them.
+   */
+  busFor(nodeId: NodeId): OutputBus {
+    const existing = this.buses.get(nodeId)
+    if (existing) return existing
+
+    const ctx = this.ctx as AudioContext
+    const bus = ctx.createGain()
+    const direct = ctx.createGain()
+    direct.gain.value = this.directLevels.get(nodeId) ?? 1
+    bus.connect(direct)
+    direct.connect(this.master as GainNode)
+
+    const created = { bus, direct }
+    this.buses.set(nodeId, created)
+    return created
+  }
+
+  setDirect(nodeId: NodeId, value: number): void {
+    this.directLevels.set(nodeId, value)
+    if (!this.ctx) return
+    const bus = this.buses.get(nodeId)
+    if (bus) bus.direct.gain.setTargetAtTime(value, this.ctx.currentTime, RAMP)
+  }
+
+  createEffect(nodeId: NodeId, params: FxParams): void {
+    if (!this.ctx || !this.master || this.effects.has(nodeId)) return
+    const descriptor = effectOr(params.effect)
+    const chain = descriptor.create(this.ctx)
+
+    const input = this.ctx.createGain()
+    const output = this.ctx.createGain()
+    output.gain.value = params.level
+
+    input.connect(chain.input)
+    chain.output.connect(output)
+    output.connect(this.master)
+
+    this.effects.set(nodeId, { input, output, chain, kind: params.effect })
+    chain.update(params, this.ctx.currentTime)
+  }
+
+  /**
+   * Swaps the chain between the node's input and output. Those two survive, so every cable in the
+   * patch stays attached and nothing upstream or downstream is touched.
+   */
+  replaceEffect(nodeId: NodeId, params: FxParams): void {
+    const instance = this.effects.get(nodeId)
+    if (!this.ctx || !instance) return
+
+    instance.input.disconnect()
+    instance.chain.output.disconnect()
+    instance.chain.dispose()
+
+    const chain = effectOr(params.effect).create(this.ctx)
+    instance.input.connect(chain.input)
+    chain.output.connect(instance.output)
+    instance.chain = chain
+    instance.kind = params.effect
+
+    this.updateEffect(nodeId, params)
+  }
+
+  updateEffect(nodeId: NodeId, params: FxParams): void {
+    const instance = this.effects.get(nodeId)
+    if (!this.ctx || !instance) return
+    const at = this.ctx.currentTime
+    instance.output.gain.setTargetAtTime(params.level, at, RAMP)
+    instance.chain.update(params, at)
+  }
+
+  /**
+   * Faded out before it is unhooked. Cutting a reverb dead mid-decay is audible, and by the time
+   * this is called the node is already gone from the patch — so the sound has to be let go rather
+   * than stopped.
+   */
+  disposeEffect(nodeId: NodeId): void {
+    const instance = this.effects.get(nodeId)
+    if (!instance) return
+    this.effects.delete(nodeId)
+
+    if (!this.ctx) {
+      instance.chain.dispose()
+      return
+    }
+
+    const at = this.ctx.currentTime
+    const release = effectOr(instance.kind as FxParams['effect']).releaseTime
+    fadeOut(instance.output.gain, at, release)
+
+    window.setTimeout(
+      () => {
+        instance.input.disconnect()
+        instance.output.disconnect()
+        instance.chain.dispose()
+      },
+      (release + 0.05) * 1000,
+    )
+  }
+
+  connectSend(oscId: NodeId, fxId: NodeId): void {
+    const effect = this.effects.get(fxId)
+    if (!this.ctx || !effect) return
+    this.busFor(oscId).bus.connect(effect.input)
+  }
+
+  disconnectSend(oscId: NodeId, fxId: NodeId): void {
+    const effect = this.effects.get(fxId)
+    const bus = this.buses.get(oscId)
+    if (!effect || !bus) return
+    try {
+      bus.bus.disconnect(effect.input)
+    } catch {
+      // Already gone. Web Audio throws rather than shrugging, and either way we are done.
+    }
   }
 
   /**

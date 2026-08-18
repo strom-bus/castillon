@@ -3,8 +3,8 @@
 export type NodeId = string
 
 /**
- * The two overlaid graphs. Only event cables are drawn so far, but the field is here
- * from the start so patches never need migrating in Phase 3.
+ * The two overlaid graphs. Event cables carry timestamped triggers down the cascade; audio cables
+ * carry signal sideways from an oscillator into an effect.
  */
 export type EdgeKind = 'event' | 'audio'
 
@@ -30,8 +30,9 @@ export type Waveform =
   | 'blue'
 
 /**
- * A per-voice filter lives inside the oscillator rather than as its own node: a separate Filter
- * node would need audio cables, which is Phase 3. `off` skips the biquad entirely.
+ * The oscillator's per-voice filter, and also one of the FX effects. They are not the same sound:
+ * per voice, sixteen notes get sixteen filters; as an effect, one filter processes the sum.
+ * `off` skips the biquad entirely.
  */
 export type FilterType = 'off' | 'lowpass' | 'highpass' | 'bandpass'
 
@@ -55,6 +56,12 @@ export interface OscParams {
   release: number
   /** Fraction of the step the note lasts. 0.6 is percussive, 1 is legato. */
   gate: number
+  /**
+   * How much of this oscillator reaches the master without passing through any FX. 1 is the whole
+   * of it, which is what an oscillator with no effects attached does. Pull it down with a drive
+   * connected and you hear the effect rather than the effect on top of the clean signal.
+   */
+  direct: number
   filterType: FilterType
   /** Hz. Edited on a log slider; see audio/filter.ts. */
   cutoff: number
@@ -63,6 +70,49 @@ export interface OscParams {
   propagateMode: PropagateMode
 }
 
+/**
+ * The effects an FX node can be. Append-only: the patch code stores the index into this order.
+ * Only `gain` is implemented so far; the rest land one row at a time.
+ */
+export type EffectKind = 'gain' | 'reverb' | 'drive' | 'echo' | 'filter' | 'chorus'
+
+/**
+ * One flat parameter set for every effect, with the inspector showing only the fields the current
+ * effect declares. A discriminated union would give tidier types at the cost of a variable-shape
+ * record in the store and a variable layout in the bit packer.
+ *
+ * Every field is encoded whether the current effect uses it or not. That costs a few bits and buys
+ * two things: switching effect keeps whatever carries over, and adding an effect never changes the
+ * patch code format.
+ */
+export interface FxParams {
+  effect: EffectKind
+  /** Return level into the master. 0–1. */
+  level: number
+  /** Reverb tail, seconds. */
+  decay: number
+  /** Drive amount, 0–1. */
+  drive: number
+  /** Echo time, as a beat division. */
+  time: Division
+  /** Echo feedback, 0–0.95. */
+  feedback: number
+  filterType: FilterType
+  /** Hz. */
+  cutoff: number
+  resonance: number
+  /** Chorus rate, Hz. */
+  rate: number
+  /** Chorus depth, 0–1. */
+  depth: number
+}
+
+export const MIN_DECAY = 0.1
+export const MAX_DECAY = 10
+export const MAX_FEEDBACK = 0.95
+export const MIN_RATE = 0.1
+export const MAX_RATE = 20
+
 export interface DelayParams {
   /** How long the trigger is held before being passed on, in milliseconds. */
   delayMs: number
@@ -70,7 +120,7 @@ export interface DelayParams {
 
 export type StartParams = Record<string, never>
 
-export type NodeParams = OscParams | DelayParams | StartParams
+export type NodeParams = OscParams | FxParams | DelayParams | StartParams
 
 export const MIN_DELAY_MS = 10
 export const MAX_DELAY_MS = 4000

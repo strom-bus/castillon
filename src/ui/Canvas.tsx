@@ -9,6 +9,7 @@ import {
 } from '@xyflow/react'
 import { useCallback, useMemo, useRef } from 'react'
 import { NODE_DEFINITIONS } from '../nodes/registry'
+import { canConnect } from '../state/connections'
 import { usePatchStore, type FlowEdge } from '../state/patchStore'
 import { computeDepths, DepthContext, EMPTY_DEPTHS, sameDepths } from '../viz/depth'
 import { edgeTypes, nodeTypes } from './flowTypes'
@@ -37,12 +38,10 @@ function CanvasInner() {
     return next
   }, [nodes, edges])
 
-  /** No self-connections and no duplicate cables. */
+  /** Same rules the store commits with, so what the canvas allows and what it accepts agree. */
   const isValidConnection = useCallback<IsValidConnection<FlowEdge>>((connection) => {
-    if (connection.source === connection.target) return false
-    return !usePatchStore
-      .getState()
-      .edges.some((e) => e.source === connection.source && e.target === connection.target)
+    const { nodes: current, edges: wired } = usePatchStore.getState()
+    return canConnect({ nodes: current, edges: wired }, connection)
   }, [])
 
   const addAtCenter = useCallback(
@@ -97,7 +96,13 @@ function CanvasInner() {
           <Controls showInteractive={false} />
         </ReactFlow>
       </DepthContext.Provider>
-      <span className="colophon">COLMENA</span>
+      {/* Not decoration: the AGPL requires that anyone using the hosted app can reach its source. */}
+      <span className="colophon">
+        COLMENA
+        <a href="https://github.com/strom-bus/castillon" target="_blank" rel="noreferrer">
+          source
+        </a>
+      </span>
     </div>
   )
 }

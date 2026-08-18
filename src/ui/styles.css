@@ -537,3 +537,68 @@ input[type='range'] {
 .inspector input[type='range'] {
   width: 100%;
 }
+
+/* ---------- FX ---------- */
+
+/* White and grey, and not for want of a colour: the cascade's fluorescent ramp means depth, so
+   staying out of it is what marks an effect as sitting outside the cascade. */
+.node-fx {
+  --accent: var(--text);
+  --depth-top: var(--border-strong);
+  --depth-bottom: var(--border-strong);
+}
+
+.node-fx.pulsing {
+  border-image: linear-gradient(180deg, var(--text), var(--muted)) 1;
+}
+
+.fx-body {
+  padding: 8px;
+  width: 116px;
+}
+
+.fx-body select {
+  width: 100%;
+  background: var(--surface-raised);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  padding: 4px 5px;
+  font: inherit;
+  letter-spacing: 0.06em;
+}
+
+/* Audio ports read as a different kind of thing than event ports: wider, flatter, neutral. */
+.port-audio {
+  width: 7px;
+  height: 13px;
+  background: var(--surface-raised);
+  border: 1px solid var(--muted);
+}
+
+.port-audio:hover {
+  border-color: var(--text);
+}
+
+.edge-signal {
+  stroke: var(--muted);
+  stroke-width: 2.5;
+  opacity: 0.55;
+}
+
+.edge-hit:hover ~ .edge-signal {
+  stroke: var(--text);
+  stroke-width: 3.5;
+  opacity: 1;
+}
+
+.colophon a {
+  margin-left: 12px;
+  color: var(--border-strong);
+  text-decoration: none;
+  pointer-events: auto;
+}
+
+.colophon a:hover {
+  color: var(--muted);
+  text-decoration: underline;
+}

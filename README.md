@@ -16,9 +16,13 @@ The idea the whole thing is built on. There are two kinds of connection, as in P
 | What it carries | Triggers with a timestamp | Continuous audio                        |
 | When it acts    | At discrete instants      | All the time, at 48 kHz                 |
 | What walks it   | The scheduler, in JS      | The Web Audio engine, on its own thread |
+| Ports           | Top and bottom            | Left and right                          |
+| Cables          | Thin, and they flow       | Thicker, and they glow                  |
 
-**The cascade you see is the event graph.** Audio does not cascade — every sounding node plays in
-parallel into the master bus. Only event cables are drawn today; explicit audio cables are next.
+**The cascade you see is the event graph.** Audio does not cascade: every sounding node plays in
+parallel into the master bus, and effects are sends off that. The two run at right angles to each
+other on purpose — triggers down, signal across — so which graph a cable belongs to is legible
+without having to remember a colour.
 
 ## What is in it
 

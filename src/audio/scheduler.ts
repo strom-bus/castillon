@@ -81,6 +81,30 @@ export class CascadeScheduler {
     this.tick()
   }
 
+  /** Whether triggers are being propagated, so callers need not track it themselves. */
+  get active(): boolean {
+    return this.running
+  }
+
+  /**
+   * Throws away everything in flight and seeds the cascade again from the patch as it stands now.
+   *
+   * Needed because replacing the whole patch — rolling the die, pasting a code, resetting — leaves
+   * the scheduler holding chains whose Start nodes no longer exist. `settle` refuses to re-loop a
+   * chain whose Start has gone, correctly, so those chains simply stop; and nothing was ever seeding
+   * the *new* patch's Starts. The result was a cascade that faded out and never came back while the
+   * transport still claimed to be playing.
+   */
+  restart(): void {
+    if (!this.running) return
+    this.queue.length = 0
+    this.chains.clear()
+    const t0 = this.deps.engine.now() + START_OFFSET
+    for (const node of this.deps.getPatch().nodes) {
+      if (node.type === 'start') this.beginChain(node.id, t0)
+    }
+  }
+
   stop(): void {
     this.running = false
     if (this.timer !== null) clearInterval(this.timer)

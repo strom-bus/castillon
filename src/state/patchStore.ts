@@ -64,6 +64,11 @@ interface PatchState {
   clipboard: Clipboard | null
   /** How many times the current copy has been pasted, so each one lands clear of the last. */
   pasteRun: number
+  /**
+   * Bumped whenever the whole patch is replaced rather than edited. The audio side watches it to
+   * start the cascade over, since chains in flight belong to nodes that no longer exist.
+   */
+  patchRun: number
 
   onNodesChange(changes: NodeChange<FlowNode>[]): void
   onEdgesChange(changes: EdgeChange<FlowEdge>[]): void
@@ -186,6 +191,7 @@ export const usePatchStore = create<PatchState>((set, get) => ({
   selectedId: null,
   clipboard: null,
   pasteRun: 0,
+  patchRun: 0,
 
   onNodesChange(changes) {
     set({ nodes: applyNodeChanges(changes, get().nodes) })
@@ -302,15 +308,20 @@ export const usePatchStore = create<PatchState>((set, get) => ({
   },
 
   loadPatch(patch) {
-    set({ ...fromPatch(patch), selectedId: null })
+    set({ ...fromPatch(patch), selectedId: null, patchRun: get().patchRun + 1 })
   },
 
   resetPatch() {
-    set({ ...initialPatch(), selectedId: null })
+    set({ ...initialPatch(), selectedId: null, patchRun: get().patchRun + 1 })
   },
 
   randomisePatch() {
-    set({ ...fromPatch(randomPatch()), selectedId: null, pasteRun: 0 })
+    set({
+      ...fromPatch(randomPatch()),
+      selectedId: null,
+      pasteRun: 0,
+      patchRun: get().patchRun + 1,
+    })
   },
 
   /**

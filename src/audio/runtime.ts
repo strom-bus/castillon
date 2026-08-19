@@ -67,6 +67,23 @@ export async function play(): Promise<void> {
   scheduler.start()
 }
 
+/**
+ * Starts the cascade over on a patch that has just been replaced wholesale.
+ *
+ * Order matters: silence first, then rebuild the graph, then seed. Scheduled voices carry absolute
+ * audio-clock times, so without `panic` the patch that was thrown away keeps sounding for as long as
+ * its longest note had left to run.
+ *
+ * Does nothing when stopped, so replacing a patch never starts audio on its own.
+ */
+export function restartCascade(): void {
+  if (!scheduler.active) return
+  engine.panic()
+  activity.clear()
+  reconcile()
+  scheduler.restart()
+}
+
 export function stop(): void {
   scheduler.stop()
   engine.panic()

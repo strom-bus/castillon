@@ -380,3 +380,102 @@ describe('layering policy', () => {
     expect(retrigger(40, 45).length).toBeGreaterThan(0)
   })
 })
+
+describe('replacing the whole patch', () => {
+  const start = (id: string): PatchNode => ({
+    id,
+    type: 'start',
+    position: { x: 0, y: 0 },
+    params: {},
+  })
+
+  /** A scheduler over a patch that can be swapped underneath it, as the die does. */
+  function buildSwappable(initial: Patch) {
+    engine = new FakeEngine()
+    events = []
+    activity = new ActivityBus(() => 0)
+    activity.push = (e: ActivityEvent) => {
+      events.push(e)
+    }
+    const holder = { patch: initial }
+    const scheduler = new CascadeScheduler({
+      engine,
+      activity,
+      getPatch: () => holder.patch,
+    })
+    return { scheduler, holder }
+  }
+
+  const before = () => patchOf([start('s1'), osc('a')], [edge('s1', 'a')], true)
+  const after = () =>
+    patchOf(
+      [start('s2'), start('s3'), osc('b'), osc('c')],
+      [edge('s2', 'b'), edge('s3', 'c')],
+      true,
+    )
+
+  it('leaves the new Starts unplayed until the cascade is seeded again', () => {
+    // The bug behind this: rolling the die swaps every node for one with a fresh id, and `settle`
+    // rightly refuses to re-loop a chain whose Start has gone. Nothing was seeding the new Starts,
+    // so the patch fell silent while the transport still claimed to be playing.
+    const { scheduler, holder } = buildSwappable(before())
+    scheduler.start()
+    scheduler.drain(10)
+    expect(engine.notes.length).toBeGreaterThan(0)
+    expect(engine.notes.every((note) => note.nodeId === 'a')).toBe(true)
+
+    holder.patch = after()
+    engine.notes.length = 0
+    scheduler.drain(20)
+    expect(engine.notes).toHaveLength(0)
+  })
+
+  it('seeds every Start of the patch that replaced it', () => {
+    const { scheduler, holder } = buildSwappable(before())
+    scheduler.start()
+    scheduler.drain(10)
+
+    holder.patch = after()
+    engine.notes.length = 0
+    scheduler.restart()
+    scheduler.drain(30)
+
+    expect(new Set(engine.notes.map((note) => note.nodeId))).toEqual(new Set(['b', 'c']))
+  })
+
+  it('drops what the old patch had in flight instead of letting it finish', () => {
+    // A stale trigger whose node has vanished dies on its own, so the queue has to be emptied for a
+    // different reason: ids can survive a replacement. A pasted code carries the ids it was written
+    // with, so a trigger in flight can land on a node that exists in the new patch and sound a note
+    // nobody asked for. The long delay parks exactly such a trigger beyond the horizon.
+    const held = patchOf(
+      [start('s1'), delayNode('d', 2000), osc('a')],
+      [edge('s1', 'd'), edge('d', 'a')],
+    )
+    const { scheduler, holder } = buildSwappable(held)
+    scheduler.start()
+    scheduler.drain(0.5)
+    expect(engine.notes).toHaveLength(0)
+
+    // `a` is still here; only what leads to it changed.
+    holder.patch = patchOf([start('s9'), osc('a')], [edge('s9', 'a')])
+    scheduler.restart()
+    engine.notes.length = 0
+    scheduler.drain(30)
+
+    // The new Start sounds `a` from 0.06, so its sequence is over inside a second and a half. The
+    // stale trigger was parked at two seconds: any note for `a` after that came from a patch that
+    // no longer exists.
+    const fresh = engine.notes.filter((note) => note.nodeId === 'a')
+    expect(fresh.length).toBeGreaterThan(0)
+    expect(fresh.filter((note) => note.time > 1.5)).toHaveLength(0)
+  })
+
+  it('does not start anything while the transport is stopped', () => {
+    const { scheduler, holder } = buildSwappable(before())
+    holder.patch = after()
+    scheduler.restart()
+    scheduler.drain(30)
+    expect(engine.notes).toHaveLength(0)
+  })
+})

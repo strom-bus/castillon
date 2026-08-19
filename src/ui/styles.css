@@ -42,78 +42,17 @@
 }
 
 /*
- * `_ON` does not change colour all at once — the ramp turns through the letters, the way a pulse
- * moves down a cable. A deliberate change of meaning: the ramp held still describes *depth*, which
- * is what the cables use it for, while the ramp in motion describes the signal in flight.
+ * `_ON` in the ramp's deepest hue, held still.
  *
- * What moves is the gradient's *angle*, not its position, and that solves the problem the previous
- * two attempts kept running into. A ramp that slides has to get back to where it started: tiling it
- * leaves a crease where it turns round, and reversing it puts the turn inside the word. A ramp that
- * rotates has neither, because **a full turn ends exactly where it began** — 90deg and 450deg are
- * the same declaration, so the loop closes on itself with nothing to hide.
- *
- * It also stops the movement being permanently horizontal. Near 90deg the glyphs differ from each
- * other; near 0deg each glyph carries the ramp down its own height instead. Both are the same ramp,
- * read along a different axis.
- *
- * The angle is a registered custom property because an unregistered one cannot be interpolated —
- * the browser would snap it at the halfway mark rather than sweeping it. The `var()` fallback keeps
- * the gradient visible, held at horizontal, anywhere `@property` is missing.
- *
- * It shows a *window* onto the ramp rather than the whole thing: from a fifth of the way in to nine
- * tenths, which is 93 degrees of hue against the full ramp's 134. The full sweep put deep green and
- * hot orange in the same three glyphs, and across a word that short the jump between the extremes
- * reads as two colours fighting rather than as one ramp.
- *
- * The window is not centred, and that was chosen by eye at the wordmark's real size. A symmetric
- * window sat in the yellow-greens, which dominated everything; sliding the far end out to 0.9 while
- * leaving the near end near 0.2 keeps the span comfortable but lands the weight of it in the ambers
- * and oranges. The deepest hue still belongs to the cables alone.
- *
- * The five stops are `colorAt` sampled evenly across that window, so they sit exactly on the ramp
- * rather than near it, and `brand.test.ts` checks each one is a real point on it. Five and not two
- * for the usual reason: a straight interpolation goes muddy through the yellows, which is why
- * `FLUO_RAMP` has middle stops at all (§2.5).
+ * It did carry the ramp itself, with the gradient's angle turning slowly. That was dropped for the
+ * reason it should have been weighed against from the start: a registered custom property feeding a
+ * `background-image` cannot be composited, so it repaints the element every frame for as long as the
+ * page is open — a permanent cost on a page whose actual job is keeping an audio scheduler fed. One
+ * flat colour costs nothing, and the ramp still means depth where depth is what it describes: on the
+ * cables.
  */
-@property --brand-angle {
-  syntax: '<angle>';
-  inherits: false;
-  initial-value: 90deg;
-}
-
-@keyframes brand-turn {
-  to {
-    --brand-angle: 450deg;
-  }
-}
-
 .brand-lit {
-  /* Fallback for anything that cannot clip a background to text: the deepest hue, flat. */
   color: var(--brand-lit);
-}
-
-@supports (background-clip: text) or (-webkit-background-clip: text) {
-  .brand-lit {
-    background-image: linear-gradient(
-      var(--brand-angle, 90deg),
-      hsl(116.6 84.9% 46.1%) 0%,
-      hsl(89.8 88.4% 49.4%) 25%,
-      hsl(64.3 93% 53.3%) 50%,
-      hsl(42.4 98.8% 54.7%) 75%,
-      hsl(24 100% 55.6%) 100%
-    );
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-    animation: brand-turn 72s linear infinite;
-  }
-
-  /* Anyone who asked for less motion keeps the gradient, held at the angle it starts on. */
-  @media (prefers-reduced-motion: reduce) {
-    .brand-lit {
-      animation: none;
-    }
-  }
 }
 
 .transport {

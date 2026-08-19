@@ -11,5 +11,9 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
+    // Vitest stubs CSS imports to an empty string by default, `?raw` included, which makes a
+    // stylesheet unreadable from a test. `brand.test.ts` has to read the real thing to check that
+    // the wordmark's keyframes still match the cascade ramp, so CSS gets processed.
+    css: true,
   },
 })

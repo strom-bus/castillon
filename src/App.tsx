@@ -10,6 +10,7 @@ import { looksLikeShortCode } from './state/shortCode'
 import { toPatch, usePatchStore } from './state/patchStore'
 import { Canvas } from './ui/Canvas'
 import { Inspector } from './ui/Inspector'
+import { Logo } from './ui/Logo'
 import { Transport } from './ui/Transport'
 
 const AUTOSAVE_MS = 500
@@ -62,7 +63,12 @@ export default function App() {
   return (
     <div className="app">
       <header className="titlebar">
-        <h1 className="brand">Castill_ON</h1>
+        <h1 className="brand">
+          <Logo className="brand-mark" />
+          <span>
+            Castill<span className="brand-lit">_ON</span>
+          </span>
+        </h1>
       </header>
       <Transport />
       <div className="workspace">

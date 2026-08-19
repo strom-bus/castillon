@@ -1,3 +1,21 @@
+/*
+ * Unbounded, bundled rather than linked. The point of a webfont here is that the wordmark looks the
+ * same on every machine, which a CDN request cannot promise and `ui-monospace` explicitly does not:
+ * that resolves to SF Mono, Consolas or DejaVu depending on the operating system.
+ *
+ * Chosen over Montserrat, Archivo, Inter, Chakra Petch and five others by putting each one in the
+ * titlebar beside the isotype and looking, rather than by reading specimens. It is a variable font,
+ * so one 50 kB file covers the whole 200-900 axis and the range is declared rather than a weight.
+ * Licence in `assets/fonts/OFL.txt`.
+ */
+@font-face {
+  font-family: 'Unbounded';
+  font-style: normal;
+  font-weight: 200 900;
+  font-display: swap;
+  src: url('./assets/fonts/unbounded-latin.woff2') format('woff2');
+}
+
 /* Look: minimal black. No rounded corners, no shadows, no gradient fills. */
 :root {
   --bg: #000000;
@@ -11,6 +29,13 @@
      depth hue, so the green-to-red gradient is untouched by this. */
   --accent: #ffffff;
   --accent-dim: #4a4a4a;
+  /* The one deliberate exception to that rule: the deepest cascade hue, borrowed by the wordmark's
+     `_ON` so the mark is made of the instrument rather than merely placed beside it. */
+  --brand-lit: hsl(14 100% 56%);
+
+  /* Display face for the wordmark only. The interface stays monospaced on purpose: numbers line up
+     in columns down the inspector, and a proportional face would break that alignment. */
+  --display: 'Unbounded', ui-sans-serif, system-ui, sans-serif;
 
   font-family: ui-monospace, 'SF Mono', Menlo, monospace;
   color-scheme: dark;

@@ -74,7 +74,8 @@ export interface OscParams {
  * The effects an FX node can be. Append-only: the patch code stores the index into this order.
  * Only `gain` is implemented so far; the rest land one row at a time.
  */
-export type EffectKind = 'reverb' | 'drive' | 'crush' | 'echo' | 'filter' | 'chorus'
+export type EffectKind =
+  'reverb' | 'echo' | 'distortion' | 'crush' | 'filter' | 'chorus' | 'ring' | 'pan'
 
 /**
  * One flat parameter set for every effect, with the inspector showing only the fields the current
@@ -95,8 +96,10 @@ export interface FxParams {
   mix: number
   /** Reverb tail, seconds. */
   decay: number
-  /** Drive amount, 0–1. */
+  /** Distortion amount, 0–1. */
   drive: number
+  /** Which flavour of distortion. */
+  shape: DistortionShape
   /** Echo time, as a beat division. */
   time: Division
   /** Echo feedback, 0–0.95. */
@@ -110,13 +113,20 @@ export interface FxParams {
   resonance: number
   /** Chorus rate, Hz. */
   rate: number
-  /**
-   * Chorus depth, and — normalised the same way — the bitcrusher's resolution. See
-   * `depthToBits` in audio/dsp.ts for the mapping; sharing the field keeps a second effect from
-   * costing the patch code a new one.
-   */
+  /** Chorus depth, 0–1. */
   depth: number
+  /** Bitcrusher resolution, in bits. */
+  bits: number
+  /** Stereo position: -1 hard left, 0 centre, 1 hard right. */
+  pan: number
+  /**
+   * Stereo width, 0–1. Delays the right channel behind the left by a few milliseconds, which the
+   * ear reads as space rather than as an echo.
+   */
+  width: number
 }
+
+export type DistortionShape = 'overdrive' | 'distortion' | 'fuzz'
 
 export const MIN_DECAY = 0.1
 export const MAX_DECAY = 10

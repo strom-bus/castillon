@@ -1,3 +1,5 @@
+import type { DistortionShape } from '../types/patch'
+
 /**
  * The pure maths behind the effects: curves and buffers, no Web Audio.
  *
@@ -12,17 +14,46 @@ export const MAX_BITS = 16
 const CURVE_POINTS = 1024
 
 /**
- * The classic soft-clip curve: `y = (1 + k)x / (1 + k|x|)`.
+ * Three flavours of the same stage, differing only in how hard the knee is.
  *
- * At `amount` 0 it is the identity, which matters — an effect at its lowest setting should be
- * transparent rather than nearly so.
+ * All three are the identity at `amount` 0, which matters: an effect at its lowest setting should
+ * be transparent rather than nearly so.
+ *
+ * - `overdrive` is the classic soft clip, `y = (1 + k)x / (1 + k|x|)`, gentle enough to thicken.
+ * - `distortion` uses `tanh`, which turns over harder and squares off sooner.
+ * - `fuzz` compresses so far that almost everything reaches full scale, and is slightly asymmetric
+ *   — that asymmetry adds even harmonics, and it is what separates fuzz from loud distortion.
  */
-export function driveCurve(amount: number, points = CURVE_POINTS): Float32Array<ArrayBuffer> {
-  const k = Math.max(0, amount) * 100
+const SHAPES: Record<DistortionShape, (x: number, amount: number) => number> = {
+  overdrive(x, amount) {
+    const k = amount * 30
+    return ((1 + k) * x) / (1 + k * Math.abs(x))
+  },
+  distortion(x, amount) {
+    const k = amount * 40
+    return k === 0 ? x : Math.tanh(x * (1 + k)) / Math.tanh(1 + k)
+  },
+  fuzz(x, amount) {
+    const k = amount * 60
+    if (k === 0) return x
+    // The bias is the asymmetry: it clips the two halves of the wave by different amounts.
+    const biased = x + amount * 0.15
+    const shaped = Math.sign(biased) * (1 - Math.exp(-Math.abs(biased) * (1 + k)))
+    return shaped / (1 - Math.exp(-(1 + amount * 0.15) * (1 + k)))
+  },
+}
+
+export function distortionCurve(
+  shape: DistortionShape,
+  amount: number,
+  points = CURVE_POINTS,
+): Float32Array<ArrayBuffer> {
+  const clamped = Math.min(1, Math.max(0, amount))
+  const fn = SHAPES[shape] ?? SHAPES.overdrive
   const curve = new Float32Array(points)
   for (let i = 0; i < points; i++) {
     const x = (i / (points - 1)) * 2 - 1
-    curve[i] = ((1 + k) * x) / (1 + k * Math.abs(x))
+    curve[i] = Math.max(-1, Math.min(1, fn(x, clamped)))
   }
   return curve
 }
@@ -43,17 +74,6 @@ export function crushCurve(bits: number, points = CURVE_POINTS): Float32Array<Ar
     curve[i] = Math.round(((x + 1) / 2) * steps) / steps / 0.5 - 1
   }
   return curve
-}
-
-/** The normalised `depth` parameter carries bit depth, so the two have to agree on the mapping. */
-export function depthToBits(depth: number): number {
-  const clamped = Math.min(1, Math.max(0, depth))
-  return MIN_BITS + Math.round(clamped * (MAX_BITS - MIN_BITS))
-}
-
-export function bitsToDepth(bits: number): number {
-  const clamped = Math.min(MAX_BITS, Math.max(MIN_BITS, Math.round(bits)))
-  return (clamped - MIN_BITS) / (MAX_BITS - MIN_BITS)
 }
 
 /**

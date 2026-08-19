@@ -310,6 +310,15 @@ input[type='range'] {
   border: 1px solid var(--border-strong);
 }
 
+/* A 9 px dot is a mean target for a mouse and a hopeless one for a finger. This grows the area
+   that answers to a pointer without changing anything you can see: a pseudo-element counts as
+   part of the port for hit testing, so grabbing near it starts a cable. */
+.port::before {
+  content: '';
+  position: absolute;
+  inset: -7px;
+}
+
 .port:hover {
   border-color: var(--accent);
 }

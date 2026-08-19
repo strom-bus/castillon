@@ -1,6 +1,6 @@
 import type { EffectKind, FxParams } from '../types/patch'
 import { stepDuration } from './clock'
-import { crushCurve, depthToBits, driveCurve, impulseResponse } from './dsp'
+import { crushCurve, distortionCurve, impulseResponse, MAX_BITS } from './dsp'
 import { MAX_CUTOFF, MIN_CUTOFF } from './filter'
 
 /** What an effect needs to know beyond its own parameters. */
@@ -34,6 +34,12 @@ export interface EffectDescriptor {
    * it, and it belongs to the node rather than to the chain.
    */
   params: readonly (keyof FxParams)[]
+  /**
+   * Overrides for what a parameter is called here. The same `cutoff` is a Tone control on a
+   * shaping stage and the whole point on a filter, and calling it the same thing in both places
+   * would be worse than either name.
+   */
+  labels?: Partial<Record<keyof FxParams, string>>
   /** Seconds the node's output is faded over before disposal, for effects with a tail. */
   releaseTime: number
   create(ctx: AudioContext): EffectChain
@@ -92,10 +98,10 @@ const reverb: EffectDescriptor = {
   },
 }
 
-const drive: EffectDescriptor = {
-  kind: 'drive',
-  label: 'Drive',
-  params: ['drive', 'cutoff'],
+const distortion: EffectDescriptor = {
+  kind: 'distortion',
+  label: 'Distortion',
+  params: ['shape', 'drive', 'cutoff'],
   releaseTime: 0.02,
   create(ctx) {
     const shaper = ctx.createWaveShaper()
@@ -104,17 +110,21 @@ const drive: EffectDescriptor = {
     shaper.oversample = '4x'
     const post = tone(ctx)
     shaper.connect(post)
-    let built = -1
+    let built = ''
 
     return {
       input: shaper,
       output: post,
       update(params, { at }) {
         setTone(post, params, at)
+        const shape = params.shape ?? 'overdrive'
         const amount = Math.round(params.drive * 100) / 100
-        if (amount === built) return
-        built = amount
-        shaper.curve = driveCurve(amount)
+        // Rebuilding a 1024-point table is not free, so it happens when the sound would change
+        // and not on every frame of a slider drag.
+        const key = `${shape}:${amount}`
+        if (key === built) return
+        built = key
+        shaper.curve = distortionCurve(shape, amount)
       },
       dispose() {
         shaper.disconnect()
@@ -127,7 +137,7 @@ const drive: EffectDescriptor = {
 const crush: EffectDescriptor = {
   kind: 'crush',
   label: 'Bitcrusher',
-  params: ['depth', 'cutoff'],
+  params: ['bits', 'cutoff'],
   releaseTime: 0.02,
   create(ctx) {
     const shaper = ctx.createWaveShaper()
@@ -142,7 +152,7 @@ const crush: EffectDescriptor = {
       output: post,
       update(params, { at }) {
         setTone(post, params, at)
-        const bits = depthToBits(params.depth)
+        const bits = Math.round(params.bits ?? MAX_BITS)
         if (bits === built) return
         built = bits
         shaper.curve = crushCurve(bits)
@@ -195,7 +205,181 @@ const echo: EffectDescriptor = {
   },
 }
 
-export const EFFECTS: EffectDescriptor[] = [reverb, echo, drive, crush]
+/**
+ * A filter on the bus, which is not the same sound as the oscillator's own. Per voice, sixteen
+ * notes get sixteen filters; here one filter works on the sum, so the resonance rings against
+ * everything at once.
+ */
+const filter: EffectDescriptor = {
+  kind: 'filter',
+  label: 'Filter',
+  params: ['filterType', 'cutoff', 'resonance'],
+  // Here the cutoff is the point rather than a shaping stage.
+  labels: { cutoff: 'Cutoff' },
+  releaseTime: 0.02,
+  create(ctx) {
+    const biquad = ctx.createBiquadFilter()
+    biquad.type = 'lowpass'
+
+    return {
+      input: biquad,
+      output: biquad,
+      update(params, { at }) {
+        const type = params.filterType ?? 'lowpass'
+        // `off` is a valid setting for the oscillator's filter, where it skips the biquad. As an
+        // effect there is nothing to skip, so it means all the way open instead.
+        biquad.type = type === 'off' ? 'lowpass' : type
+        const hz = type === 'off' ? MAX_CUTOFF : (params.cutoff ?? 2000)
+        biquad.frequency.setTargetAtTime(Math.min(MAX_CUTOFF, Math.max(MIN_CUTOFF, hz)), at, RAMP)
+        biquad.Q.setTargetAtTime(Math.max(0.1, params.resonance ?? 1), at, RAMP)
+      },
+      dispose() {
+        biquad.disconnect()
+      },
+    }
+  },
+}
+
+/** Base delay a chorus modulates around. Short enough to read as thickening, not as an echo. */
+const CHORUS_CENTRE = 0.025
+const CHORUS_SWING = 0.008
+
+const chorus: EffectDescriptor = {
+  kind: 'chorus',
+  label: 'Chorus',
+  params: ['rate', 'depth', 'cutoff'],
+  releaseTime: 0.1,
+  create(ctx) {
+    const line = ctx.createDelay(0.1)
+    line.delayTime.value = CHORUS_CENTRE
+    const post = tone(ctx)
+    line.connect(post)
+
+    // The first internal LFO in the project, and the pattern parameter modulation will reuse: an
+    // oscillator through a gain, connected to an AudioParam rather than to another node.
+    const lfo = ctx.createOscillator()
+    lfo.type = 'sine'
+    const swing = ctx.createGain()
+    lfo.connect(swing)
+    swing.connect(line.delayTime)
+    lfo.start()
+
+    return {
+      input: line,
+      output: post,
+      update(params, { at }) {
+        setTone(post, params, at)
+        lfo.frequency.setTargetAtTime(Math.max(0.01, params.rate ?? 1.5), at, RAMP)
+        swing.gain.setTargetAtTime((params.depth ?? 0.4) * CHORUS_SWING, at, RAMP)
+      },
+      dispose() {
+        lfo.stop()
+        lfo.disconnect()
+        swing.disconnect()
+        line.disconnect()
+        post.disconnect()
+      },
+    }
+  },
+}
+
+/**
+ * Ring modulation: the signal multiplied by an oscillator, which is what a gain node does when its
+ * gain is driven at audio rate. Cheap, and unmistakable — it replaces the pitch you played with
+ * the sum and difference of two.
+ */
+const ring: EffectDescriptor = {
+  kind: 'ring',
+  label: 'Ring mod',
+  params: ['cutoff'],
+  // The carrier frequency, which the cutoff field already covers with the right range and a log
+  // slider to set it on.
+  labels: { cutoff: 'Freq' },
+  releaseTime: 0.02,
+  create(ctx) {
+    const multiplier = ctx.createGain()
+    // Zero, so the carrier alone decides the output. A gain left at 1 would pass the dry signal
+    // through underneath and turn the effect into a blend.
+    multiplier.gain.value = 0
+
+    const carrier = ctx.createOscillator()
+    carrier.type = 'sine'
+    carrier.connect(multiplier.gain)
+    carrier.start()
+
+    return {
+      input: multiplier,
+      output: multiplier,
+      update(params, { at }) {
+        const hz = Math.min(MAX_CUTOFF, Math.max(MIN_CUTOFF, params.cutoff ?? 400))
+        carrier.frequency.setTargetAtTime(hz, at, RAMP)
+      },
+      dispose() {
+        carrier.stop()
+        carrier.disconnect()
+        multiplier.disconnect()
+      },
+    }
+  },
+}
+
+/** How far behind the left channel the right can be pushed. Past this it stops being width. */
+const MAX_WIDTH_SECONDS = 0.02
+
+/**
+ * Position and width. Everything else in the project arrives dead centre, so this is the effect
+ * that opens the image up.
+ *
+ * Width is a few milliseconds of delay on the right channel only. The ear reads a gap that small
+ * as space rather than as a repeat — the Haas effect — which is how one mono voice becomes wide.
+ */
+const pan: EffectDescriptor = {
+  kind: 'pan',
+  label: 'Pan',
+  params: ['pan', 'width'],
+  releaseTime: 0.02,
+  create(ctx) {
+    const input = ctx.createGain()
+    const left = ctx.createDelay(MAX_WIDTH_SECONDS)
+    const right = ctx.createDelay(MAX_WIDTH_SECONDS)
+    const merger = ctx.createChannelMerger(2)
+    const panner = ctx.createStereoPanner()
+
+    input.connect(left)
+    input.connect(right)
+    left.connect(merger, 0, 0)
+    right.connect(merger, 0, 1)
+    merger.connect(panner)
+
+    return {
+      input,
+      output: panner,
+      update(params, { at }) {
+        panner.pan.setTargetAtTime(Math.min(1, Math.max(-1, params.pan ?? 0)), at, RAMP)
+        const spread = Math.min(1, Math.max(0, params.width ?? 0)) * MAX_WIDTH_SECONDS
+        right.delayTime.setTargetAtTime(spread, at, RAMP)
+      },
+      dispose() {
+        input.disconnect()
+        left.disconnect()
+        right.disconnect()
+        merger.disconnect()
+        panner.disconnect()
+      },
+    }
+  },
+}
+
+export const EFFECTS: EffectDescriptor[] = [
+  reverb,
+  echo,
+  distortion,
+  crush,
+  filter,
+  chorus,
+  ring,
+  pan,
+]
 
 const byKind = new Map(EFFECTS.map((e) => [e.kind, e]))
 

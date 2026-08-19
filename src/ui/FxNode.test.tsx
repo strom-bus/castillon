@@ -1,7 +1,6 @@
 import { ReactFlowProvider } from '@xyflow/react'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { depthToBits } from '../audio/dsp'
 import { EFFECTS } from '../audio/effects'
 import { diff, graphOf } from '../audio/router'
 import { canConnect } from '../state/connections'
@@ -183,11 +182,13 @@ describe('the FX inspector', () => {
 
     expect(shown('reverb')).toContain('Decay')
     expect(shown('reverb')).not.toContain('Drive')
-    expect(shown('drive')).toContain('Drive')
-    expect(shown('drive')).not.toContain('Decay')
+    expect(shown('distortion')).toContain('Drive')
+    expect(shown('distortion')).toContain('Shape')
+    expect(shown('distortion')).not.toContain('Decay')
     expect(shown('crush')).toContain('Bits')
-    // Every effect gets the shared tone control.
-    for (const effect of EFFECTS) expect(shown(effect.kind)).toContain('Tone')
+    expect(shown('chorus')).toContain('Rate')
+    expect(shown('pan')).toContain('Width')
+    expect(shown('pan')).not.toContain('Tone')
   })
 
   it('falls back rather than breaking on an effect this build does not have', () => {
@@ -213,16 +214,52 @@ describe('the FX inspector', () => {
     expect(ops.map((o) => o.op)).toEqual(['updateEffect'])
   })
 
-  it('sets bit depth in bits while the patch stores it normalised', () => {
+  it('sets bit depth in bits', () => {
     const fx = addFx()
     usePatchStore.getState().updateParams(fx, { effect: 'crush' })
     usePatchStore.getState().select(fx)
     render(<Inspector />)
 
     fireEvent.change(screen.getByLabelText('Bits'), { target: { value: '6' } })
-    const depth = (usePatchStore.getState().nodes.find((n) => n.id === fx)!.data.params as FxParams)
-      .depth
-    expect(depthToBits(depth)).toBe(6)
+    const params = usePatchStore.getState().nodes.find((n) => n.id === fx)!.data.params as FxParams
+    expect(params.bits).toBe(6)
+  })
+
+  it('renames the cutoff to suit the effect it belongs to', () => {
+    // The same number is a shaping stage on a reverb, the whole point on a filter, and a carrier
+    // frequency on a ring modulator. One label for all three would be worse than any of them.
+    const fx = addFx()
+    usePatchStore.getState().select(fx)
+
+    const labelFor = (effect: string) => {
+      usePatchStore.getState().updateParams(fx, { effect: effect as never })
+      const view = render(<Inspector />)
+      const labels = [...view.container.querySelectorAll('.inspector-label')].map((l) =>
+        l.firstChild?.textContent?.trim(),
+      )
+      view.unmount()
+      return labels
+    }
+
+    expect(labelFor('reverb')).toContain('Tone')
+    expect(labelFor('filter')).toContain('Cutoff')
+    expect(labelFor('ring')).toContain('Freq')
+  })
+
+  it('gives the pan effect both a position and a width', () => {
+    const fx = addFx()
+    usePatchStore.getState().updateParams(fx, { effect: 'pan' })
+    usePatchStore.getState().select(fx)
+    render(<Inspector />)
+
+    // Everything else in the project arrives dead centre, so a negative position has to be
+    // reachable rather than clamped away at zero.
+    fireEvent.change(screen.getByLabelText('Pan'), { target: { value: '-0.8' } })
+    fireEvent.change(screen.getByLabelText('Width'), { target: { value: '0.6' } })
+
+    const params = usePatchStore.getState().nodes.find((n) => n.id === fx)!.data.params as FxParams
+    expect(params.pan).toBeCloseTo(-0.8, 2)
+    expect(params.width).toBeCloseTo(0.6, 2)
   })
 
   it('offers only effects that are actually built', () => {

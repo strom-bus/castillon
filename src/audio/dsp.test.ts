@@ -1,48 +1,67 @@
 import { describe, expect, it } from 'vitest'
-import {
-  bitsToDepth,
-  crushCurve,
-  depthToBits,
-  driveCurve,
-  impulseResponse,
-  MAX_BITS,
-  MIN_BITS,
-} from './dsp'
+import { crushCurve, distortionCurve, impulseResponse, MAX_BITS, MIN_BITS } from './dsp'
 
 function distinctValues(curve: Float32Array): number {
   return new Set([...curve].map((v) => v.toFixed(5))).size
 }
 
-describe('driveCurve', () => {
-  it('is transparent at zero, so the lowest setting really is off', () => {
-    const curve = driveCurve(0, 5)
-    expect([...curve]).toEqual([-1, -0.5, 0, 0.5, 1])
+const SHAPES = ['overdrive', 'distortion', 'fuzz'] as const
+
+describe('distortionCurve', () => {
+  it('is exactly transparent at zero for every shape, so the lowest setting really is off', () => {
+    for (const shape of SHAPES) {
+      expect([...distortionCurve(shape, 0, 5)]).toEqual([-1, -0.5, 0, 0.5, 1])
+    }
   })
 
-  it('leaves silence alone and keeps the ends pinned', () => {
-    for (const amount of [0, 0.3, 1]) {
-      const curve = driveCurve(amount, 9)
-      expect(curve[4]).toBeCloseTo(0, 6)
-      expect(curve[0]).toBeCloseTo(-1, 6)
-      expect(curve[8]).toBeCloseTo(1, 6)
+  it('keeps the ends pinned and stays in range', () => {
+    for (const shape of SHAPES) {
+      for (const amount of [0, 0.3, 1]) {
+        const curve = distortionCurve(shape, amount, 9)
+        expect(curve[0]).toBeCloseTo(-1, 5)
+        expect(curve[8]).toBeCloseTo(1, 5)
+        for (const v of curve) expect(Math.abs(v)).toBeLessThanOrEqual(1)
+      }
     }
   })
 
   it('lifts quiet signal more as it is driven harder, which is what clipping is', () => {
     const quiet = 600 // a point a quarter of the way up
-    expect(driveCurve(1)[quiet]).toBeGreaterThan(driveCurve(0.2)[quiet])
-    expect(driveCurve(0.2)[quiet]).toBeGreaterThan(driveCurve(0)[quiet])
-  })
-
-  it('never exceeds the range it was given', () => {
-    for (const amount of [0, 0.5, 1]) {
-      for (const v of driveCurve(amount)) expect(Math.abs(v)).toBeLessThanOrEqual(1.0001)
+    for (const shape of SHAPES) {
+      expect(distortionCurve(shape, 1)[quiet]).toBeGreaterThan(distortionCurve(shape, 0.2)[quiet])
+      expect(distortionCurve(shape, 0.2)[quiet]).toBeGreaterThan(distortionCurve(shape, 0)[quiet])
     }
   })
 
-  it('rises without ever turning back', () => {
-    const curve = driveCurve(0.7)
-    for (let i = 1; i < curve.length; i++) expect(curve[i]).toBeGreaterThanOrEqual(curve[i - 1])
+  it('gets progressively more brutal from overdrive to fuzz', () => {
+    // The reason for having three: at the same setting each squashes a quiet signal harder than
+    // the last. If they did not, they would be one effect under three names.
+    const quiet = 600
+    const at = (shape: (typeof SHAPES)[number]) => distortionCurve(shape, 0.5)[quiet]
+    expect(at('fuzz')).toBeGreaterThan(at('distortion'))
+    expect(at('distortion')).toBeGreaterThan(at('overdrive'))
+  })
+
+  it('rises without turning back, so no shape folds the wave over', () => {
+    for (const shape of SHAPES) {
+      const curve = distortionCurve(shape, 0.7)
+      for (let i = 1; i < curve.length; i++) {
+        expect(curve[i]).toBeGreaterThanOrEqual(curve[i - 1] - 1e-6)
+      }
+    }
+  })
+
+  it('is asymmetric only for fuzz, which is where its even harmonics come from', () => {
+    const atZero = (shape: (typeof SHAPES)[number]) => distortionCurve(shape, 0.8, 1025)[512]
+    expect(Math.abs(atZero('overdrive'))).toBeLessThan(1e-6)
+    expect(Math.abs(atZero('distortion'))).toBeLessThan(1e-6)
+    expect(Math.abs(atZero('fuzz'))).toBeGreaterThan(1e-3)
+  })
+
+  it('falls back to a usable shape if handed one it does not know', () => {
+    expect([...distortionCurve('sizzle' as never, 0.5)]).toEqual([
+      ...distortionCurve('overdrive', 0.5),
+    ])
   })
 })
 
@@ -71,27 +90,6 @@ describe('crushCurve', () => {
   it('clamps a bit depth it cannot use rather than producing nonsense', () => {
     expect(distinctValues(crushCurve(0))).toBe(distinctValues(crushCurve(MIN_BITS)))
     expect(distinctValues(crushCurve(64))).toBe(distinctValues(crushCurve(MAX_BITS)))
-  })
-})
-
-describe('bit depth carried in the normalised depth parameter', () => {
-  it('round-trips every usable bit depth', () => {
-    for (let bits = MIN_BITS; bits <= MAX_BITS; bits++) {
-      expect(depthToBits(bitsToDepth(bits))).toBe(bits)
-    }
-  })
-
-  it('survives the quantisation the patch code applies to depth', () => {
-    // The codec stores depth to two decimal places; the mapping has to be coarse enough to fit.
-    for (let bits = MIN_BITS; bits <= MAX_BITS; bits++) {
-      const stored = Math.round(bitsToDepth(bits) * 100) / 100
-      expect(depthToBits(stored)).toBe(bits)
-    }
-  })
-
-  it('spans the ends', () => {
-    expect(depthToBits(0)).toBe(MIN_BITS)
-    expect(depthToBits(1)).toBe(MAX_BITS)
   })
 })
 

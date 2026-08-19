@@ -102,7 +102,7 @@ describe('diff', () => {
   })
 
   it('replaces the chain when the effect changes, without touching its cables', () => {
-    const before = graph(patchOf([osc('a'), fx('f', { effect: 'drive' })], [audio('a', 'f')]))
+    const before = graph(patchOf([osc('a'), fx('f', { effect: 'distortion' })], [audio('a', 'f')]))
     const after = graph(patchOf([osc('a'), fx('f', { effect: 'reverb' })], [audio('a', 'f')]))
     const ops = diff(before, after)
 

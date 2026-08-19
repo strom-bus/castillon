@@ -21,6 +21,7 @@ import {
   MIN_DELAY_MS,
   MIN_NOTE,
   type DelayParams,
+  type DistortionShape,
   type Division,
   type EdgeKind,
   type EffectKind,
@@ -32,6 +33,7 @@ import {
   type PropagateMode,
   type Waveform,
 } from '../types/patch'
+import { MAX_BITS, MIN_BITS } from '../audio/dsp'
 import { BitReader, BitWriter } from './bits'
 
 /**
@@ -49,7 +51,18 @@ const CODE_VERSION = 1
 
 const NODE_TYPES = ['start', 'osc', 'delay', 'fx'] as const
 
-const EFFECT_CODES: EffectKind[] = ['reverb', 'drive', 'crush', 'echo', 'filter', 'chorus']
+const EFFECT_CODES: EffectKind[] = [
+  'reverb',
+  'echo',
+  'distortion',
+  'crush',
+  'filter',
+  'chorus',
+  'ring',
+  'pan',
+]
+
+const SHAPE_CODES: DistortionShape[] = ['overdrive', 'distortion', 'fuzz']
 
 const WAVEFORM_CODES: Waveform[] = [
   'square',
@@ -174,6 +187,11 @@ function writeFx(writer: BitWriter, raw: FxParams): void {
   writer.write(quantise(params.resonance, 10, MIN_RESONANCE * 10, MAX_RESONANCE * 10), 8)
   writer.write(quantise(params.rate, 10, MIN_RATE * 10, MAX_RATE * 10), 8)
   writer.write(quantise(params.depth, 100, 0, 100), 7)
+  writer.write(clamp(Math.round(params.bits ?? MAX_BITS), MIN_BITS, MAX_BITS) - MIN_BITS, 4)
+  // Shifted into 0–200 so a signed position needs no sign bit of its own.
+  writer.write(quantise((params.pan ?? 0) + 1, 100, 0, 200), 8)
+  writer.write(quantise(params.width, 100, 0, 100), 7)
+  writer.write(Math.max(0, SHAPE_CODES.indexOf(params.shape)), 2)
 }
 
 function readFx(reader: BitReader): FxParams {
@@ -189,6 +207,10 @@ function readFx(reader: BitReader): FxParams {
     resonance: reader.read(8) / 10,
     rate: reader.read(8) / 10,
     depth: reader.read(7) / 100,
+    bits: reader.read(4) + MIN_BITS,
+    pan: reader.read(8) / 100 - 1,
+    width: reader.read(7) / 100,
+    shape: SHAPE_CODES[reader.read(2)] ?? 'overdrive',
   }
 }
 

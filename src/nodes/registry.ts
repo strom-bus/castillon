@@ -181,6 +181,7 @@ export function defaultFxParams(): FxParams {
     mix: 0.5,
     decay: 2,
     drive: 0.4,
+    shape: 'overdrive',
     time: '1/8',
     feedback: 0.35,
     filterType: 'lowpass',
@@ -189,6 +190,9 @@ export function defaultFxParams(): FxParams {
     resonance: 1,
     rate: 1.5,
     depth: 0.4,
+    bits: 8,
+    pan: 0,
+    width: 0.3,
   }
 }
 

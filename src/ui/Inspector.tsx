@@ -1,5 +1,5 @@
 import { DIVISIONS } from '../audio/clock'
-import { bitsToDepth, depthToBits, MAX_BITS, MIN_BITS } from '../audio/dsp'
+import { MAX_BITS, MIN_BITS } from '../audio/dsp'
 import { EFFECTS, effectOr } from '../audio/effects'
 import {
   cutoffToSlider,
@@ -19,9 +19,12 @@ import {
   MAX_DECAY,
   MAX_DELAY_MS,
   MAX_FEEDBACK,
+  MAX_RATE,
+  MIN_RATE,
   MIN_DECAY,
   MIN_DELAY_MS,
   type DelayParams,
+  type DistortionShape,
   type Division,
   type EffectKind,
   type FxParams,
@@ -30,6 +33,12 @@ import {
   type PropagateMode,
   type Waveform,
 } from '../types/patch'
+
+const SHAPE_LABELS: [DistortionShape, string][] = [
+  ['overdrive', 'Overdrive'],
+  ['distortion', 'Distortion'],
+  ['fuzz', 'Fuzz'],
+]
 
 const PROPAGATE_LABELS: Record<PropagateMode, string> = {
   onEnd: 'When it ends (cascade)',
@@ -164,13 +173,103 @@ function CutoffSlider({
 function EffectControl({
   param,
   params,
+  labels,
   onChange,
 }: {
   param: keyof FxParams
   params: FxParams
+  labels?: Partial<Record<keyof FxParams, string>>
   onChange: (partial: Partial<FxParams>) => void
 }) {
   switch (param) {
+    case 'shape':
+      return (
+        <label className="inspector-field">
+          <span className="inspector-label">Shape</span>
+          <select
+            value={params.shape ?? 'overdrive'}
+            onChange={(e) => onChange({ shape: e.target.value as DistortionShape })}
+          >
+            {SHAPE_LABELS.map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </label>
+      )
+    case 'filterType':
+      return (
+        <label className="inspector-field">
+          <span className="inspector-label">Type</span>
+          <select
+            value={params.filterType ?? 'lowpass'}
+            onChange={(e) => onChange({ filterType: e.target.value as FilterType })}
+          >
+            {FILTER_TYPES.filter((type) => type !== 'off').map((type) => (
+              <option key={type} value={type}>
+                {FILTER_NAMES[type]}
+              </option>
+            ))}
+          </select>
+        </label>
+      )
+    case 'bits':
+      return (
+        <TypedSlider
+          label="Bits"
+          value={params.bits ?? MAX_BITS}
+          min={MIN_BITS}
+          max={MAX_BITS}
+          step={1}
+          onChange={(bits) => onChange({ bits })}
+        />
+      )
+    case 'rate':
+      return (
+        <TypedSlider
+          label="Rate"
+          value={params.rate ?? 1.5}
+          min={MIN_RATE}
+          max={MAX_RATE}
+          step={0.1}
+          suffix="Hz"
+          onChange={(rate) => onChange({ rate })}
+        />
+      )
+    case 'depth':
+      return (
+        <TypedSlider
+          label="Depth"
+          value={params.depth ?? 0.4}
+          min={0}
+          max={1}
+          step={0.01}
+          onChange={(depth) => onChange({ depth })}
+        />
+      )
+    case 'pan':
+      return (
+        <TypedSlider
+          label="Pan"
+          value={params.pan ?? 0}
+          min={-1}
+          max={1}
+          step={0.01}
+          onChange={(pan) => onChange({ pan })}
+        />
+      )
+    case 'width':
+      return (
+        <TypedSlider
+          label="Width"
+          value={params.width ?? 0}
+          min={0}
+          max={1}
+          step={0.01}
+          onChange={(width) => onChange({ width })}
+        />
+      )
     case 'decay':
       return (
         <TypedSlider
@@ -192,18 +291,6 @@ function EffectControl({
           max={1}
           step={0.01}
           onChange={(drive) => onChange({ drive })}
-        />
-      )
-    case 'depth':
-      // Bit depth is what the user sets; the patch stores it normalised in `depth`.
-      return (
-        <TypedSlider
-          label="Bits"
-          value={depthToBits(params.depth ?? 0.4)}
-          min={MIN_BITS}
-          max={MAX_BITS}
-          step={1}
-          onChange={(bits) => onChange({ depth: bitsToDepth(bits) })}
         />
       )
     case 'time':
@@ -234,10 +321,11 @@ function EffectControl({
         />
       )
     case 'cutoff':
-      // Labelled Tone here: on an effect it shapes what comes out rather than being the point.
+      // Tone on a shaping stage, Cutoff on a filter, Freq on a ring modulator: the effect says
+      // which, because the same number means a different thing in each.
       return (
         <CutoffSlider
-          label="Tone"
+          label={labels?.cutoff ?? 'Tone'}
           value={params.cutoff ?? 6000}
           onChange={(cutoff) => onChange({ cutoff })}
         />
@@ -338,7 +426,13 @@ export function Inspector() {
         {descriptor.params.length > 0 && (
           <div className="inspector-section">
             {descriptor.params.map((param) => (
-              <EffectControl key={param} param={param} params={fxParams} onChange={setFx} />
+              <EffectControl
+                key={param}
+                param={param}
+                params={fxParams}
+                labels={descriptor.labels}
+                onChange={setFx}
+              />
             ))}
           </div>
         )}

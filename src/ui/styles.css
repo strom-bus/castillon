@@ -743,11 +743,14 @@ input[type='range'] {
   padding: 0;
   border: none;
   background: none;
-  color: var(--text);
+  /* Grey at rest, white on hover. The chrome accent *is* white, so an icon that starts white has
+     nowhere to go — which is what the lettered buttons hide by moving their border instead. */
+  color: var(--muted);
+  transition: color 90ms linear;
 }
 
 .btn-icon:hover {
-  color: var(--accent);
+  color: var(--text);
 }
 
 .btn-icon svg {

@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { DIVISIONS } from '../audio/clock'
 import { MAX_BITS, MIN_BITS } from '../audio/dsp'
 import { EFFECTS, effectOr } from '../audio/effects'
@@ -364,6 +365,29 @@ function EffectControl({
   }
 }
 
+/**
+ * The frame every panel shares, which is also where the source link lives.
+ *
+ * Not decoration: this is published under the AGPL, and §13 requires that anyone using the hosted
+ * app can reach its source. Putting it in the shared frame means a panel added later cannot
+ * accidentally drop it.
+ */
+function Panel({ children }: { children: ReactNode }) {
+  return (
+    <aside className="inspector">
+      <div className="inspector-body">{children}</div>
+      <a
+        className="inspector-source"
+        href="https://github.com/strom-bus/castillon"
+        target="_blank"
+        rel="noreferrer"
+      >
+        source
+      </a>
+    </aside>
+  )
+}
+
 export function Inspector() {
   const node = usePatchStore((s) => s.nodes.find((n) => n.id === s.selectedId))
   // The same number the node shows on the canvas, so the panel and the node agree on which one
@@ -377,7 +401,7 @@ export function Inspector() {
 
   if (!node) {
     return (
-      <aside className="inspector">
+      <Panel>
         <p className="inspector-empty">Select a node to edit it.</p>
         <p className="inspector-empty">
           <strong>Top and bottom ports carry triggers.</strong> Ignite, Osc and Delay wire into each
@@ -391,20 +415,20 @@ export function Inspector() {
           Drag vertically on a bar to tune a step; the square underneath mutes it. Click a cable to
           remove it.
         </p>
-      </aside>
+      </Panel>
     )
   }
 
   if (node.type === 'start') {
     return (
-      <aside className="inspector">
+      <Panel>
         <h2 className="inspector-title">
           IGNITE <span className="node-ordinal">{ordinal}</span>
         </h2>
         <p className="inspector-empty">
           Fires the cascade on Play. A patch can hold several: each one is an independent cascade.
         </p>
-      </aside>
+      </Panel>
     )
   }
 
@@ -414,7 +438,7 @@ export function Inspector() {
     const setFx = (partial: Partial<FxParams>) => updateParams(node.id, partial)
 
     return (
-      <aside className="inspector">
+      <Panel>
         <h2 className="inspector-title">
           FX <span className="node-ordinal">{ordinal}</span>
         </h2>
@@ -464,14 +488,14 @@ export function Inspector() {
           Mix runs from all clean to all effect. An oscillator with nothing attached is heard whole;
           once something is, it is heard through it.
         </p>
-      </aside>
+      </Panel>
     )
   }
 
   if (node.type === 'delay') {
     const delayParams = node.data.params as DelayParams
     return (
-      <aside className="inspector">
+      <Panel>
         <h2 className="inspector-title">
           DELAY <span className="node-ordinal">{ordinal}</span>
         </h2>
@@ -488,7 +512,7 @@ export function Inspector() {
           Holds the trigger and passes it on later. It makes no sound of its own — it shifts when
           the branch below it starts, so it is how two branches are pulled out of step.
         </p>
-      </aside>
+      </Panel>
     )
   }
 
@@ -497,7 +521,7 @@ export function Inspector() {
   const set = (partial: Partial<OscParams>) => updateParams(node.id, partial)
 
   return (
-    <aside className="inspector">
+    <Panel>
       <h2 className="inspector-title">
         OSC <span className="node-ordinal">{ordinal}</span>
       </h2>
@@ -628,6 +652,6 @@ export function Inspector() {
         suffix=" ms"
         onChange={(release) => set({ release })}
       />
-    </aside>
+    </Panel>
   )
 }

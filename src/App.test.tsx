@@ -12,7 +12,9 @@ describe('App', () => {
     render(<App />)
 
     expect(screen.getByText('Castill_ON')).toBeDefined()
-    expect(screen.getByText('COLMENA')).toBeDefined()
+    expect(screen.getByText('COLMENA / STROMBUS')).toBeDefined()
+    // AGPL §13: anyone using the hosted app has to be able to reach its source.
+    expect(screen.getByText('source')).toBeDefined()
     expect(screen.getByText('▶ PLAY')).toBeDefined()
 
     // The starting patch: two independent cascades, five oscillators and a delay.

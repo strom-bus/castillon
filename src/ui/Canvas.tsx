@@ -100,13 +100,7 @@ function CanvasInner() {
           <Controls showInteractive={false} />
         </ReactFlow>
       </DepthContext.Provider>
-      {/* Not decoration: the AGPL requires that anyone using the hosted app can reach its source. */}
-      <span className="colophon">
-        COLMENA
-        <a href="https://github.com/strom-bus/castillon" target="_blank" rel="noreferrer">
-          source
-        </a>
-      </span>
+      <span className="colophon">COLMENA / STROMBUS</span>
     </div>
   )
 }

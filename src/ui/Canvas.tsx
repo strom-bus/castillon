@@ -33,10 +33,18 @@ function CanvasInner() {
   // Dragging a node yields a fresh `nodes` array every frame without changing the graph's
   // structure. Keeping the previous reference when the result matches means a drag does not
   // repaint every node over a colour that did not change.
+  //
+  // The ref is read and written during render, which the linter rightly flags in general and which
+  // is safe here: it only ever holds a result of `computeDepths`, and it is only ever returned when
+  // `sameDepths` says it carries the same value as the fresh one. A render that gets discarded can
+  // therefore leave behind nothing but a value-equal object, which is exactly what the consumers
+  // treat as interchangeable. This is the caching case React's own docs allow.
   const previousDepths = useRef(EMPTY_DEPTHS)
   const depths = useMemo(() => {
     const next = computeDepths(nodes, edges)
+    // oxlint-disable-next-line react/refs
     if (sameDepths(next, previousDepths.current)) return previousDepths.current
+    // oxlint-disable-next-line react/refs
     previousDepths.current = next
     return next
   }, [nodes, edges])

@@ -14,4 +14,4 @@ compatibility_date = "2026-08-19"
 # Created by the command above; the id is not a secret.
 [[kv_namespaces]]
 binding = "PATCHES"
-id = "REPLACE_WITH_THE_ID_FROM_KV_NAMESPACE_CREATE"
+id = "59c9b7e9a42e46948a49021d63d9a059"

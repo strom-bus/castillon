@@ -25,3 +25,6 @@ dist-ssr
 
 # Working plan, kept local
 PLAN.md
+
+# Wrangler build artifacts
+.wrangler

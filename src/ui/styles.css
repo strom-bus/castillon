@@ -685,16 +685,17 @@ input[type='range'] {
   border-top: 1px solid var(--border);
 }
 
-/* The short code sits beside the button that made it, dimmed once the patch has moved on. */
-.patch-code-short {
-  color: var(--text);
-  letter-spacing: 0.14em;
-  white-space: nowrap;
+/* A short code is six characters, so the field can be narrow and the code set wide. */
+.patch-code input.short {
+  flex: 0 0 auto;
+  width: 92px;
+  letter-spacing: 0.16em;
+  text-align: center;
 }
 
-.patch-code-short.stale {
-  color: var(--border-strong);
-  text-decoration: line-through;
+/* Correct but not yet resolvable for anyone else. Copy publishes it. */
+.patch-code input.unpublished {
+  color: var(--muted);
 }
 
 .patch-code-note {

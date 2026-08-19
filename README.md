@@ -41,10 +41,11 @@ without having to remember a colour.
   behind the dropdown is a gain stage, with reverb, drive, echo, filter and chorus to come.
 - **Patch codes.** The entire patch packs into one URL-safe string you can copy and paste. Every
   parameter left at rest costs a single bit, so a code carries roughly what you actually changed.
-- **Short codes.** Six characters that stand for a patch — `K7M2QX`. Thirty bits cannot hold a
-  patch, so a short code refers to one rather than containing it: it is the hash of the long code,
-  which means the same patch always gets the same short code and changing the patch changes it. The
-  field takes either kind.
+- **Short codes.** Six characters that stand for a patch — `K7M2QX` — and what the interface shows.
+  Thirty bits cannot hold a patch, so a short code refers to one rather than containing it: it is the
+  hash of the long code, which means the same patch always gets the same short code and changing the
+  patch changes it. Copy publishes before copying, so what lands on the clipboard always works.
+  The field takes either kind of code.
   Eight nodes come to about 150 characters, against roughly 2700 as JSON.
 
 ## Sharing
@@ -62,6 +63,15 @@ Then build the app with `VITE_SHARE_URL` set to that URL — the deploy workflow
 set, the Share button is hidden and everything else behaves exactly as it does without it: the
 service is a convenience layer, not a dependency. It stores the same string the app already lets you
 copy, so if it ever goes away, nothing exists only inside it.
+
+## The long code
+
+The whole patch as one string. It is what actually contains a patch, decodes with no network, and is
+what gets committed into this repo — the starting patch and the load test are both just codes.
+
+It is deliberately not on show, since a short code is what anyone would want to pass on. **Five quick
+clicks on Copy** turn on a developer mode that puts it back in the field, and five more put it away.
+Pasting a long code always works whether the mode is on or not.
 
 ## Running it
 

@@ -41,6 +41,15 @@ function newId(prefix: string): string {
   return `${prefix}-${Math.random().toString(36).slice(2, 9)}`
 }
 
+/**
+ * What a copy holds. Its own nodes and only the cables with both ends inside it, so pasting can
+ * never produce a cable reaching for something that was left behind.
+ */
+interface Clipboard {
+  nodes: FlowNode[]
+  edges: FlowEdge[]
+}
+
 interface PatchState {
   bpm: number
   loop: boolean
@@ -48,6 +57,13 @@ interface PatchState {
   nodes: FlowNode[]
   edges: FlowEdge[]
   selectedId: string | null
+  /**
+   * Deliberately outlives loading another patch: roll the dice, find an oscillator worth keeping,
+   * roll again, paste it in.
+   */
+  clipboard: Clipboard | null
+  /** How many times the current copy has been pasted, so each one lands clear of the last. */
+  pasteRun: number
 
   onNodesChange(changes: NodeChange<FlowNode>[]): void
   onEdgesChange(changes: EdgeChange<FlowEdge>[]): void
@@ -65,6 +81,8 @@ interface PatchState {
   loadPatch(patch: Patch): void
   resetPatch(): void
   randomisePatch(): void
+  copySelection(): void
+  pasteClipboard(): void
 }
 
 function makeNode(type: string, position: { x: number; y: number }, id = newId(type)): FlowNode {
@@ -159,10 +177,15 @@ function initialPatch(): ReturnType<typeof fromPatch> {
   return patch ? fromPatch(patch) : { bpm: 120, loop: true, nodes: [], edges: [] }
 }
 
+/** Offset per paste, enough that the copy is obviously a second node rather than a redraw. */
+const PASTE_OFFSET = 44
+
 export const usePatchStore = create<PatchState>((set, get) => ({
   masterGain: 0.8,
   ...initialPatch(),
   selectedId: null,
+  clipboard: null,
+  pasteRun: 0,
 
   onNodesChange(changes) {
     set({ nodes: applyNodeChanges(changes, get().nodes) })
@@ -287,7 +310,67 @@ export const usePatchStore = create<PatchState>((set, get) => ({
   },
 
   randomisePatch() {
-    set({ ...fromPatch(randomPatch()), selectedId: null })
+    set({ ...fromPatch(randomPatch()), selectedId: null, pasteRun: 0 })
+  },
+
+  /**
+   * Copies whatever is selected on the canvas, or the node in the inspector if the canvas has no
+   * selection of its own.
+   *
+   * Parameters are cloned rather than referenced: a sequence is an array, so a shallow copy would
+   * leave the pasted oscillator sharing steps with the one it came from, and editing either would
+   * change both.
+   */
+  copySelection() {
+    const { nodes, edges, selectedId } = get()
+    const marked = nodes.filter((n) => n.selected)
+    const chosen = marked.length > 0 ? marked : nodes.filter((n) => n.id === selectedId)
+    if (chosen.length === 0) return
+
+    const inside = new Set(chosen.map((n) => n.id))
+    set({
+      clipboard: {
+        nodes: chosen.map((n) => ({ ...n, data: { params: structuredClone(n.data.params) } })),
+        edges: edges.filter((e) => inside.has(e.source) && inside.has(e.target)),
+      },
+      pasteRun: 0,
+    })
+  },
+
+  pasteClipboard() {
+    const { clipboard, nodes, edges, pasteRun } = get()
+    if (!clipboard || clipboard.nodes.length === 0) return
+
+    const offset = PASTE_OFFSET * (pasteRun + 1)
+    const renamed = new Map<string, string>()
+
+    const pasted = clipboard.nodes.map((node) => {
+      const id = newId(node.type ?? 'node')
+      renamed.set(node.id, id)
+      return {
+        ...node,
+        id,
+        position: { x: node.position.x + offset, y: node.position.y + offset },
+        // Cloned again on the way out, so pasting twice does not hand both copies one object.
+        data: { params: structuredClone(node.data.params) },
+        selected: true,
+      }
+    })
+
+    const rewired = clipboard.edges.map((edge) => ({
+      ...edge,
+      id: newId('e'),
+      source: renamed.get(edge.source) as string,
+      target: renamed.get(edge.target) as string,
+    }))
+
+    set({
+      // The paste becomes the selection, so it can be dragged into place straight away.
+      nodes: [...nodes.map((n) => ({ ...n, selected: false })), ...pasted],
+      edges: [...edges, ...rewired],
+      selectedId: pasted[0].id,
+      pasteRun: pasteRun + 1,
+    })
   },
 }))
 

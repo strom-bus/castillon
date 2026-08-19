@@ -415,6 +415,10 @@ export function Inspector() {
           Drag vertically on a bar to tune a step; the square underneath mutes it. Click a cable to
           remove it.
         </p>
+        <p className="inspector-empty">
+          Shift-drag selects several nodes. <strong>Copy and paste</strong> brings them back with
+          their parameters, and the cables between them.
+        </p>
       </Panel>
     )
   }

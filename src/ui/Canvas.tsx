@@ -13,8 +13,11 @@ import { canConnect } from '../state/connections'
 import { usePatchStore, type FlowEdge } from '../state/patchStore'
 import { computeDepths, DepthContext, EMPTY_DEPTHS, sameDepths } from '../viz/depth'
 import { edgeTypes, nodeTypes } from './flowTypes'
+import { useCopyPaste } from './useCopyPaste'
 
 function CanvasInner() {
+  useCopyPaste()
+
   const nodes = usePatchStore((s) => s.nodes)
   const edges = usePatchStore((s) => s.edges)
   const onNodesChange = usePatchStore((s) => s.onNodesChange)

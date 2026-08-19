@@ -44,6 +44,9 @@ without having to remember a colour.
   come from one scale, the tree is always fully connected so nothing sits silent, levels are divided
   by the root of the voice count so a wall of oscillators is no louder than a single one, and the
   tonal waveforms are far likelier than the noise ones.
+- **Copy and paste**, with Cmd or Ctrl. Shift-drag selects several nodes, and a copy brings their
+  parameters and the cables between them. The clipboard outlives loading another patch, so an
+  oscillator worth keeping can be carried from one roll of the dice to the next.
 - **Patch codes.** The entire patch packs into one URL-safe string you can copy and paste. Every
   parameter left at rest costs a single bit, so a code carries roughly what you actually changed.
 - **Short codes.** Six characters that stand for a patch — `K7M2QX` — and what the interface shows.

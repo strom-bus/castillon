@@ -734,15 +734,24 @@ input[type='range'] {
   white-space: nowrap;
 }
 
-/* An icon button is square around its glyph rather than padded for text. */
+/* No frame of its own: the glyph is the button, sized to stand as tall as the lettered ones beside
+   it. A border around an icon that already reads as a shape is one box too many. */
 .btn-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 5px 7px;
+  padding: 0;
+  border: none;
+  background: none;
   color: var(--text);
 }
 
 .btn-icon:hover {
   color: var(--accent);
+}
+
+.btn-icon svg {
+  display: block;
+  width: 25px;
+  height: 25px;
 }

@@ -16,7 +16,7 @@ function DiceIcon() {
     [15, 15],
   ]
   return (
-    <svg width="14" height="14" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+    <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
       <rect
         x="1"
         y="1"

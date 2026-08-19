@@ -5,7 +5,7 @@ import { EFFECTS } from '../audio/effects'
 import { diff, graphOf } from '../audio/router'
 import { canConnect } from '../state/connections'
 import { toPatch, usePatchStore } from '../state/patchStore'
-import type { FxParams, OscParams } from '../types/patch'
+import type { FxParams } from '../types/patch'
 import { Inspector } from './Inspector'
 import { FxNode } from './nodes'
 
@@ -38,13 +38,13 @@ describe('wiring an effect to an oscillator', () => {
     expect(edge.type).toBe('signal')
   })
 
-  it('turns into a create-then-connect pair for the engine', () => {
+  it('wires the send and mutes the direct path in one change', () => {
     const fx = addFx()
     const before = graphOf(toPatch())
     wire(firstOsc(), fx)
 
     const ops = diff(before, graphOf(toPatch()))
-    expect(ops.map((o) => o.op)).toEqual(['connect'])
+    expect(ops.map((o) => o.op)).toEqual(['connect', 'setDirect'])
   })
 
   it('rejects a second cable from the oscillator’s other side', () => {
@@ -344,21 +344,42 @@ describe('the FX inspector', () => {
   })
 })
 
-describe('Direct on the oscillator', () => {
-  it('defaults to the whole signal, which is what an oscillator with no effects does', () => {
-    const params = usePatchStore.getState().nodes.find((n) => n.type === 'osc')!.data
-      .params as OscParams
-    expect(params.direct).toBe(1)
+describe('the dry signal', () => {
+  it('an oscillator with nothing attached is heard whole', () => {
+    expect(graphOf(toPatch()).direct.get(firstOsc())).toBe(1)
   })
 
-  it('is a mix change and nothing more', () => {
+  it('an oscillator with an effect is heard through it, not alongside it', () => {
+    // Each effect carries the dry across itself, so a second path to the master would count the
+    // clean signal twice. That is what a hand-set Direct control did whenever it was left alone,
+    // and it is why a tremolo used to be inaudible: its dips were filled in by the untouched copy.
     const osc = firstOsc()
-    usePatchStore.getState().select(osc)
-    render(<Inspector />)
+    wire(osc, addFx())
+    expect(graphOf(toPatch()).direct.get(osc)).toBe(0)
+  })
 
-    const before = graphOf(toPatch())
-    fireEvent.change(screen.getByLabelText('Direct'), { target: { value: '0' } })
+  it('is heard whole again once the last effect is unwired', () => {
+    const osc = firstOsc()
+    wire(osc, addFx())
+    const cable = usePatchStore.getState().edges.at(-1)!
+    usePatchStore.getState().removeEdge(cable.id)
 
-    expect(diff(before, graphOf(toPatch()))).toEqual([{ op: 'setDirect', id: osc, value: 0 }])
+    expect(graphOf(toPatch()).direct.get(osc)).toBe(1)
+  })
+
+  it('stays muted while any one of several effects is still attached', () => {
+    const osc = firstOsc()
+    wire(osc, addFx())
+    wire(osc, addFx())
+    const cable = usePatchStore.getState().edges.at(-1)!
+    usePatchStore.getState().removeEdge(cable.id)
+
+    expect(graphOf(toPatch()).direct.get(osc)).toBe(0)
+  })
+
+  it('is not a parameter anyone can set', () => {
+    // It was, and being wrong by default for six of the ten effects is why it is not any more.
+    const params = usePatchStore.getState().nodes.find((n) => n.type === 'osc')!.data.params
+    expect('direct' in params).toBe(false)
   })
 })

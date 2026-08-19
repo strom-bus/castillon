@@ -458,9 +458,11 @@ export function Inspector() {
 
         <p className="inspector-empty">
           Wire an oscillator's side port into this to feed it. Several effects can share one
-          oscillator and one effect can take several — each is a send, so Mix is how much effect is
-          added on top. Pull the oscillator's Direct down to hear the effect instead of alongside
-          it.
+          oscillator, and one effect can take several.
+        </p>
+        <p className="inspector-empty">
+          Mix runs from all clean to all effect. An oscillator with nothing attached is heard whole;
+          once something is, it is heard through it.
         </p>
       </aside>
     )
@@ -599,14 +601,6 @@ export function Inspector() {
         max={1}
         step={0.01}
         onChange={(gain) => set({ gain })}
-      />
-      <TypedSlider
-        label="Direct"
-        value={params.direct ?? 1}
-        min={0}
-        max={1}
-        step={0.01}
-        onChange={(direct) => set({ direct })}
       />
       <Slider
         label="Gate"

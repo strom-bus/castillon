@@ -56,12 +56,6 @@ export interface OscParams {
   release: number
   /** Fraction of the step the note lasts. 0.6 is percussive, 1 is legato. */
   gate: number
-  /**
-   * How much of this oscillator reaches the master without passing through any FX. 1 is the whole
-   * of it, which is what an oscillator with no effects attached does. Pull it down with a drive
-   * connected and you hear the effect rather than the effect on top of the clean signal.
-   */
-  direct: number
   filterType: FilterType
   /** Hz. Edited on a log slider; see audio/filter.ts. */
   cutoff: number

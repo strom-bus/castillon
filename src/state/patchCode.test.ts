@@ -285,10 +285,21 @@ describe('patch code', () => {
     expect(back.depth).toBeCloseTo(0.66, 2)
   })
 
-  it('round-trips Direct on the oscillator', () => {
-    for (const direct of [0, 0.35, 1]) {
-      const decoded = decodePatch(encodePatch(patchOf([osc('a', { direct })])))!
-      expect((decoded.nodes[0].params as { direct: number }).direct).toBeCloseTo(direct, 2)
+  it('round-trips the sweep, which the chorus needs to reach flanging', () => {
+    for (const sweep of [0.5, 6, 22, 35]) {
+      const decoded = decodePatch(
+        encodePatch(
+          patchOf([
+            {
+              id: 'f',
+              type: 'fx',
+              position: { x: 0, y: 0 },
+              params: { ...defaultFxParams(), sweep },
+            },
+          ]),
+        ),
+      )!
+      expect((decoded.nodes[0].params as { sweep: number }).sweep).toBeCloseTo(sweep, 1)
     }
   })
 

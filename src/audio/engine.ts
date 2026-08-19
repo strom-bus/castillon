@@ -40,9 +40,20 @@ interface OutputBus {
   direct: GainNode
 }
 
-/** An FX node: a fixed input and output with a swappable chain between them. */
+/**
+ * An FX node: a fixed input and output with a swappable chain between them, and a dry path across
+ * it.
+ *
+ * The dry path is what makes Mix mean what it says. Four of the effects only exist by interference
+ * with the unprocessed signal — a phaser is a chain of all-pass filters, so its output alone is
+ * nearly the input, and the notches appear only when the two are summed — while the other six are
+ * transforms that should replace it. Carrying the dry here serves both, and does it once for every
+ * effect rather than ten times.
+ */
 interface EffectInstance {
   input: GainNode
+  dry: GainNode
+  wet: GainNode
   output: GainNode
   chain: EffectChain
   kind: string
@@ -227,15 +238,21 @@ export class AudioEngine implements Engine {
     const chain = descriptor.create(this.ctx)
 
     const input = this.ctx.createGain()
+    const dry = this.ctx.createGain()
+    const wet = this.ctx.createGain()
+    // Stays at one. It exists so disposal has something to fade, independently of Mix.
     const output = this.ctx.createGain()
-    output.gain.value = params.mix
 
+    input.connect(dry)
+    dry.connect(output)
     input.connect(chain.input)
-    chain.output.connect(output)
+    chain.output.connect(wet)
+    wet.connect(output)
     output.connect(this.master)
 
-    this.effects.set(nodeId, { input, output, chain, kind: params.effect })
+    this.effects.set(nodeId, { input, dry, wet, output, chain, kind: params.effect })
     chain.update(params, { at: this.ctx.currentTime, bpm })
+    this.updateEffect(nodeId, params, bpm)
   }
 
   /**
@@ -246,13 +263,16 @@ export class AudioEngine implements Engine {
     const instance = this.effects.get(nodeId)
     if (!this.ctx || !instance) return
 
+    // Only the chain goes. The input, the dry path and the output survive, so every cable in the
+    // patch stays attached and the dry keeps flowing while the effect is swapped underneath.
     instance.input.disconnect()
     instance.chain.output.disconnect()
     instance.chain.dispose()
 
     const chain = effectOr(params.effect).create(this.ctx)
+    instance.input.connect(instance.dry)
     instance.input.connect(chain.input)
-    chain.output.connect(instance.output)
+    chain.output.connect(instance.wet)
     instance.chain = chain
     instance.kind = params.effect
 
@@ -263,7 +283,9 @@ export class AudioEngine implements Engine {
     const instance = this.effects.get(nodeId)
     if (!this.ctx || !instance) return
     const at = this.ctx.currentTime
-    instance.output.gain.setTargetAtTime(params.mix, at, RAMP)
+    const mix = Math.min(1, Math.max(0, params.mix))
+    instance.wet.gain.setTargetAtTime(mix, at, RAMP)
+    instance.dry.gain.setTargetAtTime(1 - mix, at, RAMP)
     instance.chain.update(params, { at, bpm })
   }
 
@@ -289,6 +311,8 @@ export class AudioEngine implements Engine {
     window.setTimeout(
       () => {
         instance.input.disconnect()
+        instance.dry.disconnect()
+        instance.wet.disconnect()
         instance.output.disconnect()
         instance.chain.dispose()
       },

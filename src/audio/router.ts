@@ -1,4 +1,4 @@
-import type { FxParams, NodeId, OscParams, Patch } from '../types/patch'
+import type { FxParams, NodeId, Patch } from '../types/patch'
 
 /**
  * Works out the smallest set of changes that takes the live audio graph to the one the patch
@@ -19,7 +19,13 @@ export interface AudioGraph {
   bpm: number
   /** FX node id → its parameters. */
   effects: Map<NodeId, FxParams>
-  /** Oscillator id → how much of it bypasses the effects. */
+  /**
+   * Oscillator id → how much of it reaches the master without passing through an effect.
+   *
+   * Derived, not stored: an oscillator with no effects is heard whole, and one with effects is
+   * heard through them, since each carries the dry across itself. That rule replaced a Direct
+   * control which had to be set by hand and was wrong by default for six of the ten effects.
+   */
   direct: Map<NodeId, number>
   /** `oscId>fxId`, one per send. */
   sends: Set<string>
@@ -56,19 +62,24 @@ function splitSend(key: string): { from: NodeId; to: NodeId } {
  */
 export function graphOf(patch: Patch): AudioGraph {
   const effects = new Map<NodeId, FxParams>()
-  const direct = new Map<NodeId, number>()
+  const oscillators = new Set<NodeId>()
 
   for (const node of patch.nodes) {
     if (node.type === 'fx') effects.set(node.id, node.params as FxParams)
-    else if (node.type === 'osc') direct.set(node.id, (node.params as OscParams).direct ?? 1)
+    else if (node.type === 'osc') oscillators.add(node.id)
   }
 
   const sends = new Set<string>()
+  const sending = new Set<NodeId>()
   for (const edge of patch.edges) {
     if (edge.kind !== 'audio') continue
-    if (!direct.has(edge.source) || !effects.has(edge.target)) continue
+    if (!oscillators.has(edge.source) || !effects.has(edge.target)) continue
     sends.add(sendKey(edge.source, edge.target))
+    sending.add(edge.source)
   }
+
+  const direct = new Map<NodeId, number>()
+  for (const id of oscillators) direct.set(id, sending.has(id) ? 0 : 1)
 
   return { bpm: patch.bpm, effects, direct, sends }
 }

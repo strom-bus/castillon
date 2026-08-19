@@ -110,7 +110,6 @@ export function defaultOscParams(): OscParams {
     attack: 4,
     release: 40,
     gate: 0.6,
-    direct: 1,
     filterType: 'off',
     cutoff: 2000,
     resonance: 1,

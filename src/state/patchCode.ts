@@ -113,7 +113,6 @@ function writeOsc(writer: BitWriter, raw: OscParams): void {
   writer.write(quantise(params.attack, 1, 1, 500), 9)
   writer.write(quantise(params.release, 1, 5, 2000), 11)
   writer.write(quantise(params.gate, 100, 5, 100), 7)
-  writer.write(quantise(params.direct, 100, 0, 100), 7)
   writer.write(Math.max(0, PROPAGATE_CODES.indexOf(params.propagateMode)), 2)
 
   writer.write(Math.max(0, FILTER_TYPES.indexOf(params.filterType)), 2)
@@ -141,7 +140,6 @@ function readOsc(reader: BitReader): OscParams {
   const attack = reader.read(9)
   const release = reader.read(11)
   const gate = reader.read(7) / 100
-  const direct = reader.read(7) / 100
   const propagateMode = PROPAGATE_CODES[reader.read(2)] ?? 'onEnd'
 
   const filterType = FILTER_TYPES[reader.read(2)] ?? 'off'
@@ -167,7 +165,6 @@ function readOsc(reader: BitReader): OscParams {
     attack,
     release,
     gate,
-    direct,
     filterType,
     cutoff,
     resonance,

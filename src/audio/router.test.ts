@@ -3,13 +3,8 @@ import { defaultFxParams, defaultOscParams } from '../nodes/registry'
 import type { FxParams, Patch, PatchEdge, PatchNode } from '../types/patch'
 import { diff, EMPTY_GRAPH, graphOf, sendKey, type AudioGraph } from './router'
 
-function osc(id: string, direct = 1): PatchNode {
-  return {
-    id,
-    type: 'osc',
-    position: { x: 0, y: 0 },
-    params: { ...defaultOscParams(), direct },
-  }
+function osc(id: string): PatchNode {
+  return { id, type: 'osc', position: { x: 0, y: 0 }, params: defaultOscParams() }
 }
 
 function fx(id: string, overrides: Partial<FxParams> = {}): PatchNode {
@@ -35,10 +30,30 @@ function patchOf(nodes: PatchNode[], edges: PatchEdge[] = []): Patch {
 
 describe('graphOf', () => {
   it('keeps only what affects audio', () => {
-    const graph = graphOf(patchOf([osc('a', 0.5), fx('f')], [audio('a', 'f')]))
-    expect([...graph.direct]).toEqual([['a', 0.5]])
+    const graph = graphOf(patchOf([osc('a'), fx('f')], [audio('a', 'f')]))
     expect([...graph.effects.keys()]).toEqual(['f'])
     expect([...graph.sends]).toEqual(['a>f'])
+  })
+
+  it('an oscillator with nothing attached is heard whole', () => {
+    expect(graphOf(patchOf([osc('a')])).direct.get('a')).toBe(1)
+  })
+
+  it('an oscillator with an effect is heard through it, not alongside it', () => {
+    // Derived rather than stored. Each effect carries the dry across itself, so a second path to
+    // the master would count the clean signal twice — which is what a Direct control used to do
+    // whenever it was left at its default.
+    const graph = graphOf(patchOf([osc('a'), fx('f')], [audio('a', 'f')]))
+    expect(graph.direct.get('a')).toBe(0)
+  })
+
+  it('goes back to being heard whole when the last effect is unwired', () => {
+    const before = graphOf(patchOf([osc('a'), fx('f')], [audio('a', 'f')]))
+    const after = graphOf(patchOf([osc('a'), fx('f')]))
+    expect(diff(before, after)).toEqual([
+      { op: 'disconnect', from: 'a', to: 'f' },
+      { op: 'setDirect', id: 'a', value: 1 },
+    ])
   })
 
   it('ignores event cables', () => {
@@ -90,7 +105,8 @@ describe('diff', () => {
     const after = graph(patchOf([osc('a'), fx('f')], [audio('a', 'f')]))
     const ops = diff(before, after)
 
-    expect(ops.map((o) => o.op)).toEqual(['createEffect', 'connect'])
+    // Muting the direct path belongs to the same change: the effect carries the dry from here on.
+    expect(ops.map((o) => o.op)).toEqual(['createEffect', 'connect', 'setDirect'])
   })
 
   it('disconnects before disposing, so nothing feeds a node that is going away', () => {
@@ -98,7 +114,7 @@ describe('diff', () => {
     const after = graph(patchOf([osc('a')]))
     const ops = diff(before, after)
 
-    expect(ops.map((o) => o.op)).toEqual(['disconnect', 'disposeEffect'])
+    expect(ops.map((o) => o.op)).toEqual(['disconnect', 'disposeEffect', 'setDirect'])
   })
 
   it('replaces the chain when the effect changes, without touching its cables', () => {
@@ -123,10 +139,15 @@ describe('diff', () => {
     ])
   })
 
-  it('tracks Direct on its own, without disturbing the graph', () => {
-    const before = graph(patchOf([osc('a', 1), fx('f')], [audio('a', 'f')]))
-    const after = graph(patchOf([osc('a', 0), fx('f')], [audio('a', 'f')]))
-    expect(diff(before, after)).toEqual([{ op: 'setDirect', id: 'a', value: 0 }])
+  it('mutes the direct path in the same pass that wires the effect up', () => {
+    const before = graph(patchOf([osc('a'), fx('f')]))
+    const after = graph(patchOf([osc('a'), fx('f')], [audio('a', 'f')]))
+    const ops = diff(before, after)
+
+    expect(ops).toEqual([
+      { op: 'connect', from: 'a', to: 'f' },
+      { op: 'setDirect', id: 'a', value: 0 },
+    ])
   })
 
   it('builds the whole graph from empty', () => {

@@ -76,12 +76,45 @@ describe('randomPatch', () => {
     }
   })
 
-  it('shares the level out, so a big cascade is not louder than a small one', () => {
-    for (const patch of many()) {
-      const total = oscs(patch).reduce((sum, p) => sum + p.gain, 0)
-      expect(total).toBeLessThan(1.6)
-      for (const p of oscs(patch)) expect(p.gain).toBeGreaterThan(0)
+  it('shares the level out, so a wall of oscillators is not louder than one', () => {
+    // Measured as the power sum, since sources that are not in phase add in power rather than in
+    // amplitude. That is the quantity the level scaling is designed to hold still, and it holds it
+    // across patches from one oscillator to sixty.
+    const powers = many().map((patch) =>
+      Math.sqrt(oscs(patch).reduce((sum, p) => sum + p.gain * p.gain, 0)),
+    )
+    for (const power of powers) {
+      expect(power).toBeGreaterThan(0.15)
+      expect(power).toBeLessThan(0.55)
     }
+  })
+
+  it('spans small patches and large ones rather than always landing in the middle', () => {
+    // The point of a dice button is the spread. Always getting five oscillators would be the one
+    // outcome that gets boring.
+    const counts = many(400).map((p) => oscs(p).length)
+    expect(Math.min(...counts)).toBeLessThanOrEqual(3)
+    expect(Math.max(...counts)).toBeGreaterThan(25)
+
+    const share = (test: (n: number) => boolean) => counts.filter(test).length / counts.length
+    expect(share((n) => n <= 4)).toBeGreaterThan(0.15)
+    expect(share((n) => n >= 15)).toBeGreaterThan(0.15)
+  })
+
+  it('gives a big patch a rack of effects and a small one a pedal', () => {
+    const patches = many(400)
+    const big = patches.filter((p) => oscs(p).length >= 15)
+    const small = patches.filter((p) => oscs(p).length <= 4)
+    const fx = (p: (typeof patches)[number]) => p.nodes.filter((n) => n.type === 'fx').length
+
+    const average = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length
+    expect(average(big.map(fx))).toBeGreaterThan(average(small.map(fx)) * 2)
+  })
+
+  it('usually places at least one effect', () => {
+    const patches = many(300)
+    const withNone = patches.filter((p) => p.nodes.every((n) => n.type !== 'fx'))
+    expect(withNone.length / patches.length).toBeLessThan(0.3)
   })
 
   it('leaves rests in the sequences rather than filling every step', () => {

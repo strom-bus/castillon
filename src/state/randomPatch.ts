@@ -15,8 +15,8 @@ import type {
  *
  * Truly random parameters give noise, and nobody presses that twice. So the taste is in the
  * constraints: notes come from one scale rather than the chromatic set, the tree is always fully
- * connected so nothing sits grey and silent, gains fall as the patch grows so six oscillators do not
- * clip, and the tonal waveforms are far likelier than the noise ones.
+ * connected so nothing sits grey and silent, levels are shared out as the patch grows so fifty
+ * oscillators land where one would, and the tonal waveforms are far likelier than the noise ones.
  *
  * The generator takes its randomness as an argument, which is what makes any of that testable.
  */
@@ -50,6 +50,33 @@ const STEP_COUNTS = [2, 4, 4, 8, 8, 16]
 /** Column spacing wide enough that a sixteen-step node does not overlap its neighbour. */
 const COLUMN = 560
 const ROW = 230
+
+/**
+ * How big a roll comes out.
+ *
+ * The size is chosen *first* and everything else follows from it, because the interesting thing
+ * about a dice button is the spread: a handful of nodes and a wall of them are both worth getting,
+ * and always landing in the middle is the one outcome that gets boring.
+ */
+interface Size {
+  weight: number
+  cascades: [number, number]
+  depth: [number, number]
+  width: [number, number]
+  /** Effects per oscillator, so a big patch gets a rack and a small one gets a pedal. */
+  effects: [number, number]
+}
+
+const SIZES: Size[] = [
+  { weight: 12, cascades: [1, 1], depth: [1, 2], width: [1, 1], effects: [0, 0.5] },
+  { weight: 24, cascades: [1, 1], depth: [2, 3], width: [1, 2], effects: [0.1, 0.3] },
+  { weight: 30, cascades: [1, 2], depth: [3, 4], width: [1, 3], effects: [0.15, 0.35] },
+  { weight: 22, cascades: [2, 3], depth: [3, 5], width: [2, 3], effects: [0.15, 0.4] },
+  { weight: 12, cascades: [3, 4], depth: [4, 6], width: [2, 4], effects: [0.2, 0.4] },
+]
+
+/** Past this a roll stops being a patch and starts being a stress test. */
+const MAX_EFFECTS = 12
 
 interface Chance {
   /** 0 ≤ n < count */
@@ -95,8 +122,9 @@ function randomOsc(c: Chance, scale: number[], root: number, voices: number): Os
     pulseWidth: c.range(15, 85) / 100,
     steps,
     division: c.pick(DIVISIONS),
-    // Shared out as the patch grows, so a big cascade lands at about the same level as a small one.
-    gain: Math.max(0.08, c.range(20, 40) / 100 / Math.sqrt(voices)),
+    // Divided by the root of the voice count, because sources that are not in phase sum in power
+    // rather than in amplitude. That keeps a wall of oscillators about as loud as a single one.
+    gain: Math.max(0.03, c.range(20, 40) / 100 / Math.sqrt(voices)),
     attack: c.chance(0.25) ? c.range(60, 400) : c.range(1, 20),
     release: c.range(30, 600),
     gate: c.range(35, 95) / 100,
@@ -125,6 +153,7 @@ export function randomPatch(random: () => number = Math.random): Patch {
   const c = chanceFrom(random)
   const scale = c.pick(SCALES)
   const root = c.range(33, 50)
+  const size = c.weighted(SIZES.map((s) => [s, s.weight] as [Size, number]))
 
   const nodes: PatchNode[] = []
   const edges: PatchEdge[] = []
@@ -137,40 +166,46 @@ export function randomPatch(random: () => number = Math.random): Patch {
   const wire = (from: PatchNode, to: PatchNode, kind: PatchEdge['kind'] = 'event') =>
     edges.push({ id: `e${edges.length}`, kind, source: from.id, target: to.id })
 
-  const cascades = c.chance(0.3) ? 2 : 1
-  // Counted up front so gains can be shared out before any node is built.
-  const voices = cascades * c.range(2, 4)
+  const cascades = c.range(...size.cascades)
+  // Laid out as a grid rather than a row: four cascades side by side would be nine thousand pixels
+  // wide, which is a patch you have to hunt around rather than look at.
+  const perRow = Math.ceil(Math.sqrt(cascades))
+  const cascadeColumns = size.width[1] + 1
+  const cascadeRows = size.depth[1] * 2 + 2
 
   const oscillators: PatchNode[] = []
-  let column = 0
 
   for (let cascade = 0; cascade < cascades; cascade++) {
+    const originColumn = (cascade % perRow) * cascadeColumns
+    const originRow = Math.floor(cascade / perRow) * cascadeRows
+
     const ignite = add({
       type: 'start',
-      position: { x: column * COLUMN, y: 0 },
+      position: { x: originColumn * COLUMN, y: originRow * ROW },
       params: {},
     })
 
     // Every node hangs off something, so nothing is ever left grey and silent.
-    let level = 1
+    let row = originRow + 1
     let parents = [ignite]
-    const depth = c.range(2, 3)
+    const depth = c.range(...size.depth)
 
     for (let d = 0; d < depth; d++) {
-      const width = d === 0 ? 1 : c.range(1, 2)
+      const width = d === 0 ? 1 : c.range(...size.width)
       const children: PatchNode[] = []
       // A delay takes a row of its own, so siblings stay on one line whether or not one has one.
       const hasDelay = d > 0 && c.chance(0.3)
-      const oscRow = level + (hasDelay ? 1 : 0)
+      const oscRow = row + (hasDelay ? 1 : 0)
 
       for (let i = 0; i < width; i++) {
         const parent = c.pick(parents)
+        const column = originColumn + i
 
         // A delay between levels is what pulls two branches out of step with each other.
         const via = hasDelay
           ? add({
               type: 'delay',
-              position: { x: (column + i) * COLUMN, y: level * ROW },
+              position: { x: column * COLUMN, y: row * ROW },
               params: { ...defaultDelayParams(), delayMs: c.range(120, 900, 10) },
             })
           : null
@@ -178,8 +213,9 @@ export function randomPatch(random: () => number = Math.random): Patch {
 
         const osc = add({
           type: 'osc',
-          position: { x: (column + i) * COLUMN, y: oscRow * ROW },
-          params: randomOsc(c, scale, root, voices),
+          // Params come later: the level each one gets depends on how many there turn out to be.
+          position: { x: column * COLUMN, y: oscRow * ROW },
+          params: {},
         })
         wire(via ?? parent, osc)
         children.push(osc)
@@ -187,22 +223,28 @@ export function randomPatch(random: () => number = Math.random): Patch {
       }
 
       parents = children
-      level = oscRow + 1
+      row = oscRow + 1
     }
-
-    column += 2
   }
 
-  const effects = c.chance(0.55) ? c.range(1, 2) : 0
+  for (const osc of oscillators) {
+    osc.params = randomOsc(c, scale, root, oscillators.length)
+  }
+
+  const wanted = Math.round(
+    (oscillators.length * c.range(...(size.effects.map((v) => v * 100) as [number, number]))) / 100,
+  )
+  const effects = Math.min(MAX_EFFECTS, Math.max(size.effects[1] > 0.5 ? 1 : 0, wanted))
+
   for (let i = 0; i < effects; i++) {
     const target = c.pick(oscillators)
     const fx = add({
       type: 'fx',
-      // Beside its oscillator, and stepped down by index: two effects may share one oscillator,
+      // Beside its oscillator, and stepped down by index: several effects may share one oscillator,
       // which is a patch worth making, and without the step they would land on the same spot.
       position: {
         x: target.position.x + COLUMN * 0.55,
-        y: target.position.y + i * Math.round(ROW * 0.7),
+        y: target.position.y + i * Math.round(ROW * 0.55),
       },
       params: randomFx(c),
     })

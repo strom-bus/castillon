@@ -39,10 +39,11 @@ without having to remember a colour.
 - **An FX node**, _in progress._ Effects attach to an oscillator's side ports as sends: several on
   one oscillator, or one shared by several. The routing is built and tested; so far the only effect
   behind the dropdown is a gain stage, with reverb, drive, echo, filter and chorus to come.
-- **A dice button** that rolls a patch worth listening to. Truly random parameters give noise, so the
-  taste is in the constraints: notes come from one scale, the tree is always fully connected so
-  nothing sits silent, gains are shared out as the patch grows, and the tonal waveforms are far
-  likelier than the noise ones.
+- **A dice button** that rolls a patch worth listening to, anywhere from one oscillator to sixty with
+  a rack of effects. Truly random parameters give noise, so the taste is in the constraints: notes
+  come from one scale, the tree is always fully connected so nothing sits silent, levels are divided
+  by the root of the voice count so a wall of oscillators is no louder than a single one, and the
+  tonal waveforms are far likelier than the noise ones.
 - **Patch codes.** The entire patch packs into one URL-safe string you can copy and paste. Every
   parameter left at rest costs a single bit, so a code carries roughly what you actually changed.
 - **Short codes.** Six characters that stand for a patch — `K7M2QX` — and what the interface shows.

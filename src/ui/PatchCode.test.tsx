@@ -184,7 +184,7 @@ describe('the developer mode', () => {
 
   it('says so, so the mode is never a mystery', () => {
     render(<PatchCode />)
-    expect(screen.getByText('CODE')).toBeDefined()
+    expect(screen.getByText('PATCH CODE')).toBeDefined()
     clickCopyRun(5)
     expect(screen.getByText('PATCH CODE · DEV')).toBeDefined()
   })

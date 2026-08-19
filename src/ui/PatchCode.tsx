@@ -168,7 +168,7 @@ export function PatchCode() {
 
   return (
     <div className="patch-code">
-      <span className="patch-code-label">{devMode ? 'PATCH CODE · DEV' : 'CODE'}</span>
+      <span className="patch-code-label">{devMode ? 'PATCH CODE · DEV' : 'PATCH CODE'}</span>
       <input
         ref={input}
         type="text"

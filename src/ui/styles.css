@@ -146,13 +146,13 @@ input[type='range'] {
   color: var(--muted);
 }
 
+/* Sized to its contents rather than growing, so the spacer before RESET pushes this whole group
+   against the right margin instead of stretching it across the gap. */
 .patch-code {
   display: flex;
   align-items: center;
   gap: 8px;
-  min-width: 0;
-  flex: 1 1 260px;
-  max-width: 460px;
+  flex: 0 0 auto;
 }
 
 .patch-code-label {
@@ -161,8 +161,9 @@ input[type='range'] {
 }
 
 .patch-code input {
-  flex: 1;
-  min-width: 0;
+  /* Wide enough to see a code is there, and ellipsised past that. In developer mode the run copies
+     the long code anyway, so it never has to be read off the screen. */
+  width: 190px;
   background: var(--surface-raised);
   color: var(--text);
   border: 1px solid var(--border-strong);
@@ -687,7 +688,6 @@ input[type='range'] {
 
 /* A short code is six characters, so the field can be narrow and the code set wide. */
 .patch-code input.short {
-  flex: 0 0 auto;
   width: 92px;
   letter-spacing: 0.16em;
   text-align: center;

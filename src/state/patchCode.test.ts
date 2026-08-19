@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { defaultFxParams, defaultOscParams } from '../nodes/registry'
 import type { Patch, PatchNode } from '../types/patch'
-import { decodePatch, encodePatch } from './patchCode'
+import { BitWriter } from './bits'
+import { decodePatch, encodePatch, FX_FIELD_TOTAL, OSC_FIELD_TOTAL, toBase64Url } from './patchCode'
 
 function osc(id: string, overrides: Partial<ReturnType<typeof defaultOscParams>> = {}): PatchNode {
   return {
@@ -355,6 +356,57 @@ describe('patch code', () => {
       )!
       expect((decoded.nodes[0].params as { sweep: number }).sweep).toBeCloseTo(sweep, 1)
     }
+  })
+
+  it('keeps reading a code written before a parameter existed', () => {
+    // The whole point of declaring the field count. This hand-builds a header claiming one field
+    // fewer than this build has, which is exactly what a code from yesterday looks like, and checks
+    // the missing parameter comes back at its reference rather than shifting everything after it.
+    const writer = new BitWriter()
+    writer.write(1, 4) // version
+    writer.write(120 - 20, 10) // bpm
+    writer.write(1, 1) // loop
+    writer.write(OSC_FIELD_TOTAL - 1, 6) // one field fewer than we know about
+    writer.write(FX_FIELD_TOTAL, 6)
+    writer.write(0, 4) // reserved flags
+    writer.writeVarint(1) // one node
+    writer.write(1, 4) // type: osc
+    writer.writeSignedVarint(0)
+    writer.writeSignedVarint(0)
+    for (let i = 0; i < OSC_FIELD_TOTAL - 1; i++) writer.write(0, 1) // nothing differs
+    writer.write(1, 3) // four steps
+    for (let i = 0; i < 4; i++) {
+      writer.write(1, 1)
+      writer.write(60 - 24, 6)
+    }
+    writer.writeVarint(0) // no edges
+
+    const code = toBase64Url(writer.finish())
+    const decoded = decodePatch(code)
+    expect(decoded).not.toBeNull()
+    expect(decoded!.nodes).toHaveLength(1)
+    const params = decoded!.nodes[0].params as ReturnType<typeof defaultOscParams>
+    expect(params.steps.map((s) => s.note)).toEqual([60, 60, 60, 60])
+    // The field the old writer had never heard of arrives at its reference value.
+    expect(params.propagateMode).toBe('onEnd')
+  })
+
+  it('refuses a code from a newer build rather than guessing at it', () => {
+    // The widths of parameters that do not exist yet are unknowable, so every bit after them would
+    // be misread. Failing is the only honest answer.
+    const writer = new BitWriter()
+    writer.write(1, 4)
+    writer.write(100, 10)
+    writer.write(1, 1)
+    writer.write(OSC_FIELD_TOTAL + 3, 6) // claims parameters this build does not have
+    writer.write(FX_FIELD_TOTAL, 6)
+    writer.write(0, 4)
+    writer.writeVarint(1)
+    writer.write(1, 4)
+    writer.writeSignedVarint(0)
+    writer.writeSignedVarint(0)
+
+    expect(decodePatch(toBase64Url(writer.finish()))).toBeNull()
   })
 
   it('returns null instead of throwing on junk', () => {

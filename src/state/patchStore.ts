@@ -82,7 +82,7 @@ function makeNode(type: string, position: { x: number; y: number }, id = newId(t
  * To change it, build the patch in the app, copy the PATCH CODE field and paste it here.
  */
 const INITIAL_PATCH_CODE =
-  'FGIQEgpMEAoUjldc0HbM1XqhPKABj83frJQY8HXlj66zpANAA0AMZlOZRUEBQwEMjxAXcBQMdcNsQNOAWQEYmSAi6JxNVtBPbGC_YBgIoWcStw'
+  'FGJaABAJBSMEAoUjiuuaDszNV6oJ5QAMfjd-slBjwdPLH11jpANAA0AGGZTmUSggKGAhkPEBdwFAw64ZsQNOALICMRkgIuicJqtoJ5sYL9gGAihZxK3A'
 
 /** Types that have been renamed. A patch saved under the old name still loads. */
 const RENAMED_TYPES: Record<string, string> = {

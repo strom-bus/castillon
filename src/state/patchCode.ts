@@ -51,6 +51,23 @@ import { BitReader, BitWriter } from './bits'
  */
 const CODE_VERSION = 1
 
+/**
+ * Widths chosen with room to grow rather than to fit today. Each of these indexes an append-only
+ * table, and running out of room in one would mean a format break to widen it — so they are wide
+ * enough that it will not happen. The cost is a couple of bits per patch.
+ */
+const NODE_TYPE_BITS = 4
+const EFFECT_BITS = 5
+const WAVEFORM_BITS = 5
+const STEP_COUNT_BITS = 3
+/** How many parameters the writer knew about, per node type. See `writeParams`. */
+const FIELD_COUNT_BITS = 6
+/**
+ * Reserved, written as zero. Somewhere for a patch-wide option to go — the obvious next one being
+ * a flag saying that steps carry velocity again — without needing a version bump.
+ */
+const HEADER_FLAG_BITS = 4
+
 const NODE_TYPES = ['start', 'osc', 'delay', 'fx'] as const
 
 const EFFECT_CODES: EffectKind[] = [
@@ -152,7 +169,7 @@ function scaledField<P>(
 }
 
 const OSC_FIELDS: Field<OscParams>[] = [
-  indexField('waveform', 4, WAVEFORM_CODES),
+  indexField('waveform', WAVEFORM_BITS, WAVEFORM_CODES),
   scaledField('pulseWidth', 7, 100, 5, 95),
   indexField('division', 2, DIVISION_CODES),
   scaledField('gain', 7, 100, 0, 100),
@@ -173,7 +190,7 @@ const OSC_FIELDS: Field<OscParams>[] = [
 ]
 
 const FX_FIELDS: Field<FxParams>[] = [
-  indexField('effect', 4, EFFECT_CODES),
+  indexField('effect', EFFECT_BITS, EFFECT_CODES),
   scaledField('mix', 7, 100, 0, 100),
   scaledField('decay', 7, 10, MIN_DECAY * 10, MAX_DECAY * 10),
   scaledField('drive', 7, 100, 0, 100),
@@ -262,11 +279,29 @@ function writeParams<P>(writer: BitWriter, fields: Field<P>[], params: P, refere
   })
 }
 
-function readParams<P extends object>(reader: BitReader, fields: Field<P>[], reference: P): P {
-  const changed = fields.map(() => reader.read(1) === 1)
+/**
+ * `declared` is how many fields the writer had, taken from the header rather than assumed.
+ *
+ * That one number is what lets a parameter be added without invalidating a single existing code. An
+ * older code declares fewer fields, so exactly that many mask bits are read and anything added
+ * since simply takes its reference value — which is what it meant when the code was written.
+ *
+ * A code declaring *more* fields than this build knows is refused rather than guessed at: the widths
+ * of the unknown ones are unknowable, so every bit after them would be misread. Failing is the only
+ * honest answer, and the app updating itself makes it a rare one.
+ */
+function readParams<P extends object>(
+  reader: BitReader,
+  fields: Field<P>[],
+  reference: P,
+  declared: number,
+): P {
+  if (declared > fields.length) throw new Error('patch code is from a newer build')
+
+  const changed = fields.slice(0, declared).map(() => reader.read(1) === 1)
   const params = { ...reference } as Record<string, unknown>
-  fields.forEach((f, i) => {
-    if (changed[i]) params[f.key] = f.unpack(reader.read(f.bits))
+  changed.forEach((bit, i) => {
+    if (bit) params[fields[i].key] = fields[i].unpack(reader.read(fields[i].bits))
   })
   return params as P
 }
@@ -276,7 +311,7 @@ function writeOsc(writer: BitWriter, raw: OscParams): void {
   writeParams(writer, OSC_FIELDS, params, OSC_REFERENCE)
 
   const count = normaliseStepCount(params.steps?.length ?? DEFAULT_STEP_COUNT)
-  writer.write(STEP_COUNTS.indexOf(count), 2)
+  writer.write(STEP_COUNTS.indexOf(count), STEP_COUNT_BITS)
 
   for (let i = 0; i < count; i++) {
     const step = params.steps[i] ?? { note: 60, active: false, velocity: 1 }
@@ -285,9 +320,9 @@ function writeOsc(writer: BitWriter, raw: OscParams): void {
   }
 }
 
-function readOsc(reader: BitReader): OscParams {
-  const params = readParams(reader, OSC_FIELDS, OSC_REFERENCE)
-  const count = STEP_COUNTS[reader.read(2)] ?? DEFAULT_STEP_COUNT
+function readOsc(reader: BitReader, declared: number): OscParams {
+  const params = readParams(reader, OSC_FIELDS, OSC_REFERENCE, declared)
+  const count = STEP_COUNTS[reader.read(STEP_COUNT_BITS)] ?? DEFAULT_STEP_COUNT
 
   const steps = []
   for (let i = 0; i < count; i++) {
@@ -305,9 +340,13 @@ function writeFx(writer: BitWriter, raw: FxParams): void {
   writeParams(writer, FX_FIELDS, { ...defaultFxParams(), ...raw }, FX_REFERENCE)
 }
 
-function readFx(reader: BitReader): FxParams {
-  return readParams(reader, FX_FIELDS, FX_REFERENCE)
+function readFx(reader: BitReader, declared: number): FxParams {
+  return readParams(reader, FX_FIELDS, FX_REFERENCE, declared)
 }
+
+/** How many parameters this build knows about, which is what the header declares. */
+export const OSC_FIELD_TOTAL = OSC_FIELDS.length
+export const FX_FIELD_TOTAL = FX_FIELDS.length
 
 export function encodePatch(patch: Patch): string {
   const writer = new BitWriter()
@@ -315,12 +354,17 @@ export function encodePatch(patch: Patch): string {
   writer.write(CODE_VERSION, 4)
   writer.write(clamp(Math.round(patch.bpm), MIN_BPM, MAX_BPM) - MIN_BPM, 10)
   writer.write(patch.loop ? 1 : 0, 1)
+  // Declared once for the patch rather than per node: one encoder writes the whole thing, so every
+  // node of a type shares the count. Twelve bits for a format that survives new parameters.
+  writer.write(OSC_FIELDS.length, FIELD_COUNT_BITS)
+  writer.write(FX_FIELDS.length, FIELD_COUNT_BITS)
+  writer.write(0, HEADER_FLAG_BITS)
 
   const nodes = patch.nodes.filter((n) => (NODE_TYPES as readonly string[]).includes(n.type))
   writer.writeVarint(nodes.length)
 
   for (const node of nodes) {
-    writer.write((NODE_TYPES as readonly string[]).indexOf(node.type), 3)
+    writer.write((NODE_TYPES as readonly string[]).indexOf(node.type), NODE_TYPE_BITS)
     writer.writeSignedVarint(Math.round(node.position.x / POSITION_GRID))
     writer.writeSignedVarint(Math.round(node.position.y / POSITION_GRID))
 
@@ -357,22 +401,27 @@ export function decodePatch(code: string): Patch | null {
     if (reader.read(4) !== CODE_VERSION) return null
     const bpm = reader.read(10) + MIN_BPM
     const loop = reader.read(1) === 1
+    const oscFields = reader.read(FIELD_COUNT_BITS)
+    const fxFields = reader.read(FIELD_COUNT_BITS)
+    // Read and ignored: no flag is defined yet, and reading it keeps the offset right for when one
+    // is.
+    reader.read(HEADER_FLAG_BITS)
 
     const nodeCount = reader.readVarint()
     if (nodeCount > 5000) return null
 
     const nodes: PatchNode[] = []
     for (let i = 0; i < nodeCount; i++) {
-      const type = NODE_TYPES[reader.read(3)]
+      const type = NODE_TYPES[reader.read(NODE_TYPE_BITS)]
       if (!type) return null
       const x = reader.readSignedVarint() * POSITION_GRID
       const y = reader.readSignedVarint() * POSITION_GRID
 
       let params: PatchNode['params'] = {}
       if (type === 'osc') {
-        params = readOsc(reader)
+        params = readOsc(reader, oscFields)
       } else if (type === 'fx') {
-        params = readFx(reader)
+        params = readFx(reader, fxFields)
       } else if (type === 'delay') {
         params = { delayMs: reader.read(9) * 10 }
       }
@@ -404,7 +453,7 @@ export function decodePatch(code: string): Patch | null {
   }
 }
 
-function toBase64Url(bytes: Uint8Array): string {
+export function toBase64Url(bytes: Uint8Array): string {
   let binary = ''
   for (const byte of bytes) binary += String.fromCharCode(byte)
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')

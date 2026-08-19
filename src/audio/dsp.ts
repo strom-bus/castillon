@@ -33,6 +33,18 @@ const SHAPES: Record<DistortionShape, (x: number, amount: number) => number> = {
     const k = amount * 40
     return k === 0 ? x : Math.tanh(x * (1 + k)) / Math.tanh(1 + k)
   },
+  /**
+   * Full-wave rectification, which doubles the frequency: this is how an analogue octave-up pedal
+   * works, and why it sounds fuzzy rather than clean. `amount` adds grit on top rather than fading
+   * the effect in — an octaver at its lowest setting still octaves, since that is what it is.
+   *
+   * Rectifying leaves a DC offset behind, so the chain that uses this has to block DC.
+   */
+  octave(x, amount) {
+    const rectified = 2 * Math.abs(x) - 1
+    const k = amount * 20
+    return k === 0 ? rectified : ((1 + k) * rectified) / (1 + k * Math.abs(rectified))
+  },
   fuzz(x, amount) {
     const k = amount * 60
     if (k === 0) return x

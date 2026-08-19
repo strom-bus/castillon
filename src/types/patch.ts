@@ -75,7 +75,16 @@ export interface OscParams {
  * Only `gain` is implemented so far; the rest land one row at a time.
  */
 export type EffectKind =
-  'reverb' | 'echo' | 'distortion' | 'crush' | 'filter' | 'chorus' | 'ring' | 'pan'
+  | 'reverb'
+  | 'echo'
+  | 'distortion'
+  | 'crush'
+  | 'filter'
+  | 'chorus'
+  | 'phaser'
+  | 'tremolo'
+  | 'ring'
+  | 'pan'
 
 /**
  * One flat parameter set for every effect, with the inspector showing only the fields the current
@@ -113,8 +122,14 @@ export interface FxParams {
   resonance: number
   /** Chorus rate, Hz. */
   rate: number
-  /** Chorus depth, 0–1. */
+  /** Modulation depth, 0–1: chorus, phaser, tremolo. */
   depth: number
+  /**
+   * The chorus delay it modulates around, in milliseconds. Short is where flanging lives — a few
+   * milliseconds gives harmonically spaced notches and a metallic sweep — and long is where
+   * chorus does, heard as detuned doubling rather than as a comb.
+   */
+  sweep: number
   /** Bitcrusher resolution, in bits. */
   bits: number
   /** Stereo position: -1 hard left, 0 centre, 1 hard right. */
@@ -126,13 +141,15 @@ export interface FxParams {
   width: number
 }
 
-export type DistortionShape = 'overdrive' | 'distortion' | 'fuzz'
+export type DistortionShape = 'overdrive' | 'distortion' | 'fuzz' | 'octave'
 
 export const MIN_DECAY = 0.1
 export const MAX_DECAY = 10
 export const MAX_FEEDBACK = 0.95
 export const MIN_RATE = 0.1
 export const MAX_RATE = 20
+export const MIN_SWEEP = 0.5
+export const MAX_SWEEP = 35
 
 export interface DelayParams {
   /** How long the trigger is held before being passed on, in milliseconds. */

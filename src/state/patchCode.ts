@@ -13,8 +13,10 @@ import {
   MAX_DECAY,
   MAX_FEEDBACK,
   MAX_RATE,
+  MAX_SWEEP,
   MIN_DECAY,
   MIN_RATE,
+  MIN_SWEEP,
   MAX_DELAY_MS,
   MAX_NOTE,
   MIN_BPM,
@@ -60,9 +62,12 @@ const EFFECT_CODES: EffectKind[] = [
   'chorus',
   'ring',
   'pan',
+  // Appended, so the positions above are untouched.
+  'phaser',
+  'tremolo',
 ]
 
-const SHAPE_CODES: DistortionShape[] = ['overdrive', 'distortion', 'fuzz']
+const SHAPE_CODES: DistortionShape[] = ['overdrive', 'distortion', 'fuzz', 'octave']
 
 const WAVEFORM_CODES: Waveform[] = [
   'square',
@@ -192,6 +197,7 @@ function writeFx(writer: BitWriter, raw: FxParams): void {
   writer.write(quantise((params.pan ?? 0) + 1, 100, 0, 200), 8)
   writer.write(quantise(params.width, 100, 0, 100), 7)
   writer.write(Math.max(0, SHAPE_CODES.indexOf(params.shape)), 2)
+  writer.write(quantise(params.sweep, 10, MIN_SWEEP * 10, MAX_SWEEP * 10), 9)
 }
 
 function readFx(reader: BitReader): FxParams {
@@ -211,6 +217,7 @@ function readFx(reader: BitReader): FxParams {
     pan: reader.read(8) / 100 - 1,
     width: reader.read(7) / 100,
     shape: SHAPE_CODES[reader.read(2)] ?? 'overdrive',
+    sweep: reader.read(9) / 10,
   }
 }
 

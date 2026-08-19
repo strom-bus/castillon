@@ -189,6 +189,25 @@ describe('the FX inspector', () => {
     expect(shown('chorus')).toContain('Rate')
     expect(shown('pan')).toContain('Width')
     expect(shown('pan')).not.toContain('Tone')
+
+    // Chorus and flanger are one effect here, and Sweep plus Feedback is what separates them.
+    expect(shown('chorus')).toContain('Sweep')
+    expect(shown('chorus')).toContain('Feedback')
+
+    expect(shown('phaser')).toContain('Centre')
+    expect(shown('tremolo')).toContain('Rate')
+    expect(shown('tremolo')).not.toContain('Tone')
+  })
+
+  it('offers the octave rectifier as a distortion shape rather than an effect of its own', () => {
+    // It is a waveshaper like the other three, so it belongs behind the same selector.
+    const fx = addFx()
+    usePatchStore.getState().updateParams(fx, { effect: 'distortion' })
+    usePatchStore.getState().select(fx)
+    const { container } = render(<Inspector />)
+
+    const shapes = [...container.querySelectorAll('option')].map((o) => o.textContent)
+    expect(shapes).toContain('Octave up')
   })
 
   it('falls back rather than breaking on an effect this build does not have', () => {

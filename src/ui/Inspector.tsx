@@ -20,7 +20,9 @@ import {
   MAX_DELAY_MS,
   MAX_FEEDBACK,
   MAX_RATE,
+  MAX_SWEEP,
   MIN_RATE,
+  MIN_SWEEP,
   MIN_DECAY,
   MIN_DELAY_MS,
   type DelayParams,
@@ -38,6 +40,7 @@ const SHAPE_LABELS: [DistortionShape, string][] = [
   ['overdrive', 'Overdrive'],
   ['distortion', 'Distortion'],
   ['fuzz', 'Fuzz'],
+  ['octave', 'Octave up'],
 ]
 
 const PROPAGATE_LABELS: Record<PropagateMode, string> = {
@@ -223,6 +226,18 @@ function EffectControl({
           max={MAX_BITS}
           step={1}
           onChange={(bits) => onChange({ bits })}
+        />
+      )
+    case 'sweep':
+      return (
+        <TypedSlider
+          label="Sweep"
+          value={params.sweep ?? 6}
+          min={MIN_SWEEP}
+          max={MAX_SWEEP}
+          step={0.1}
+          suffix="ms"
+          onChange={(sweep) => onChange({ sweep })}
         />
       )
     case 'rate':

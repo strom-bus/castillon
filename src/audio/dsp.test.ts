@@ -5,6 +5,7 @@ function distinctValues(curve: Float32Array): number {
   return new Set([...curve].map((v) => v.toFixed(5))).size
 }
 
+/** The clipping shapes. `octave` is a transform rather than a gain stage, so it is tested apart. */
 const SHAPES = ['overdrive', 'distortion', 'fuzz'] as const
 
 describe('distortionCurve', () => {
@@ -56,6 +57,26 @@ describe('distortionCurve', () => {
     expect(Math.abs(atZero('overdrive'))).toBeLessThan(1e-6)
     expect(Math.abs(atZero('distortion'))).toBeLessThan(1e-6)
     expect(Math.abs(atZero('fuzz'))).toBeGreaterThan(1e-3)
+  })
+
+  it('octaves at any amount, because that is what an octaver is', () => {
+    // Unlike the clipping shapes, this one is not transparent at zero: amount adds grit, it does
+    // not fade the octave in. Rectification is the effect.
+    const curve = distortionCurve('octave', 0, 5)
+    // Full-wave rectification: both halves of the input come out the same way up, which is what
+    // doubles the frequency.
+    expect(curve[0]).toBeCloseTo(curve[4], 5)
+    expect(curve[1]).toBeCloseTo(curve[3], 5)
+    expect(curve[2]).toBeLessThan(curve[0])
+  })
+
+  it('rectifies symmetrically at every amount, or it would not double the pitch', () => {
+    for (const amount of [0, 0.4, 1]) {
+      const curve = distortionCurve('octave', amount, 1025)
+      for (let i = 0; i < 512; i++) {
+        expect(curve[i]).toBeCloseTo(curve[1024 - i], 4)
+      }
+    }
   })
 
   it('falls back to a usable shape if handed one it does not know', () => {

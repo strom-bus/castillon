@@ -193,6 +193,7 @@ export function defaultFxParams(): FxParams {
     bits: 8,
     pan: 0,
     width: 0.3,
+    sweep: 6,
   }
 }
 

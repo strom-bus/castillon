@@ -1,4 +1,4 @@
-import type { EffectKind, FxParams } from '../types/patch'
+import { MAX_SWEEP, MIN_SWEEP, type EffectKind, type FxParams } from '../types/patch'
 import { stepDuration } from './clock'
 import { crushCurve, distortionCurve, impulseResponse, MAX_BITS } from './dsp'
 import { MAX_CUTOFF, MIN_CUTOFF } from './filter'
@@ -108,8 +108,14 @@ const distortion: EffectDescriptor = {
     // Distortion folds harmonics above Nyquist back down as aliasing; oversampling is what keeps
     // that from sounding like grit nobody played.
     shaper.oversample = '4x'
+    // Rectifying leaves a DC offset, and so does an asymmetric curve — fuzz was already producing
+    // one. Offset eats headroom and moves the speaker without being heard, so it goes here.
+    const dcBlock = ctx.createBiquadFilter()
+    dcBlock.type = 'highpass'
+    dcBlock.frequency.value = 20
     const post = tone(ctx)
-    shaper.connect(post)
+    shaper.connect(dcBlock)
+    dcBlock.connect(post)
     let built = ''
 
     return {
@@ -128,6 +134,7 @@ const distortion: EffectDescriptor = {
       },
       dispose() {
         shaper.disconnect()
+        dcBlock.disconnect()
         post.disconnect()
       },
     }
@@ -240,20 +247,29 @@ const filter: EffectDescriptor = {
   },
 }
 
-/** Base delay a chorus modulates around. Short enough to read as thickening, not as an echo. */
-const CHORUS_CENTRE = 0.025
-const CHORUS_SWING = 0.008
+/** Never all the way to one: a modulated comb at unity feedback runs away rather than resonating. */
+const MAX_CHORUS_FEEDBACK = 0.7
 
+/**
+ * Chorus and flanger are one effect with two settings, so they are one effect here.
+ *
+ * Sweep is what separates them. A few milliseconds gives harmonically spaced notches and the
+ * metallic jet sweep of a flanger, especially with feedback up; twenty or thirty is heard as
+ * detuned doubling instead. Shipping them as two entries would have been the same code twice.
+ */
 const chorus: EffectDescriptor = {
   kind: 'chorus',
   label: 'Chorus',
-  params: ['rate', 'depth', 'cutoff'],
+  params: ['sweep', 'rate', 'depth', 'feedback', 'cutoff'],
   releaseTime: 0.1,
   create(ctx) {
     const line = ctx.createDelay(0.1)
-    line.delayTime.value = CHORUS_CENTRE
     const post = tone(ctx)
+    const feedback = ctx.createGain()
+    feedback.gain.value = 0
     line.connect(post)
+    line.connect(feedback)
+    feedback.connect(line)
 
     // The first internal LFO in the project, and the pattern parameter modulation will reuse: an
     // oscillator through a gain, connected to an AudioParam rather than to another node.
@@ -269,15 +285,135 @@ const chorus: EffectDescriptor = {
       output: post,
       update(params, { at }) {
         setTone(post, params, at)
+        const centre = Math.min(MAX_SWEEP, Math.max(MIN_SWEEP, params.sweep ?? 6)) / 1000
+        line.delayTime.setTargetAtTime(centre, at, RAMP)
         lfo.frequency.setTargetAtTime(Math.max(0.01, params.rate ?? 1.5), at, RAMP)
-        swing.gain.setTargetAtTime((params.depth ?? 0.4) * CHORUS_SWING, at, RAMP)
+        // Swing is a share of the delay itself, so depth means the same thing at any sweep rather
+        // than modulating a short delay straight through zero.
+        swing.gain.setTargetAtTime((params.depth ?? 0.4) * centre * 0.9, at, RAMP)
+        feedback.gain.setTargetAtTime(
+          Math.min(MAX_CHORUS_FEEDBACK, Math.max(0, params.feedback ?? 0)),
+          at,
+          RAMP,
+        )
       },
       dispose() {
         lfo.stop()
         lfo.disconnect()
         swing.disconnect()
+        feedback.disconnect()
         line.disconnect()
         post.disconnect()
+      },
+    }
+  },
+}
+
+/** Four stages is the classic count: enough notches to hear the sweep, few enough to stay cheap. */
+const PHASER_STAGES = 4
+const MAX_PHASER_FEEDBACK = 0.6
+
+/**
+ * A chain of all-pass filters with their frequencies swept together.
+ *
+ * Not a flanger with a different name: an all-pass chain puts its notches at frequencies that are
+ * *not* harmonically related, which is why it sweeps hollow rather than metallic. The stages are
+ * spread rather than stacked at one frequency, or the notches would pile up into one.
+ */
+const phaser: EffectDescriptor = {
+  kind: 'phaser',
+  label: 'Phaser',
+  params: ['rate', 'depth', 'feedback', 'cutoff'],
+  labels: { cutoff: 'Centre' },
+  releaseTime: 0.05,
+  create(ctx) {
+    const stages = Array.from({ length: PHASER_STAGES }, () => {
+      const filter = ctx.createBiquadFilter()
+      filter.type = 'allpass'
+      filter.Q.value = 0.6
+      return filter
+    })
+    stages.forEach((stage, i) => {
+      if (i > 0) stages[i - 1].connect(stage)
+    })
+
+    const last = stages[stages.length - 1]
+    const feedback = ctx.createGain()
+    feedback.gain.value = 0
+    last.connect(feedback)
+    feedback.connect(stages[0])
+
+    const lfo = ctx.createOscillator()
+    lfo.type = 'sine'
+    const swing = ctx.createGain()
+    lfo.connect(swing)
+    // One modulator into every stage, so the notches move together and the sweep reads as one
+    // gesture rather than four.
+    for (const stage of stages) swing.connect(stage.frequency)
+    lfo.start()
+
+    return {
+      input: stages[0],
+      output: last,
+      update(params, { at }) {
+        const centre = Math.min(MAX_CUTOFF, Math.max(MIN_CUTOFF, params.cutoff ?? 600))
+        stages.forEach((stage, i) => {
+          // Spread across the stages, which is what keeps four notches instead of one deep one.
+          stage.frequency.setTargetAtTime(centre * (1 + i * 0.6), at, RAMP)
+        })
+        lfo.frequency.setTargetAtTime(Math.max(0.01, params.rate ?? 0.6), at, RAMP)
+        swing.gain.setTargetAtTime((params.depth ?? 0.6) * centre * 0.8, at, RAMP)
+        feedback.gain.setTargetAtTime(
+          Math.min(MAX_PHASER_FEEDBACK, Math.max(0, params.feedback ?? 0)),
+          at,
+          RAMP,
+        )
+      },
+      dispose() {
+        lfo.stop()
+        lfo.disconnect()
+        swing.disconnect()
+        feedback.disconnect()
+        for (const stage of stages) stage.disconnect()
+      },
+    }
+  },
+}
+
+/**
+ * Amplitude modulation. The cheapest effect here, and the one that most rewards a long branch: a
+ * slow tremolo across a whole limb of the cascade does something none of the others can.
+ */
+const tremolo: EffectDescriptor = {
+  kind: 'tremolo',
+  label: 'Tremolo',
+  params: ['rate', 'depth'],
+  releaseTime: 0.02,
+  create(ctx) {
+    const amp = ctx.createGain()
+    const lfo = ctx.createOscillator()
+    lfo.type = 'sine'
+    const swing = ctx.createGain()
+    lfo.connect(swing)
+    swing.connect(amp.gain)
+    lfo.start()
+
+    return {
+      input: amp,
+      output: amp,
+      update(params, { at }) {
+        const depth = Math.min(1, Math.max(0, params.depth ?? 0.6))
+        // The base sits at whatever the swing does not use, so the peak stays at unity and the
+        // effect never makes the signal louder than it arrived — only quieter, rhythmically.
+        amp.gain.setTargetAtTime(1 - depth / 2, at, RAMP)
+        swing.gain.setTargetAtTime(depth / 2, at, RAMP)
+        lfo.frequency.setTargetAtTime(Math.max(0.01, params.rate ?? 4), at, RAMP)
+      },
+      dispose() {
+        lfo.stop()
+        lfo.disconnect()
+        swing.disconnect()
+        amp.disconnect()
       },
     }
   },
@@ -377,6 +513,8 @@ export const EFFECTS: EffectDescriptor[] = [
   crush,
   filter,
   chorus,
+  phaser,
+  tremolo,
   ring,
   pan,
 ]

@@ -18,6 +18,7 @@ import { NumberInput } from './NumberInput'
 import {
   MAX_DECAY,
   MAX_DELAY_MS,
+  MAX_FEEDBACK,
   MIN_DECAY,
   MIN_DELAY_MS,
   type DelayParams,
@@ -129,11 +130,19 @@ function TypedSlider({
  * Cutoff has its own control because it is edited in log space: the slider carries a 0–1
  * position while the patch stores Hz, so every octave gets the same travel.
  */
-function CutoffSlider({ value, onChange }: { value: number; onChange: (hz: number) => void }) {
+function CutoffSlider({
+  value,
+  onChange,
+  label = 'Cutoff',
+}: {
+  value: number
+  onChange: (hz: number) => void
+  label?: string
+}) {
   return (
     <label className="inspector-field">
       <span className="inspector-label">
-        Cutoff
+        {label}
         <em>{formatCutoff(value)} Hz</em>
       </span>
       <input
@@ -197,9 +206,41 @@ function EffectControl({
           onChange={(bits) => onChange({ depth: bitsToDepth(bits) })}
         />
       )
-    case 'cutoff':
+    case 'time':
       return (
-        <CutoffSlider value={params.cutoff ?? 2000} onChange={(cutoff) => onChange({ cutoff })} />
+        <label className="inspector-field">
+          <span className="inspector-label">Time</span>
+          <select
+            value={params.time ?? '1/8'}
+            onChange={(e) => onChange({ time: e.target.value as Division })}
+          >
+            {DIVISIONS.map((d) => (
+              <option key={d} value={d}>
+                {d}
+              </option>
+            ))}
+          </select>
+        </label>
+      )
+    case 'feedback':
+      return (
+        <TypedSlider
+          label="Feedback"
+          value={params.feedback ?? 0.35}
+          min={0}
+          max={MAX_FEEDBACK}
+          step={0.01}
+          onChange={(feedback) => onChange({ feedback })}
+        />
+      )
+    case 'cutoff':
+      // Labelled Tone here: on an effect it shapes what comes out rather than being the point.
+      return (
+        <CutoffSlider
+          label="Tone"
+          value={params.cutoff ?? 6000}
+          onChange={(cutoff) => onChange({ cutoff })}
+        />
       )
     case 'resonance':
       return (

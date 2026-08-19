@@ -15,6 +15,8 @@ import type { FxParams, NodeId, OscParams, Patch } from '../types/patch'
 
 /** The audio-relevant projection of a patch. Position, steps, waveforms — none of it appears. */
 export interface AudioGraph {
+  /** Included because a synced effect's timing depends on it, so a tempo change has to reach one. */
+  bpm: number
   /** FX node id → its parameters. */
   effects: Map<NodeId, FxParams>
   /** Oscillator id → how much of it bypasses the effects. */
@@ -33,6 +35,7 @@ export type RouterOp =
   | { op: 'setDirect'; id: NodeId; value: number }
 
 export const EMPTY_GRAPH: AudioGraph = {
+  bpm: 0,
   effects: new Map(),
   direct: new Map(),
   sends: new Set(),
@@ -67,7 +70,7 @@ export function graphOf(patch: Patch): AudioGraph {
     sends.add(sendKey(edge.source, edge.target))
   }
 
-  return { effects, direct, sends }
+  return { bpm: patch.bpm, effects, direct, sends }
 }
 
 function sameParams(a: FxParams, b: FxParams): boolean {
@@ -97,6 +100,10 @@ export function diff(previous: AudioGraph, next: AudioGraph): RouterOp[] {
     if (!next.effects.has(id)) removals.push({ op: 'disposeEffect', id })
   }
 
+  // A tempo change has to reach every effect: an echo's delay time is derived from it, and there
+  // is no other signal that would tell the chain to recalculate.
+  const retimed = previous.bpm !== next.bpm
+
   for (const [id, params] of next.effects) {
     const before = previous.effects.get(id)
     if (!before) {
@@ -105,7 +112,7 @@ export function diff(previous: AudioGraph, next: AudioGraph): RouterOp[] {
       // The node's input and output survive, so this rebuilds the middle and leaves every cable
       // attached to it exactly where it was.
       updates.push({ op: 'replaceEffect', id, params })
-    } else if (!sameParams(before, params)) {
+    } else if (retimed || !sameParams(before, params)) {
       updates.push({ op: 'updateEffect', id, params })
     }
   }

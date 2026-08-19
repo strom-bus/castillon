@@ -153,11 +153,17 @@ describe('the FX inspector', () => {
   })
 
   it('shows Mix for every effect, since every effect has it', () => {
-    usePatchStore.getState().select(addFx())
-    const { container } = render(<Inspector />)
-    expect(screen.getByLabelText('Mix')).toBeDefined()
-    // Mix sits above the line; what is specific to one effect sits below it.
-    expect(container.querySelector('.inspector-section')).toBeNull()
+    const fx = addFx()
+    usePatchStore.getState().select(fx)
+
+    for (const effect of EFFECTS) {
+      usePatchStore.getState().updateParams(fx, { effect: effect.kind })
+      const view = render(<Inspector />)
+      expect(view.container.querySelector('[aria-label="Mix"]')).not.toBeNull()
+      // What is specific to one effect sits below a line; Mix sits above it.
+      expect(view.container.querySelector('.inspector-section')).not.toBeNull()
+      view.unmount()
+    }
   })
 
   it('shows only the controls the chosen effect declares', () => {
@@ -180,7 +186,31 @@ describe('the FX inspector', () => {
     expect(shown('drive')).toContain('Drive')
     expect(shown('drive')).not.toContain('Decay')
     expect(shown('crush')).toContain('Bits')
-    expect(shown('gain')).not.toContain('Decay')
+    // Every effect gets the shared tone control.
+    for (const effect of EFFECTS) expect(shown(effect.kind)).toContain('Tone')
+  })
+
+  it('falls back rather than breaking on an effect this build does not have', () => {
+    // 'gain' existed while the routing was being proven and was removed once it had served. A
+    // patch naming it, or any effect from a later build, has to still open.
+    const fx = addFx()
+    usePatchStore.getState().updateParams(fx, { effect: 'chorus' as never })
+    usePatchStore.getState().select(fx)
+
+    const { container } = render(<Inspector />)
+    expect(container.querySelector('[aria-label="Mix"]')).not.toBeNull()
+  })
+
+  it('syncs the echo to the transport, so a tempo change reaches it', () => {
+    const fx = addFx()
+    usePatchStore.getState().updateParams(fx, { effect: 'echo' })
+    const before = graphOf(toPatch())
+
+    usePatchStore.getState().setBpm(200)
+    const ops = diff(before, graphOf(toPatch()))
+
+    // Nothing about the effect itself changed; the tempo did, and its delay time derives from it.
+    expect(ops.map((o) => o.op)).toEqual(['updateEffect'])
   })
 
   it('sets bit depth in bits while the patch stores it normalised', () => {

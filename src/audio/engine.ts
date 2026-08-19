@@ -221,7 +221,7 @@ export class AudioEngine implements Engine {
     if (bus) bus.direct.gain.setTargetAtTime(value, this.ctx.currentTime, RAMP)
   }
 
-  createEffect(nodeId: NodeId, params: FxParams): void {
+  createEffect(nodeId: NodeId, params: FxParams, bpm: number): void {
     if (!this.ctx || !this.master || this.effects.has(nodeId)) return
     const descriptor = effectOr(params.effect)
     const chain = descriptor.create(this.ctx)
@@ -235,14 +235,14 @@ export class AudioEngine implements Engine {
     output.connect(this.master)
 
     this.effects.set(nodeId, { input, output, chain, kind: params.effect })
-    chain.update(params, this.ctx.currentTime)
+    chain.update(params, { at: this.ctx.currentTime, bpm })
   }
 
   /**
    * Swaps the chain between the node's input and output. Those two survive, so every cable in the
    * patch stays attached and nothing upstream or downstream is touched.
    */
-  replaceEffect(nodeId: NodeId, params: FxParams): void {
+  replaceEffect(nodeId: NodeId, params: FxParams, bpm: number): void {
     const instance = this.effects.get(nodeId)
     if (!this.ctx || !instance) return
 
@@ -256,15 +256,15 @@ export class AudioEngine implements Engine {
     instance.chain = chain
     instance.kind = params.effect
 
-    this.updateEffect(nodeId, params)
+    this.updateEffect(nodeId, params, bpm)
   }
 
-  updateEffect(nodeId: NodeId, params: FxParams): void {
+  updateEffect(nodeId: NodeId, params: FxParams, bpm: number): void {
     const instance = this.effects.get(nodeId)
     if (!this.ctx || !instance) return
     const at = this.ctx.currentTime
     instance.output.gain.setTargetAtTime(params.mix, at, RAMP)
-    instance.chain.update(params, at)
+    instance.chain.update(params, { at, bpm })
   }
 
   /**

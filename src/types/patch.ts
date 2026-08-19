@@ -74,7 +74,7 @@ export interface OscParams {
  * The effects an FX node can be. Append-only: the patch code stores the index into this order.
  * Only `gain` is implemented so far; the rest land one row at a time.
  */
-export type EffectKind = 'gain' | 'reverb' | 'drive' | 'crush' | 'echo' | 'filter' | 'chorus'
+export type EffectKind = 'reverb' | 'drive' | 'crush' | 'echo' | 'filter' | 'chorus'
 
 /**
  * One flat parameter set for every effect, with the inspector showing only the fields the current
@@ -102,7 +102,10 @@ export interface FxParams {
   /** Echo feedback, 0–0.95. */
   feedback: number
   filterType: FilterType
-  /** Hz. */
+  /**
+   * Hz. Doubles as the tone control every effect has: a low-pass after the effect, which is what
+   * keeps a reverb tail from sounding metallic and a drive from sounding harsh.
+   */
   cutoff: number
   resonance: number
   /** Chorus rate, Hz. */

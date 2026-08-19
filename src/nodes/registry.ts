@@ -177,14 +177,15 @@ const osc: NodeDefinition = {
 
 export function defaultFxParams(): FxParams {
   return {
-    effect: 'gain',
-    mix: 0.8,
+    effect: 'reverb',
+    mix: 0.5,
     decay: 2,
     drive: 0.4,
     time: '1/8',
     feedback: 0.35,
     filterType: 'lowpass',
-    cutoff: 2000,
+    // Open enough that an effect does not arrive sounding muffled.
+    cutoff: 6000,
     resonance: 1,
     rate: 1.5,
     depth: 0.4,

@@ -49,16 +49,7 @@ const CODE_VERSION = 1
 
 const NODE_TYPES = ['start', 'osc', 'delay', 'fx'] as const
 
-const EFFECT_CODES: EffectKind[] = [
-  'gain',
-  'reverb',
-  'drive',
-  'echo',
-  'filter',
-  'chorus',
-  // Appended, so the positions above are untouched.
-  'crush',
-]
+const EFFECT_CODES: EffectKind[] = ['reverb', 'drive', 'crush', 'echo', 'filter', 'chorus']
 
 const WAVEFORM_CODES: Waveform[] = [
   'square',

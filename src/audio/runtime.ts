@@ -19,16 +19,16 @@ export const scheduler = new CascadeScheduler({
 /** The audio graph as last applied to Web Audio. Only the reconciler writes to it. */
 let applied: AudioGraph = EMPTY_GRAPH
 
-function apply(op: RouterOp): void {
+function apply(op: RouterOp, bpm: number): void {
   switch (op.op) {
     case 'createEffect':
-      engine.createEffect(op.id, op.params)
+      engine.createEffect(op.id, op.params, bpm)
       break
     case 'replaceEffect':
-      engine.replaceEffect(op.id, op.params)
+      engine.replaceEffect(op.id, op.params, bpm)
       break
     case 'updateEffect':
-      engine.updateEffect(op.id, op.params)
+      engine.updateEffect(op.id, op.params, bpm)
       break
     case 'disposeEffect':
       engine.disposeEffect(op.id)
@@ -54,7 +54,7 @@ export function reconcile(): void {
   if (!engine.started) return
   const next = graphOf(toPatch())
   const ops = diff(applied, next)
-  for (const op of ops) apply(op)
+  for (const op of ops) apply(op, next.bpm)
   applied = next
 }
 

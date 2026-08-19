@@ -39,8 +39,29 @@ without having to remember a colour.
 - **An FX node**, _in progress._ Effects attach to an oscillator's side ports as sends: several on
   one oscillator, or one shared by several. The routing is built and tested; so far the only effect
   behind the dropdown is a gain stage, with reverb, drive, echo, filter and chorus to come.
-- **Patch codes.** The entire patch packs into one short URL-safe string you can copy and paste.
+- **Patch codes.** The entire patch packs into one URL-safe string you can copy and paste. Every
+  parameter left at rest costs a single bit, so a code carries roughly what you actually changed.
+- **Short codes.** Six characters that stand for a patch — `K7M2QX`. Thirty bits cannot hold a
+  patch, so a short code refers to one rather than containing it: it is the hash of the long code,
+  which means the same patch always gets the same short code and changing the patch changes it. The
+  field takes either kind.
   Eight nodes come to about 150 characters, against roughly 2700 as JSON.
+
+## Sharing
+
+The long code is self-contained and needs nothing: it decodes locally and works offline. Short codes
+need somewhere to keep the patch they point at, which is a Cloudflare Worker and a KV namespace:
+
+```bash
+npx wrangler login
+npx wrangler kv namespace create PATCHES   # paste the id into wrangler.toml
+npx wrangler deploy                        # prints the service URL
+```
+
+Then build the app with `VITE_SHARE_URL` set to that URL. Until it is set, the Share button is
+hidden and everything else behaves exactly as it does now — the service is a convenience layer, not
+a dependency. It stores the same string the app already lets you copy, so if it ever goes away,
+nothing exists only inside it.
 
 ## Running it
 

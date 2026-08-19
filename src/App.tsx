@@ -3,7 +3,10 @@ import './ui/styles.css'
 
 import { useEffect } from 'react'
 import { reconcile } from './audio/runtime'
+import { decodePatch } from './state/patchCode'
 import { loadStoredPatch, savePatch } from './state/persistence'
+import { resolveShortCode, sharingAvailable } from './state/shareService'
+import { looksLikeShortCode } from './state/shortCode'
 import { toPatch, usePatchStore } from './state/patchStore'
 import { Canvas } from './ui/Canvas'
 import { Inspector } from './ui/Inspector'
@@ -15,6 +18,26 @@ export default function App() {
   const loadPatch = usePatchStore((s) => s.loadPatch)
 
   useEffect(() => {
+    // A shared link wins over whatever this browser was last working on: someone following a link
+    // means to see that patch, and their own is still in localStorage afterwards.
+    const shared = window.location.hash.replace(/^#/, '')
+    if (sharingAvailable && looksLikeShortCode(shared)) {
+      resolveShortCode(shared)
+        .then((code) => {
+          const patch = code ? decodePatch(code) : null
+          if (patch) loadPatch(patch)
+          else {
+            const stored = loadStoredPatch()
+            if (stored) loadPatch(stored)
+          }
+        })
+        .catch(() => {
+          const stored = loadStoredPatch()
+          if (stored) loadPatch(stored)
+        })
+      return
+    }
+
     const stored = loadStoredPatch()
     if (stored) loadPatch(stored)
   }, [loadPatch])

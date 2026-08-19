@@ -1,0 +1,17 @@
+# The sharing service. Deployed separately from the app: the app is static files on GitHub Pages,
+# this is the one piece that has to run somewhere.
+#
+#   npx wrangler login                                   once, opens a browser
+#   npx wrangler kv namespace create PATCHES             prints the id to paste below
+#   npx wrangler deploy                                  prints the service URL
+#
+# The URL then goes into the app as VITE_SHARE_URL. Until it does, the app hides the share button
+# and everything else works exactly as before.
+name = "castillon-share"
+main = "src/share/worker.ts"
+compatibility_date = "2026-08-19"
+
+# Created by the command above; the id is not a secret.
+[[kv_namespaces]]
+binding = "PATCHES"
+id = "REPLACE_WITH_THE_ID_FROM_KV_NAMESPACE_CREATE"

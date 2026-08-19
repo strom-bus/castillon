@@ -684,3 +684,20 @@ input[type='range'] {
   padding-top: 14px;
   border-top: 1px solid var(--border);
 }
+
+/* The short code sits beside the button that made it, dimmed once the patch has moved on. */
+.patch-code-short {
+  color: var(--text);
+  letter-spacing: 0.14em;
+  white-space: nowrap;
+}
+
+.patch-code-short.stale {
+  color: var(--border-strong);
+  text-decoration: line-through;
+}
+
+.patch-code-note {
+  color: var(--muted);
+  white-space: nowrap;
+}

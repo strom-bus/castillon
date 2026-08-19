@@ -178,7 +178,7 @@ const osc: NodeDefinition = {
 export function defaultFxParams(): FxParams {
   return {
     effect: 'gain',
-    level: 0.8,
+    mix: 0.8,
     decay: 2,
     drive: 0.4,
     time: '1/8',

@@ -114,12 +114,12 @@ describe('diff', () => {
   })
 
   it('updates parameters in place when only a number moved', () => {
-    const before = graph(patchOf([osc('a'), fx('f', { level: 0.8 })]))
-    const after = graph(patchOf([osc('a'), fx('f', { level: 0.4 })]))
+    const before = graph(patchOf([osc('a'), fx('f', { mix: 0.8 })]))
+    const after = graph(patchOf([osc('a'), fx('f', { mix: 0.4 })]))
     const ops = diff(before, after)
 
     expect(ops).toEqual([
-      { op: 'updateEffect', id: 'f', params: expect.objectContaining({ level: 0.4 }) },
+      { op: 'updateEffect', id: 'f', params: expect.objectContaining({ mix: 0.4 }) },
     ])
   })
 

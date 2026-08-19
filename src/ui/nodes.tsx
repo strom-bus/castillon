@@ -128,7 +128,7 @@ export function FxNode({ id, data, selected }: NodeProps<FlowNode>) {
         <span className="node-title">
           FX <span className="node-ordinal">{ordinal}</span>
         </span>
-        <span className="node-meta">{Math.round((params.level ?? 0.8) * 100)}%</span>
+        <span className="node-meta">{Math.round((params.mix ?? 0.8) * 100)}%</span>
       </div>
       <div className="fx-body">
         <select

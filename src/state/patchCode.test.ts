@@ -256,7 +256,7 @@ describe('patch code', () => {
     const params = {
       ...defaultFxParams(),
       effect: 'reverb' as const,
-      level: 0.42,
+      mix: 0.42,
       decay: 6.3,
       drive: 0.77,
       time: '1/16' as const,
@@ -273,7 +273,7 @@ describe('patch code', () => {
     const back = decoded.nodes[0].params as typeof params
 
     expect(back.effect).toBe('reverb')
-    expect(back.level).toBeCloseTo(0.42, 2)
+    expect(back.mix).toBeCloseTo(0.42, 2)
     expect(back.decay).toBeCloseTo(6.3, 1)
     expect(back.drive).toBeCloseTo(0.77, 2)
     expect(back.time).toBe('1/16')

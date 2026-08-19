@@ -74,7 +74,7 @@ export interface OscParams {
  * The effects an FX node can be. Append-only: the patch code stores the index into this order.
  * Only `gain` is implemented so far; the rest land one row at a time.
  */
-export type EffectKind = 'gain' | 'reverb' | 'drive' | 'echo' | 'filter' | 'chorus'
+export type EffectKind = 'gain' | 'reverb' | 'drive' | 'crush' | 'echo' | 'filter' | 'chorus'
 
 /**
  * One flat parameter set for every effect, with the inspector showing only the fields the current
@@ -87,8 +87,12 @@ export type EffectKind = 'gain' | 'reverb' | 'drive' | 'echo' | 'filter' | 'chor
  */
 export interface FxParams {
   effect: EffectKind
-  /** Return level into the master. 0–1. */
-  level: number
+  /**
+   * How much effect. With effects wired as sends there is no dry signal inside one, so this is both
+   * the return level and the amount of effect — the clean sound comes from the oscillator's own
+   * `direct`, which is what keeps it from being counted twice.
+   */
+  mix: number
   /** Reverb tail, seconds. */
   decay: number
   /** Drive amount, 0–1. */
@@ -103,7 +107,11 @@ export interface FxParams {
   resonance: number
   /** Chorus rate, Hz. */
   rate: number
-  /** Chorus depth, 0–1. */
+  /**
+   * Chorus depth, and — normalised the same way — the bitcrusher's resolution. See
+   * `depthToBits` in audio/dsp.ts for the mapping; sharing the field keeps a second effect from
+   * costing the patch code a new one.
+   */
   depth: number
 }
 

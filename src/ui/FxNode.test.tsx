@@ -1,6 +1,7 @@
 import { ReactFlowProvider } from '@xyflow/react'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it } from 'vitest'
+import { depthToBits } from '../audio/dsp'
 import { EFFECTS } from '../audio/effects'
 import { diff, graphOf } from '../audio/router'
 import { canConnect } from '../state/connections'
@@ -151,6 +152,49 @@ describe('the FX inspector', () => {
     expect(two.container.querySelector('.inspector-title')?.textContent?.trim()).toBe('FX 02')
   })
 
+  it('shows Mix for every effect, since every effect has it', () => {
+    usePatchStore.getState().select(addFx())
+    const { container } = render(<Inspector />)
+    expect(screen.getByLabelText('Mix')).toBeDefined()
+    // Mix sits above the line; what is specific to one effect sits below it.
+    expect(container.querySelector('.inspector-section')).toBeNull()
+  })
+
+  it('shows only the controls the chosen effect declares', () => {
+    const fx = addFx()
+    usePatchStore.getState().select(fx)
+
+    const shown = (effect: string) => {
+      usePatchStore.getState().updateParams(fx, { effect: effect as never })
+      const view = render(<Inspector />)
+      // The label's own text node, so a unit suffix in a nested span does not run into the name.
+      const labels = [...view.container.querySelectorAll('.inspector-label')].map((l) =>
+        l.firstChild?.textContent?.trim(),
+      )
+      view.unmount()
+      return labels
+    }
+
+    expect(shown('reverb')).toContain('Decay')
+    expect(shown('reverb')).not.toContain('Drive')
+    expect(shown('drive')).toContain('Drive')
+    expect(shown('drive')).not.toContain('Decay')
+    expect(shown('crush')).toContain('Bits')
+    expect(shown('gain')).not.toContain('Decay')
+  })
+
+  it('sets bit depth in bits while the patch stores it normalised', () => {
+    const fx = addFx()
+    usePatchStore.getState().updateParams(fx, { effect: 'crush' })
+    usePatchStore.getState().select(fx)
+    render(<Inspector />)
+
+    fireEvent.change(screen.getByLabelText('Bits'), { target: { value: '6' } })
+    const depth = (usePatchStore.getState().nodes.find((n) => n.id === fx)!.data.params as FxParams)
+      .depth
+    expect(depthToBits(depth)).toBe(6)
+  })
+
   it('offers only effects that are actually built', () => {
     // EffectKind names every effect planned; EFFECTS holds the ones with a chain behind them.
     // Offering one without the other would put a dead option in front of the user.
@@ -161,18 +205,18 @@ describe('the FX inspector', () => {
     expect(offered).toEqual(EFFECTS.map((e) => e.label))
   })
 
-  it('changes the level without rewiring anything', () => {
+  it('changes the mix without rewiring anything', () => {
     const fx = addFx()
     usePatchStore.getState().select(fx)
     render(<Inspector />)
 
     const before = graphOf(toPatch())
-    fireEvent.change(screen.getByLabelText('Level'), { target: { value: '0.3' } })
+    fireEvent.change(screen.getByLabelText('Mix'), { target: { value: '0.3' } })
 
     const ops = diff(before, graphOf(toPatch()))
     expect(ops.map((o) => o.op)).toEqual(['updateEffect'])
     expect(
-      (usePatchStore.getState().nodes.find((n) => n.id === fx)!.data.params as FxParams).level,
+      (usePatchStore.getState().nodes.find((n) => n.id === fx)!.data.params as FxParams).mix,
     ).toBeCloseTo(0.3, 2)
   })
 })
@@ -184,7 +228,7 @@ describe('Direct on the oscillator', () => {
     expect(params.direct).toBe(1)
   })
 
-  it('is a level change and nothing more', () => {
+  it('is a mix change and nothing more', () => {
     const osc = firstOsc()
     usePatchStore.getState().select(osc)
     render(<Inspector />)

@@ -49,7 +49,16 @@ const CODE_VERSION = 1
 
 const NODE_TYPES = ['start', 'osc', 'delay', 'fx'] as const
 
-const EFFECT_CODES: EffectKind[] = ['gain', 'reverb', 'drive', 'echo', 'filter', 'chorus']
+const EFFECT_CODES: EffectKind[] = [
+  'gain',
+  'reverb',
+  'drive',
+  'echo',
+  'filter',
+  'chorus',
+  // Appended, so the positions above are untouched.
+  'crush',
+]
 
 const WAVEFORM_CODES: Waveform[] = [
   'square',
@@ -164,7 +173,7 @@ function readOsc(reader: BitReader): OscParams {
 function writeFx(writer: BitWriter, raw: FxParams): void {
   const params = { ...defaultFxParams(), ...raw }
   writer.write(Math.max(0, EFFECT_CODES.indexOf(params.effect)), 4)
-  writer.write(quantise(params.level, 100, 0, 100), 7)
+  writer.write(quantise(params.mix, 100, 0, 100), 7)
   writer.write(quantise(params.decay, 10, MIN_DECAY * 10, MAX_DECAY * 10), 7)
   writer.write(quantise(params.drive, 100, 0, 100), 7)
   writer.write(Math.max(0, DIVISION_CODES.indexOf(params.time)), 2)
@@ -179,7 +188,7 @@ function writeFx(writer: BitWriter, raw: FxParams): void {
 function readFx(reader: BitReader): FxParams {
   return {
     effect: EFFECT_CODES[reader.read(4)] ?? 'gain',
-    level: reader.read(7) / 100,
+    mix: reader.read(7) / 100,
     decay: reader.read(7) / 10,
     drive: reader.read(7) / 100,
     time: DIVISION_CODES[reader.read(2)] ?? '1/8',

@@ -1,4 +1,5 @@
 import { DIVISIONS } from '../audio/clock'
+import { bitsToDepth, depthToBits, MAX_BITS, MIN_BITS } from '../audio/dsp'
 import { EFFECTS, effectOr } from '../audio/effects'
 import {
   cutoffToSlider,
@@ -15,7 +16,9 @@ import { formatOrdinal, nodeOrdinal } from '../state/ordinals'
 import { usePatchStore } from '../state/patchStore'
 import { NumberInput } from './NumberInput'
 import {
+  MAX_DECAY,
   MAX_DELAY_MS,
+  MIN_DECAY,
   MIN_DELAY_MS,
   type DelayParams,
   type Division,
@@ -145,6 +148,75 @@ function CutoffSlider({ value, onChange }: { value: number; onChange: (hz: numbe
   )
 }
 
+/**
+ * Renders whichever control a parameter needs. An effect declares its parameters and the panel
+ * follows, so adding one is a row in the effects table rather than a branch in here.
+ */
+function EffectControl({
+  param,
+  params,
+  onChange,
+}: {
+  param: keyof FxParams
+  params: FxParams
+  onChange: (partial: Partial<FxParams>) => void
+}) {
+  switch (param) {
+    case 'decay':
+      return (
+        <TypedSlider
+          label="Decay"
+          value={params.decay ?? 2}
+          min={MIN_DECAY}
+          max={MAX_DECAY}
+          step={0.1}
+          suffix="s"
+          onChange={(decay) => onChange({ decay })}
+        />
+      )
+    case 'drive':
+      return (
+        <TypedSlider
+          label="Drive"
+          value={params.drive ?? 0.4}
+          min={0}
+          max={1}
+          step={0.01}
+          onChange={(drive) => onChange({ drive })}
+        />
+      )
+    case 'depth':
+      // Bit depth is what the user sets; the patch stores it normalised in `depth`.
+      return (
+        <TypedSlider
+          label="Bits"
+          value={depthToBits(params.depth ?? 0.4)}
+          min={MIN_BITS}
+          max={MAX_BITS}
+          step={1}
+          onChange={(bits) => onChange({ depth: bitsToDepth(bits) })}
+        />
+      )
+    case 'cutoff':
+      return (
+        <CutoffSlider value={params.cutoff ?? 2000} onChange={(cutoff) => onChange({ cutoff })} />
+      )
+    case 'resonance':
+      return (
+        <TypedSlider
+          label="Resonance"
+          value={params.resonance ?? 1}
+          min={MIN_RESONANCE}
+          max={MAX_RESONANCE}
+          step={0.1}
+          onChange={(resonance) => onChange({ resonance })}
+        />
+      )
+    default:
+      return null
+  }
+}
+
 export function Inspector() {
   const node = usePatchStore((s) => s.nodes.find((n) => n.id === s.selectedId))
   // The same number the node shows on the canvas, so the panel and the node agree on which one
@@ -214,22 +286,27 @@ export function Inspector() {
         </label>
 
         <TypedSlider
-          label="Level"
-          value={fxParams.level ?? 0.8}
+          label="Mix"
+          value={fxParams.mix ?? 0.8}
           min={0}
           max={1}
           step={0.01}
-          onChange={(level) => setFx({ level })}
+          onChange={(mix) => setFx({ mix })}
         />
 
-        {descriptor.params.includes('cutoff') && (
-          <CutoffSlider value={fxParams.cutoff ?? 2000} onChange={(cutoff) => setFx({ cutoff })} />
+        {descriptor.params.length > 0 && (
+          <div className="inspector-section">
+            {descriptor.params.map((param) => (
+              <EffectControl key={param} param={param} params={fxParams} onChange={setFx} />
+            ))}
+          </div>
         )}
 
         <p className="inspector-empty">
           Wire an oscillator's side port into this to feed it. Several effects can share one
-          oscillator and one effect can take several — each is a send, added on top of what you
-          already hear. Pull an oscillator's Direct down to hear the effect instead of alongside it.
+          oscillator and one effect can take several — each is a send, so Mix is how much effect is
+          added on top. Pull the oscillator's Direct down to hear the effect instead of alongside
+          it.
         </p>
       </aside>
     )

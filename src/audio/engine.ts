@@ -153,7 +153,7 @@ export class AudioEngine implements Engine {
 
     const attack = Math.max(MIN_RAMP, req.attack / 1000)
     const release = Math.max(MIN_RAMP, req.release / 1000)
-    // Attack must never outrun the note, or it would never reach the requested level.
+    // Attack must never outrun the note, or it would never reach the requested mix.
     const rise = Math.min(attack, req.duration * 0.9)
     const holdEnd = req.time + req.duration
     const end = holdEnd + release
@@ -228,7 +228,7 @@ export class AudioEngine implements Engine {
 
     const input = this.ctx.createGain()
     const output = this.ctx.createGain()
-    output.gain.value = params.level
+    output.gain.value = params.mix
 
     input.connect(chain.input)
     chain.output.connect(output)
@@ -263,7 +263,7 @@ export class AudioEngine implements Engine {
     const instance = this.effects.get(nodeId)
     if (!this.ctx || !instance) return
     const at = this.ctx.currentTime
-    instance.output.gain.setTargetAtTime(params.level, at, RAMP)
+    instance.output.gain.setTargetAtTime(params.mix, at, RAMP)
     instance.chain.update(params, at)
   }
 

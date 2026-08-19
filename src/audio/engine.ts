@@ -1,13 +1,11 @@
 import type { FilterType, FxParams, NodeId, Waveform } from '../types/patch'
 import { effectOr, type EffectChain } from './effects'
 import { MAX_CUTOFF, MAX_RESONANCE, MIN_CUTOFF, MIN_RESONANCE } from './filter'
+import { effectCost, MAX_LOAD, voiceCost } from './load'
 import { fillNoise, type NoiseColor } from './noise'
 import { isNoise, pulseHarmonics, rampHarmonics } from './waveforms'
 
-/** Voice budget. */
-export const MAX_VOICES = 64
-/** Above this fraction of the budget, nodes restart instead of layering. */
-export const OVERLAP_THRESHOLD = 0.75
+/** Cost in points of what a voice is made of, so the budget can be about work rather than count. */
 
 export interface NoteRequest {
   nodeId: NodeId
@@ -51,6 +49,8 @@ interface OutputBus {
  * effect rather than ten times.
  */
 interface EffectInstance {
+  /** Points, refreshed when a parameter that bears on it moves — a reverb's tail, most of all. */
+  cost: number
   input: GainNode
   dry: GainNode
   wet: GainNode
@@ -61,6 +61,8 @@ interface EffectInstance {
 
 interface Voice {
   nodeId: NodeId
+  /** Points, so the budget counts work rather than voices. A filtered pulse is not a plain sine. */
+  cost: number
   start: number
   /** When the voice goes fully silent, release included. */
   end: number
@@ -77,8 +79,10 @@ interface Voice {
 export interface Engine {
   now(): number
   playNote(req: NoteRequest): void
-  /** How many voices will be sounding at that instant. */
-  voicesAt(time: number): number
+  /** What the voices sounding at that instant cost, in points. */
+  voiceLoadAt(time: number): number
+  /** What the effects cost, which is paid the whole time they exist. */
+  effectLoad(): number
   /** How long what this node scheduled keeps sounding. */
   nodeBusyUntil(nodeId: NodeId): number
   /** Cuts a node's live voices, to restart its sequence. */
@@ -169,7 +173,8 @@ export class AudioEngine implements Engine {
     const holdEnd = req.time + req.duration
     const end = holdEnd + release
 
-    if (this.voicesAt(req.time) >= MAX_VOICES) this.stealOldest(req.time)
+    const cost = voiceCost(req.waveform, req.filterType !== 'off')
+    if (this.totalLoadAt(req.time) + cost > MAX_LOAD) this.stealOldest(req.time)
 
     const source = this.createSource(req)
 
@@ -196,7 +201,7 @@ export class AudioEngine implements Engine {
     source.start(req.time)
     source.stop(end + 0.01)
 
-    const voice: Voice = { nodeId: req.nodeId, start: req.time, end, gain, source, chain }
+    const voice: Voice = { nodeId: req.nodeId, cost, start: req.time, end, gain, source, chain }
     source.onended = () => {
       for (const node of chain) node.disconnect()
       const i = this.voices.indexOf(voice)
@@ -250,7 +255,15 @@ export class AudioEngine implements Engine {
     wet.connect(output)
     output.connect(this.master)
 
-    this.effects.set(nodeId, { input, dry, wet, output, chain, kind: params.effect })
+    this.effects.set(nodeId, {
+      cost: effectCost(params),
+      input,
+      dry,
+      wet,
+      output,
+      chain,
+      kind: params.effect,
+    })
     chain.update(params, { at: this.ctx.currentTime, bpm })
     this.updateEffect(nodeId, params, bpm)
   }
@@ -275,6 +288,7 @@ export class AudioEngine implements Engine {
     chain.output.connect(instance.wet)
     instance.chain = chain
     instance.kind = params.effect
+    instance.cost = effectCost(params)
 
     this.updateEffect(nodeId, params, bpm)
   }
@@ -282,6 +296,10 @@ export class AudioEngine implements Engine {
   updateEffect(nodeId: NodeId, params: FxParams, bpm: number): void {
     const instance = this.effects.get(nodeId)
     if (!this.ctx || !instance) return
+    // A reverb's cost follows its tail, so this has to be refreshed on any parameter change rather
+    // than only when the effect itself is swapped.
+    instance.cost = effectCost(params)
+
     const at = this.ctx.currentTime
     const mix = Math.min(1, Math.max(0, params.mix))
     instance.wet.gain.setTargetAtTime(mix, at, RAMP)
@@ -374,10 +392,26 @@ export class AudioEngine implements Engine {
     return buffer
   }
 
-  voicesAt(time: number): number {
-    let n = 0
-    for (const v of this.voices) if (v.start <= time && v.end > time) n++
-    return n
+  voiceLoadAt(time: number): number {
+    let load = 0
+    for (const v of this.voices) if (v.start <= time && v.end > time) load += v.cost
+    return load
+  }
+
+  /**
+   * Paid continuously, whether or not anything is wired into them: a convolver processes silence at
+   * the same price as sound, and an unwired reverb costing what it costs is both true and a useful
+   * nudge to delete it.
+   */
+  effectLoad(): number {
+    let load = 0
+    for (const effect of this.effects.values()) load += effect.cost
+    return load
+  }
+
+  /** Voices plus effects, which is what any decision about the budget has to weigh. */
+  totalLoadAt(time: number): number {
+    return this.voiceLoadAt(time) + this.effectLoad()
   }
 
   nodeBusyUntil(nodeId: NodeId): number {

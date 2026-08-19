@@ -31,9 +31,13 @@ without having to remember a colour.
   Fourier series, since Web Audio ships neither.
 - **Per-voice filter** — low pass, high pass or band pass, cutoff edited on a log slider.
 - **Delay node** that holds a trigger and passes it on later, so branches drift out of step.
-- **Layering with a voice budget.** A node retriggered while still sounding layers over itself,
-  until voices run short — past 75 % of budget it restarts instead, so the texture degrades before
-  it glitches. The transport shows the count.
+- **A budget counted in work, not voices.** One point is one plain oscillator voice, the ceiling is a
+  hundred, so the meter reads as a percentage. A wavetable voice costs more than a native one, a
+  per-voice filter adds a little, and effects are paid for the whole time they exist — a reverb is a
+  `ConvolverNode`, the dearest thing here, priced by the length of its tail. The meter shows the split,
+  because the standing cost of a rack is what explains why a heavy patch stops layering early. Past
+  75 % a retriggered node restarts instead of layering, so the texture degrades before it glitches;
+  effects are never disabled behind your back, since you put them there.
 - **Whole-cascade loop.** When every branch has drained, the cascade fires again. Each pass lasts
   as long as its longest branch, so the cycle breathes rather than holding a fixed pulse.
 - **An FX node**, _in progress._ Effects attach to an oscillator's side ports as sends: several on

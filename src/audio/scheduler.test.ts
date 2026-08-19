@@ -16,6 +16,7 @@ class FakeEngine implements Engine {
   notes: NoteRequest[] = []
   released: { nodeId: NodeId; at: number }[] = []
   voices = 0
+  effects = 0
   busy = new Map<NodeId, number>()
 
   now() {
@@ -24,8 +25,12 @@ class FakeEngine implements Engine {
   playNote(req: NoteRequest) {
     this.notes.push(req)
   }
-  voicesAt() {
+  /** The budget is in points now; the tests set it directly rather than through voice costs. */
+  voiceLoadAt() {
     return this.voices
+  }
+  effectLoad() {
+    return this.effects
   }
   nodeBusyUntil(nodeId: NodeId) {
     return this.busy.get(nodeId) ?? 0
@@ -345,13 +350,14 @@ describe('delay node', () => {
 })
 
 describe('layering policy', () => {
-  function retrigger(voices: number) {
+  function retrigger(voices: number, effects = 0) {
     const patch = patchOf(
       [{ id: 's', type: 'start', position: { x: 0, y: 0 }, params: {} }, osc('a')],
       [edge('s', 'a'), edge('a', 'a')],
     )
     const scheduler = build(patch)
     engine.voices = voices
+    engine.effects = effects
     engine.busy.set('a', 1000) // the node is always still sounding
     scheduler.start()
     scheduler.drain(10)
@@ -359,11 +365,18 @@ describe('layering policy', () => {
     return engine.released
   }
 
-  it('layers while there is voice budget left', () => {
+  it('layers while there is budget left', () => {
     expect(retrigger(10)).toHaveLength(0)
   })
 
   it('degrades to a restart past 75 % of the budget', () => {
-    expect(retrigger(60).length).toBeGreaterThan(0)
+    expect(retrigger(90).length).toBeGreaterThan(0)
+  })
+
+  it('counts effects towards the same budget, so a rack costs you layering', () => {
+    // The same voices either way; a heavy rack alongside them is what tips it. This is the whole
+    // reason the budget stopped counting voices and started counting work.
+    expect(retrigger(40)).toHaveLength(0)
+    expect(retrigger(40, 45).length).toBeGreaterThan(0)
   })
 })

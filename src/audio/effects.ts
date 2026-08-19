@@ -1,4 +1,11 @@
-import { MAX_SWEEP, MIN_SWEEP, type EffectKind, type FxParams } from '../types/patch'
+import {
+  MAX_DECAY,
+  MAX_SWEEP,
+  MIN_DECAY,
+  MIN_SWEEP,
+  type EffectKind,
+  type FxParams,
+} from '../types/patch'
 import { stepDuration } from './clock'
 import { crushCurve, distortionCurve, impulseResponse, MAX_BITS } from './dsp'
 import { MAX_CUTOFF, MIN_CUTOFF } from './filter'
@@ -49,6 +56,11 @@ export interface EffectDescriptor {
   defaults?: Partial<FxParams>
   /** Seconds the node's output is faded over before disposal, for effects with a tail. */
   releaseTime: number
+  /**
+   * What running this costs, in points, where one point is one plain oscillator voice. Declared here
+   * because what an effect is made of is the effect's own business. See audio/load.ts for the unit.
+   */
+  cost(params: FxParams): number
   create(ctx: AudioContext): EffectChain
 }
 
@@ -70,6 +82,10 @@ function setTone(filter: BiquadFilterNode, params: FxParams, at: number): void {
 
 const reverb: EffectDescriptor = {
   kind: 'reverb',
+  // A ConvolverNode is the dearest thing Web Audio offers, and it scales with the tail: two and a
+  // half seconds costs as much as fifteen oscillators, ten seconds costs most of the budget. That
+  // is the honest number rather than a discouragement.
+  cost: (params) => 6 * Math.min(MAX_DECAY, Math.max(MIN_DECAY, params.decay ?? 2.5)),
   label: 'Reverb',
   params: ['decay', 'cutoff'],
   defaults: { decay: 2.5, cutoff: 4000 },
@@ -108,6 +124,8 @@ const reverb: EffectDescriptor = {
 
 const distortion: EffectDescriptor = {
   kind: 'distortion',
+  // Four-times oversampling really is about four times the work, plus two biquads.
+  cost: () => 3.5,
   label: 'Distortion',
   params: ['shape', 'drive', 'cutoff'],
   defaults: { drive: 0.4, cutoff: 4000 },
@@ -152,6 +170,8 @@ const distortion: EffectDescriptor = {
 
 const crush: EffectDescriptor = {
   kind: 'crush',
+  // One table lookup per sample, deliberately not oversampled, plus the tone filter.
+  cost: () => 0.7,
   label: 'Bitcrusher',
   params: ['bits', 'cutoff'],
   defaults: { bits: 6, cutoff: 6000 },
@@ -187,6 +207,8 @@ const MAX_ECHO_SECONDS = 4
 
 const echo: EffectDescriptor = {
   kind: 'echo',
+  // Two delay lines, two panners, and a filter in the feedback path.
+  cost: () => 2.5,
   label: 'Echo',
   params: ['time', 'feedback', 'width', 'cutoff'],
   labels: { width: 'Spread' },
@@ -254,6 +276,8 @@ const echo: EffectDescriptor = {
  */
 const filter: EffectDescriptor = {
   kind: 'filter',
+  // A single biquad.
+  cost: () => 0.5,
   label: 'Filter',
   params: ['filterType', 'cutoff', 'resonance'],
   // Here the cutoff is the point rather than a shaping stage.
@@ -295,6 +319,8 @@ const MAX_CHORUS_FEEDBACK = 0.7
  */
 const chorus: EffectDescriptor = {
   kind: 'chorus',
+  // A delay line, an oscillator and a filter.
+  cost: () => 2.5,
   label: 'Chorus',
   params: ['sweep', 'rate', 'depth', 'feedback', 'cutoff'],
   defaults: { sweep: 22, rate: 1.2, depth: 0.4, feedback: 0 },
@@ -359,6 +385,8 @@ const MAX_PHASER_FEEDBACK = 0.6
  */
 const phaser: EffectDescriptor = {
   kind: 'phaser',
+  // Four all-pass biquads, an oscillator, and feedback around them.
+  cost: () => 3.5,
   label: 'Phaser',
   params: ['rate', 'depth', 'feedback', 'cutoff'],
   labels: { cutoff: 'Centre' },
@@ -424,6 +452,8 @@ const phaser: EffectDescriptor = {
  */
 const tremolo: EffectDescriptor = {
   kind: 'tremolo',
+  // An oscillator into a gain, and nothing else.
+  cost: () => 1.5,
   label: 'Tremolo',
   params: ['rate', 'depth'],
   // Full depth and a speed you can hear as a pulse. A tremolo at a chorus's settings is a wobble
@@ -467,6 +497,8 @@ const tremolo: EffectDescriptor = {
  */
 const ring: EffectDescriptor = {
   kind: 'ring',
+  // An oscillator running at audio rate, which is a voice in all but name.
+  cost: () => 2,
   label: 'Ring mod',
   params: ['cutoff'],
   // The carrier frequency, which the cutoff field already covers with the right range and a log
@@ -513,6 +545,8 @@ const MAX_WIDTH_SECONDS = 0.02
  */
 const pan: EffectDescriptor = {
   kind: 'pan',
+  // Two delay lines, a merger and a panner: memory traffic rather than arithmetic.
+  cost: () => 1.5,
   label: 'Pan',
   params: ['pan', 'width'],
   defaults: { pan: 0, width: 0.4 },

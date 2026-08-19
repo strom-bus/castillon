@@ -1,5 +1,6 @@
 import { midiToFreq, stepDuration } from '../audio/clock'
-import { MAX_VOICES, OVERLAP_THRESHOLD, type Engine } from '../audio/engine'
+import type { Engine } from '../audio/engine'
+import { LAYER_THRESHOLD, MAX_LOAD } from '../audio/load'
 import type { DelayParams, FxParams, NodeParams, OscParams, PatchNode, Step } from '../types/patch'
 import { MAX_DELAY_MS, MIN_DELAY_MS } from '../types/patch'
 import type { ActivityBus } from '../viz/activity'
@@ -125,11 +126,13 @@ const osc: NodeDefinition = {
     const params = node.params as OscParams
     const step = stepDuration(bpm, params.division)
 
-    // Only layer while there is voice budget left. Past the
-    // threshold the node restarts instead of piling up, so the texture degrades on its own
-    // before glitches show up.
+    // Only layer while there is budget left, counted in work rather than in voices — a rack of
+    // effects is paid for before a note is played, so it is the effects that decide how much
+    // layering is left. Past the threshold the node restarts instead of piling up, and the texture
+    // degrades on its own before glitches show up.
     const stillSounding = engine.nodeBusyUntil(node.id) > time
-    if (stillSounding && engine.voicesAt(time) >= MAX_VOICES * OVERLAP_THRESHOLD) {
+    const load = engine.voiceLoadAt(time) + engine.effectLoad()
+    if (stillSounding && load >= MAX_LOAD * LAYER_THRESHOLD) {
       engine.releaseNodeVoices(node.id, time)
     }
 

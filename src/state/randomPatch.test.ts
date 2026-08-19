@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { EFFECTS } from '../audio/effects'
+import { estimatePeakLoad, MAX_LOAD } from '../audio/load'
 import type { FxParams, OscParams } from '../types/patch'
 import { decodePatch, encodePatch } from './patchCode'
 import { randomPatch } from './randomPatch'
@@ -147,6 +148,29 @@ describe('randomPatch', () => {
       expect(patch.bpm).toBeGreaterThanOrEqual(70)
       expect(patch.bpm).toBeLessThanOrEqual(170)
     }
+  })
+
+  it('never rolls a patch that starts over budget', () => {
+    // The condition on huge rolls: as big as it likes, but it has to play. Trimming happens after
+    // building, since the peak cost of a cascade is easier to measure on a finished patch than to
+    // forecast while making one.
+    for (const patch of many(400)) {
+      expect(estimatePeakLoad(patch)).toBeLessThanOrEqual(MAX_LOAD)
+    }
+  })
+
+  it('still reaches large patches rather than trimming everything down', () => {
+    // The budget must not have quietly turned the dice back into what it was before.
+    const counts = many(400).map((p) => oscs(p).length)
+    expect(Math.max(...counts)).toBeGreaterThan(25)
+  })
+
+  it('takes effects before oscillators when it has to trim', () => {
+    // Losing an effect costs a colour; losing an oscillator costs a voice. And an effect is the
+    // dearest thing per node, so it is also the fastest way back under.
+    const heavy = many(400).filter((p) => estimatePeakLoad(p) > MAX_LOAD * 0.7)
+    expect(heavy.length).toBeGreaterThan(0)
+    for (const patch of heavy) expect(oscs(patch).length).toBeGreaterThan(0)
   })
 
   it('survives a round trip through the patch code', () => {

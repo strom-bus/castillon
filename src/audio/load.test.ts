@@ -1,0 +1,189 @@
+import { describe, expect, it } from 'vitest'
+import { defaultFxParams, defaultOscParams } from '../nodes/registry'
+import type { FxParams, Patch, PatchNode } from '../types/patch'
+import { EFFECTS } from './effects'
+import {
+  effectCost,
+  estimatePeakLoad,
+  LAYER_THRESHOLD,
+  MAX_LOAD,
+  oscVoiceCost,
+  voiceCost,
+  voiceOverlap,
+} from './load'
+
+describe('the unit', () => {
+  it('is one plain oscillator voice', () => {
+    // Everything else is priced against this, which is what lets the meter read as a percentage and
+    // what made the old voice-counting budget carry over without recalibration.
+    expect(voiceCost('square', false)).toBe(1)
+    expect(voiceCost('sine', false)).toBe(1)
+  })
+
+  it('charges a wavetable more than a native oscillator', () => {
+    for (const wave of ['pulse', 'ramp'] as const) {
+      expect(voiceCost(wave, false)).toBeGreaterThan(voiceCost('square', false))
+    }
+  })
+
+  it('charges noise slightly less, since a buffer read is cheaper than band-limiting', () => {
+    expect(voiceCost('pink', false)).toBeLessThan(voiceCost('square', false))
+  })
+
+  it('adds the per-voice filter', () => {
+    expect(voiceCost('square', true)).toBeGreaterThan(voiceCost('square', false))
+    // But not by much: a biquad is a handful of multiply-adds.
+    expect(voiceCost('square', true)).toBeLessThan(voiceCost('square', false) * 1.5)
+  })
+
+  it('reads the cost straight off an oscillator’s parameters', () => {
+    expect(oscVoiceCost({ ...defaultOscParams(), waveform: 'square', filterType: 'off' })).toBe(1)
+    expect(
+      oscVoiceCost({ ...defaultOscParams(), waveform: 'pulse', filterType: 'lowpass' }),
+    ).toBeGreaterThan(1.4)
+  })
+})
+
+describe('what effects cost', () => {
+  it('gives every effect a price', () => {
+    for (const effect of EFFECTS) {
+      const cost = effectCost({ ...defaultFxParams(), effect: effect.kind })
+      expect(cost).toBeGreaterThan(0)
+    }
+  })
+
+  it('makes the reverb the dearest thing in the list', () => {
+    const reverb = effectCost({ ...defaultFxParams(), effect: 'reverb' })
+    for (const effect of EFFECTS) {
+      if (effect.kind === 'reverb') continue
+      expect(reverb).toBeGreaterThan(effectCost({ ...defaultFxParams(), effect: effect.kind }))
+    }
+  })
+
+  it('prices the reverb by its tail, because a convolver is priced by its tail', () => {
+    const at = (decay: number) => effectCost({ ...defaultFxParams(), effect: 'reverb', decay })
+    expect(at(5)).toBeCloseTo(at(2.5) * 2, 5)
+    // A ten-second tail is most of the budget, which is the honest number.
+    expect(at(10)).toBeGreaterThan(MAX_LOAD / 2)
+  })
+
+  it('charges an oversampled waveshaper more than a plain one', () => {
+    const drive = effectCost({ ...defaultFxParams(), effect: 'distortion' })
+    const crush = effectCost({ ...defaultFxParams(), effect: 'crush' })
+    expect(drive).toBeGreaterThan(crush * 3)
+  })
+
+  it('falls back rather than throwing on an effect this build lacks', () => {
+    expect(effectCost({ ...defaultFxParams(), effect: 'nonesuch' as never })).toBeGreaterThan(0)
+  })
+})
+
+describe('voiceOverlap', () => {
+  it('counts a long release under a fast division as several voices', () => {
+    // The single biggest thing a voice count hides: one oscillator holding five notes at once.
+    const params = { ...defaultOscParams(), division: '1/16' as const, release: 800, gate: 0.9 }
+    expect(voiceOverlap(params, 120)).toBeGreaterThan(2)
+  })
+
+  it('counts a short release as about one', () => {
+    const params = { ...defaultOscParams(), division: '1/4' as const, release: 20, gate: 0.5 }
+    expect(voiceOverlap(params, 120)).toBeCloseTo(1, 1)
+  })
+
+  it('never goes below one or runs away', () => {
+    for (const release of [0, 40, 2000]) {
+      for (const division of ['1/4', '1/8', '1/16'] as const) {
+        const overlap = voiceOverlap({ ...defaultOscParams(), division, release }, 300)
+        expect(overlap).toBeGreaterThanOrEqual(1)
+        expect(overlap).toBeLessThanOrEqual(4)
+      }
+    }
+  })
+})
+
+describe('estimating a patch', () => {
+  const osc = (id: string, params = {}): PatchNode => ({
+    id,
+    type: 'osc',
+    position: { x: 0, y: 0 },
+    params: { ...defaultOscParams(), ...params },
+  })
+  const fx = (id: string, params: Partial<FxParams> = {}): PatchNode => ({
+    id,
+    type: 'fx',
+    position: { x: 0, y: 0 },
+    params: { ...defaultFxParams(), ...params },
+  })
+  const ignite: PatchNode = { id: 's', type: 'start', position: { x: 0, y: 0 }, params: {} }
+  const event = (source: string, target: string) => ({
+    id: `${source}${target}`,
+    kind: 'event' as const,
+    source,
+    target,
+  })
+  const patchOf = (nodes: PatchNode[], edges: Patch['edges'] = []): Patch => ({
+    version: 1,
+    bpm: 120,
+    loop: true,
+    nodes,
+    edges,
+  })
+
+  it('costs nothing for a patch with nothing in it', () => {
+    expect(estimatePeakLoad(patchOf([ignite]))).toBe(0)
+  })
+
+  it('charges a rack of effects whether or not anything plays through it', () => {
+    // A convolver processes silence at the same price as sound, and an unwired reverb costing what it
+    // costs is both true and a nudge to delete it.
+    const loose = estimatePeakLoad(patchOf([ignite, fx('f', { effect: 'reverb' })]))
+    expect(loose).toBeGreaterThan(10)
+  })
+
+  it('takes the widest level rather than the whole tree', () => {
+    // Siblings sound together; depth is sequential. A chain of four is not four times a chain of one.
+    const chain = patchOf(
+      [ignite, osc('a'), osc('b'), osc('c'), osc('d')],
+      [event('s', 'a'), event('a', 'b'), event('b', 'c'), event('c', 'd')],
+    )
+    const fan = patchOf(
+      [ignite, osc('a'), osc('b'), osc('c'), osc('d')],
+      [event('s', 'a'), event('s', 'b'), event('s', 'c'), event('s', 'd')],
+    )
+    expect(estimatePeakLoad(fan)).toBeGreaterThan(estimatePeakLoad(chain) * 2)
+  })
+
+  it('adds cascades together, since every Ignite fires at once', () => {
+    const one = patchOf([ignite, osc('a')], [event('s', 'a')])
+    const two = patchOf(
+      [ignite, { ...ignite, id: 't' }, osc('a'), osc('b')],
+      [event('s', 'a'), event('t', 'b')],
+    )
+    expect(estimatePeakLoad(two)).toBeGreaterThan(estimatePeakLoad(one) * 1.5)
+  })
+
+  it('does not hang on a cycle', () => {
+    const looped = patchOf(
+      [ignite, osc('a'), osc('b')],
+      [event('s', 'a'), event('a', 'b'), event('b', 'a')],
+    )
+    expect(estimatePeakLoad(looped)).toBeGreaterThan(0)
+  })
+
+  it('over-estimates rather than under, so a patch inside budget plays', () => {
+    const one = patchOf([ignite, osc('a')], [event('s', 'a')])
+    // One oscillator at rest is one voice; the allowance for tails puts the estimate above it.
+    expect(estimatePeakLoad(one)).toBeGreaterThan(1)
+  })
+})
+
+describe('the budget itself', () => {
+  it('is a hundred, so the meter reads as a percentage', () => {
+    expect(MAX_LOAD).toBe(100)
+  })
+
+  it('starts degrading before it runs out', () => {
+    expect(LAYER_THRESHOLD).toBeGreaterThan(0.5)
+    expect(LAYER_THRESHOLD).toBeLessThan(1)
+  })
+})

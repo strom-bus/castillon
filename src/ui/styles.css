@@ -184,12 +184,14 @@ input[type='range'] {
 }
 
 .meter-bar {
+  display: flex;
   width: 72px;
   height: 8px;
   border: 1px solid var(--border-strong);
   background: var(--bg);
 }
 
+/* Voices, stacked on top of the standing cost of the effects. */
 .meter-fill {
   height: 100%;
   background: var(--accent-dim);
@@ -199,8 +201,15 @@ input[type='range'] {
   background: var(--accent);
 }
 
+/* The part that is spent before a note is played. */
+.meter-fill.effects {
+  background: var(--border-strong);
+}
+
 .meter-label {
   font-variant-numeric: tabular-nums;
+  min-width: 30px;
+  text-align: right;
 }
 
 /* ---------- Canvas ---------- */

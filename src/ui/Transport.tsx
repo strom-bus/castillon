@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { MAX_VOICES } from '../audio/engine'
+import { LAYER_THRESHOLD, MAX_LOAD } from '../audio/load'
 import { engine, play, stop } from '../audio/runtime'
 import { usePatchStore } from '../state/patchStore'
 import { MAX_BPM, MIN_BPM } from '../types/patch'
@@ -33,36 +33,44 @@ function DiceIcon() {
   )
 }
 
-/** Voice counter: makes the budget degradation visible rather than mysterious. */
-function VoiceMeter({ playing }: { playing: boolean }) {
-  const [voices, setVoices] = useState(0)
+/**
+ * What the patch costs to run, as a share of the budget.
+ *
+ * Two segments rather than one number, because the interesting part is the split: effects are paid
+ * for the whole time they exist, so a rack of them is spent before a note is played. Seeing that
+ * standing cost is what explains why a heavy patch stops layering early — and why an unwired reverb
+ * is worth deleting.
+ */
+function LoadMeter({ playing }: { playing: boolean }) {
+  const [load, setLoad] = useState({ voices: 0, effects: 0 })
 
   useEffect(() => {
-    if (!playing) {
-      setVoices(0)
-      return
-    }
     let frame = 0
     const tick = () => {
-      setVoices(engine.voicesAt(engine.now()))
+      setLoad({ voices: engine.voiceLoadAt(engine.now()), effects: engine.effectLoad() })
       frame = requestAnimationFrame(tick)
     }
     frame = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(frame)
+    // Effects cost whether or not the transport is running, so this watches either way.
   }, [playing])
 
-  const ratio = voices / MAX_VOICES
+  const total = load.voices + load.effects
+  const share = (points: number) => `${Math.min(100, (points / MAX_LOAD) * 100)}%`
+
   return (
-    <div className="meter" title="Voices sounding / budget">
+    <div
+      className="meter"
+      title={`Effects ${load.effects.toFixed(1)} + voices ${load.voices.toFixed(1)} of ${MAX_LOAD}. Past ${LAYER_THRESHOLD * 100}% oscillators restart instead of layering.`}
+    >
       <div className="meter-bar">
+        <div className="meter-fill effects" style={{ width: share(load.effects) }} />
         <div
-          className={`meter-fill${ratio >= 0.75 ? ' hot' : ''}`}
-          style={{ width: `${Math.min(100, ratio * 100)}%` }}
+          className={`meter-fill${total >= MAX_LOAD * LAYER_THRESHOLD ? ' hot' : ''}`}
+          style={{ width: share(load.voices) }}
         />
       </div>
-      <span className="meter-label">
-        {voices}/{MAX_VOICES}
-      </span>
+      <span className="meter-label">{Math.round((total / MAX_LOAD) * 100)}%</span>
     </div>
   )
 }
@@ -120,7 +128,7 @@ export function Transport() {
         />
       </label>
 
-      <VoiceMeter playing={playing} />
+      <LoadMeter playing={playing} />
 
       <div className="spacer" />
 

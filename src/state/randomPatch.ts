@@ -1,4 +1,5 @@
 import { EFFECTS } from '../audio/effects'
+import { effectCost, estimatePeakLoad, MAX_LOAD } from '../audio/load'
 import { defaultDelayParams, defaultFxParams, defaultOscParams } from '../nodes/registry'
 import type {
   Division,
@@ -251,11 +252,55 @@ export function randomPatch(random: () => number = Math.random): Patch {
     wire(target, fx, 'audio')
   }
 
-  return {
+  return trimToBudget({
     version: 1,
     bpm: c.range(70, 170, 2),
     loop: true,
     nodes,
     edges,
+  })
+}
+
+/** Aimed under the ceiling rather than at it, so a roll has somewhere to breathe. */
+const BUDGET_TARGET = 0.85
+
+/**
+ * Brings a roll inside the budget by taking things away, cheapest decision first.
+ *
+ * Trimming afterwards rather than predicting up front, because the peak cost of a cascade depends on
+ * release tails and divisions in ways that are easier to measure on the finished patch than to
+ * forecast while building it.
+ *
+ * Effects go before oscillators: they are the dearest points per node, and losing one costs a colour
+ * while losing an oscillator costs a voice. Only leaves are taken, so nothing is ever orphaned.
+ */
+function trimToBudget(patch: Patch): Patch {
+  const limit = MAX_LOAD * BUDGET_TARGET
+  let nodes = patch.nodes
+  let edges = patch.edges
+
+  // Bounded: every pass removes a node, so it cannot outlast the patch.
+  for (let pass = 0; pass < nodes.length; pass++) {
+    if (estimatePeakLoad({ ...patch, nodes, edges }) <= limit) break
+
+    const effects = nodes.filter((n) => n.type === 'fx')
+    const victim =
+      effects.length > 0
+        ? effects.reduce((worst, n) =>
+            effectCost(n.params as FxParams) > effectCost(worst.params as FxParams) ? n : worst,
+          )
+        : lastLeaf(nodes, edges)
+
+    if (!victim) break
+    nodes = nodes.filter((n) => n.id !== victim.id)
+    edges = edges.filter((e) => e.source !== victim.id && e.target !== victim.id)
   }
+
+  return { ...patch, nodes, edges }
+}
+
+/** An oscillator with nothing hanging off it, so removing it strands nothing. */
+function lastLeaf(nodes: PatchNode[], edges: PatchEdge[]): PatchNode | undefined {
+  const parents = new Set(edges.filter((e) => e.kind === 'event').map((e) => e.source))
+  return nodes.filter((n) => n.type === 'osc' && !parents.has(n.id)).at(-1)
 }

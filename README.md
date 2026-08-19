@@ -58,10 +58,10 @@ npx wrangler kv namespace create PATCHES   # paste the id into wrangler.toml
 npx wrangler deploy                        # prints the service URL
 ```
 
-Then build the app with `VITE_SHARE_URL` set to that URL. Until it is set, the Share button is
-hidden and everything else behaves exactly as it does now — the service is a convenience layer, not
-a dependency. It stores the same string the app already lets you copy, so if it ever goes away,
-nothing exists only inside it.
+Then build the app with `VITE_SHARE_URL` set to that URL — the deploy workflow does. Until it is
+set, the Share button is hidden and everything else behaves exactly as it does without it: the
+service is a convenience layer, not a dependency. It stores the same string the app already lets you
+copy, so if it ever goes away, nothing exists only inside it.
 
 ## Running it
 

@@ -28,6 +28,10 @@ jobs:
       - run: npm run lint
       - run: npm run test
       - run: npm run build
+        env:
+          # The sharing service. Not a secret — it is a public endpoint, and the app hides the
+          # share button when this is unset.
+          VITE_SHARE_URL: https://castillon-share.strombus.workers.dev
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

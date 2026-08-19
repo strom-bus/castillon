@@ -31,6 +31,7 @@ import {
   EVENT_OUT,
 } from './connections'
 import { decodePatch } from './patchCode'
+import { randomPatch } from './randomPatch'
 
 export type FlowNodeData = { params: NodeParams }
 export type FlowNode = Node<FlowNodeData>
@@ -63,6 +64,7 @@ interface PatchState {
   setMasterGain(gain: number): void
   loadPatch(patch: Patch): void
   resetPatch(): void
+  randomisePatch(): void
 }
 
 function makeNode(type: string, position: { x: number; y: number }, id = newId(type)): FlowNode {
@@ -282,6 +284,10 @@ export const usePatchStore = create<PatchState>((set, get) => ({
 
   resetPatch() {
     set({ ...initialPatch(), selectedId: null })
+  },
+
+  randomisePatch() {
+    set({ ...fromPatch(randomPatch()), selectedId: null })
   },
 }))
 

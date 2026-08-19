@@ -16,6 +16,7 @@ describe('App', () => {
     // AGPL §13: anyone using the hosted app has to be able to reach its source.
     expect(screen.getByText('source')).toBeDefined()
     expect(screen.getByText('▶ PLAY')).toBeDefined()
+    expect(screen.getByLabelText('Random patch')).toBeDefined()
 
     // The starting patch: two independent cascades, five oscillators and a delay.
     expect(screen.getAllByText('IGNITE')).toHaveLength(2)

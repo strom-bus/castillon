@@ -42,6 +42,43 @@ describe('the starting patch', () => {
   })
 })
 
+describe('rolling a random patch', () => {
+  it('replaces the patch with one that plays', () => {
+    usePatchStore.getState().randomisePatch()
+    const patch = toPatch()
+
+    expect(patch.nodes.filter((n) => n.type === 'start').length).toBeGreaterThan(0)
+    expect(patch.nodes.filter((n) => n.type === 'osc').length).toBeGreaterThan(0)
+  })
+
+  it('leaves the canvas in a state the app can draw', () => {
+    // Straight from the generator into React Flow, so every cable needs its ports named the same
+    // way a loaded patch does.
+    usePatchStore.getState().randomisePatch()
+    for (const edge of usePatchStore.getState().edges) {
+      expect(edge.sourceHandle).toBeTruthy()
+      expect(edge.targetHandle).toBeTruthy()
+      expect(edge.type).toBe(edge.data?.kind === 'audio' ? 'signal' : 'cascade')
+    }
+  })
+
+  it('clears the selection, since the selected node is gone', () => {
+    const osc = usePatchStore.getState().nodes.find((n) => n.type === 'osc')!
+    usePatchStore.getState().select(osc.id)
+    usePatchStore.getState().randomisePatch()
+    expect(usePatchStore.getState().selectedId).toBeNull()
+  })
+
+  it('gives something different each roll', () => {
+    const codes = new Set<string>()
+    for (let i = 0; i < 12; i++) {
+      usePatchStore.getState().randomisePatch()
+      codes.add(JSON.stringify(toPatch()))
+    }
+    expect(codes.size).toBeGreaterThan(9)
+  })
+})
+
 describe('loading a patch the app did not write', () => {
   // React Flow renders an unrecognised node type as its own default node: a blank white box
   // with no ports. These are the guards against a patch quietly turning into blank boxes.

@@ -44,8 +44,9 @@ without having to remember a colour.
 - **Short codes.** Six characters that stand for a patch — `K7M2QX` — and what the interface shows.
   Thirty bits cannot hold a patch, so a short code refers to one rather than containing it: it is the
   hash of the long code, which means the same patch always gets the same short code and changing the
-  patch changes it. Copy publishes before copying, so what lands on the clipboard always works.
-  The field takes either kind of code.
+  patch changes it. **Generate** publishes and puts the code in the field; the field is empty until
+  it does, because a code shown before it exists is a code somebody writes down. Copy copies what is
+  there and nothing else. The field takes either kind of code.
   Eight nodes come to about 150 characters, against roughly 2700 as JSON.
 
 ## Sharing

@@ -51,3 +51,9 @@ globalThis.DOMRect ??= class {
     return this
   }
 } as unknown as typeof DOMRect
+
+/** jsdom has no clipboard, and a component that copies has to be testable. */
+const clipboard = { writeText: async (_text: string) => {} }
+if (!('clipboard' in navigator)) {
+  Object.defineProperty(navigator, 'clipboard', { configurable: true, value: clipboard })
+}

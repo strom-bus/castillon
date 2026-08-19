@@ -693,9 +693,9 @@ input[type='range'] {
   text-align: center;
 }
 
-/* Correct but not yet resolvable for anyone else. Copy publishes it. */
-.patch-code input.unpublished {
-  color: var(--muted);
+.patch-code input::placeholder {
+  color: var(--border-strong);
+  letter-spacing: 0;
 }
 
 .patch-code-note {

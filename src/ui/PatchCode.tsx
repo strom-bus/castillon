@@ -20,15 +20,17 @@ function storedDevMode(): boolean {
 /**
  * The patch as a code, and the field that takes one back.
  *
- * The short code is what is shown, because it is what anyone would want to pass on. It is derived
- * from the long code rather than issued, so it can be computed here and is correct the moment you
- * stop editing — but it only *resolves* for anybody else once the patch behind it has been
- * published. Until then it is shown dimmed, and Copy publishes before copying so that what lands on
- * the clipboard always works.
+ * The field holds a short code only when that code is **real and current**: generated, so the patch
+ * behind it exists on the service, and still matching what is on the canvas. Editing empties it
+ * rather than leaving something that looks usable, because a code shown before it exists is a code
+ * somebody writes on a piece of paper.
  *
- * The long code is still the thing that contains the patch, and is still what works with no network
- * at all. It is one click-run away rather than gone: five quick clicks on Copy turns on a developer
- * mode that shows it, which is how the codes committed into this repo get regenerated.
+ * That is why Generate is its own button. Copy copies what is there and does nothing else — no
+ * request, no new entry in the store, and the same code however many times it is pressed.
+ *
+ * The long code is what actually contains a patch and is what works with no network at all. Five
+ * quick clicks on Copy turns on a developer mode that shows it, which is how the codes committed
+ * into this repo get regenerated.
  */
 export function PatchCode() {
   const nodes = usePatchStore((s) => s.nodes)
@@ -43,15 +45,18 @@ export function PatchCode() {
     () => encodePatch(toPatch({ bpm, loop, nodes, edges })),
     [nodes, edges, bpm, loop],
   )
-  const short = useMemo(() => shortCodeFor(code), [code])
 
   const [devMode, setDevMode] = useState(storedDevMode)
   const [draft, setDraft] = useState<string | null>(null)
   const [status, setStatus] = useState<'' | 'invalid' | 'looking' | 'missing' | 'failed'>('')
   const [copied, setCopied] = useState(false)
   const [busy, setBusy] = useState(false)
-  /** Long codes published this session, so a patch returned to is known to be reachable already. */
-  const [published, setPublished] = useState<Set<string>>(new Set())
+  /**
+   * Long codes known to be on the service. Keyed by the patch rather than by the moment of
+   * generating, so returning to a patch already generated shows its code again instead of asking
+   * for it twice — the code is derived from the content, so it cannot have changed.
+   */
+  const [generated, setGenerated] = useState<Set<string>>(new Set())
 
   const input = useRef<HTMLInputElement>(null)
   const clicks = useRef<number[]>([])
@@ -60,8 +65,8 @@ export function PatchCode() {
 
   // Without a service there is no short code worth showing: it could never resolve for anyone.
   const showLong = devMode || !sharingAvailable
-  const shown = showLong ? code : short
-  const reachable = published.has(code)
+  const ready = generated.has(code)
+  const shown = showLong ? code : ready ? shortCodeFor(code) : ''
 
   useEffect(() => {
     try {
@@ -77,18 +82,9 @@ export function PatchCode() {
     return () => window.clearTimeout(timer)
   }, [copied])
 
-  const write = useCallback(async (value: string) => {
-    try {
-      await navigator.clipboard.writeText(value)
-      setCopied(true)
-    } catch {
-      // Clipboard blocked: select the text so it can be copied by hand.
-      input.current?.select()
-    }
-  }, [])
-
   const onCopy = useCallback(async () => {
-    // The click-run is counted first, so the mode still turns on when copying itself is failing.
+    // The click-run is counted first, so the mode still turns on with nothing to copy and while a
+    // request is in flight — which is when reaching for the long code matters most.
     const now = Date.now()
     clicks.current = [...clicks.current, now].filter((t) => now - t < DEV_MODE_WINDOW)
     if (clicks.current.length >= DEV_MODE_CLICKS) {
@@ -97,24 +93,31 @@ export function PatchCode() {
       return
     }
 
-    if (showLong) return write(code)
+    if (shown === '') return
+    try {
+      await navigator.clipboard.writeText(shown)
+      setCopied(true)
+    } catch {
+      // Clipboard blocked: select the text so it can be copied by hand.
+      input.current?.select()
+    }
+  }, [shown])
 
-    if (reachable) return write(shareLink(short))
-
-    if (busy) return
+  const onGenerate = useCallback(async () => {
+    if (busy || ready) return
     setBusy(true)
     try {
       const id = await publishPatch(code)
-      setPublished((seen) => new Set(seen).add(code))
+      setGenerated((seen) => new Set(seen).add(code))
+      // The address bar becomes a shareable link, which costs nothing and saves assembling one.
       window.location.hash = id
-      await write(shareLink(id))
       setStatus('')
     } catch {
       setStatus('failed')
     } finally {
       setBusy(false)
     }
-  }, [busy, code, reachable, short, showLong, write])
+  }, [busy, code, ready])
 
   const onChange = useCallback(
     (value: string) => {
@@ -131,7 +134,8 @@ export function PatchCode() {
             const patch = resolved ? decodePatch(resolved) : null
             if (!patch) return setStatus(resolved ? 'invalid' : 'missing')
             loadPatch(patch)
-            if (resolved) setPublished((seen) => new Set(seen).add(resolved))
+            // It resolved, so it is on the service: the field can show it straight away.
+            if (resolved) setGenerated((seen) => new Set(seen).add(resolved))
             setStatus('')
             setDraft(null)
           })
@@ -140,7 +144,7 @@ export function PatchCode() {
       }
 
       // A long code still works whether or not it is on show: it is how a patch travels without a
-      // service, and pasting one is how you get its short code.
+      // service, and pasting one is how you get to a patch that was never published.
       const patch = decodePatch(trimmed)
       if (patch) {
         loadPatch(patch)
@@ -153,8 +157,6 @@ export function PatchCode() {
     [loadPatch],
   )
 
-  const dimmed = !showLong && !reachable
-
   return (
     <div className="patch-code">
       <span className="patch-code-label">{devMode ? 'PATCH CODE · DEV' : 'CODE'}</span>
@@ -164,9 +166,9 @@ export function PatchCode() {
         spellCheck={false}
         autoComplete="off"
         aria-label="Patch code"
+        placeholder={showLong ? '' : 'generate or paste'}
         className={[
           status === 'invalid' || status === 'missing' ? 'invalid' : '',
-          dimmed ? 'unpublished' : '',
           showLong ? 'long' : 'short',
         ]
           .filter(Boolean)
@@ -184,18 +186,25 @@ export function PatchCode() {
         title={
           showLong
             ? 'The whole patch as one string. Paste one in to load it.'
-            : dimmed
-              ? 'Copy to publish this patch and get a link that works'
-              : 'Published — this code opens this patch'
+            : 'A code here exists and matches this patch. Paste one in to open it.'
         }
       />
-      <button
-        type="button"
-        className="btn"
-        onClick={onCopy}
-        title={showLong ? 'Copy the patch code' : 'Publish if needed, and copy a link'}
-      >
-        {busy ? '…' : copied ? 'COPIED' : 'COPY'}
+
+      {!showLong && (
+        <button
+          type="button"
+          className="btn"
+          onClick={onGenerate}
+          title={
+            ready ? 'This patch already has a code' : 'Publish this patch and get a code for it'
+          }
+        >
+          {busy ? '…' : ready ? 'GENERATED' : 'GENERATE'}
+        </button>
+      )}
+
+      <button type="button" className="btn" onClick={onCopy} title="Copy what is in the field">
+        {copied ? 'COPIED' : 'COPY'}
       </button>
 
       {status === 'looking' && <span className="patch-code-note">looking up…</span>}
@@ -203,8 +212,4 @@ export function PatchCode() {
       {status === 'failed' && <span className="patch-code-note">share service unreachable</span>}
     </div>
   )
-}
-
-function shareLink(id: string): string {
-  return `${window.location.origin}${window.location.pathname}#${id}`
 }

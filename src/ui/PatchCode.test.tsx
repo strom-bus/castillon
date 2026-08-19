@@ -150,11 +150,23 @@ describe('the developer mode', () => {
     expect(publishPatch).not.toHaveBeenCalled()
   })
 
-  it('and five more put it away again', () => {
+  it('and copy it in the same gesture, which is the point of the run', async () => {
+    const written = vi.spyOn(navigator.clipboard, 'writeText')
+    render(<PatchCode />)
+    clickCopyRun(5)
+
+    // Walking away with the long code is what the run is for; revealing it and making you press
+    // again would be a worse version of the same idea.
+    await vi.waitFor(() => expect(written).toHaveBeenCalledWith(encodePatch(toPatch())))
+    written.mockRestore()
+  })
+
+  it('and five more put it away again, still generating nothing', () => {
     render(<PatchCode />)
     clickCopyRun(5)
     clickCopyRun(5)
     expect(field().value).toBe('')
+    expect(publishPatch).not.toHaveBeenCalled()
   })
 
   it('clicking slowly just copies', () => {

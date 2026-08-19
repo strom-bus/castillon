@@ -71,8 +71,9 @@ The whole patch as one string. It is what actually contains a patch, decodes wit
 what gets committed into this repo — the starting patch and the load test are both just codes.
 
 It is deliberately not on show, since a short code is what anyone would want to pass on. **Five quick
-clicks on Copy** turn on a developer mode that puts it back in the field, and five more put it away.
-Pasting a long code always works whether the mode is on or not.
+clicks on Copy** turn on a developer mode, which puts the long code in the field _and copies it_ —
+walking away with it is the point of the run, not merely seeing it. Five more put the mode away.
+Pasting a long code always works whether the mode is on or not, and neither ever publishes anything.
 
 ## Running it
 

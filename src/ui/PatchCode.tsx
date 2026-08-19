@@ -82,26 +82,35 @@ export function PatchCode() {
     return () => window.clearTimeout(timer)
   }, [copied])
 
-  const onCopy = useCallback(async () => {
-    // The click-run is counted first, so the mode still turns on with nothing to copy and while a
-    // request is in flight — which is when reaching for the long code matters most.
-    const now = Date.now()
-    clicks.current = [...clicks.current, now].filter((t) => now - t < DEV_MODE_WINDOW)
-    if (clicks.current.length >= DEV_MODE_CLICKS) {
-      clicks.current = []
-      setDevMode((on) => !on)
-      return
-    }
-
-    if (shown === '') return
+  const write = useCallback(async (value: string) => {
+    if (value === '') return
     try {
-      await navigator.clipboard.writeText(shown)
+      await navigator.clipboard.writeText(value)
       setCopied(true)
     } catch {
       // Clipboard blocked: select the text so it can be copied by hand.
       input.current?.select()
     }
-  }, [shown])
+  }, [])
+
+  const onCopy = useCallback(async () => {
+    // The click-run is counted first, so the mode still turns on with nothing to copy and while a
+    // request is in flight — which is when reaching for the long code matters most.
+    const now = Date.now()
+    clicks.current = [...clicks.current, now].filter((t) => now - t < DEV_MODE_WINDOW)
+
+    if (clicks.current.length >= DEV_MODE_CLICKS) {
+      clicks.current = []
+      const on = !devMode
+      setDevMode(on)
+      // The run is a way of asking for the long code, not just of revealing it: the whole point is
+      // to walk away with it, so turning the mode on copies it in the same gesture.
+      if (on) await write(code)
+      return
+    }
+
+    await write(shown)
+  }, [code, devMode, shown, write])
 
   const onGenerate = useCallback(async () => {
     if (busy || ready) return

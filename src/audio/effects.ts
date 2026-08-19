@@ -40,6 +40,13 @@ export interface EffectDescriptor {
    * would be worse than either name.
    */
   labels?: Partial<Record<keyof FxParams, string>>
+  /**
+   * Starting values that suit this effect. One shared set of defaults cannot serve all of them —
+   * a chorus wants a slow shallow wobble and a tremolo a fast deep one from the same two fields —
+   * so switching to an effect adopts these for the parameters the previous effect was not using.
+   * Anything both effects use carries over untouched.
+   */
+  defaults?: Partial<FxParams>
   /** Seconds the node's output is faded over before disposal, for effects with a tail. */
   releaseTime: number
   create(ctx: AudioContext): EffectChain
@@ -65,6 +72,7 @@ const reverb: EffectDescriptor = {
   kind: 'reverb',
   label: 'Reverb',
   params: ['decay', 'cutoff'],
+  defaults: { decay: 2.5, cutoff: 4000 },
   // Long enough that removing the node lets the tail out rather than cutting it off.
   releaseTime: 0.4,
   create(ctx) {
@@ -102,6 +110,7 @@ const distortion: EffectDescriptor = {
   kind: 'distortion',
   label: 'Distortion',
   params: ['shape', 'drive', 'cutoff'],
+  defaults: { drive: 0.4, cutoff: 4000 },
   releaseTime: 0.02,
   create(ctx) {
     const shaper = ctx.createWaveShaper()
@@ -145,6 +154,7 @@ const crush: EffectDescriptor = {
   kind: 'crush',
   label: 'Bitcrusher',
   params: ['bits', 'cutoff'],
+  defaults: { bits: 6, cutoff: 6000 },
   releaseTime: 0.02,
   create(ctx) {
     const shaper = ctx.createWaveShaper()
@@ -178,35 +188,60 @@ const MAX_ECHO_SECONDS = 4
 const echo: EffectDescriptor = {
   kind: 'echo',
   label: 'Echo',
-  params: ['time', 'feedback', 'cutoff'],
+  params: ['time', 'feedback', 'width', 'cutoff'],
+  labels: { width: 'Spread' },
+  defaults: { time: '1/8', feedback: 0.4, width: 0, cutoff: 3000 },
   releaseTime: 0.3,
   create(ctx) {
-    const line = ctx.createDelay(MAX_ECHO_SECONDS)
+    // Two lines in series with the feedback coming off the second, so the taps land at T, 2T, 3T
+    // and alternate between them. Spread then decides how far apart the two sit in the stereo
+    // field: at zero both are centred and it is an ordinary echo, at one they are hard left and
+    // right and it ping-pongs. One control from one topology, rather than a mode that rewires.
+    const first = ctx.createDelay(MAX_ECHO_SECONDS)
+    const second = ctx.createDelay(MAX_ECHO_SECONDS)
     const feedback = ctx.createGain()
     const damping = tone(ctx)
+    const left = ctx.createStereoPanner()
+    const right = ctx.createStereoPanner()
+    const out = ctx.createGain()
+
+    first.connect(second)
+    first.connect(left)
+    second.connect(right)
+    left.connect(out)
+    right.connect(out)
 
     // The tone control sits in the feedback path, not after the output, so each repeat comes back
     // darker than the last. That decay towards dullness is what a tape echo does, and it is what
     // stops long feedback settings turning into a pile of identical copies.
-    line.connect(damping)
+    second.connect(damping)
     damping.connect(feedback)
-    feedback.connect(line)
+    feedback.connect(first)
 
     return {
-      input: line,
-      output: line,
+      input: first,
+      output: out,
       update(params, { at, bpm }) {
         setTone(damping, params, at)
         // Synced to the transport, so an echo stays in time when the tempo moves.
         const seconds = Math.min(MAX_ECHO_SECONDS, stepDuration(bpm, params.time ?? '1/8'))
         // Ramped rather than set: jumping the delay time of a running line pitches the repeats.
-        line.delayTime.setTargetAtTime(seconds, at, RAMP)
+        first.delayTime.setTargetAtTime(seconds, at, RAMP)
+        second.delayTime.setTargetAtTime(seconds, at, RAMP)
         feedback.gain.setTargetAtTime(Math.min(0.95, Math.max(0, params.feedback ?? 0)), at, RAMP)
+
+        const spread = Math.min(1, Math.max(0, params.width ?? 0))
+        left.pan.setTargetAtTime(-spread, at, RAMP)
+        right.pan.setTargetAtTime(spread, at, RAMP)
       },
       dispose() {
-        line.disconnect()
+        first.disconnect()
+        second.disconnect()
         feedback.disconnect()
         damping.disconnect()
+        left.disconnect()
+        right.disconnect()
+        out.disconnect()
       },
     }
   },
@@ -223,6 +258,7 @@ const filter: EffectDescriptor = {
   params: ['filterType', 'cutoff', 'resonance'],
   // Here the cutoff is the point rather than a shaping stage.
   labels: { cutoff: 'Cutoff' },
+  defaults: { filterType: 'lowpass', cutoff: 1200, resonance: 4 },
   releaseTime: 0.02,
   create(ctx) {
     const biquad = ctx.createBiquadFilter()
@@ -261,6 +297,7 @@ const chorus: EffectDescriptor = {
   kind: 'chorus',
   label: 'Chorus',
   params: ['sweep', 'rate', 'depth', 'feedback', 'cutoff'],
+  defaults: { sweep: 22, rate: 1.2, depth: 0.4, feedback: 0 },
   releaseTime: 0.1,
   create(ctx) {
     const line = ctx.createDelay(0.1)
@@ -325,6 +362,7 @@ const phaser: EffectDescriptor = {
   label: 'Phaser',
   params: ['rate', 'depth', 'feedback', 'cutoff'],
   labels: { cutoff: 'Centre' },
+  defaults: { rate: 0.5, depth: 0.7, feedback: 0.3, cutoff: 600 },
   releaseTime: 0.05,
   create(ctx) {
     const stages = Array.from({ length: PHASER_STAGES }, () => {
@@ -388,6 +426,9 @@ const tremolo: EffectDescriptor = {
   kind: 'tremolo',
   label: 'Tremolo',
   params: ['rate', 'depth'],
+  // Full depth and a speed you can hear as a pulse. A tremolo at a chorus's settings is a wobble
+  // nobody notices, which is exactly what it was before these existed.
+  defaults: { rate: 5, depth: 1 },
   releaseTime: 0.02,
   create(ctx) {
     const amp = ctx.createGain()
@@ -431,6 +472,7 @@ const ring: EffectDescriptor = {
   // The carrier frequency, which the cutoff field already covers with the right range and a log
   // slider to set it on.
   labels: { cutoff: 'Freq' },
+  defaults: { cutoff: 300 },
   releaseTime: 0.02,
   create(ctx) {
     const multiplier = ctx.createGain()
@@ -473,6 +515,7 @@ const pan: EffectDescriptor = {
   kind: 'pan',
   label: 'Pan',
   params: ['pan', 'width'],
+  defaults: { pan: 0, width: 0.4 },
   releaseTime: 0.02,
   create(ctx) {
     const input = ctx.createGain()
@@ -523,6 +566,15 @@ const byKind = new Map(EFFECTS.map((e) => [e.kind, e]))
 
 export function getEffect(kind: EffectKind): EffectDescriptor | undefined {
   return byKind.get(kind)
+}
+
+/**
+ * What an effect calls a parameter, which is also the record of what it means by it. `cutoff` is
+ * Tone on a reverb and Centre on a phaser, and those are not the same number — so comparing labels
+ * is how switching effect knows whether a value is worth carrying over.
+ */
+export function labelOf(descriptor: EffectDescriptor | undefined, field: keyof FxParams): string {
+  return descriptor?.labels?.[field] ?? field
 }
 
 /** Falls back rather than throwing: a patch may name an effect this build does not have yet. */

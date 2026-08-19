@@ -195,8 +195,45 @@ describe('the FX inspector', () => {
     expect(shown('chorus')).toContain('Feedback')
 
     expect(shown('phaser')).toContain('Centre')
+    expect(shown('echo')).toContain('Spread')
     expect(shown('tremolo')).toContain('Rate')
     expect(shown('tremolo')).not.toContain('Tone')
+  })
+
+  it('adopts an effect’s own starting values for what the last one was not using', () => {
+    // One shared set of defaults cannot serve every effect: a chorus wants a slow shallow wobble
+    // and a tremolo a fast deep one out of the same two fields. Without this a tremolo arrived at
+    // a chorus's settings, which is a wobble nobody notices.
+    const fx = addFx()
+    usePatchStore.getState().setEffect(fx, 'tremolo')
+
+    const params = usePatchStore.getState().nodes.find((n) => n.id === fx)!.data.params as FxParams
+    expect(params.depth).toBe(1)
+    expect(params.rate).toBe(5)
+  })
+
+  it('keeps a parameter both effects use rather than resetting it', () => {
+    const fx = addFx()
+    usePatchStore.getState().setEffect(fx, 'chorus')
+    usePatchStore.getState().updateParams(fx, { rate: 3.3 })
+    // Phaser uses rate too, so a rate deliberately set has to survive the move.
+    usePatchStore.getState().setEffect(fx, 'phaser')
+
+    const params = usePatchStore.getState().nodes.find((n) => n.id === fx)!.data.params as FxParams
+    expect(params.rate).toBe(3.3)
+    // Centre is the phaser's alone, so it does arrive at the phaser's value.
+    expect(params.cutoff).toBe(600)
+  })
+
+  it('gives the echo a spread that reaches ping-pong', () => {
+    const fx = addFx()
+    usePatchStore.getState().setEffect(fx, 'echo')
+    usePatchStore.getState().select(fx)
+    render(<Inspector />)
+
+    fireEvent.change(screen.getByLabelText('Spread'), { target: { value: '1' } })
+    const params = usePatchStore.getState().nodes.find((n) => n.id === fx)!.data.params as FxParams
+    expect(params.width).toBe(1)
   })
 
   it('offers the octave rectifier as a distortion shape rather than an effect of its own', () => {

@@ -184,11 +184,14 @@ function EffectControl({
   labels?: Partial<Record<keyof FxParams, string>>
   onChange: (partial: Partial<FxParams>) => void
 }) {
+  /** An effect may rename any of its controls, so every one of them asks. */
+  const name = (fallback: string) => labels?.[param] ?? fallback
+
   switch (param) {
     case 'shape':
       return (
         <label className="inspector-field">
-          <span className="inspector-label">Shape</span>
+          <span className="inspector-label">{name('Shape')}</span>
           <select
             value={params.shape ?? 'overdrive'}
             onChange={(e) => onChange({ shape: e.target.value as DistortionShape })}
@@ -204,7 +207,7 @@ function EffectControl({
     case 'filterType':
       return (
         <label className="inspector-field">
-          <span className="inspector-label">Type</span>
+          <span className="inspector-label">{name('Type')}</span>
           <select
             value={params.filterType ?? 'lowpass'}
             onChange={(e) => onChange({ filterType: e.target.value as FilterType })}
@@ -220,7 +223,7 @@ function EffectControl({
     case 'bits':
       return (
         <TypedSlider
-          label="Bits"
+          label={name('Bits')}
           value={params.bits ?? MAX_BITS}
           min={MIN_BITS}
           max={MAX_BITS}
@@ -231,7 +234,7 @@ function EffectControl({
     case 'sweep':
       return (
         <TypedSlider
-          label="Sweep"
+          label={name('Sweep')}
           value={params.sweep ?? 6}
           min={MIN_SWEEP}
           max={MAX_SWEEP}
@@ -243,7 +246,7 @@ function EffectControl({
     case 'rate':
       return (
         <TypedSlider
-          label="Rate"
+          label={name('Rate')}
           value={params.rate ?? 1.5}
           min={MIN_RATE}
           max={MAX_RATE}
@@ -255,7 +258,7 @@ function EffectControl({
     case 'depth':
       return (
         <TypedSlider
-          label="Depth"
+          label={name('Depth')}
           value={params.depth ?? 0.4}
           min={0}
           max={1}
@@ -266,7 +269,7 @@ function EffectControl({
     case 'pan':
       return (
         <TypedSlider
-          label="Pan"
+          label={name('Pan')}
           value={params.pan ?? 0}
           min={-1}
           max={1}
@@ -277,7 +280,7 @@ function EffectControl({
     case 'width':
       return (
         <TypedSlider
-          label="Width"
+          label={name('Width')}
           value={params.width ?? 0}
           min={0}
           max={1}
@@ -288,7 +291,7 @@ function EffectControl({
     case 'decay':
       return (
         <TypedSlider
-          label="Decay"
+          label={name('Decay')}
           value={params.decay ?? 2}
           min={MIN_DECAY}
           max={MAX_DECAY}
@@ -300,7 +303,7 @@ function EffectControl({
     case 'drive':
       return (
         <TypedSlider
-          label="Drive"
+          label={name('Drive')}
           value={params.drive ?? 0.4}
           min={0}
           max={1}
@@ -311,7 +314,7 @@ function EffectControl({
     case 'time':
       return (
         <label className="inspector-field">
-          <span className="inspector-label">Time</span>
+          <span className="inspector-label">{name('Time')}</span>
           <select
             value={params.time ?? '1/8'}
             onChange={(e) => onChange({ time: e.target.value as Division })}
@@ -327,7 +330,7 @@ function EffectControl({
     case 'feedback':
       return (
         <TypedSlider
-          label="Feedback"
+          label={name('Feedback')}
           value={params.feedback ?? 0.35}
           min={0}
           max={MAX_FEEDBACK}
@@ -340,7 +343,7 @@ function EffectControl({
       // which, because the same number means a different thing in each.
       return (
         <CutoffSlider
-          label={labels?.cutoff ?? 'Tone'}
+          label={name('Tone')}
           value={params.cutoff ?? 6000}
           onChange={(cutoff) => onChange({ cutoff })}
         />
@@ -348,7 +351,7 @@ function EffectControl({
     case 'resonance':
       return (
         <TypedSlider
-          label="Resonance"
+          label={name('Resonance')}
           value={params.resonance ?? 1}
           min={MIN_RESONANCE}
           max={MAX_RESONANCE}
@@ -370,6 +373,7 @@ export function Inspector() {
   )
   const updateParams = usePatchStore((s) => s.updateParams)
   const setStepCount = usePatchStore((s) => s.setStepCount)
+  const setEffect = usePatchStore((s) => s.setEffect)
 
   if (!node) {
     return (
@@ -419,7 +423,7 @@ export function Inspector() {
           <span className="inspector-label">Effect</span>
           <select
             value={fxParams.effect ?? 'gain'}
-            onChange={(e) => setFx({ effect: e.target.value as EffectKind })}
+            onChange={(e) => setEffect(node.id, e.target.value as EffectKind)}
           >
             {EFFECTS.map((effect) => (
               <option key={effect.kind} value={effect.kind}>

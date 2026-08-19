@@ -100,7 +100,7 @@ export function OscNode({ id, data, selected }: NodeProps<FlowNode>) {
  */
 export function FxNode({ id, data, selected }: NodeProps<FlowNode>) {
   const { pulsing } = useNodeActivity(id)
-  const updateParams = usePatchStore((s) => s.updateParams)
+  const setEffect = usePatchStore((s) => s.setEffect)
   // A boolean rather than the edge list, so this only repaints when the answer actually flips.
   const wired = usePatchStore((s) =>
     s.edges.some((e) => e.target === id && e.data?.kind === 'audio'),
@@ -135,7 +135,7 @@ export function FxNode({ id, data, selected }: NodeProps<FlowNode>) {
           className="nodrag nopan"
           value={params.effect ?? 'gain'}
           onPointerDown={(e) => e.stopPropagation()}
-          onChange={(e) => updateParams(id, { effect: e.target.value as EffectKind })}
+          onChange={(e) => setEffect(id, e.target.value as EffectKind)}
         >
           {EFFECTS.map((effect) => (
             <option key={effect.kind} value={effect.kind}>

@@ -9,11 +9,13 @@ import {
   type NodeChange,
 } from '@xyflow/react'
 import { create } from 'zustand'
+import { getEffect, labelOf } from '../audio/effects'
 import { getDefinition, normaliseStepCount, resizeSteps } from '../nodes/registry'
 import { MAX_BPM, MIN_BPM } from '../types/patch'
 import type {
   DelayParams,
   EdgeKind,
+  EffectKind,
   FxParams,
   NodeParams,
   OscParams,
@@ -53,6 +55,7 @@ interface PatchState {
   removeEdge(id: string): void
   select(id: string | null): void
   updateParams(id: string, partial: Partial<OscParams & FxParams & DelayParams>): void
+  setEffect(id: string, effect: EffectKind): void
   updateStep(id: string, index: number, partial: Partial<Step>): void
   setStepCount(id: string, count: number): void
   setBpm(bpm: number): void
@@ -200,6 +203,38 @@ export const usePatchStore = create<PatchState>((set, get) => ({
           ? { ...n, data: { params: { ...(n.data.params as OscParams), ...partial } } }
           : n,
       ),
+    })
+  },
+
+  /**
+   * Switching effect adopts the new one's starting values, except for parameters that mean the same
+   * thing in both — those carry over.
+   *
+   * "The same thing" is decided by the label, since that is where the meaning is recorded. Moving
+   * from chorus to phaser keeps the rate you set, because both call it Rate. It does not keep the
+   * cutoff, because the chorus means Tone by it and the phaser means Centre, and a phaser sweeping
+   * around a reverb's tone setting is not a phaser. And moving from reverb to tremolo does not
+   * leave a tremolo running at a reverb's depth, which is a wobble nobody notices.
+   */
+  setEffect(id, effect) {
+    set({
+      nodes: get().nodes.map((n) => {
+        if (n.id !== id) return n
+        const params = n.data.params as FxParams
+        const previous = getEffect(params.effect)
+        const next = getEffect(effect)
+
+        const adopted: Partial<FxParams> = {}
+        for (const [key, value] of Object.entries(next?.defaults ?? {})) {
+          const field = key as keyof FxParams
+          const shared =
+            previous?.params.includes(field) && labelOf(previous, field) === labelOf(next, field)
+          if (shared) continue
+          Object.assign(adopted, { [field]: value })
+        }
+
+        return { ...n, data: { params: { ...params, ...adopted, effect } } }
+      }),
     })
   },
 

@@ -20,6 +20,9 @@ describe('App', () => {
     expect(screen.getByText('source')).toBeDefined()
     expect(screen.getByText('▶ PLAY')).toBeDefined()
     expect(screen.getByLabelText('Random patch')).toBeDefined()
+    // The load meter, which lives in the canvas opposite the palette. Asserted because it once went
+    // missing from the whole app during a move and every test still passed.
+    expect(screen.getByTitle(/of 100\./)).toBeDefined()
 
     // The starting patch: two independent cascades, five oscillators and a delay.
     expect(screen.getAllByText('IGNITE')).toHaveLength(2)

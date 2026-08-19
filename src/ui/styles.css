@@ -227,6 +227,20 @@ input[type='range'] {
   width: 96px;
 }
 
+/* Mirrors `.palette` so the two read as one line across the top of the canvas, and matches a
+   button's height rather than the bar's — an 8 px meter would otherwise ride high against 27 px
+   buttons. */
+.load-corner {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  min-height: 27px;
+  font-size: 11px;
+}
+
 .meter {
   display: flex;
   align-items: center;

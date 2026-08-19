@@ -13,6 +13,7 @@ import { canConnect } from '../state/connections'
 import { usePatchStore, type FlowEdge } from '../state/patchStore'
 import { computeDepths, DepthContext, EMPTY_DEPTHS, sameDepths } from '../viz/depth'
 import { edgeTypes, nodeTypes } from './flowTypes'
+import { LoadMeter } from './LoadMeter'
 import { useCopyPaste } from './useCopyPaste'
 
 function CanvasInner() {
@@ -81,6 +82,10 @@ function CanvasInner() {
             + {definition.label}
           </button>
         ))}
+      </div>
+      {/* Opposite the palette: on the left what a patch can gain, on the right what it costs. */}
+      <div className="load-corner">
+        <LoadMeter />
       </div>
       <DepthContext.Provider value={depths}>
         <ReactFlow

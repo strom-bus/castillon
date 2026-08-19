@@ -98,7 +98,61 @@ describe('patch code', () => {
     const params = decoded.nodes[0].params as ReturnType<typeof defaultOscParams>
     expect(params.steps.map((s) => s.note)).toEqual([24, 84, 60, 47])
     expect(params.steps.map((s) => s.active)).toEqual([true, false, true, true])
-    expect(params.steps[2].velocity).toBeCloseTo(0.6, 1)
+  })
+
+  it('does not carry per-step velocity, which nothing edits yet', () => {
+    // Four bits a step went on storing the same one over and over. It comes back the day per-step
+    // velocity is editable; until then it is the largest thing in the format buying nothing.
+    const steps = [
+      { note: 60, active: true, velocity: 0.5 },
+      { note: 62, active: true, velocity: 0.2 },
+      { note: 64, active: true, velocity: 1 },
+      { note: 65, active: true, velocity: 0.8 },
+    ]
+    const decoded = decodePatch(encodePatch(patchOf([osc('a', { steps })])))!
+    const params = decoded.nodes[0].params as ReturnType<typeof defaultOscParams>
+    expect(params.steps.map((s) => s.velocity)).toEqual([1, 1, 1, 1])
+  })
+
+  it('charges almost nothing for a parameter left alone', () => {
+    // The point of the mask. A fixed layout paid for every field of every node whether it had been
+    // touched or not, and in a real patch almost nothing is.
+    const plain = encodePatch(patchOf([osc('a')]))
+    const fiddled = encodePatch(
+      patchOf([
+        osc('a', {
+          waveform: 'pink',
+          division: '1/16',
+          gain: 0.9,
+          attack: 300,
+          release: 900,
+          gate: 0.95,
+          filterType: 'bandpass',
+          cutoff: 700,
+          resonance: 14,
+          propagateMode: 'onStep',
+        }),
+      ]),
+    )
+    expect(fiddled.length).toBeGreaterThan(plain.length * 1.5)
+  })
+
+  it('costs an FX node little when its effect leaves most fields at rest', () => {
+    const reverb = encodePatch(
+      patchOf([{ id: 'f', type: 'fx', position: { x: 0, y: 0 }, params: defaultFxParams() }]),
+    )
+    // Sixteen parameters exist; a reverb that has not been touched should not pay for fifteen of
+    // them. Under a fixed layout this was a hundred bits whatever the effect was.
+    expect(reverb.length).toBeLessThan(20)
+  })
+
+  it('still round-trips a parameter set back to the reference value', () => {
+    // A value that happens to equal the reference is dropped from the mask, so this checks the
+    // dropping is what restores it rather than luck.
+    const decoded = decodePatch(encodePatch(patchOf([osc('a', { gain: 0.25, cutoff: 2000 })])))!
+    const params = decoded.nodes[0].params as ReturnType<typeof defaultOscParams>
+    expect(params.gain).toBeCloseTo(0.25, 2)
+    expect(params.cutoff / 2000).toBeCloseTo(1, 2)
   })
 
   it('round-trips the filter', () => {

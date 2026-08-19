@@ -60,10 +60,15 @@
  * the browser would snap it at the halfway mark rather than sweeping it. The `var()` fallback keeps
  * the gradient visible, held at horizontal, anywhere `@property` is missing.
  *
- * It shows a *window* onto the ramp — a quarter in from each end — rather than the whole thing. The
- * full sweep put deep green and hot orange in the same three glyphs, and across a word that short
- * the jump between the extremes reads as two colours fighting rather than as one ramp. The middle
- * stretch holds together, and the ends are still where the cables use them.
+ * It shows a *window* onto the ramp rather than the whole thing: from a fifth of the way in to nine
+ * tenths, which is 93 degrees of hue against the full ramp's 134. The full sweep put deep green and
+ * hot orange in the same three glyphs, and across a word that short the jump between the extremes
+ * reads as two colours fighting rather than as one ramp.
+ *
+ * The window is not centred, and that was chosen by eye at the wordmark's real size. A symmetric
+ * window sat in the yellow-greens, which dominated everything; sliding the far end out to 0.9 while
+ * leaving the near end near 0.2 keeps the span comfortable but lands the weight of it in the ambers
+ * and oranges. The deepest hue still belongs to the cables alone.
  *
  * The five stops are `colorAt` sampled evenly across that window, so they sit exactly on the ramp
  * rather than near it, and `brand.test.ts` checks each one is a real point on it. Five and not two
@@ -91,11 +96,11 @@
   .brand-lit {
     background-image: linear-gradient(
       var(--brand-angle, 90deg),
-      hsl(108.7 85.6% 46.7%) 0%,
+      hsl(116.6 84.9% 46.1%) 0%,
       hsl(89.8 88.4% 49.4%) 25%,
-      hsl(71 91.5% 52.5%) 50%,
-      hsl(54.9 95.5% 53.9%) 75%,
-      hsl(39.3 99.7% 54.9%) 100%
+      hsl(64.3 93% 53.3%) 50%,
+      hsl(42.4 98.8% 54.7%) 75%,
+      hsl(24 100% 55.6%) 100%
     );
     -webkit-background-clip: text;
     background-clip: text;

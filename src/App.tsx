@@ -84,7 +84,7 @@ export default function App() {
         <h1 className="brand">
           <Logo className="brand-mark" />
           <span>
-            Castill<span className="brand-lit">_ON</span>
+            Castill<span className="brand-lit">_ÓN</span>
           </span>
         </h1>
         <GalleryButton onClick={showGallery} />

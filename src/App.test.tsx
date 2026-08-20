@@ -14,7 +14,7 @@ describe('App', () => {
     // The wordmark is split into two spans so `_ON` can carry the cascade ramp, so what is asserted
     // is the name it spells rather than any one text node. Mixed case on purpose: the capitals are
     // presentation, applied by `text-transform`, and the document should still carry the real name.
-    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Castill_ON')
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Castill_ÓN')
     expect(screen.getByText('COLMENA / STROMBUS')).toBeDefined()
     // AGPL §13: anyone using the hosted app has to be able to reach its source.
     expect(screen.getByText('source')).toBeDefined()

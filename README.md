@@ -1,4 +1,4 @@
-# Castill_ON
+# Castill_ÓN
 
 A node-based modular synthesiser that runs in the browser, in the spirit of Pure Data and
 Max/MSP but with one difference: execution is a **cascade**.

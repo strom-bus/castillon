@@ -46,3 +46,22 @@ name = "PUBLISH_LIMITER"
 type = "ratelimit"
 namespace_id = "1001"
 simple = { limit = 5, period = 60 }
+
+# Starring, limited separately and far more loosely.
+#
+# A star is one row per browser, and a browser can mint itself a new identity by clearing storage — so
+# the count is inflatable by anyone willing to. This does not close that: it prices it. A script that
+# would have added a thousand stars in a second now takes an afternoon, for the reward of sitting
+# briefly on top of a ranking that decays and is not even the default ordering.
+#
+# Twenty a minute, which is well past anyone reading a wall and starring what they like.
+#
+# Approximate, and deliberately relied on as such. Cloudflare's limiter is eventually consistent per
+# location: a burst is cut hard — forty at once came back twenty-eight refused — while a slow trickle
+# can slip past the nominal figure. It sheds load rather than counting exactly, and that is the right
+# shape for this. The point was never a quota; it was making a script no cheaper than patience.
+[[unsafe.bindings]]
+name = "STAR_LIMITER"
+type = "ratelimit"
+namespace_id = "1002"
+simple = { limit = 20, period = 60 }

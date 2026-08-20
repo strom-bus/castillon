@@ -33,3 +33,8 @@ CREATE TABLE IF NOT EXISTS stars (
 );
 
 CREATE INDEX IF NOT EXISTS stars_entry ON stars (entry_id);
+
+-- The publish rate limit asks "how many has this publisher added since a moment", which without this
+-- reads every row in the table. Both columns, in that order, so the count is answered from the index
+-- alone rather than by visiting the rows it points at.
+CREATE INDEX IF NOT EXISTS entries_publisher ON entries (publisher, created_at);

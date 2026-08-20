@@ -98,12 +98,12 @@ export interface RateLimiter {
 }
 
 /**
- * Whether this request may publish, keyed by where it came from.
+ * Whether this request is inside its limit, keyed by where it came from.
  *
  * Keyed by a digest of the address rather than the address itself, and the limiter keeps nothing
  * beyond its window — which is what lets it use an address at all without breaking the promise that
- * none is stored. Absent binding means no limit rather than no publishing: this is a second line
- * behind the per-publisher count, not the only one.
+ * none is stored. Absent binding means no limit rather than no request: these are second lines behind
+ * the per-identity rules, not the only ones.
  */
 export async function withinRate(
   request: Request,
@@ -209,7 +209,7 @@ export async function handle(
   store: PatchStore,
   db?: D1Like,
   adminKey?: string,
-  limiter?: RateLimiter,
+  limiters?: { publish?: RateLimiter; star?: RateLimiter },
 ): Promise<Response> {
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS })
 
@@ -220,10 +220,22 @@ export async function handle(
     if (!db) return json({ error: 'no gallery configured' }, 503)
     const rest = path.slice('gallery'.length).replace(/^\/+/, '')
 
-    // Only publishing is limited. Reading a wall and starring what is on it are cheap, and a limit
-    // on them would punish somebody browsing rather than somebody flooding.
-    if (request.method === 'POST' && rest === '' && !(await withinRate(request, limiter))) {
+    // Writing is limited, reading is not: a limit on the wall itself would punish somebody browsing
+    // rather than somebody flooding. Publishing and starring get their own, because one is a
+    // deliberate act somebody does rarely and the other happens as fast as a finger can click.
+    if (
+      request.method === 'POST' &&
+      rest === '' &&
+      !(await withinRate(request, limiters?.publish))
+    ) {
       return json({ error: 'Too many patches published just now. Try later.' }, 429)
+    }
+    if (
+      request.method === 'POST' &&
+      rest.endsWith('/star') &&
+      !(await withinRate(request, limiters?.star))
+    ) {
+      return json({ error: 'Too many stars just now. Try again in a minute.' }, 429)
     }
 
     // A key that was offered and does not match is a refusal, not a malformed request. Without this
@@ -264,8 +276,12 @@ export default {
       GALLERY?: D1Like
       GALLERY_ADMIN_KEY?: string
       PUBLISH_LIMITER?: RateLimiter
+      STAR_LIMITER?: RateLimiter
     },
   ): Promise<Response> {
-    return handle(request, env.PATCHES, env.GALLERY, env.GALLERY_ADMIN_KEY, env.PUBLISH_LIMITER)
+    return handle(request, env.PATCHES, env.GALLERY, env.GALLERY_ADMIN_KEY, {
+      publish: env.PUBLISH_LIMITER,
+      star: env.STAR_LIMITER,
+    })
   },
 }

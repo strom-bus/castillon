@@ -3,6 +3,8 @@
 #
 #   npx wrangler login                                   once, opens a browser
 #   npx wrangler kv namespace create PATCHES             prints the id to paste below
+#   npx wrangler d1 create castillon-gallery             prints the id to paste below
+#   npx wrangler d1 execute castillon-gallery --remote --file=src/share/schema.sql
 #   npx wrangler deploy                                  prints the service URL
 #
 # The URL then goes into the app as VITE_SHARE_URL. Until it does, the app hides the share button
@@ -15,3 +17,10 @@ compatibility_date = "2026-08-19"
 [[kv_namespaces]]
 binding = "PATCHES"
 id = "59c9b7e9a42e46948a49021d63d9a059"
+
+# The gallery. SQLite rather than KV because a gallery has to answer "the most recent twenty", which
+# KV cannot do without listing every key and sorting them by hand (PLAN §12.2).
+[[d1_databases]]
+binding = "GALLERY"
+database_name = "castillon-gallery"
+database_id = "0065d577-7cfb-4504-8ef7-7ea3f784771c"

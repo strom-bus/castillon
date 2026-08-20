@@ -8,6 +8,7 @@
  * The browser secret it keeps is the same idea the real client will use for withdrawing an entry
  * (PLAN §12.6): an id the app holds on your behalf, rather than a token you have to keep.
  */
+import { publisherId } from './identity'
 import { byPopularity } from './score'
 import {
   MAX_AUTHOR_LENGTH,
@@ -21,7 +22,6 @@ import {
 
 const ENTRIES_KEY = 'castillon.gallery.entries'
 const STARS_KEY = 'castillon.gallery.stars'
-const PUBLISHER_KEY = 'castillon.gallery.publisher'
 
 /** What is actually stored: `starred` and `mine` are worked out per browser, not kept on the row. */
 interface StoredEntry {
@@ -46,16 +46,6 @@ function read<T>(key: string, fallback: T): T {
 
 function write(key: string, value: unknown): void {
   localStorage.setItem(key, JSON.stringify(value))
-}
-
-/** This browser's identity, minted on first use. */
-export function publisherId(): string {
-  let id = localStorage.getItem(PUBLISHER_KEY)
-  if (!id) {
-    id = `p-${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`
-    localStorage.setItem(PUBLISHER_KEY, id)
-  }
-  return id
 }
 
 /**

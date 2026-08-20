@@ -45,10 +45,19 @@ export interface GalleryStore {
  * rank by seniority. Kept here rather than sorted in the app because the whole point of using SQLite
  * is that "the best twenty" is a question the database can answer without shipping every row.
  */
+const AGE = '(((?1 - e.created_at) / 3600000.0) + 4.0)'
+
+/**
+ * `x * SQRT(x)` rather than `POWER(x, 1.5)`.
+ *
+ * **D1 does not authorise `POWER`** — it answers "not authorized to use function" — and the unit
+ * tests could not see that, because the store they run against does the arithmetic in JavaScript.
+ * The popular ordering returned a 500 in production while every test passed. `SQRT` is authorised, so
+ * the same exponent survives and the client's `popularity` still agrees with this.
+ */
 const POPULAR_ORDER = `
   ORDER BY
-    (CAST(COUNT(s.voter) AS REAL) /
-     POWER(((?1 - e.created_at) / 3600000.0) + 4.0, 1.5)) DESC,
+    (CAST(COUNT(s.voter) AS REAL) / (${AGE} * SQRT(${AGE}))) DESC,
     e.created_at DESC
 `
 

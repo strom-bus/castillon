@@ -56,7 +56,7 @@ async function hashed(secret: unknown): Promise<string> {
 async function galleryRequest(
   request: Request,
   path: string,
-  adminKey: string | undefined,
+  admin: boolean,
 ): Promise<GalleryRequest> {
   const url = new URL(request.url)
   const query = new URLSearchParams(url.search)
@@ -83,7 +83,7 @@ async function galleryRequest(
     body: async () => parsed,
     // Cloudflare puts it here. Nothing else about the connection is read, and no address is kept.
     country: (request as { cf?: { country?: string } }).cf?.country ?? null,
-    admin: isAdmin(request, adminKey),
+    admin,
   }
 }
 
@@ -123,15 +123,39 @@ export async function withinRate(
  * false whenever no key is configured — a service without a secret set has no administrator rather
  * than an open door.
  */
-export function isAdmin(request: Request, adminKey: string | undefined): boolean {
+export async function isAdmin(request: Request, adminKey: string | undefined): Promise<boolean> {
   if (!adminKey) return false
   const presented = presentedKey(request)
-  if (presented.length !== adminKey.length) return false
+  if (presented === '') return false
+
+  // Digests, not the strings: two SHA-256 hexes are always the same length, so the comparison neither
+  // returns early on a length mismatch nor tells anyone how long the real key is.
+  const [a, b] = await Promise.all([hashed(presented), hashed(adminKey)])
   let same = 0
-  for (let i = 0; i < adminKey.length; i++) {
-    same |= presented.charCodeAt(i) ^ adminKey.charCodeAt(i)
-  }
-  return same === 0
+  for (let i = 0; i < a.length; i++) same |= a.charCodeAt(i) ^ b.charCodeAt(i)
+  return same === 0 && a.length === b.length
+}
+
+/**
+ * Whether this request may act as the maintainer, and what to answer if not.
+ *
+ * **Only a wrong key costs anything.** The limiter is consulted after the comparison fails, so
+ * working with the real key never spends the budget and an administrator cannot lock themselves out
+ * by doing their job — while guessing burns an allowance that refills slowly.
+ *
+ * That matters more than it looks: the security of this route rests entirely on the key being
+ * unguessable, and without a limit here a short one falls to a wordlist in seconds. With one, the
+ * same wordlist takes days.
+ */
+export async function adminGate(
+  request: Request,
+  adminKey: string | undefined,
+  limiter: RateLimiter | undefined,
+): Promise<{ admin: boolean; refuse?: number }> {
+  if (presentedKey(request) === '') return { admin: false }
+  if (await isAdmin(request, adminKey)) return { admin: true }
+  if (!(await withinRate(request, limiter))) return { admin: false, refuse: 429 }
+  return { admin: false, refuse: 403 }
 }
 
 function text(body: string, status = 200): Response {
@@ -209,7 +233,7 @@ export async function handle(
   store: PatchStore,
   db?: D1Like,
   adminKey?: string,
-  limiters?: { publish?: RateLimiter; star?: RateLimiter },
+  limiters?: { publish?: RateLimiter; star?: RateLimiter; admin?: RateLimiter },
 ): Promise<Response> {
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS })
 
@@ -238,14 +262,15 @@ export async function handle(
       return json({ error: 'Too many stars just now. Try again in a minute.' }, 429)
     }
 
-    // A key that was offered and does not match is a refusal, not a malformed request. Without this
-    // the answer was 400 "no publisher", which describes the body rather than the problem and reads
-    // as though the key had been accepted.
-    if (presentedKey(request) !== '' && !isAdmin(request, adminKey)) {
-      return json({ error: 'not allowed' }, 403)
+    // A key that was offered and does not match is a refusal, not a malformed request: answering 400
+    // "no publisher" describes the body rather than the problem and reads as though the key had been
+    // accepted. Repeated guesses run out of allowance and get 429 instead.
+    const gate = await adminGate(request, adminKey, limiters?.admin)
+    if (gate.refuse !== undefined) {
+      return json({ error: gate.refuse === 429 ? 'too many attempts' : 'not allowed' }, gate.refuse)
     }
 
-    const gallery = await galleryRequest(request, rest, adminKey)
+    const gallery = await galleryRequest(request, rest, gate.admin)
     const result = await handleGallery(gallery, d1Gallery(db), Date.now(), () =>
       crypto.randomUUID(),
     )
@@ -277,11 +302,13 @@ export default {
       GALLERY_ADMIN_KEY?: string
       PUBLISH_LIMITER?: RateLimiter
       STAR_LIMITER?: RateLimiter
+      ADMIN_LIMITER?: RateLimiter
     },
   ): Promise<Response> {
     return handle(request, env.PATCHES, env.GALLERY, env.GALLERY_ADMIN_KEY, {
       publish: env.PUBLISH_LIMITER,
       star: env.STAR_LIMITER,
+      admin: env.ADMIN_LIMITER,
     })
   },
 }

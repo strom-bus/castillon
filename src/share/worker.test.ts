@@ -5,7 +5,7 @@ import { encodePatch } from '../state/patchCode'
 import { defaultOscParams } from '../nodes/registry'
 import { shortCodeFor } from '../state/shortCode'
 import type { Patch } from '../types/patch'
-import { MAX_PATCH_BYTES, handle, isAdmin, type PatchStore, withinRate } from './worker'
+import { MAX_PATCH_BYTES, adminGate, handle, isAdmin, type PatchStore, withinRate } from './worker'
 
 /** Stands in for KV. The logic never knows the difference, which is why it is an interface. */
 function memoryStore(): PatchStore & { size(): number } {
@@ -217,19 +217,19 @@ describe('the maintainer key', () => {
 
   it('is nobody when no key is configured', async () => {
     // A service without a secret set has no administrator rather than an open door.
-    expect(isAdmin(carrying('Bearer anything'), undefined)).toBe(false)
-    expect(isAdmin(carrying(null), '')).toBe(false)
+    expect(await isAdmin(carrying('Bearer anything'), undefined)).toBe(false)
+    expect(await isAdmin(carrying(null), '')).toBe(false)
   })
 
-  it('accepts the key, with or without the Bearer word', () => {
-    expect(isAdmin(carrying('Bearer s3cret'), 's3cret')).toBe(true)
-    expect(isAdmin(carrying('s3cret'), 's3cret')).toBe(true)
+  it('accepts the key, with or without the Bearer word', async () => {
+    expect(await isAdmin(carrying('Bearer s3cret'), 's3cret')).toBe(true)
+    expect(await isAdmin(carrying('s3cret'), 's3cret')).toBe(true)
   })
 
-  it('refuses anything else', () => {
-    expect(isAdmin(carrying('Bearer wrong!'), 's3cret')).toBe(false)
-    expect(isAdmin(carrying('Bearer s3cre'), 's3cret')).toBe(false)
-    expect(isAdmin(carrying(null), 's3cret')).toBe(false)
+  it('refuses anything else', async () => {
+    expect(await isAdmin(carrying('Bearer wrong!'), 's3cret')).toBe(false)
+    expect(await isAdmin(carrying('Bearer s3cre'), 's3cret')).toBe(false)
+    expect(await isAdmin(carrying(null), 's3cret')).toBe(false)
   })
 })
 
@@ -237,14 +237,72 @@ describe('presenting a key that does not match', () => {
   const carrying = (header: string | null) =>
     ({ headers: { get: () => header } }) as unknown as Request
 
-  it('is told apart from presenting none at all', () => {
+  it('is told apart from presenting none at all', async () => {
     // The distinction the worker needs to answer 403 rather than 400: one is a refusal, the other is
     // an ordinary request that never claimed to be an administrator.
-    expect(isAdmin(carrying('Bearer nope'), 'real-key')).toBe(false)
-    expect(isAdmin(carrying(null), 'real-key')).toBe(false)
+    expect(await isAdmin(carrying('Bearer nope'), 'real-key')).toBe(false)
+    expect(await isAdmin(carrying(null), 'real-key')).toBe(false)
   })
 
-  it('ignores surrounding whitespace, which a copied key often carries', () => {
-    expect(isAdmin(carrying('Bearer   real-key  '), 'real-key')).toBe(true)
+  it('ignores surrounding whitespace, which a copied key often carries', async () => {
+    expect(await isAdmin(carrying('Bearer   real-key  '), 'real-key')).toBe(true)
+  })
+})
+
+describe('guessing the maintainer key', () => {
+  const carrying = (header: string | null) =>
+    ({
+      headers: { get: (name: string) => (name === 'authorization' ? header : '198.51.100.7') },
+    }) as unknown as Request
+
+  const limiter = (allow: boolean) => ({
+    calls: 0,
+    async limit() {
+      this.calls += 1
+      return { success: allow }
+    },
+  })
+
+  it('lets an ordinary request through untouched when no key is offered', async () => {
+    const bound = limiter(true)
+    const gate = await adminGate(carrying(null), 'real-key', bound)
+    expect(gate).toEqual({ admin: false })
+    // Nothing was spent: somebody withdrawing their own entry never claimed to be an administrator.
+    expect(bound.calls).toBe(0)
+  })
+
+  it('spends nothing when the key is right', async () => {
+    // The property that matters: an administrator cannot lock themselves out by working.
+    const bound = limiter(true)
+    const gate = await adminGate(carrying('Bearer real-key'), 'real-key', bound)
+    expect(gate).toEqual({ admin: true })
+    expect(bound.calls).toBe(0)
+  })
+
+  it('spends an attempt on a wrong key and refuses it', async () => {
+    const bound = limiter(true)
+    const gate = await adminGate(carrying('Bearer wrong'), 'real-key', bound)
+    expect(gate).toEqual({ admin: false, refuse: 403 })
+    expect(bound.calls).toBe(1)
+  })
+
+  it('stops answering once the guesses run out', async () => {
+    // A wordlist against a short key is the whole threat, and this is what turns seconds into days.
+    const gate = await adminGate(carrying('Bearer wrong'), 'real-key', limiter(false))
+    expect(gate).toEqual({ admin: false, refuse: 429 })
+  })
+
+  it('still refuses when no key is configured, without spending anything', async () => {
+    const bound = limiter(true)
+    const gate = await adminGate(carrying('Bearer anything'), undefined, bound)
+    expect(gate.admin).toBe(false)
+    expect(gate.refuse).toBe(403)
+  })
+
+  it('does not reveal the key length by comparing lengths', async () => {
+    // The comparison runs over two digests, which are always the same size, so a wrong guess of the
+    // wrong length is refused for the same reason as any other wrong guess.
+    expect(await isAdmin(carrying('Bearer x'), 'a-much-longer-key')).toBe(false)
+    expect(await isAdmin(carrying('Bearer ' + 'x'.repeat(200)), 'a-much-longer-key')).toBe(false)
   })
 })

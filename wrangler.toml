@@ -65,3 +65,14 @@ name = "STAR_LIMITER"
 type = "ratelimit"
 namespace_id = "1002"
 simple = { limit = 20, period = 60 }
+
+# Failed attempts at the maintainer's key.
+#
+# Only failures are counted, so working with the real key never spends this and an administrator
+# cannot lock themselves out. The whole security of that route is the key being unguessable, and
+# without a limit here a short key falls to a wordlist in seconds; with one, the same list takes days.
+[[unsafe.bindings]]
+name = "ADMIN_LIMITER"
+type = "ratelimit"
+namespace_id = "1003"
+simple = { limit = 5, period = 60 }

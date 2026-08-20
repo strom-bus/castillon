@@ -53,7 +53,11 @@ async function hashed(secret: unknown): Promise<string> {
  * Turns the request into what the routes expect, hashing every identity on the way through so no
  * decision below this line ever sees a raw secret.
  */
-async function galleryRequest(request: Request, path: string): Promise<GalleryRequest> {
+async function galleryRequest(
+  request: Request,
+  path: string,
+  adminKey: string | undefined,
+): Promise<GalleryRequest> {
   const url = new URL(request.url)
   const query = new URLSearchParams(url.search)
   const viewer = query.get('viewer')
@@ -79,7 +83,55 @@ async function galleryRequest(request: Request, path: string): Promise<GalleryRe
     body: async () => parsed,
     // Cloudflare puts it here. Nothing else about the connection is read, and no address is kept.
     country: (request as { cf?: { country?: string } }).cf?.country ?? null,
+    admin: isAdmin(request, adminKey),
   }
+}
+
+/** The key on the request, if any. Empty when the header is absent. */
+function presentedKey(request: Request): string {
+  return (request.headers.get('authorization') ?? '').replace(/^Bearer\s+/i, '').trim()
+}
+
+/** Cloudflare's rate limiter, when one is bound. */
+export interface RateLimiter {
+  limit(options: { key: string }): Promise<{ success: boolean }>
+}
+
+/**
+ * Whether this request may publish, keyed by where it came from.
+ *
+ * Keyed by a digest of the address rather than the address itself, and the limiter keeps nothing
+ * beyond its window — which is what lets it use an address at all without breaking the promise that
+ * none is stored. Absent binding means no limit rather than no publishing: this is a second line
+ * behind the per-publisher count, not the only one.
+ */
+export async function withinRate(
+  request: Request,
+  limiter: RateLimiter | undefined,
+): Promise<boolean> {
+  if (!limiter) return true
+  const from = request.headers.get('cf-connecting-ip') ?? ''
+  if (from === '') return true
+  const { success } = await limiter.limit({ key: await hashed(from) })
+  return success
+}
+
+/**
+ * Whether the request carries the maintainer's key.
+ *
+ * Compared in constant time, which matters little for a key nobody is timing but costs nothing, and
+ * false whenever no key is configured — a service without a secret set has no administrator rather
+ * than an open door.
+ */
+export function isAdmin(request: Request, adminKey: string | undefined): boolean {
+  if (!adminKey) return false
+  const presented = presentedKey(request)
+  if (presented.length !== adminKey.length) return false
+  let same = 0
+  for (let i = 0; i < adminKey.length; i++) {
+    same |= presented.charCodeAt(i) ^ adminKey.charCodeAt(i)
+  }
+  return same === 0
 }
 
 function text(body: string, status = 200): Response {
@@ -97,6 +149,39 @@ function text(body: string, status = 200): Response {
  * overwriting. Codes extend rather than restart, so the longer answer still begins with the short
  * one someone may already have seen.
  */
+async function register(store: PatchStore, code: string): Promise<string | null> {
+  for (let length = 6; length <= MAX_SHORT_CODE_LENGTH; length++) {
+    const key = shortCodeFor(code, length)
+    const existing = await store.get(key)
+
+    if (existing === null) {
+      await store.put(key, code)
+      return key
+    }
+    if (existing === code) return key
+    // Taken by a different patch: try one character longer.
+  }
+  return null
+}
+
+/**
+ * Puts a patch on the sharing service without answering as a route.
+ *
+ * Split out so the gallery can use it: a card shows its patch's short code, and a code shown that
+ * nobody can redeem is worse than showing none. Swallows its failures — a gallery entry works from
+ * the long code it already holds, so a KV problem must not stop somebody publishing.
+ */
+async function registerQuietly(store: PatchStore, code: unknown): Promise<void> {
+  if (typeof code !== 'string') return
+  const trimmed = code.trim()
+  if (trimmed.length === 0 || trimmed.length > MAX_PATCH_BYTES) return
+  try {
+    await register(store, trimmed)
+  } catch {
+    // Best effort by design.
+  }
+}
+
 async function publish(store: PatchStore, code: string): Promise<Response> {
   const trimmed = code.trim()
 
@@ -107,19 +192,8 @@ async function publish(store: PatchStore, code: string): Promise<Response> {
   // abuse; with it the store can only ever hold patches.
   if (!decodePatch(trimmed)) return text('not a patch code', 400)
 
-  for (let length = 6; length <= MAX_SHORT_CODE_LENGTH; length++) {
-    const key = shortCodeFor(trimmed, length)
-    const existing = await store.get(key)
-
-    if (existing === null) {
-      await store.put(key, trimmed)
-      return text(key)
-    }
-    if (existing === trimmed) return text(key)
-    // Taken by a different patch: try one character longer.
-  }
-
-  return text('could not find a free code', 507)
+  const key = await register(store, trimmed)
+  return key === null ? text('could not find a free code', 507) : text(key)
 }
 
 async function resolve(store: PatchStore, id: string): Promise<Response> {
@@ -130,7 +204,13 @@ async function resolve(store: PatchStore, id: string): Promise<Response> {
   return code === null ? text('no such code', 404) : text(code)
 }
 
-export async function handle(request: Request, store: PatchStore, db?: D1Like): Promise<Response> {
+export async function handle(
+  request: Request,
+  store: PatchStore,
+  db?: D1Like,
+  adminKey?: string,
+  limiter?: RateLimiter,
+): Promise<Response> {
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS })
 
   const path = new URL(request.url).pathname.replace(/^\/+|\/+$/g, '')
@@ -139,12 +219,31 @@ export async function handle(request: Request, store: PatchStore, db?: D1Like): 
   if (path === 'gallery' || path.startsWith('gallery/')) {
     if (!db) return json({ error: 'no gallery configured' }, 503)
     const rest = path.slice('gallery'.length).replace(/^\/+/, '')
-    const result = await handleGallery(
-      await galleryRequest(request, rest),
-      d1Gallery(db),
-      Date.now(),
-      () => crypto.randomUUID(),
+
+    // Only publishing is limited. Reading a wall and starring what is on it are cheap, and a limit
+    // on them would punish somebody browsing rather than somebody flooding.
+    if (request.method === 'POST' && rest === '' && !(await withinRate(request, limiter))) {
+      return json({ error: 'Too many patches published just now. Try later.' }, 429)
+    }
+
+    // A key that was offered and does not match is a refusal, not a malformed request. Without this
+    // the answer was 400 "no publisher", which describes the body rather than the problem and reads
+    // as though the key had been accepted.
+    if (presentedKey(request) !== '' && !isAdmin(request, adminKey)) {
+      return json({ error: 'not allowed' }, 403)
+    }
+
+    const gallery = await galleryRequest(request, rest, adminKey)
+    const result = await handleGallery(gallery, d1Gallery(db), Date.now(), () =>
+      crypto.randomUUID(),
     )
+
+    // Published: make sure the short code its card will show can actually be redeemed. After the
+    // entry rather than before, so a problem here can never cost somebody their publish.
+    if (result.status === 201) {
+      const body = (await gallery.body()) as { code?: unknown }
+      await registerQuietly(store, body.code)
+    }
     return json(result.body, result.status)
   }
 
@@ -158,7 +257,15 @@ export async function handle(request: Request, store: PatchStore, db?: D1Like): 
 }
 
 export default {
-  fetch(request: Request, env: { PATCHES: PatchStore; GALLERY?: D1Like }): Promise<Response> {
-    return handle(request, env.PATCHES, env.GALLERY)
+  fetch(
+    request: Request,
+    env: {
+      PATCHES: PatchStore
+      GALLERY?: D1Like
+      GALLERY_ADMIN_KEY?: string
+      PUBLISH_LIMITER?: RateLimiter
+    },
+  ): Promise<Response> {
+    return handle(request, env.PATCHES, env.GALLERY, env.GALLERY_ADMIN_KEY, env.PUBLISH_LIMITER)
   },
 }

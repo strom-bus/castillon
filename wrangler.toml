@@ -7,6 +7,16 @@
 #   npx wrangler d1 execute castillon-gallery --remote --file=src/share/schema.sql
 #   npx wrangler deploy                                  prints the service URL
 #
+# Moderation. Until this secret is set the service has no administrator rather than an open door, so
+# nothing can be taken down except by whoever published it, within their day:
+#
+#   npx wrangler secret put GALLERY_ADMIN_KEY             paste a long random string
+#
+# Then, to remove anything at all:
+#
+#   curl -X DELETE https://castillon-share.strombus.workers.dev/gallery/<id> \
+#        -H "authorization: Bearer <the key>" -H 'content-type: application/json' -d '{}'
+#
 # The URL then goes into the app as VITE_SHARE_URL. Until it does, the app hides the share button
 # and everything else works exactly as before.
 name = "castillon-share"
@@ -24,3 +34,15 @@ id = "59c9b7e9a42e46948a49021d63d9a059"
 binding = "GALLERY"
 database_name = "castillon-gallery"
 database_id = "0065d577-7cfb-4504-8ef7-7ea3f784771c"
+
+# Rate limiting at the edge, keyed by a digest of the address.
+#
+# The per-publisher limit inside the Worker is resettable — clearing `localStorage` mints a new id —
+# so it stops accidents and not determination. This one is keyed by where the request came from, and
+# it keeps nothing: the limiter is ephemeral by design, which is what lets it use an address at all
+# without breaking the promise in PLAN §12.3 that none is stored.
+[[unsafe.bindings]]
+name = "PUBLISH_LIMITER"
+type = "ratelimit"
+namespace_id = "1001"
+simple = { limit = 5, period = 60 }

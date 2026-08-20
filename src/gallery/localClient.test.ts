@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { cleanField, createLocalGallery } from './localClient'
-import { MAX_AUTHOR_LENGTH, MAX_NAME_LENGTH, WITHDRAW_WINDOW_MS } from './types'
+import { MAX_AUTHOR_LENGTH, MAX_NAME_LENGTH, PAGE_SIZE, WITHDRAW_WINDOW_MS } from './types'
 
 /**
  * The local gallery is what the window runs against until the service exists, and it is also where
@@ -76,7 +76,10 @@ describe('listing', () => {
     clock += 60_000
     await client.publish({ code: CODE, name: 'Second', author: 'nick' })
 
-    expect((await client.list('recent')).map((entry) => entry.name)).toEqual(['Second', 'First'])
+    expect((await client.list('recent', 0)).entries.map((entry) => entry.name)).toEqual([
+      'Second',
+      'First',
+    ])
   })
 
   it('lets a starred entry rise when asked for popular', async () => {
@@ -86,7 +89,45 @@ describe('listing', () => {
     await client.publish({ code: CODE, name: 'Second', author: 'nick' })
     await client.star(first.id)
 
-    expect((await client.list('popular'))[0].name).toBe('First')
+    expect((await client.list('popular', 0)).entries[0].name).toBe('First')
+  })
+})
+
+describe('paging', () => {
+  it('hands out a page at a time and says whether there is another', async () => {
+    const client = gallery()
+    for (let i = 0; i < PAGE_SIZE + 3; i++) {
+      clock += 1000
+      await client.publish({ code: CODE, name: `Thing ${i}`, author: 'nick' })
+    }
+
+    const first = await client.list('recent', 0)
+    expect(first.entries).toHaveLength(PAGE_SIZE)
+    expect(first.hasMore).toBe(true)
+
+    const second = await client.list('recent', 1)
+    expect(second.entries).toHaveLength(3)
+    expect(second.hasMore).toBe(false)
+  })
+
+  it('does not repeat an entry between pages', async () => {
+    const client = gallery()
+    for (let i = 0; i < PAGE_SIZE + 3; i++) {
+      clock += 1000
+      await client.publish({ code: CODE, name: `Thing ${i}`, author: 'nick' })
+    }
+    const first = await client.list('recent', 0)
+    const second = await client.list('recent', 1)
+    const ids = new Set([...first.entries, ...second.entries].map((entry) => entry.id))
+    expect(ids.size).toBe(PAGE_SIZE + 3)
+  })
+
+  it('answers an empty page past the end rather than failing', async () => {
+    const client = gallery()
+    await client.publish({ code: CODE, name: 'Thing', author: 'nick' })
+    const far = await client.list('recent', 9)
+    expect(far.entries).toHaveLength(0)
+    expect(far.hasMore).toBe(false)
   })
 })
 
@@ -104,7 +145,7 @@ describe('stars', () => {
     const client = gallery()
     const entry = await client.publish({ code: CODE, name: 'Thing', author: 'nick' })
     await client.star(entry.id)
-    expect((await client.list('recent'))[0].starred).toBe(true)
+    expect((await client.list('recent', 0)).entries[0].starred).toBe(true)
   })
 
   it('never goes below zero, whatever state it was left in', async () => {
@@ -112,7 +153,7 @@ describe('stars', () => {
     const entry = await client.publish({ code: CODE, name: 'Thing', author: 'nick' })
     await client.star(entry.id)
     await client.star(entry.id)
-    expect((await client.list('recent'))[0].stars).toBe(0)
+    expect((await client.list('recent', 0)).entries[0].stars).toBe(0)
   })
 
   it('says so rather than failing silently on an entry that is gone', async () => {
@@ -124,21 +165,21 @@ describe('withdrawing', () => {
   it('is offered on an entry this browser published', async () => {
     const client = gallery()
     await client.publish({ code: CODE, name: 'Thing', author: 'nick' })
-    expect((await client.list('recent'))[0].mine).toBe(true)
+    expect((await client.list('recent', 0)).entries[0].mine).toBe(true)
   })
 
   it('removes it', async () => {
     const client = gallery()
     const entry = await client.publish({ code: CODE, name: 'Thing', author: 'nick' })
     await client.remove(entry.id)
-    expect(await client.list('recent')).toHaveLength(0)
+    expect((await client.list('recent', 0)).entries).toHaveLength(0)
   })
 
   it('stops being offered after a day, so the wall settles', async () => {
     const client = gallery()
     await client.publish({ code: CODE, name: 'Thing', author: 'nick' })
     clock += WITHDRAW_WINDOW_MS + 1
-    expect((await client.list('recent'))[0].mine).toBe(false)
+    expect((await client.list('recent', 0)).entries[0].mine).toBe(false)
   })
 
   it('refuses once the window has closed, rather than quietly doing it anyway', async () => {
@@ -153,7 +194,7 @@ describe('withdrawing', () => {
     const entry = await client.publish({ code: CODE, name: 'Thing', author: 'nick' })
     // A different browser: same storage in a test, different publisher id.
     localStorage.setItem('castillon.gallery.publisher', 'p-someone-else')
-    expect((await client.list('recent'))[0].mine).toBe(false)
+    expect((await client.list('recent', 0)).entries[0].mine).toBe(false)
     await expect(client.remove(entry.id)).rejects.toThrow(/someone else/i)
   })
 })

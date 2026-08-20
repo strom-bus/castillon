@@ -21,22 +21,48 @@ import { StarIcon } from './StarIcon'
 
 export function Gallery({ onClose }: { onClose: () => void }) {
   const [sort, setSort] = useState<GallerySort>('recent')
+  const [page, setPage] = useState(0)
   /*
    * The reading and the moment it was taken, together. Ages are shown relative to now, and reading
    * the clock during render makes them shift on any repaint for no reason the viewer can see — so the
    * clock is read once, when the list arrives, and the labels stay put until it is fetched again.
    */
-  const [loaded, setLoaded] = useState<{ entries: GalleryEntry[]; at: number } | null>(null)
+  const [loaded, setLoaded] = useState<{
+    entries: GalleryEntry[]
+    hasMore: boolean
+    at: number
+  } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const loadPatch = usePatchStore((s) => s.loadPatch)
   const closer = useRef<HTMLButtonElement>(null)
 
   const refresh = useCallback(async (order: GallerySort) => {
     try {
-      setLoaded({ entries: await gallery.list(order), at: Date.now() })
+      const page = await gallery.list(order, 0)
+      setLoaded({ ...page, at: Date.now() })
     } catch {
       setError('The gallery could not be reached.')
-      setLoaded({ entries: [], at: Date.now() })
+      setLoaded({ entries: [], hasMore: false, at: Date.now() })
+    }
+  }, [])
+
+  /**
+   * Appends the next page rather than replacing what is on screen.
+   *
+   * The clock is not re-read, so the ages already showing do not jump while a page is added under
+   * them — the reading and the moment it was taken stay one thing.
+   */
+  const more = useCallback(async (order: GallerySort, after: number) => {
+    try {
+      const page = await gallery.list(order, after + 1)
+      setLoaded((current) =>
+        current
+          ? { ...current, entries: [...current.entries, ...page.entries], hasMore: page.hasMore }
+          : current,
+      )
+      setPage(after + 1)
+    } catch {
+      setError('There was no answer for the next page.')
     }
   }, [])
 
@@ -112,7 +138,10 @@ export function Gallery({ onClose }: { onClose: () => void }) {
                 key={option}
                 type="button"
                 className={`btn${sort === option ? ' on' : ''}`}
-                onClick={() => setSort(option)}
+                onClick={() => {
+                  setPage(0)
+                  setSort(option)
+                }}
               >
                 {option === 'recent' ? 'RECENT' : 'POPULAR'}
               </button>
@@ -197,6 +226,14 @@ export function Gallery({ onClose }: { onClose: () => void }) {
               </li>
             ))}
           </ul>
+        )}
+
+        {loaded?.hasMore && (
+          <div className="gallery-more">
+            <button type="button" className="btn" onClick={() => void more(sort, page)}>
+              MORE
+            </button>
+          </div>
         )}
       </div>
     </div>

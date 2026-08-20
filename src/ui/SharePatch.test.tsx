@@ -36,7 +36,7 @@ describe('SharePatch', () => {
     await waitFor(() => expect(useGalleryWindow.getState().open).toBe(true))
     // And gets out of the way, rather than stacking a window on a window.
     expect(closed).toBe(1)
-    expect((await gallery.list('recent'))[0].name).toBe('Two cascades')
+    expect((await gallery.list('recent', 0)).entries[0].name).toBe('Two cascades')
   })
 
   it('remembers the nickname, since typing it every time is a chore', async () => {

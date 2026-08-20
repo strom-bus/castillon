@@ -13,6 +13,7 @@ import { byPopularity } from './score'
 import {
   MAX_AUTHOR_LENGTH,
   MAX_NAME_LENGTH,
+  PAGE_SIZE,
   WITHDRAW_WINDOW_MS,
   type GalleryClient,
   type GalleryEntry,
@@ -84,15 +85,21 @@ export function createLocalGallery(now: () => number = Date.now): GalleryClient 
   }
 
   return {
-    async list(sort: GallerySort) {
+    async list(sort: GallerySort, page = 0) {
       const stored = read<StoredEntry[]>(ENTRIES_KEY, [])
       const stars = new Set(read<string[]>(STARS_KEY, []))
       const me = publisherId()
-      const entries = stored.map((entry) => decorate(entry, stars, me))
+      const all = stored.map((entry) => decorate(entry, stars, me))
       const at = now()
-      return sort === 'recent'
-        ? entries.sort((a, b) => b.createdAt - a.createdAt)
-        : entries.sort((a, b) => byPopularity(a, b, at))
+      const sorted =
+        sort === 'recent'
+          ? all.sort((a, b) => b.createdAt - a.createdAt)
+          : all.sort((a, b) => byPopularity(a, b, at))
+      const from = Math.max(0, page) * PAGE_SIZE
+      return {
+        entries: sorted.slice(from, from + PAGE_SIZE),
+        hasMore: sorted.length > from + PAGE_SIZE,
+      }
     },
 
     async publish(request: PublishRequest) {

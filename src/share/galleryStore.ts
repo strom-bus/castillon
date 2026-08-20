@@ -22,7 +22,12 @@ export interface StoredEntry {
 export type SortOrder = 'recent' | 'popular'
 
 export interface GalleryStore {
-  list(order: SortOrder, limit: number, now: number): Promise<StoredEntry[]>
+  /**
+   * `offset` pages through. Offset rather than a cursor because the popular ordering moves as stars
+   * arrive, so a cursor into it would point at a row that has since shifted; at this scale the cost
+   * of counting past skipped rows is nothing.
+   */
+  list(order: SortOrder, limit: number, offset: number, now: number): Promise<StoredEntry[]>
   insert(entry: Omit<StoredEntry, 'stars'>): Promise<void>
   find(id: string): Promise<StoredEntry | null>
   /** Adds or removes one browser's star. Resolves to the count afterwards. */
@@ -93,16 +98,16 @@ export interface D1Like {
 
 export function d1Gallery(db: D1Like): GalleryStore {
   return {
-    async list(order, limit, now) {
+    async list(order, limit, offset, now) {
       // Stars are counted rather than kept in a column: a count that is derived cannot drift from
       // the rows it is meant to describe.
       const query =
         order === 'popular'
           ? `SELECT ${COLUMNS} FROM entries e LEFT JOIN stars s ON s.entry_id = e.id
-             GROUP BY e.id ${POPULAR_ORDER} LIMIT ?2`
+             GROUP BY e.id ${POPULAR_ORDER} LIMIT ?2 OFFSET ?3`
           : `SELECT ${COLUMNS} FROM entries e LEFT JOIN stars s ON s.entry_id = e.id
-             GROUP BY e.id ORDER BY e.created_at DESC LIMIT ?2`
-      const { results } = await db.prepare(query).bind(now, limit).all<Row>()
+             GROUP BY e.id ORDER BY e.created_at DESC LIMIT ?2 OFFSET ?3`
+      const { results } = await db.prepare(query).bind(now, limit, offset).all<Row>()
       return results.map(toEntry)
     },
 

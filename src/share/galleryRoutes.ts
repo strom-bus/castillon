@@ -8,6 +8,7 @@
  * service already sees to that — but the two free-text fields, which are the only place arbitrary
  * writing reaches a public page (PLAN §12.4).
  */
+import { decodePatch } from '../state/patchCode'
 import type { GalleryStore, SortOrder, StoredEntry } from './galleryStore'
 
 export const MAX_NAME_LENGTH = 48
@@ -18,8 +19,10 @@ export const PUBLISH_LIMIT = 10
 export const PUBLISH_WINDOW_MS = 60 * 60 * 1000
 /** How long an author may withdraw their own entry (PLAN §12.6). */
 export const WITHDRAW_WINDOW_MS = 24 * 60 * 60 * 1000
-/** One screen's worth. A gallery that needs paging can grow one later. */
-export const PAGE_SIZE = 60
+/** One screen's worth, roughly. */
+export const PAGE_SIZE = 24
+/** A ceiling on paging, so a made-up page number cannot ask the database to count past a million. */
+export const MAX_PAGE = 200
 
 /**
  * Text that has no business in a public name.
@@ -43,6 +46,12 @@ export interface GalleryRequest {
   body(): Promise<unknown>
   /** Two letters from the edge, or null. Never stored as an address (PLAN §12.3). */
   country: string | null
+  /**
+   * Whether this request carried the maintainer's key, compared against the secret by the caller so
+   * no comparison happens here. It exists for the text nobody should have to read (PLAN §12.4), and
+   * it overrides both the ownership check and the day-long window.
+   */
+  admin: boolean
 }
 
 export interface GalleryResult {
@@ -101,9 +110,13 @@ async function list(
   store: GalleryStore,
   order: SortOrder,
   viewer: string | null,
+  page: number,
   now: number,
 ): Promise<GalleryResult> {
-  const entries = await store.list(order, PAGE_SIZE, now)
+  // One more than a page, so whether there is another needs no second query and no total.
+  const fetched = await store.list(order, PAGE_SIZE + 1, page * PAGE_SIZE, now)
+  const hasMore = fetched.length > PAGE_SIZE
+  const entries = hasMore ? fetched.slice(0, PAGE_SIZE) : fetched
   const decorated = await Promise.all(
     entries.map(async (entry) => {
       const starred = viewer ? await store.hasStarred(entry.id, viewer) : false
@@ -111,7 +124,7 @@ async function list(
       return present(entry, starred, mine)
     }),
   )
-  return { status: 200, body: { entries: decorated } }
+  return { status: 200, body: { entries: decorated, hasMore } }
 }
 
 async function publish(
@@ -132,6 +145,10 @@ async function publish(
   if (code.length === 0) return fail(400, 'no patch')
   if (code.length > MAX_CODE_BYTES) return fail(413, 'patch too large')
   if (!/^[A-Za-z0-9_-]+$/.test(code)) return fail(400, 'not a patch code')
+  // The real gate, and it was missing: the character check only says the string could be a code, so
+  // without decoding it this route was free hosting for arbitrary text on a public page — exactly
+  // what the sharing service is careful to refuse. With it, the wall can only ever hold patches.
+  if (!decodePatch(code)) return fail(400, 'not a patch code')
   if (!name) return fail(400, 'The patch needs a name.')
   if (!author) return fail(400, 'Add a nickname so people know whose it is.')
   if (looksLikeSpam(name) || looksLikeSpam(author)) {
@@ -177,19 +194,24 @@ async function withdraw(
   id: string,
   body: unknown,
   now: number,
+  admin: boolean,
 ): Promise<GalleryResult> {
   const who = identity(body)
-  if (!who) return fail(400, 'no publisher')
+  if (!who && !admin) return fail(400, 'no publisher')
 
   const existing = await store.find(id)
   // Already gone is the outcome that was asked for.
   if (!existing) return { status: 204, body: null }
 
-  if (existing.publisher !== who.publisher) {
-    return fail(403, 'That entry belongs to someone else.')
-  }
-  if (now - existing.createdAt >= WITHDRAW_WINDOW_MS) {
-    return fail(410, 'An entry can only be withdrawn within a day of publishing it.')
+  // Moderation answers to neither rule: an author's window has nothing to do with whether something
+  // should be on a public page.
+  if (!admin) {
+    if (existing.publisher !== who!.publisher) {
+      return fail(403, 'That entry belongs to someone else.')
+    }
+    if (now - existing.createdAt >= WITHDRAW_WINDOW_MS) {
+      return fail(410, 'An entry can only be withdrawn within a day of publishing it.')
+    }
   }
 
   await store.remove(id)
@@ -206,9 +228,10 @@ export async function handleGallery(
 
   if (request.method === 'GET' && segments.length === 0) {
     const order: SortOrder = request.query.get('sort') === 'popular' ? 'popular' : 'recent'
+    const page = Math.max(0, Math.min(MAX_PAGE, Math.floor(Number(request.query.get('page')) || 0)))
     // The viewer is optional: the wall reads without identifying yourself, and only the marks that
     // are personal — your star, your trash icon — need one.
-    return list(store, order, request.query.get('viewer'), now)
+    return list(store, order, request.query.get('viewer'), page, now)
   }
 
   if (request.method === 'POST' && segments.length === 0) {
@@ -220,7 +243,7 @@ export async function handleGallery(
   }
 
   if (request.method === 'DELETE' && segments.length === 1) {
-    return withdraw(store, segments[0], await request.body(), now)
+    return withdraw(store, segments[0], await request.body(), now, request.admin)
   }
 
   return fail(404, 'no such gallery route')

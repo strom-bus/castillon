@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest'
+import { defaultOscParams } from '../nodes/registry'
+import { encodePatch } from '../state/patchCode'
 import { popularity } from '../gallery/score'
 import {
   cleanField,
@@ -64,13 +66,27 @@ function memoryStore(): GalleryStore {
   }
 }
 
-const CODE = 'FGJaABAJBSMEAoUjiuuaDszNV6oJ5QAM'
+const CODE = encodePatch({
+  version: 1,
+  bpm: 120,
+  loop: true,
+  nodes: [
+    { id: 's', type: 'start', position: { x: 0, y: 0 }, params: {} },
+    { id: 'a', type: 'osc', position: { x: 0, y: 120 }, params: defaultOscParams() },
+  ],
+  edges: [{ id: 's-a', kind: 'event', source: 's', target: 'a' }],
+})
 const NOW = 1_700_000_000_000
 
 function ask(
   method: string,
   path: string,
-  options: { body?: unknown; query?: string; country?: string | null } = {},
+  options: {
+    body?: unknown
+    query?: string
+    country?: string | null
+    admin?: boolean
+  } = {},
 ): GalleryRequest {
   return {
     method,
@@ -78,6 +94,7 @@ function ask(
     query: new URLSearchParams(options.query ?? ''),
     body: async () => options.body ?? {},
     country: options.country ?? null,
+    admin: options.admin ?? false,
   }
 }
 
@@ -194,6 +211,20 @@ describe('publishing', () => {
     expect((await publishOne(store, { code: '' })).status).toBe(400)
     expect((await publishOne(store, { code: 'has spaces' })).status).toBe(400)
     expect((await publishOne(store, { code: 'x'.repeat(5000) })).status).toBe(413)
+  })
+
+  it('refuses a string that only looks like a code', async () => {
+    // The hole this closes: the character check says a string *could* be a code, and without
+    // decoding it this route was free hosting for arbitrary text on a public page.
+    const store = memoryStore()
+    expect((await publishOne(store, { code: 'A'.repeat(120) })).status).toBe(400)
+    expect((await publishOne(store, { code: 'AAAA' })).status).toBe(400)
+    // And the real thing still goes through.
+    expect((await publishOne(store)).status).toBe(201)
+  })
+
+  it('refuses a code truncated part way through', async () => {
+    expect((await publishOne(memoryStore(), { code: CODE.slice(0, 12) })).status).toBe(400)
   })
 
   it('refuses to publish with no publisher, since nothing could be withdrawn', async () => {
@@ -358,6 +389,45 @@ describe('withdrawing', () => {
       ids,
     )
     expect(result.status).toBe(410)
+  })
+
+  it('lets the maintainer remove anything, whoever published it', async () => {
+    // Moderation exists for text nobody should have to read, so it answers to neither the ownership
+    // check nor the window (PLAN §12.4).
+    const store = memoryStore()
+    const id = idOf(await publishOne(store))
+    const result = await handleGallery(
+      ask('DELETE', id, { body: { publisher: 'hash-stranger' }, admin: true }),
+      store,
+      NOW,
+      ids,
+    )
+    expect(result.status).toBe(204)
+    expect(await store.find(id)).toBeNull()
+  })
+
+  it('lets the maintainer remove something older than a day', async () => {
+    const store = memoryStore()
+    const id = idOf(await publishOne(store))
+    const result = await handleGallery(
+      ask('DELETE', id, { body: {}, admin: true }),
+      store,
+      NOW + WITHDRAW_WINDOW_MS * 30,
+      ids,
+    )
+    expect(result.status).toBe(204)
+  })
+
+  it('still refuses a stranger who is not the maintainer', async () => {
+    const store = memoryStore()
+    const id = idOf(await publishOne(store))
+    const result = await handleGallery(
+      ask('DELETE', id, { body: { publisher: 'hash-stranger' }, admin: false }),
+      store,
+      NOW,
+      ids,
+    )
+    expect(result.status).toBe(403)
   })
 
   it('treats an entry that is already gone as success', async () => {

@@ -1130,3 +1130,10 @@ input[type='range'] {
     color: var(--bg);
   }
 }
+
+/* Paging: one button under the grid rather than numbers, since nobody wants page seven of a wall. */
+.gallery-more {
+  display: flex;
+  justify-content: center;
+  padding-top: 4px;
+}

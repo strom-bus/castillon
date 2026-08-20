@@ -36,12 +36,12 @@ export function createRemoteGallery(service: string): GalleryClient {
   const base = `${service.replace(/\/+$/, '')}/gallery`
 
   return {
-    async list(sort: GallerySort) {
+    async list(sort: GallerySort, page = 0) {
       const viewer = encodeURIComponent(publisherId())
-      const response = await fetch(`${base}?sort=${sort}&viewer=${viewer}`)
+      const response = await fetch(`${base}?sort=${sort}&page=${page}&viewer=${viewer}`)
       if (!response.ok) await fail(response, 'The gallery could not be reached.')
-      const body = (await response.json()) as { entries: Wire[] }
-      return body.entries as GalleryEntry[]
+      const body = (await response.json()) as { entries: Wire[]; hasMore: boolean }
+      return { entries: body.entries as GalleryEntry[], hasMore: body.hasMore }
     },
 
     async publish(request: PublishRequest) {

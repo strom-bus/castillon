@@ -5,7 +5,7 @@ import { encodePatch } from '../state/patchCode'
 import { defaultOscParams } from '../nodes/registry'
 import { shortCodeFor } from '../state/shortCode'
 import type { Patch } from '../types/patch'
-import { handle, MAX_PATCH_BYTES, type PatchStore } from './worker'
+import { MAX_PATCH_BYTES, handle, isAdmin, type PatchStore, withinRate } from './worker'
 
 /** Stands in for KV. The logic never knows the difference, which is why it is an interface. */
 function memoryStore(): PatchStore & { size(): number } {
@@ -164,5 +164,87 @@ describe('the browser calling it', () => {
   it('refuses a method it does not serve', async () => {
     const response = await handle(new Request('https://share.test/', { method: 'DELETE' }), store)
     expect(response.status).toBe(405)
+  })
+})
+
+describe('the publish rate limit', () => {
+  const asking = (ip: string | null) => ({ headers: { get: () => ip } }) as unknown as Request
+
+  const limiter = (allow: boolean) => ({
+    calls: [] as string[],
+    async limit(options: { key: string }) {
+      this.calls.push(options.key)
+      return { success: allow }
+    },
+  })
+
+  it('allows everything when no limiter is bound', async () => {
+    // A second line of defence, not the only one: an unbound limiter must not stop publishing.
+    expect(await withinRate(asking('203.0.113.9'), undefined)).toBe(true)
+  })
+
+  it('allows the request when the edge did not say where it came from', async () => {
+    expect(await withinRate(asking(null), limiter(false))).toBe(true)
+  })
+
+  it('refuses once the limiter says so', async () => {
+    expect(await withinRate(asking('203.0.113.9'), limiter(false))).toBe(false)
+  })
+
+  it('allows while the limiter says so', async () => {
+    expect(await withinRate(asking('203.0.113.9'), limiter(true))).toBe(true)
+  })
+
+  it('keys on a digest, never on the address itself', async () => {
+    // The limiter holds its key for a minute; an address must not be the thing it holds.
+    const bound = limiter(true)
+    await withinRate(asking('203.0.113.9'), bound)
+    expect(bound.calls[0]).not.toContain('203.0.113.9')
+    expect(bound.calls[0]).toMatch(/^[0-9a-f]{64}$/)
+  })
+
+  it('gives the same address the same key, or a limit would never bite', async () => {
+    const bound = limiter(true)
+    await withinRate(asking('203.0.113.9'), bound)
+    await withinRate(asking('203.0.113.9'), bound)
+    expect(bound.calls[0]).toBe(bound.calls[1])
+  })
+})
+
+describe('the maintainer key', () => {
+  const carrying = (header: string | null) =>
+    ({ headers: { get: () => header } }) as unknown as Request
+
+  it('is nobody when no key is configured', async () => {
+    // A service without a secret set has no administrator rather than an open door.
+    expect(isAdmin(carrying('Bearer anything'), undefined)).toBe(false)
+    expect(isAdmin(carrying(null), '')).toBe(false)
+  })
+
+  it('accepts the key, with or without the Bearer word', () => {
+    expect(isAdmin(carrying('Bearer s3cret'), 's3cret')).toBe(true)
+    expect(isAdmin(carrying('s3cret'), 's3cret')).toBe(true)
+  })
+
+  it('refuses anything else', () => {
+    expect(isAdmin(carrying('Bearer wrong!'), 's3cret')).toBe(false)
+    expect(isAdmin(carrying('Bearer s3cre'), 's3cret')).toBe(false)
+    expect(isAdmin(carrying(null), 's3cret')).toBe(false)
+  })
+})
+
+describe('presenting a key that does not match', () => {
+  const carrying = (header: string | null) =>
+    ({ headers: { get: () => header } }) as unknown as Request
+
+  it('is told apart from presenting none at all', () => {
+    // The distinction the worker needs to answer 403 rather than 400: one is a refusal, the other is
+    // an ordinary request that never claimed to be an administrator.
+    expect(isAdmin(carrying('Bearer nope'), 'real-key')).toBe(false)
+    expect(isAdmin(carrying(null), 'real-key')).toBe(false)
+  })
+
+  it('ignores surrounding whitespace, which a copied key often carries', () => {
+    expect(isAdmin(carrying('Bearer   real-key  '), 'real-key')).toBe(true)
   })
 })

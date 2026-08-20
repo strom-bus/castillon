@@ -39,8 +39,13 @@ export interface PublishRequest {
   author: string
 }
 
+export interface GalleryPage {
+  entries: GalleryEntry[]
+  hasMore: boolean
+}
+
 export interface GalleryClient {
-  list(sort: GallerySort): Promise<GalleryEntry[]>
+  list(sort: GallerySort, page: number): Promise<GalleryPage>
   publish(request: PublishRequest): Promise<GalleryEntry>
   /** Toggles this browser's star. Returns the entry as it now stands. */
   star(id: string): Promise<GalleryEntry>
@@ -52,3 +57,5 @@ export const MAX_NAME_LENGTH = 48
 export const MAX_AUTHOR_LENGTH = 24
 /** How long after publishing an author can still withdraw their own entry. */
 export const WITHDRAW_WINDOW_MS = 24 * 60 * 60 * 1000
+/** Matches the service's page size, so a local shelf pages the same way a shared wall does. */
+export const PAGE_SIZE = 24

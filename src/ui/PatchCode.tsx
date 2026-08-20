@@ -3,6 +3,7 @@ import { decodePatch, encodePatch } from '../state/patchCode'
 import { toPatch, usePatchStore } from '../state/patchStore'
 import { publishPatch, resolveShortCode, sharingAvailable } from '../state/shareService'
 import { looksLikeShortCode, shortCodeFor } from '../state/shortCode'
+import { SharePatch } from './SharePatch'
 
 const DEV_MODE_KEY = 'castillon.devMode'
 /** Clicks needed, and how long the run may take. Slow clicking is just copying. */
@@ -50,6 +51,7 @@ export function PatchCode() {
   const [draft, setDraft] = useState<string | null>(null)
   const [status, setStatus] = useState<'' | 'invalid' | 'looking' | 'missing' | 'failed'>('')
   const [copied, setCopied] = useState(false)
+  const [sharing, setSharing] = useState(false)
   const [busy, setBusy] = useState(false)
   /**
    * Long codes known to be on the service. Keyed by the patch rather than by the moment of
@@ -215,6 +217,17 @@ export function PatchCode() {
       <button type="button" className="btn" onClick={onCopy} title="Copy what is in the field">
         {copied ? 'COPIED' : 'COPY'}
       </button>
+
+      <button
+        type="button"
+        className="btn"
+        onClick={() => setSharing(true)}
+        title="Publish this patch to the gallery"
+      >
+        SHARE
+      </button>
+
+      {sharing && <SharePatch code={code} onClose={() => setSharing(false)} />}
 
       {status === 'looking' && <span className="patch-code-note">looking up…</span>}
       {status === 'missing' && <span className="patch-code-note">no such code</span>}

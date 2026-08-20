@@ -3,12 +3,15 @@ import './ui/styles.css'
 
 import { useEffect } from 'react'
 import { reconcile, restartCascade } from './audio/runtime'
+import { useGalleryWindow } from './gallery/window'
 import { decodePatch } from './state/patchCode'
 import { loadStoredPatch, savePatch } from './state/persistence'
 import { resolveShortCode, sharingAvailable } from './state/shareService'
 import { looksLikeShortCode } from './state/shortCode'
 import { toPatch, usePatchStore } from './state/patchStore'
 import { Canvas } from './ui/Canvas'
+import { Gallery } from './ui/Gallery'
+import { GalleryButton } from './ui/GalleryButton'
 import { Inspector } from './ui/Inspector'
 import { Logo } from './ui/Logo'
 import { Transport } from './ui/Transport'
@@ -16,6 +19,10 @@ import { Transport } from './ui/Transport'
 const AUTOSAVE_MS = 500
 
 export default function App() {
+  const galleryOpen = useGalleryWindow((s) => s.open)
+  const showGallery = useGalleryWindow((s) => s.show)
+  const hideGallery = useGalleryWindow((s) => s.hide)
+
   const loadPatch = usePatchStore((s) => s.loadPatch)
 
   useEffect(() => {
@@ -80,8 +87,10 @@ export default function App() {
             Castill<span className="brand-lit">_ON</span>
           </span>
         </h1>
+        <GalleryButton onClick={showGallery} />
       </header>
       <Transport />
+      {galleryOpen && <Gallery onClose={hideGallery} />}
       <div className="workspace">
         <Canvas />
         <Inspector />

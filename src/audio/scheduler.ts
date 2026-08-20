@@ -21,8 +21,13 @@ const START_OFFSET = 0.06
  * loop faster than a quarter second.
  */
 const EMPTY_CHAIN_DELAY = 0.25
-/** Firebreak: never process more than this many events in a single tick. */
-const MAX_EVENTS_PER_TICK = 2000
+/**
+ * Firebreak: never process more than this many events in a single tick.
+ *
+ * Sized for a 25 ms tick with a 100 ms horizon. An offline render schedules a whole piece in one
+ * call, so it raises this rather than being silently truncated at two thousand events.
+ */
+export const MAX_EVENTS_PER_TICK = 2000
 /** How long a cable stays lit. */
 const EDGE_FLASH = 0.2
 /** Fallback flash for an effect fed by a node with no duration of its own. */
@@ -48,6 +53,8 @@ interface SchedulerDeps {
   engine: Engine
   activity: ActivityBus
   getPatch: () => Patch
+  /** Raised by the offline render, which drains a whole piece in a single call. */
+  maxEventsPerDrain?: number
 }
 
 /**
@@ -137,7 +144,7 @@ export class CascadeScheduler {
 
     let processed = 0
     while (this.queue.length > 0 && this.queue[0].time <= horizon) {
-      if (++processed > MAX_EVENTS_PER_TICK) break
+      if (++processed > (this.deps.maxEventsPerDrain ?? MAX_EVENTS_PER_TICK)) break
       const event = this.queue.shift() as TriggerEvent
       this.process(event, patch, nodeById, edgesBySource, fxBySource)
     }

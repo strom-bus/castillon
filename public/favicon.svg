@@ -1,20 +1,25 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <!-- One trigger, two branches. Painted with the cascade ramp rather than ink, so the mark holds
-       on a light tab strip and a dark one alike. -->
-  <defs>
-    <linearGradient id="r" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#14cc6a"/>
-      <stop offset=".52" stop-color="#d8f519"/>
-      <stop offset="1" stop-color="#ff531f"/>
-    </linearGradient>
-  </defs>
-  <g fill="none" stroke="url(#r)" stroke-width="11" stroke-linecap="round">
+  <!-- One trigger, two branches, in the deepest colour on the cascade ramp: the same orange the
+       wordmark carries.
+
+       No tile and no background on purpose. A white mark would vanish into the near-white tab strip
+       of a light browser and a black one into a dark browser's, while this orange holds against
+       both, which is what lets the mark stand on its own.
+
+       The geometry repeats logoGeometry.ts and the colour repeats the brand token in index.css,
+       neither of which can be referenced here: a favicon is read before any script or stylesheet
+       runs. logo.test.ts fails if any of them drift apart.
+
+       Note for editors: an XML comment cannot contain a double hyphen, so CSS custom properties
+       cannot be named in one. Writing the token with its dashes here made this file unparseable,
+       which a browser answers by silently keeping whichever icon it already had. -->
+  <g fill="none" stroke="#ff531f" stroke-width="11" stroke-linecap="butt">
     <path d="M 42 27 C 33 41 27 56 24 65"/>
     <path d="M 58 27 C 67 41 73 56 76 65"/>
   </g>
-  <g fill="url(#r)">
-    <circle cx="50" cy="17" r="13"/>
-    <circle cx="21" cy="79" r="13"/>
-    <circle cx="79" cy="79" r="13"/>
+  <g fill="#ff531f">
+    <rect x="35" y="2" width="30" height="30"/>
+    <rect x="6" y="64" width="30" height="30"/>
+    <rect x="64" y="64" width="30" height="30"/>
   </g>
 </svg>

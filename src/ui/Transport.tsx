@@ -3,34 +3,8 @@ import { engine, play, stop } from '../audio/runtime'
 import { usePatchStore } from '../state/patchStore'
 import { MAX_BPM, MIN_BPM } from '../types/patch'
 import { NumberInput } from './NumberInput'
+import { ExportAudio } from './ExportAudio'
 import { PatchCode } from './PatchCode'
-
-/** Flat, five pips, drawn rather than fetched — there is no asset pipeline here and no need for one. */
-function DiceIcon() {
-  const pips = [
-    [5, 5],
-    [15, 5],
-    [10, 10],
-    [5, 15],
-    [15, 15],
-  ]
-  return (
-    <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
-      <rect
-        x="1"
-        y="1"
-        width="18"
-        height="18"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-      />
-      {pips.map(([x, y]) => (
-        <circle key={`${x}-${y}`} cx={x} cy={y} r="1.8" fill="currentColor" />
-      ))}
-    </svg>
-  )
-}
 
 export function Transport() {
   const [playing, setPlaying] = useState(false)
@@ -41,7 +15,6 @@ export function Transport() {
   const setLoop = usePatchStore((s) => s.setLoop)
   const setMasterGain = usePatchStore((s) => s.setMasterGain)
   const resetPatch = usePatchStore((s) => s.resetPatch)
-  const randomisePatch = usePatchStore((s) => s.randomisePatch)
 
   useEffect(() => {
     engine.setMasterGain(masterGain)
@@ -62,6 +35,17 @@ export function Transport() {
       <button type="button" className={`btn primary${playing ? ' on' : ''}`} onClick={toggle}>
         {playing ? '■ STOP' : '▶ PLAY'}
       </button>
+      <button
+        type="button"
+        className="btn"
+        onClick={() => {
+          if (confirm('Discard the current patch and load the example again?')) resetPatch()
+        }}
+      >
+        RESET
+      </button>
+
+      <span className="divider" />
 
       <label className="field">
         <span>BPM</span>
@@ -87,26 +71,10 @@ export function Transport() {
 
       <div className="spacer" />
 
-      <button
-        type="button"
-        className="btn btn-icon"
-        onClick={() => {
-          if (confirm('Discard the current patch and roll a new one?')) randomisePatch()
-        }}
-        aria-label="Random patch"
-        title="Roll a random patch"
-      >
-        <DiceIcon />
-      </button>
-      <button
-        type="button"
-        className="btn"
-        onClick={() => {
-          if (confirm('Discard the current patch and load the example again?')) resetPatch()
-        }}
-      >
-        RESET
-      </button>
+      <ExportAudio />
+
+      <span className="divider" />
+
       <PatchCode />
     </div>
   )

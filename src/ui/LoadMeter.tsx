@@ -17,14 +17,23 @@ import { engine } from '../audio/runtime'
 export function LoadMeter() {
   const [load, setLoad] = useState({ voices: 0, effects: 0 })
 
+  /*
+   * Ten times a second, and only a state change when the reading actually moved.
+   *
+   * It used to poll on every animation frame and set state each time, so React re-rendered this
+   * sixty times a second for as long as the tab was open — with the transport stopped and nothing
+   * to show. On a page whose real job is keeping an audio scheduler fed, that is the wrong thing to
+   * spend frames on. Ten hertz is imperceptible on a bar this size, and the equality check means a
+   * patch sitting still costs nothing at all.
+   */
   useEffect(() => {
-    let frame = 0
-    const tick = () => {
-      setLoad({ voices: engine.voiceLoadAt(engine.now()), effects: engine.effectLoad() })
-      frame = requestAnimationFrame(tick)
-    }
-    frame = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(frame)
+    const timer = setInterval(() => {
+      const next = { voices: engine.voiceLoadAt(engine.now()), effects: engine.effectLoad() }
+      setLoad((current) =>
+        current.voices === next.voices && current.effects === next.effects ? current : next,
+      )
+    }, 100)
+    return () => clearInterval(timer)
   }, [])
 
   const total = load.voices + load.effects

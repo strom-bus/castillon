@@ -1,7 +1,8 @@
 import { toPatch } from '../state/patchStore'
 import { ActivityBus } from '../viz/activity'
 import { AudioEngine } from './engine'
-import { diff, EMPTY_GRAPH, graphOf, type AudioGraph, type RouterOp } from './router'
+import { applyOps } from './engine'
+import { diff, EMPTY_GRAPH, graphOf, type AudioGraph } from './router'
 import { CascadeScheduler } from './scheduler'
 
 /**
@@ -19,32 +20,6 @@ export const scheduler = new CascadeScheduler({
 /** The audio graph as last applied to Web Audio. Only the reconciler writes to it. */
 let applied: AudioGraph = EMPTY_GRAPH
 
-function apply(op: RouterOp, bpm: number): void {
-  switch (op.op) {
-    case 'createEffect':
-      engine.createEffect(op.id, op.params, bpm)
-      break
-    case 'replaceEffect':
-      engine.replaceEffect(op.id, op.params, bpm)
-      break
-    case 'updateEffect':
-      engine.updateEffect(op.id, op.params, bpm)
-      break
-    case 'disposeEffect':
-      engine.disposeEffect(op.id)
-      break
-    case 'connect':
-      engine.connectSend(op.from, op.to)
-      break
-    case 'disconnect':
-      engine.disconnectSend(op.from, op.to)
-      break
-    case 'setDirect':
-      engine.setDirect(op.id, op.value)
-      break
-  }
-}
-
 /**
  * Brings the live audio graph in line with the patch. Safe to call on every store change: for
  * anything that is not audio — dragging a node, editing a step, typing in the tempo — the diff is
@@ -53,8 +28,7 @@ function apply(op: RouterOp, bpm: number): void {
 export function reconcile(): void {
   if (!engine.started) return
   const next = graphOf(toPatch())
-  const ops = diff(applied, next)
-  for (const op of ops) apply(op, next.bpm)
+  applyOps(engine, diff(applied, next), next.bpm)
   applied = next
 }
 

@@ -4,6 +4,7 @@ import { MAX_CUTOFF, MAX_RESONANCE, MIN_CUTOFF, MIN_RESONANCE } from './filter'
 import { effectCost, MAX_LOAD, voiceCost } from './load'
 import { fillNoise, type NoiseColor } from './noise'
 import { isNoise, pulseHarmonics, rampHarmonics } from './waveforms'
+import type { RouterOp } from './router'
 
 /** Cost in points of what a voice is made of, so the budget can be about work rather than count. */
 
@@ -113,7 +114,13 @@ const NOISE_REFERENCE_FREQ = 261.6255653005986
 const NOISE_SECONDS = 3
 
 export class AudioEngine implements Engine {
-  private ctx: AudioContext | null = null
+  /**
+   * `BaseAudioContext`, not `AudioContext`, so the same engine can drive an `OfflineAudioContext`
+   * for the export. Every node the engine builds exists on the base; only resuming a suspended
+   * context does not, which is why `realtime` is tracked separately.
+   */
+  private ctx: BaseAudioContext | null = null
+  private realtime = false
   private master: GainNode | null = null
   private voices: Voice[] = []
   private masterGainValue = 0.8
@@ -127,23 +134,43 @@ export class AudioEngine implements Engine {
   /** Must be called from a user gesture: browsers block audio otherwise. */
   async start(): Promise<void> {
     if (!this.ctx) {
-      this.ctx = new AudioContext()
-
-      const master = this.ctx.createGain()
-      master.gain.value = this.masterGainValue
-
-      // Limiter: keeps the output from clipping once many voices branch out.
-      const limiter = this.ctx.createDynamicsCompressor()
-      limiter.threshold.value = -6
-      limiter.knee.value = 0
-      limiter.ratio.value = 20
-      limiter.attack.value = 0.003
-      limiter.release.value = 0.1
-
-      master.connect(limiter).connect(this.ctx.destination)
-      this.master = master
+      this.realtime = true
+      this.build(new AudioContext())
     }
-    if (this.ctx.state === 'suspended') await this.ctx.resume()
+    // Only a realtime context can be suspended. Resuming an offline one would start its render.
+    if (!this.realtime) return
+    const ctx = this.ctx as AudioContext
+    if (ctx.state === 'suspended') await ctx.resume()
+  }
+
+  /**
+   * Takes over a context somebody else owns and built for a single purpose — the offline render.
+   *
+   * The export gets its own engine over its own context rather than borrowing the live one, so a
+   * render cannot disturb what is playing and does not have to wait for it to stop.
+   */
+  adopt(ctx: BaseAudioContext): void {
+    this.realtime = false
+    this.build(ctx)
+  }
+
+  /** The output chain: master gain into a limiter into the destination. */
+  private build(ctx: BaseAudioContext): void {
+    this.ctx = ctx
+
+    const master = ctx.createGain()
+    master.gain.value = this.masterGainValue
+
+    // Limiter: keeps the output from clipping once many voices branch out.
+    const limiter = ctx.createDynamicsCompressor()
+    limiter.threshold.value = -6
+    limiter.knee.value = 0
+    limiter.ratio.value = 20
+    limiter.attack.value = 0.003
+    limiter.release.value = 0.1
+
+    master.connect(limiter).connect(ctx.destination)
+    this.master = master
   }
 
   /** False until the first Play, since nothing can be built before there is a context. */
@@ -218,7 +245,7 @@ export class AudioEngine implements Engine {
     const existing = this.buses.get(nodeId)
     if (existing) return existing
 
-    const ctx = this.ctx as AudioContext
+    const ctx = this.ctx as BaseAudioContext
     const bus = ctx.createGain()
     const direct = ctx.createGain()
     direct.gain.value = this.directLevels.get(nodeId) ?? 1
@@ -360,7 +387,7 @@ export class AudioEngine implements Engine {
    * so the sequencer still does something musical: higher notes give brighter noise.
    */
   private createSource(req: NoteRequest): AudioScheduledSourceNode {
-    const ctx = this.ctx as AudioContext
+    const ctx = this.ctx as BaseAudioContext
 
     if (isNoise(req.waveform)) {
       const source = ctx.createBufferSource()
@@ -385,7 +412,7 @@ export class AudioEngine implements Engine {
   private noiseBuffer(color: NoiseColor): AudioBuffer {
     const cached = this.noiseBuffers.get(color)
     if (cached) return cached
-    const ctx = this.ctx as AudioContext
+    const ctx = this.ctx as BaseAudioContext
     const buffer = ctx.createBuffer(1, Math.floor(ctx.sampleRate * NOISE_SECONDS), ctx.sampleRate)
     fillNoise(color, buffer.getChannelData(0))
     this.noiseBuffers.set(color, buffer)
@@ -441,14 +468,14 @@ export class AudioEngine implements Engine {
   private rampWave(): PeriodicWave {
     if (!this.rampWaveCache) {
       const { real, imag } = rampHarmonics()
-      this.rampWaveCache = (this.ctx as AudioContext).createPeriodicWave(real, imag)
+      this.rampWaveCache = (this.ctx as BaseAudioContext).createPeriodicWave(real, imag)
     }
     return this.rampWaveCache
   }
 
   /** Pulse waves are cached per duty cycle: rebuilding one per note is expensive. */
   private pulseWave(duty: number): PeriodicWave {
-    const ctx = this.ctx as AudioContext
+    const ctx = this.ctx as BaseAudioContext
     const key = Math.round(duty * 100)
     const cached = this.pulseWaves.get(key)
     if (cached) return cached
@@ -473,5 +500,39 @@ export class AudioEngine implements Engine {
   private prune(): void {
     const cutoff = this.now() - 1
     this.voices = this.voices.filter((v) => v.end > cutoff)
+  }
+}
+
+/**
+ * Carries out a router diff against an engine.
+ *
+ * It takes the engine rather than reaching for the live one so the offline render can build its own
+ * graph on its own context: exporting a patch must not touch what is currently playing.
+ */
+export function applyOps(target: AudioEngine, ops: RouterOp[], bpm: number): void {
+  for (const op of ops) {
+    switch (op.op) {
+      case 'createEffect':
+        target.createEffect(op.id, op.params, bpm)
+        break
+      case 'replaceEffect':
+        target.replaceEffect(op.id, op.params, bpm)
+        break
+      case 'updateEffect':
+        target.updateEffect(op.id, op.params, bpm)
+        break
+      case 'disposeEffect':
+        target.disposeEffect(op.id)
+        break
+      case 'connect':
+        target.connectSend(op.from, op.to)
+        break
+      case 'disconnect':
+        target.disconnectSend(op.from, op.to)
+        break
+      case 'setDirect':
+        target.setDirect(op.id, op.value)
+        break
+    }
   }
 }

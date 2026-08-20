@@ -1,3 +1,5 @@
+import { CABLES, CABLE_WIDTH, NODES, NODE_RADIUS } from './logoGeometry'
+
 /**
  * The isotype: one trigger, two branches, falling.
  *
@@ -8,18 +10,37 @@
  *
  * It takes its colour from `currentColor`, so the titlebar paints it white and anything else can
  * paint it with a cascade hue without a second copy of the geometry.
+ *
+ * The coordinates live in `logoGeometry.ts` rather than in this markup, so the favicon's second copy
+ * of the drawing can be checked against them.
  */
+
 export function Logo({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 100 100" aria-hidden="true" focusable="false">
-      <g fill="none" stroke="currentColor" strokeWidth="11" strokeLinecap="round">
-        <path d="M 42 27 C 33 41 27 56 24 65" />
-        <path d="M 58 27 C 67 41 73 56 76 65" />
+      <g
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={CABLE_WIDTH}
+        // Butt ends, not round: square nodes with rounded cables would be two minds about one
+        // drawing. It also puts the mark inside §8's rule against rounded corners, which every
+        // other surface in the app already follows.
+        strokeLinecap="butt"
+      >
+        {CABLES.map((cable) => (
+          <path key={cable} d={cable} />
+        ))}
       </g>
       <g fill="currentColor">
-        <circle cx="50" cy="17" r="13" />
-        <circle cx="21" cy="79" r="13" />
-        <circle cx="79" cy="79" r="13" />
+        {NODES.map((node) => (
+          <rect
+            key={`${node.cx}-${node.cy}`}
+            x={node.cx - NODE_RADIUS}
+            y={node.cy - NODE_RADIUS}
+            width={NODE_RADIUS * 2}
+            height={NODE_RADIUS * 2}
+          />
+        ))}
       </g>
     </svg>
   )

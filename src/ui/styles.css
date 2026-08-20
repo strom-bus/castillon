@@ -15,6 +15,9 @@
 /* ---------- Transport ---------- */
 
 .titlebar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   padding: 14px 16px 12px;
   border-bottom: 1px solid var(--border);
   background: var(--surface);
@@ -178,6 +181,76 @@ input[type='range'] {
   align-items: center;
   min-height: 27px;
   font-size: 11px;
+}
+
+/*
+ * Marquee selection, in the project's orange instead of React Flow's blue.
+ *
+ * Theming through the library's own `--xy-selection-*` variables rather than overriding its classes,
+ * so a version that renames a class or adds a second selection surface keeps working.
+ *
+ * A deliberate exception to §8's rule that chrome is white and the fluorescent ramp belongs to
+ * cascade depth: the default blue appears nowhere else in the app, which makes it read as something
+ * from another program. Borrowing the wordmark's orange — the same token, not a second orange —
+ * costs nothing and belongs. Dotted and nearly transparent, so a selection reads as a gesture in
+ * progress rather than as another object on the canvas.
+ *
+ * The two variables cover both surfaces — the rectangle dragged out and the box left around what it
+ * caught — since React Flow's own stylesheet reads them for each.
+ */
+.react-flow {
+  --xy-selection-background-color: color-mix(in srgb, var(--brand-lit) 10%, transparent);
+  --xy-selection-border: 1px dotted color-mix(in srgb, var(--brand-lit) 85%, transparent);
+}
+
+/* Hard right, away from the wordmark. In the brand orange rather than the chrome's white, since it
+   is the one thing up here that leads somewhere rather than doing something.
+
+   Both classes in the selector deliberately: `.btn-icon` sets a grey of its own and is declared
+   further down this file, so at equal specificity it would win on order alone. */
+.btn-icon.gallery-button {
+  margin-left: auto;
+  color: var(--brand-lit);
+}
+
+/* All the way to white, the same as every other icon button. The two differ where it means
+   something — orange at rest says this one leads somewhere — and agree on the response to a
+   pointer, which should feel like one interface rather than two. */
+.btn-icon.gallery-button:hover {
+  color: var(--text);
+}
+
+/* Groups the row by what a control acts on: the performance, then the document. A hairline rather
+   than a gap, because a gap at this width reads as an accident. */
+.divider {
+  width: 1px;
+  height: 18px;
+  background: var(--border-strong);
+  flex-shrink: 0;
+}
+
+/* The far corner from React Flow's own controls, which sit bottom-left. */
+.dice-corner {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  z-index: 5;
+}
+
+/* Sits with the patch code: both are actions on the document rather than on the performance. */
+.export {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.export .field input {
+  width: 38px;
+}
+
+.export-error {
+  max-width: 220px;
+  color: var(--muted);
 }
 
 .meter {
@@ -798,4 +871,262 @@ input[type='range'] {
   display: block;
   width: 21px;
   height: 21px;
+}
+
+/* ---------------------------------------------------------------------------
+   The gallery window (PLAN §12.5): laid over the app, not a page of its own.
+   --------------------------------------------------------------------------- */
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  /* Dark enough that the canvas reads as put aside rather than as competing for attention. */
+  background: rgb(0 0 0 / 0.72);
+}
+
+.modal {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+  max-width: 880px;
+  max-height: 100%;
+  padding: 18px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+}
+
+.gallery-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.gallery-head h2 {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.26em;
+}
+
+.gallery-sort {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+
+/* The chosen ordering, marked by inversion rather than by a tint. */
+.gallery-sort .btn.on {
+  background: var(--text);
+  color: var(--bg);
+  border-color: var(--text);
+}
+
+.gallery-note {
+  margin: 0;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(196px, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.card:hover {
+  border-color: var(--border-strong);
+}
+
+/* The thumbnail is the whole target: a card is a patch, and clicking a patch loads it. */
+.card-open {
+  padding: 0;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  background: none;
+  cursor: pointer;
+}
+
+.thumb {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+}
+
+.card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 9px 10px 7px;
+}
+
+.card-name {
+  font-size: 12px;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.card-meta {
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.card-code {
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  color: var(--accent-dim);
+}
+
+.card-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px 9px;
+}
+
+.card-stars {
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  margin-right: auto;
+}
+
+/* White, filled when given, outlined when not. Never yellow (PLAN §12.7). */
+.btn-icon.star {
+  color: var(--muted);
+}
+
+.btn-icon.star.on,
+.btn-icon.star:hover {
+  color: var(--text);
+}
+
+.card-actions .btn-icon svg {
+  width: 15px;
+  height: 15px;
+}
+
+/* The publish form, which is the same window furniture as the gallery at a smaller size. */
+.modal.share {
+  max-width: 380px;
+}
+
+.modal.share h2 {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.26em;
+}
+
+.share-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  color: var(--muted);
+}
+
+.share-field input {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  padding: 7px 8px;
+  font: inherit;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+
+.share-field input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.share-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/*
+ * Keyboard focus, in the project's own colours.
+ *
+ * The browser's default ring is blue, which is the one hue that belongs to nothing here — the same
+ * import that was taken out of the marquee selection. Removing it outright was never an option: a
+ * keyboard user needs to see where they are, and this is the only thing telling them.
+ */
+:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* On the orange button, the orange itself, so the ring belongs to the control it surrounds. */
+.gallery-button:focus-visible {
+  outline-color: var(--brand-lit);
+}
+
+/*
+ * The dropdown list of a `<select>`, when the browser will let us have it.
+ *
+ * That list is normally drawn by the operating system, not by the page: hence the blue highlight and
+ * the rounded corners in a program that has neither anywhere else. CSS cannot reach a native menu at
+ * all, and the usual answer — replacing `<select>` with a div and a script — costs the keyboard
+ * handling, the accessibility and the scroll behaviour that come free with the real element.
+ *
+ * `appearance: base-select` is the way out: the same element, still a `<select>`, drawn by the page.
+ * Behind `@supports`, so a browser without it keeps the system menu rather than something broken. The
+ * closed control is restyled to match what it already looked like, so both paths agree.
+ */
+@supports (appearance: base-select) {
+  .inspector select,
+  .fx-body select {
+    appearance: base-select;
+    background: var(--surface-raised);
+    color: var(--text);
+    border: 1px solid var(--border-strong);
+    padding: 5px 6px;
+    font: inherit;
+  }
+
+  .inspector select::picker(select),
+  .fx-body select::picker(select) {
+    appearance: base-select;
+    background: var(--surface-raised);
+    border: 1px solid var(--border-strong);
+    padding: 0;
+  }
+
+  .inspector select option,
+  .fx-body select option {
+    padding: 5px 8px;
+    background: var(--surface-raised);
+    color: var(--text);
+  }
+
+  /* Inverted rather than tinted, the same way the gallery marks its chosen ordering. */
+  .inspector select option:checked,
+  .fx-body select option:checked,
+  .inspector select option:hover,
+  .fx-body select option:hover {
+    background: var(--text);
+    color: var(--bg);
+  }
 }

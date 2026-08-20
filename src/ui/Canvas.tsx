@@ -14,6 +14,7 @@ import { usePatchStore, type FlowEdge } from '../state/patchStore'
 import { computeDepths, DepthContext, EMPTY_DEPTHS, sameDepths } from '../viz/depth'
 import { edgeTypes, nodeTypes } from './flowTypes'
 import { LoadMeter } from './LoadMeter'
+import { RandomButton } from './RandomButton'
 import { useCopyPaste } from './useCopyPaste'
 
 function CanvasInner() {
@@ -116,6 +117,9 @@ function CanvasInner() {
           <Controls showInteractive={false} />
         </ReactFlow>
       </DepthContext.Provider>
+      <div className="dice-corner">
+        <RandomButton />
+      </div>
       <span className="colophon">COLMENA / STROMBUS</span>
     </div>
   )

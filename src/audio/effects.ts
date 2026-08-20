@@ -61,13 +61,13 @@ export interface EffectDescriptor {
    * because what an effect is made of is the effect's own business. See audio/load.ts for the unit.
    */
   cost(params: FxParams): number
-  create(ctx: AudioContext): EffectChain
+  create(ctx: BaseAudioContext): EffectChain
 }
 
 const RAMP = 0.02
 
 /** The tone control the effects share: a low-pass, gentle enough to shape rather than to filter. */
-function tone(ctx: AudioContext): BiquadFilterNode {
+function tone(ctx: BaseAudioContext): BiquadFilterNode {
   const filter = ctx.createBiquadFilter()
   filter.type = 'lowpass'
   filter.Q.value = 0.7

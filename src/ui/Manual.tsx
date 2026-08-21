@@ -54,7 +54,7 @@ export function Manual({ onClose }: { onClose: () => void }) {
               </button>
             ))}
           </div>
-          <button ref={closer} type="button" className="btn" onClick={onClose}>
+          <button ref={closer} type="button" className="manual-close" onClick={onClose}>
             CLOSE
           </button>
         </header>

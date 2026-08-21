@@ -654,9 +654,11 @@ input[type='range'] {
  * first minute, and the manual is for the hour after.
  */
 .manual-open {
-  /* Centred and set apart: it is not one more line of the advice above it, it is the way out of it. */
-  align-self: center;
-  margin-top: 18px;
+  /* Centred and set apart: it is not one more line of the advice above it, it is the way out of it.
+     `display: block` with auto margins rather than `align-self`, which asked the wrong parent — the
+     button sits inside the panel's body and not in the column that lays the panel out. */
+  display: block;
+  margin: 18px auto 0;
 }
 
 /*
@@ -665,9 +667,30 @@ input[type='range'] {
  * Smaller than a button on purpose. Two full-sized buttons put a language switch on the same footing as
  * the manual's own heading, which is not what it is.
  */
+/* Pushed to the right with the close button, so the header reads title on one side, controls on the
+   other — the same shape the gallery's header already has. */
 .language-toggle {
   display: flex;
+  margin-left: auto;
   border: 1px solid var(--border);
+}
+
+/* The close button, matched to the toggle beside it: same border, same padding, same lettering. Two
+   controls of different sizes side by side read as two different kinds of thing, which they are not. */
+.manual-close {
+  padding: 3px 9px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  cursor: pointer;
+}
+
+.manual-close:hover {
+  color: var(--text);
+  border-color: var(--border-strong);
 }
 
 .language-toggle button {
@@ -762,9 +785,11 @@ input[type='range'] {
 .midi-status {
   display: grid;
   place-items: center;
-  /* Sized to the eleven-pixel text it stands in, not to the canvas it came from. */
-  width: 18px;
-  height: 18px;
+  /* The die's size exactly, so the two drawn glyphs in the chrome are a pair: same box, same viewBox
+     and same stroke width, therefore the same line weight rendered. Growing this without shrinking
+     the stroke in the SVG is what would have thickened it. */
+  width: 21px;
+  height: 21px;
   padding: 0;
   border: 0;
   background: transparent;

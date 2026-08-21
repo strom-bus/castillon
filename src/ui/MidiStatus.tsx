@@ -6,20 +6,25 @@ import type { MidiState } from '../input/midi'
  *
  * Outlined rather than filled, like the star: this is chrome, and the fluorescent ramp belongs to
  * cascade depth.
+ *
+ * **A matched pair with the die**, deliberately, since they are the only two drawn glyphs in the
+ * chrome. Same rendered box, same `strokeWidth` in the same viewBox, so the same line weight comes out
+ * — and the socket fills as much of its box as the die's square fills its own. It was drawn to 82 % of
+ * the box against the die's 90 %, which at one size still read as the smaller of the two.
  */
 function MidiIcon() {
   return (
     <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
-      <circle cx="10" cy="10" r="8.2" fill="none" stroke="currentColor" strokeWidth="1.5" />
+      <circle cx="10" cy="10" r="9" fill="none" stroke="currentColor" strokeWidth="1.5" />
       {/* The five pins in their real arrangement: three across the top, two below and outside. */}
       {[
-        [10, 5.4],
-        [5.6, 7.4],
-        [14.4, 7.4],
-        [7, 11.8],
-        [13, 11.8],
+        [10, 5],
+        [5.2, 7.2],
+        [14.8, 7.2],
+        [6.7, 12],
+        [13.3, 12],
       ].map(([cx, cy]) => (
-        <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r="1.15" fill="currentColor" />
+        <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r="1.25" fill="currentColor" />
       ))}
     </svg>
   )

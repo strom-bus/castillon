@@ -179,7 +179,6 @@ input[type='range'] {
   z-index: 5;
   display: flex;
   align-items: center;
-  gap: 10px;
   min-height: 27px;
   font-size: 11px;
 }
@@ -649,16 +648,20 @@ input[type='range'] {
 /* Not an error — a control that is connected and currently has nothing to act on. Brand orange
    because that is already the colour this app uses to say "look here". */
 /*
- * The MIDI indicator: greyed until there is something on the other end.
+ * The MIDI indicator, in the transport beside the volume.
  *
  * Dim rather than hidden, so the absence of a device is visible and hoverable — an icon that appears
  * only when it already works cannot tell you that it does not.
+ *
+ * It sat on the canvas beside the load meter first, and next to a percentage it read as part of the
+ * percentage, which is the one thing it is not.
  */
 .midi-status {
   display: grid;
   place-items: center;
-  width: 22px;
-  height: 22px;
+  /* Sized to the eleven-pixel text it stands in, not to the canvas it came from. */
+  width: 18px;
+  height: 18px;
   padding: 0;
   border: 0;
   background: transparent;

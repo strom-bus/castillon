@@ -4,6 +4,7 @@ import './ui/styles.css'
 import { useEffect } from 'react'
 import { reconcile, restartCascade } from './audio/runtime'
 import { useGalleryWindow } from './gallery/window'
+import { installHistory } from './history/patchHistory'
 import { decodePatch } from './state/patchCode'
 import { loadStoredPatch, savePatch } from './state/persistence'
 import { resolveShortCode, sharingAvailable } from './state/shareService'
@@ -53,6 +54,10 @@ export default function App() {
   // The audio graph follows the patch. Unthrottled on purpose: the reconciler diffs, so a change
   // that is not about routing costs a couple of map builds and emits nothing.
   useEffect(() => usePatchStore.subscribe(reconcile), [])
+
+  // Undo watches the patch from here on. Installed after the stored patch has loaded, so the first
+  // step back reaches how the patch was found rather than an empty canvas.
+  useEffect(() => installHistory(), [])
 
   // A replaced patch is not an edit: the cascade in flight belongs to nodes that are gone, so it is
   // silenced and seeded again rather than left to fade out while the transport still says it plays.

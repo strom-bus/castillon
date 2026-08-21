@@ -101,6 +101,8 @@ export function Gallery({ onClose }: { onClose: () => void }) {
   }
 
   async function withdraw(entry: GalleryEntry): Promise<void> {
+    // This one stays. The die and Reset lost their confirmations because undo can answer for them;
+    // withdrawing deletes a row on a server, which nothing here can put back.
     if (!confirm(`Withdraw “${entry.name}” from the gallery?`)) return
     try {
       await gallery.remove(entry.id)

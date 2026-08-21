@@ -26,6 +26,9 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run lint
+      # Typecheck was missing here, so a type error could ship: neither the linter nor `vite build`
+      # runs the compiler, and only `tsc -b` does.
+      - run: npm run typecheck
       - run: npm run test
       - run: npm run build
         env:

@@ -32,6 +32,11 @@ function DiceIcon() {
  *
  * It sits in the canvas rather than the transport because what it does is replace the thing on the
  * canvas — and because the transport is for what you touch while a patch plays, which this is not.
+ *
+ * It used to ask first, and no longer does. A confirmation is a question people learn to dismiss
+ * without reading; undo is an answer they can give after seeing the result. Rolling the die is the
+ * most destructive thing here and also the one most worth doing on impulse, and asking made it
+ * neither.
  */
 export function RandomButton() {
   const randomisePatch = usePatchStore((s) => s.randomisePatch)
@@ -40,9 +45,7 @@ export function RandomButton() {
     <button
       type="button"
       className="btn btn-icon"
-      onClick={() => {
-        if (confirm('Discard the current patch and roll a new one?')) randomisePatch()
-      }}
+      onClick={randomisePatch}
       aria-label="Random patch"
       title="Roll a random patch"
     >

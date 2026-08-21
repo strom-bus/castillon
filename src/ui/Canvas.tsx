@@ -16,9 +16,11 @@ import { edgeTypes, nodeTypes } from './flowTypes'
 import { LoadMeter } from './LoadMeter'
 import { RandomButton } from './RandomButton'
 import { useCopyPaste } from './useCopyPaste'
+import { useUndoRedo } from './useUndoRedo'
 
 function CanvasInner() {
   useCopyPaste()
+  useUndoRedo()
 
   const nodes = usePatchStore((s) => s.nodes)
   const edges = usePatchStore((s) => s.edges)

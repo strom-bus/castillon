@@ -1,22 +1,6 @@
 import { useEffect } from 'react'
 import { usePatchStore } from '../state/patchStore'
-
-/**
- * Where the caret is decides whose copy this is.
- *
- * Selecting a patch code and pressing Cmd+C has to copy the text, not the node behind it. Anything
- * typeable gets the keystroke, and the canvas only takes what is left.
- */
-function editing(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false
-  if (target.isContentEditable) return true
-  return ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)
-}
-
-/** Cmd on a Mac, Ctrl everywhere else. */
-function withModifier(event: KeyboardEvent): boolean {
-  return event.metaKey || event.ctrlKey
-}
+import { editing, withModifier } from './keys'
 
 export function useCopyPaste(): void {
   const copySelection = usePatchStore((s) => s.copySelection)

@@ -1137,3 +1137,19 @@ input[type='range'] {
   justify-content: center;
   padding-top: 4px;
 }
+
+/*
+ * An icon button with nothing to do.
+ *
+ * Dimmer than the grey of rest, and no hover: a control that cannot act should not answer a pointer
+ * as though it could. This is the only place the history's emptiness is visible, since the keystroke
+ * simply does nothing.
+ */
+.btn-icon:disabled {
+  color: var(--border-strong);
+  cursor: default;
+}
+
+.btn-icon:disabled:hover {
+  color: var(--border-strong);
+}

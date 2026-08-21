@@ -104,7 +104,9 @@ const reverb: EffectDescriptor = {
   // A ConvolverNode is the dearest thing Web Audio offers, and it scales with the tail: two and a
   // half seconds costs as much as fifteen oscillators, ten seconds costs most of the budget. That
   // is the honest number rather than a discouragement.
-  cost: (params) => 6 * Math.min(MAX_DECAY, Math.max(MIN_DECAY, params.decay ?? 2.5)),
+  // Measured at 31.4 for a 2.5 s tail, against a reasoned 15. Convolution is the dearest thing
+  // here by a wide margin, and it scales with the tail, so the coefficient carries the shape.
+  cost: (params) => 12.5 * Math.min(MAX_DECAY, Math.max(MIN_DECAY, params.decay ?? 2.5)),
   label: 'Reverb',
   params: ['decay', 'cutoff'],
   defaults: { decay: 2.5, cutoff: 4000 },
@@ -147,7 +149,10 @@ const reverb: EffectDescriptor = {
 const distortion: EffectDescriptor = {
   kind: 'distortion',
   // Four-times oversampling really is about four times the work, plus two biquads.
-  cost: () => 3.5,
+  // Four-times oversampling means the shaper and two resampling filters, measured at 15 against
+  // a reasoned 3.5. The one place the old arithmetic-based guess was directionally right and
+  // still four times too low.
+  cost: () => 15,
   label: 'Distortion',
   params: ['shape', 'drive', 'cutoff'],
   defaults: { drive: 0.4, cutoff: 4000 },
@@ -196,7 +201,8 @@ const distortion: EffectDescriptor = {
 const crush: EffectDescriptor = {
   kind: 'crush',
   // One table lookup per sample, deliberately not oversampled, plus the tone filter.
-  cost: () => 0.7,
+  // Not oversampled, so a plain table lookup plus the tone filter. Measured 2.4.
+  cost: () => 2.4,
   label: 'Bitcrusher',
   params: ['bits', 'cutoff'],
   defaults: { bits: 6, cutoff: 6000 },
@@ -236,7 +242,8 @@ const MAX_ECHO_SECONDS = 4
 const echo: EffectDescriptor = {
   kind: 'echo',
   // Two delay lines, two panners, and a filter in the feedback path.
-  cost: () => 2.5,
+  // Two delay lines, a feedback gain, two panners and the tone filter. Measured 5.7.
+  cost: () => 5.7,
   label: 'Echo',
   params: ['time', 'feedback', 'width', 'cutoff'],
   labels: { width: 'Spread' },
@@ -313,7 +320,8 @@ const echo: EffectDescriptor = {
 const filter: EffectDescriptor = {
   kind: 'filter',
   // A single biquad.
-  cost: () => 0.5,
+  // One biquad and the wet/dry pair, which is the cheapest an effect gets here. Measured 2.
+  cost: () => 2,
   label: 'Filter',
   params: ['filterType', 'cutoff', 'resonance'],
   // Here the cutoff is the point rather than a shaping stage.
@@ -361,7 +369,8 @@ const MAX_CHORUS_FEEDBACK = 0.7
 const chorus: EffectDescriptor = {
   kind: 'chorus',
   // A delay line, an oscillator and a filter.
-  cost: () => 2.5,
+  // Modulated delay lines: the modulation is what costs, not the delay. Measured 5.
+  cost: () => 5,
   label: 'Chorus',
   params: ['sweep', 'rate', 'depth', 'feedback', 'cutoff'],
   defaults: { sweep: 22, rate: 1.2, depth: 0.4, feedback: 0 },
@@ -435,7 +444,11 @@ const MAX_PHASER_FEEDBACK = 0.6
 const phaser: EffectDescriptor = {
   kind: 'phaser',
   // Four all-pass biquads, an oscillator, and feedback around them.
-  cost: () => 3.5,
+  // Four all-pass stages with an LFO on every one of them. Measured 13.5 against a reasoned 3.5,
+  // and the gap is the lesson: an automated `AudioParam` makes a biquad recompute its
+  // coefficients per sample rather than per block, so four swept filters cost far more than
+  // four filters.
+  cost: () => 13.5,
   label: 'Phaser',
   params: ['rate', 'depth', 'feedback', 'cutoff'],
   labels: { cutoff: 'Centre' },
@@ -510,7 +523,8 @@ const phaser: EffectDescriptor = {
 const tremolo: EffectDescriptor = {
   kind: 'tremolo',
   // An oscillator into a gain, and nothing else.
-  cost: () => 1.5,
+  // An LFO into a gain, and the gain is barely anything. Measured 2.5.
+  cost: () => 2.5,
   label: 'Tremolo',
   params: ['rate', 'depth'],
   // Full depth and a speed you can hear as a pulse. A tremolo at a chorus's settings is a wobble
@@ -560,7 +574,9 @@ const tremolo: EffectDescriptor = {
 const ring: EffectDescriptor = {
   kind: 'ring',
   // An oscillator running at audio rate, which is a voice in all but name.
-  cost: () => 2,
+  // An audio-rate oscillator into a gain. Measured 2.5 — the same as a tremolo, which is what it
+  // is, only faster.
+  cost: () => 2.5,
   label: 'Ring mod',
   params: ['cutoff'],
   // The carrier frequency, which the cutoff field already covers with the right range and a log
@@ -611,7 +627,8 @@ const MAX_WIDTH_SECONDS = 0.02
 const pan: EffectDescriptor = {
   kind: 'pan',
   // Two delay lines, a merger and a panner: memory traffic rather than arithmetic.
-  cost: () => 1.5,
+  // A panner, a delay for the width and the merge. Measured 4.15.
+  cost: () => 4,
   label: 'Pan',
   params: ['pan', 'width'],
   defaults: { pan: 0, width: 0.4 },

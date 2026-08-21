@@ -227,5 +227,12 @@ export function amountFor(target: ModTarget, depth: number): number {
   return Math.max(0, Math.min(1, depth)) * (target.max - target.min) * 0.5
 }
 
-/** An LFO is an oscillator and a gain. Cheap, and paid for the whole time it exists (§2.2b). */
-export const MOD_COST = 1.1
+/**
+ * An LFO is an oscillator and a gain. Cheap, and paid for the whole time it exists (§2.2b).
+ *
+ * Measured at 0.9 — a shade under one voice, which is what it is made of. What this does *not* count
+ * is the cost a modulator adds to its destination: an automated `AudioParam` makes a node recompute
+ * its coefficients per sample rather than per block, so modulating a filter's cutoff is dearer than
+ * the modulator itself. See the note in audio/load.ts.
+ */
+export const MOD_COST = 0.9

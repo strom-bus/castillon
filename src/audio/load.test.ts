@@ -20,27 +20,32 @@ describe('the unit', () => {
     expect(voiceCost('sine', false)).toBe(1)
   })
 
-  it('charges a wavetable more than a native oscillator', () => {
+  it('charges a wavetable the same as a native oscillator', () => {
+    // These were priced higher on the reasoning that a band-limited table read must cost more. It
+    // does not: a native oscillator is a table read too, and the wave is built once and cached.
     for (const wave of ['pulse', 'ramp'] as const) {
-      expect(voiceCost(wave, false)).toBeGreaterThan(voiceCost('square', false))
+      expect(voiceCost(wave, false)).toBe(voiceCost('square', false))
     }
   })
 
-  it('charges noise slightly less, since a buffer read is cheaper than band-limiting', () => {
-    expect(voiceCost('pink', false)).toBeLessThan(voiceCost('square', false))
+  it('charges noise more than an oscillator, not less', () => {
+    // The guess that a buffer read must be cheaper than band-limiting was backwards. It is a looping
+    // resample with interpolation, against an oscillator that has had years of optimisation.
+    expect(voiceCost('pink', false)).toBeGreaterThan(voiceCost('square', false) * 2)
   })
 
-  it('adds the per-voice filter', () => {
+  it('adds the per-voice filter, at most of an oscillator', () => {
     expect(voiceCost('square', true)).toBeGreaterThan(voiceCost('square', false))
-    // But not by much: a biquad is a handful of multiply-adds.
-    expect(voiceCost('square', true)).toBeLessThan(voiceCost('square', false) * 1.5)
+    // Measured at 0.8, against a reasoned 0.3. The arithmetic in a biquad is trivial; being a second
+    // node in the graph is not, and that is what dominates.
+    expect(voiceCost('square', true)).toBeCloseTo(1.8, 5)
   })
 
   it('reads the cost straight off an oscillator’s parameters', () => {
     expect(oscVoiceCost({ ...defaultOscParams(), waveform: 'square', filterType: 'off' })).toBe(1)
     expect(
       oscVoiceCost({ ...defaultOscParams(), waveform: 'pulse', filterType: 'lowpass' }),
-    ).toBeGreaterThan(1.4)
+    ).toBeCloseTo(1.8, 5)
   })
 })
 

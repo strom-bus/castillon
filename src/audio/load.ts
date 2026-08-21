@@ -14,27 +14,40 @@ import { isNoise } from './waveforms'
  *
  * A hundred is the ceiling, so the meter reads directly as a percentage.
  *
- * **These numbers are reasoned, not measured.** Web Audio exposes no cost metric, so they come from
- * what each node actually does per sample — a four-times-oversampled waveshaper really is about four
- * times the work — and they are all in this one file so they can be retuned in one place.
+ * **These numbers are measured, not reasoned** — by `tools/measureLoad.ts`, which times an offline
+ * render with and without one unit of work and reports the difference in this same unit. It needs a
+ * browser and so cannot be a test; run it with `npm run measure`.
  *
- * `tools/measureLoad.ts` measures them, which needs a browser and so cannot be a test: it times an
- * offline render with and without one unit of work and reports the difference in this same unit. Run
- * it with `npm run measure`. What it cannot settle is `MAX_LOAD` or `LAYER_THRESHOLD` below — those
- * are about when a machine starts to struggle, which only listening answers.
+ * They replaced a set of reasoned numbers, and three of the guesses were wrong in an instructive way.
+ * The reasoning priced each node by the arithmetic it performs per sample. What the measurements say
+ * is that **the arithmetic barely matters and the node does**: a biquad, which is a handful of
+ * multiply-adds, costs most of an oscillator. Per-node overhead dominates, so cost tracks node count
+ * and not the work inside them — except where a parameter is automated, which pushes a node from
+ * recomputing its coefficients per block to per sample, and that is where the dearest effects are.
+ *
+ * One machine, one browser, one offline render. The *ratios* are what transfer between machines, and
+ * ratios are all these are. What no measurement settles is `MAX_LOAD` or `LAYER_THRESHOLD`: those are
+ * about when a machine starts to struggle, and only listening answers that.
  */
 export const MAX_LOAD = 100
 
 /** Past this share of the budget, oscillators restart instead of layering. */
 export const LAYER_THRESHOLD = 0.75
 
-/** A biquad is a handful of multiply-adds: cheap next to an oscillator's band-limiting. */
-const FILTER_COST = 0.3
+/**
+ * A per-voice biquad, measured at most of an oscillator — against a reasoned 0.3.
+ *
+ * The arithmetic in a biquad really is trivial, which is what the old guess was about. What it costs
+ * is being a second node in the graph at all.
+ */
+const FILTER_COST = 0.8
 
 export function voiceCost(waveform: Waveform, filtered: boolean): number {
-  // A PeriodicWave is a band-limited table read, dearer than a native type; a noise buffer is a
-  // resampled read, slightly cheaper.
-  const source = isNoise(waveform) ? 0.9 : waveform === 'pulse' || waveform === 'ramp' ? 1.2 : 1
+  // Both halves of this were guessed wrong. A `PeriodicWave` is not dearer than a native type —
+  // measured identical, since a native oscillator is a wavetable read too, and the wave is built once
+  // and cached. And a noise buffer is not cheaper but more than twice the price: it is a looping
+  // resample with interpolation, against an oscillator Chrome has spent years making fast.
+  const source = isNoise(waveform) ? 2.2 : 1
   return source + (filtered ? FILTER_COST : 0)
 }
 

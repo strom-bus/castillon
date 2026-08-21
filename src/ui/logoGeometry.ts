@@ -18,7 +18,15 @@ export const NODES = [
 /** Half a node's width, whether it is drawn as a circle or a square. */
 export const NODE_RADIUS = 15
 
-/** The two cables, leaving the top node and curving down to the others. */
-export const CABLES = ['M 42 27 C 33 41 27 56 24 65', 'M 58 27 C 67 41 73 56 76 65'] as const
+/**
+ * The two cables, leaving the top node and curving down to the others.
+ *
+ * Both ends finish *inside* a node rather than at its edge, so that the flat end of the stroke is
+ * covered by the square drawn over it. Ending them at the edge left a tab of cable poking above each
+ * leaf — half a stroke width of it, since the end is cut square across the curve. Invisible in a
+ * sixteen-pixel favicon and plainly a mistake at the size of a link preview, which is where it was
+ * found.
+ */
+export const CABLES = ['M 42 27 C 33 41 27 56 23 73', 'M 58 27 C 67 41 73 56 77 73'] as const
 
 export const CABLE_WIDTH = 11

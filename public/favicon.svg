@@ -14,8 +14,8 @@
        cannot be named in one. Writing the token with its dashes here made this file unparseable,
        which a browser answers by silently keeping whichever icon it already had. -->
   <g fill="none" stroke="#ff531f" stroke-width="11" stroke-linecap="butt">
-    <path d="M 42 27 C 33 41 27 56 24 65"/>
-    <path d="M 58 27 C 67 41 73 56 76 65"/>
+    <path d="M 42 27 C 33 41 27 56 23 73"/>
+    <path d="M 58 27 C 67 41 73 56 77 73"/>
   </g>
   <g fill="#ff531f">
     <rect x="35" y="2" width="30" height="30"/>

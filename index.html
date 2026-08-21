@@ -10,8 +10,37 @@
     <!-- Versioned by hand: files in `public/` are copied verbatim so their URLs stay stable, which
          also means a browser holds on to an old favicon indefinitely. Bump this whenever the mark
          changes, or people who have already visited keep seeing the previous one. -->
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=3" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=4" />
     <title>Castill_ÓN · COLMENA</title>
+
+    <!-- The link preview. Without these a shared patch arrives as a bare URL, which undercuts the one
+         feature the whole patch codec was built for.
+
+         `og:image` has to be absolute — a relative path is not resolved by most crawlers — so it names
+         the canonical domain rather than following the site's relative `base`. The image is versioned
+         by hand for the same reason the favicon is: files in `public/` keep their URLs, and the
+         crawlers cache what they fetched.
+
+         No per-patch preview, and not for want of trying: the patch code travels in the URL's *hash*,
+         and a hash is never sent to the server, so nothing on the far end can know which patch is
+         being shared. Doing that means moving the code into the path and generating an image per
+         patch, which is a different project. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Castill_ÓN" />
+    <meta property="og:title" content="Castill_ÓN · COLMENA" />
+    <meta
+      property="og:description"
+      content="A modular synthesiser in the browser where execution is a cascade: a trigger fires, and the patch lights up downward while you hear it."
+    />
+    <meta property="og:url" content="https://castillon.app/" />
+    <meta property="og:image" content="https://castillon.app/og.png?v=1" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="One node branching into two, in the colours of the cascade."
+    />
+    <meta name="twitter:card" content="summary_large_image" />
   </head>
   <body>
     <div id="root"></div>

@@ -3,9 +3,9 @@
  * Web Audio: brown falls off faster than pink, and pink faster than white.
  */
 
-export type NoiseColor = 'white' | 'pink' | 'brown' | 'blue'
+import type { Random } from './random'
 
-type Random = () => number
+export type NoiseColor = 'white' | 'pink' | 'brown' | 'blue'
 
 /** Flat spectrum: every sample independent. */
 export function fillWhite(data: Float32Array, random: Random = Math.random): void {

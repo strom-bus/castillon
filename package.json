@@ -11,7 +11,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "format": "prettier --write .",
-    "typecheck": "tsc -b --noEmit"
+    "typecheck": "tsc -b --noEmit",
+    "measure": "vite --open /measure.html"
   },
   "dependencies": {
     "@xyflow/react": "^12.11.3",
@@ -35,9 +36,9 @@
     "vitest": "^4.1.11",
     "wrangler": "^4.124.0"
   },
-  "description": "Sintetizador modular por nodos con ejecución en cascada",
+  "description": "Sintetizador modular por nodos con ejecuci\u00f3n en cascada",
   "license": "AGPL-3.0-only",
-  "author": "Wilhelm Schütze",
+  "author": "Wilhelm Sch\u00fctze",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/strom-bus/castillon.git"

@@ -16,7 +16,12 @@ import { isNoise } from './waveforms'
  *
  * **These numbers are reasoned, not measured.** Web Audio exposes no cost metric, so they come from
  * what each node actually does per sample — a four-times-oversampled waveshaper really is about four
- * times the work — and they are all in this one file so a listening session can retune them.
+ * times the work — and they are all in this one file so they can be retuned in one place.
+ *
+ * `tools/measureLoad.ts` measures them, which needs a browser and so cannot be a test: it times an
+ * offline render with and without one unit of work and reports the difference in this same unit. Run
+ * it with `npm run measure`. What it cannot settle is `MAX_LOAD` or `LAYER_THRESHOLD` below — those
+ * are about when a machine starts to struggle, which only listening answers.
  */
 export const MAX_LOAD = 100
 

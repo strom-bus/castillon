@@ -31,8 +31,16 @@ export function ExportAudio() {
     setError(null)
     try {
       const patch = toPatch()
-      const { buffer, plan } = await renderPatch(patch, passes, usePatchStore.getState().masterGain)
-      const name = `castillon-${shortCodeFor(encodePatch(patch))}-${plan.passes}x.wav`
+      // The same string names the file and seeds the render, which is the point: a WAV found later
+      // leads back to its patch, and re-rendering that patch reproduces the file.
+      const code = encodePatch(patch)
+      const { buffer, plan } = await renderPatch(
+        patch,
+        passes,
+        usePatchStore.getState().masterGain,
+        code,
+      )
+      const name = `castillon-${shortCodeFor(code)}-${plan.passes}x.wav`
       save(encodeWav(channelsOf(buffer), buffer.sampleRate), name)
     } catch (thrown) {
       setError(thrown instanceof Error ? thrown.message : 'The render failed.')

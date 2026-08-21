@@ -16,6 +16,7 @@ import type { FxParams, NodeId, Patch } from '../types/patch'
 import { ActivityBus, type ActivityEvent } from '../viz/activity'
 import { effectOr } from './effects'
 import { applyOps, AudioEngine, type Engine, type NoteRequest } from './engine'
+import { seeded, seedFrom } from './random'
 import { diff, EMPTY_GRAPH, graphOf } from './router'
 import { CascadeScheduler } from './scheduler'
 
@@ -181,6 +182,7 @@ export async function renderPatch(
   patch: Patch,
   passes: number,
   masterGain: number,
+  identity: string,
 ): Promise<{ buffer: AudioBuffer; plan: RenderPlan }> {
   const plan = planRender(patch, passes)
   if (plan.passes === 0) throw new Error('Nothing to render: wire an oscillator under an Ignite.')
@@ -191,7 +193,10 @@ export async function renderPatch(
     RENDER_SAMPLE_RATE,
   )
 
-  const engine = new AudioEngine()
+  // Seeded from whatever identifies the patch — its code, at the only call site — so that rendering
+  // the same patch twice gives the same file rather than two takes differing in the grain of their
+  // noise. Required rather than optional: a caller that forgot it would silently lose the property.
+  const engine = new AudioEngine(seeded(seedFrom(identity)))
   // Before `adopt`, so the master gain is built with the right value rather than ramped to it.
   engine.setMasterGain(masterGain)
   engine.adopt(ctx)

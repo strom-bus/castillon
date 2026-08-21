@@ -8,6 +8,7 @@ import {
 } from '../types/patch'
 import { stepDuration } from './clock'
 import { crushCurve, distortionCurve, impulseResponse, MAX_BITS } from './dsp'
+import type { Random } from './random'
 import { MAX_CUTOFF, MIN_CUTOFF } from './filter'
 
 /** What an effect needs to know beyond its own parameters. */
@@ -74,7 +75,12 @@ export interface EffectDescriptor {
    * because what an effect is made of is the effect's own business. See audio/load.ts for the unit.
    */
   cost(params: FxParams): number
-  create(ctx: BaseAudioContext): EffectChain
+  /**
+   * Builds the chain. `random` is threaded through for the one effect that generates a buffer — a
+   * reverb's impulse response is noise — so that a render can be reproducible; the other nine ignore
+   * it, and it defaults to `Math.random` for live playback.
+   */
+  create(ctx: BaseAudioContext, random?: Random): EffectChain
 }
 
 const RAMP = 0.02
@@ -104,7 +110,7 @@ const reverb: EffectDescriptor = {
   defaults: { decay: 2.5, cutoff: 4000 },
   // Long enough that removing the node lets the tail out rather than cutting it off.
   releaseTime: 0.4,
-  create(ctx) {
+  create(ctx, random = Math.random) {
     const convolver = ctx.createConvolver()
     const damping = tone(ctx)
     convolver.connect(damping)
@@ -122,7 +128,7 @@ const reverb: EffectDescriptor = {
         if (decay === built) return
         built = decay
 
-        const channels = impulseResponse(decay, ctx.sampleRate)
+        const channels = impulseResponse(decay, ctx.sampleRate, random)
         const buffer = ctx.createBuffer(channels.length, channels[0].length, ctx.sampleRate)
         channels.forEach((channel, i) => buffer.getChannelData(i).set(channel))
         convolver.buffer = buffer

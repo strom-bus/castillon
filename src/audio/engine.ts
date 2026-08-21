@@ -12,6 +12,7 @@ import { effectOr, type EffectChain } from './effects'
 import { MAX_CUTOFF, MAX_RESONANCE, MIN_CUTOFF, MIN_RESONANCE } from './filter'
 import { effectCost, MAX_LOAD, voiceCost } from './load'
 import { fillNoise, type NoiseColor } from './noise'
+import type { Random } from './random'
 import { isNoise, pulseHarmonics, rampHarmonics } from './waveforms'
 import type { RouterOp } from './router'
 
@@ -227,6 +228,21 @@ function disconnectFrom(from: AudioNode, to: ModDestination): void {
 
 export class AudioEngine implements Engine {
   /**
+   * Where this engine's random numbers come from: the noise buffers and any reverb's impulse
+   * response. `Math.random` live; a seeded generator for a render, which is what makes the same patch
+   * come out as the same file.
+   *
+   * One stream shared by all of them, so the sequence depends on the order things are built in. That
+   * order is decided by the router ops and the scheduler, both of which are deterministic for a given
+   * patch — which is the property that matters.
+   */
+  private readonly random: Random
+
+  constructor(random: Random = Math.random) {
+    this.random = random
+  }
+
+  /**
    * `BaseAudioContext`, not `AudioContext`, so the same engine can drive an `OfflineAudioContext`
    * for the export. Every node the engine builds exists on the base; only resuming a suspended
    * context does not, which is why `realtime` is tracked separately.
@@ -405,7 +421,7 @@ export class AudioEngine implements Engine {
   createEffect(nodeId: NodeId, params: FxParams, bpm: number): void {
     if (!this.ctx || !this.master || this.effects.has(nodeId)) return
     const descriptor = effectOr(params.effect)
-    const chain = descriptor.create(this.ctx)
+    const chain = descriptor.create(this.ctx, this.random)
 
     const input = this.ctx.createGain()
     const dry = this.ctx.createGain()
@@ -854,7 +870,7 @@ export class AudioEngine implements Engine {
     if (cached) return cached
     const ctx = this.ctx as BaseAudioContext
     const buffer = ctx.createBuffer(1, Math.floor(ctx.sampleRate * NOISE_SECONDS), ctx.sampleRate)
-    fillNoise(color, buffer.getChannelData(0))
+    fillNoise(color, buffer.getChannelData(0), this.random)
     this.noiseBuffers.set(color, buffer)
     return buffer
   }

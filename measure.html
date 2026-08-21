@@ -1,0 +1,93 @@
+<!doctype html>
+<!--
+  A development page, not part of the app.
+
+  Vite's build takes index.html as its only entry, so this is served by `npm run dev` and never
+  reaches dist/. It exists because the budget's constants in src/audio/load.ts can only be measured
+  in a browser: Web Audio exposes no cost metric, so the measurement is timing an offline render.
+
+  Open it with `npm run measure`.
+-->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>Castill_ÓN — load measurement</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #101010;
+        --text: #f2f2f2;
+        --muted: #8a8a8a;
+        --brand: #ff7a1a;
+      }
+      body {
+        margin: 0;
+        padding: 32px;
+        background: var(--bg);
+        color: var(--text);
+        font:
+          14px/1.6 ui-monospace,
+          SFMono-Regular,
+          Menlo,
+          monospace;
+      }
+      h1 {
+        font-size: 15px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        margin: 0 0 4px;
+      }
+      p {
+        color: var(--muted);
+        max-width: 70ch;
+      }
+      button {
+        font: inherit;
+        color: var(--bg);
+        background: var(--brand);
+        border: 0;
+        padding: 8px 18px;
+        cursor: pointer;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+      button:disabled {
+        opacity: 0.4;
+        cursor: default;
+      }
+      #status {
+        color: var(--brand);
+        min-height: 1.6em;
+        margin: 16px 0 0;
+      }
+      pre {
+        white-space: pre-wrap;
+        margin: 16px 0 0;
+      }
+      /* Where the measurement disagrees with what load.ts says today. */
+      .off {
+        color: var(--brand);
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Load measurement</h1>
+    <p>
+      Times an offline render with and without one unit of work. The difference is what that unit
+      costs, divided by what a plain sine voice costs — which is already the unit
+      <code>audio/load.ts</code> counts in, so a measured number can be dropped straight in.
+    </p>
+    <p>
+      This measures <strong>ratios</strong>, which transfer. It does not measure whether a hundred
+      points is the right ceiling: that is about when a machine starts to struggle, and only
+      listening answers it.
+    </p>
+    <p>Takes a couple of minutes. Leave the tab in front — a background tab is throttled.</p>
+    <button id="run">Measure</button>
+    <p id="status"></p>
+    <pre id="out"></pre>
+    <script type="module" src="/src/tools/measurePage.ts"></script>
+  </body>
+</html>

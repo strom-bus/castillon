@@ -41,11 +41,14 @@ export interface FakeAudio {
   wires(): number
   /** Every parameter created under a name — a chain may have several of the same kind. */
   params(name: string): FakeParam[]
+  /** Every node created of a kind, in the order they were built. */
+  nodes(kind: string): Array<Record<string, unknown>>
 }
 
 export function fakeAudio(): FakeAudio {
   const journal: Write[] = []
   const params = new Map<string, FakeParam[]>()
+  const built = new Map<string, Array<Record<string, unknown>>>()
   const ended: Array<() => void> = []
   let now = 0
 
@@ -101,7 +104,7 @@ export function fakeAudio(): FakeAudio {
       ...fields,
     }
 
-    return new Proxy(target, {
+    const proxy = new Proxy(target, {
       set(store, key, value) {
         store[key as string] = value
         if (typeof value === 'number' || typeof value === 'string') {
@@ -113,6 +116,11 @@ export function fakeAudio(): FakeAudio {
         return true
       },
     })
+
+    const kept = built.get(kind)
+    if (kept) kept.push(proxy)
+    else built.set(kind, [proxy])
+    return proxy
   }
 
   function source(kind: string, fields: Record<string, unknown> = {}) {
@@ -163,12 +171,17 @@ export function fakeAudio(): FakeAudio {
         playbackRate: param('playbackRate', 1),
       }),
     createPeriodicWave: () => ({}),
-    createBuffer: (channels: number, length: number) => ({
-      numberOfChannels: channels,
-      length,
-      sampleRate: 48000,
-      getChannelData: () => new Float32Array(length),
-    }),
+    createBuffer: (channels: number, length: number) => {
+      // One array per channel, kept: a noise fill writes into it, and whether it wrote the same
+      // samples twice is the whole question a seeded render asks.
+      const data = Array.from({ length: channels }, () => new Float32Array(length))
+      return {
+        numberOfChannels: channels,
+        length,
+        sampleRate: 48000,
+        getChannelData: (channel: number) => data[channel],
+      }
+    },
   } as unknown as BaseAudioContext
 
   return {
@@ -193,6 +206,9 @@ export function fakeAudio(): FakeAudio {
     },
     params(name) {
       return params.get(name) ?? []
+    },
+    nodes(kind) {
+      return built.get(kind) ?? []
     },
   }
 }

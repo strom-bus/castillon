@@ -57,6 +57,17 @@
         opacity: 0.4;
         cursor: default;
       }
+      .reading {
+        color: var(--text);
+        font-size: 34px;
+        letter-spacing: 0.04em;
+        margin: 14px 0;
+      }
+      #manual {
+        margin-top: 18px;
+        padding-top: 18px;
+        border-top: 1px solid #2a2a2a;
+      }
       #status {
         color: var(--brand);
         min-height: 1.6em;
@@ -100,6 +111,21 @@
     </p>
     <button id="run">Measure costs</button>
     <button id="ceiling">Measure the ceiling</button>
+
+    <div id="manual" hidden>
+      <p>
+        <strong>Open DevTools → WebAudio</strong> (Cmd+Shift+P, then "Show WebAudio"). Render
+        capacity is the percentage in that panel's status bar, at the bottom. No flag needed.
+      </p>
+      <p>
+        Turn the load up until that percentage reaches 100, and note the point count here when it
+        does. A hundred is where the renderer has run out of budget and glitches begin.
+      </p>
+      <p class="reading"><span id="points">0</span> points</p>
+      <button id="add25">+ 25</button>
+      <button id="add100">+ 100</button>
+      <button id="stopLoad">Stop</button>
+    </div>
     <p id="status"></p>
     <pre id="out"></pre>
     <script type="module" src="/src/tools/measurePage.ts"></script>

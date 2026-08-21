@@ -6,7 +6,7 @@
  */
 
 import { formatReport, measureLoad, type Measured } from './measureLoad'
-import { formatCeiling, measureCeiling } from './measureCeiling'
+import { formatCeiling, measureCeiling, startLoad, type LoadRamp } from './measureCeiling'
 import { MAX_LOAD } from '../audio/load'
 
 const run = document.getElementById('run') as HTMLButtonElement
@@ -33,6 +33,40 @@ function line(m: Measured): string {
  */
 const ceiling = document.getElementById('ceiling') as HTMLButtonElement
 
+/**
+ * The manual ramp, for browsers without `renderCapacity`.
+ *
+ * The load is built the same way either path; what differs is who reads it. Chrome's WebAudio panel
+ * shows render capacity with no flag, so the eye does perfectly well — and stepping by hand beats a
+ * timer, because a person reading a panel should not be racing one.
+ */
+const manual = document.getElementById('manual') as HTMLDivElement
+const pointsOut = document.getElementById('points') as HTMLSpanElement
+let ramp: LoadRamp | null = null
+
+async function ensureRamp(): Promise<LoadRamp> {
+  if (!ramp) ramp = (await startLoad()).ramp
+  return ramp
+}
+
+for (const [id, step] of [
+  ['add25', 25],
+  ['add100', 100],
+] as const) {
+  document.getElementById(id)?.addEventListener('click', async () => {
+    const live = await ensureRamp()
+    live.add(step)
+    pointsOut.textContent = String(live.points())
+  })
+}
+
+document.getElementById('stopLoad')?.addEventListener('click', async () => {
+  await ramp?.stop()
+  ramp = null
+  pointsOut.textContent = '0'
+  status.textContent = 'stopped'
+})
+
 ceiling.addEventListener('click', async () => {
   ceiling.disabled = true
   run.disabled = true
@@ -41,8 +75,10 @@ ceiling.addEventListener('click', async () => {
     const measured = await measureCeiling((label) => {
       status.textContent = `holding ${label}…`
     })
-    status.textContent = 'done'
+    status.textContent = measured.supported ? 'done' : 'read it from DevTools instead'
     out.textContent = formatCeiling(measured, MAX_LOAD)
+    // Only where the number has to come from a person: automatic runs need no controls.
+    manual.hidden = measured.supported
     await navigator.clipboard.writeText(out.textContent).catch(() => {})
   } catch (error) {
     status.textContent = `failed: ${error instanceof Error ? error.message : String(error)}`

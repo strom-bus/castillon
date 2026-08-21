@@ -54,6 +54,73 @@ export interface Ceiling {
 const wait = (seconds: number) => new Promise((done) => setTimeout(done, seconds * 1000))
 
 /**
+ * A load that can be turned up, held, and taken down.
+ *
+ * Separated from the measuring so the same load can be read two ways: by the API where it exists, and
+ * by a person watching DevTools where it does not. Chrome's WebAudio panel shows render capacity in its
+ * status bar with no flag needed, which makes the eye a perfectly good instrument — it is only the
+ * *reading* that has to move, not the measurement.
+ */
+export interface LoadRamp {
+  points(): number
+  add(points: number): void
+  stop(): Promise<void>
+}
+
+/**
+ * Builds load out of plain oscillators, which is the unit `load.ts` counts in — one point is one plain
+ * oscillator voice, so N oscillators are N points by definition.
+ *
+ * Not through the engine, and not as a shortcut: the engine steals a voice whenever the next would
+ * cross `MAX_LOAD`, so it cannot be asked to exceed the very number being measured.
+ */
+export async function startLoad(): Promise<{ ramp: LoadRamp; ctx: AudioContext }> {
+  const ctx = new AudioContext()
+  await ctx.resume()
+
+  // Quiet enough not to hurt, loud enough that nothing about it is optimisable: silence is something a
+  // browser may skip, and a skipped measurement measures nothing.
+  const master = ctx.createGain()
+  master.gain.value = 0.006
+  master.connect(ctx.destination)
+
+  const voices: OscillatorNode[] = []
+
+  function addOne(index: number) {
+    const osc = ctx.createOscillator()
+    osc.type = 'sine'
+    // Spread across the register, so nothing is measured at one frequency by accident.
+    osc.frequency.value = 80 * Math.pow(2, (index % 36) / 12)
+    const gain = ctx.createGain()
+    gain.gain.value = 1 / Math.sqrt(index + 1)
+    osc.connect(gain).connect(master)
+    osc.start()
+    voices.push(osc)
+  }
+
+  return {
+    ctx,
+    ramp: {
+      points: () => voices.length,
+      add(points) {
+        for (let i = 0; i < points; i++) addOne(voices.length)
+      },
+      async stop() {
+        for (const osc of voices) {
+          try {
+            osc.stop()
+          } catch {
+            // Already stopped.
+          }
+        }
+        voices.length = 0
+        await ctx.close()
+      },
+    },
+  }
+}
+
+/**
  * Ramps the load up until the audio thread struggles, or until the ramp runs out.
  *
  * Needs a user gesture: it builds a realtime context. It also makes a sound — quiet, and a chord of
@@ -68,6 +135,7 @@ export async function measureCeiling(onStep: (label: string) => void): Promise<C
 
   const capacity = ctx.renderCapacity
   if (!capacity) {
+    // Not a dead end any more: the ramp still runs and the panel still reads. Only the reading moves.
     const onInstance = 'renderCapacity' in ctx
     const onPrototype = 'renderCapacity' in AudioContext.prototype
     await ctx.close()

@@ -64,9 +64,26 @@
         margin: 14px 0;
       }
       #manual {
-        margin-top: 18px;
+        margin-top: 26px;
         padding-top: 18px;
         border-top: 1px solid #2a2a2a;
+      }
+      #manual h2 {
+        margin: 0 0 10px;
+        font-size: 12px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+      }
+      #manual ol {
+        max-width: 70ch;
+        padding-left: 22px;
+        color: var(--muted);
+      }
+      #manual li {
+        margin-bottom: 5px;
+      }
+      code {
+        color: var(--text);
       }
       #status {
         color: var(--brand);
@@ -112,15 +129,31 @@
     <button id="run">Measure costs</button>
     <button id="ceiling">Measure the ceiling</button>
 
-    <div id="manual" hidden>
+    <div id="manual">
+      <h2>The ceiling, read from DevTools</h2>
       <p>
-        <strong>Open DevTools → WebAudio</strong> (Cmd+Shift+P, then "Show WebAudio"). Render
-        capacity is the percentage in that panel's status bar, at the bottom. No flag needed.
+        Chrome shows render capacity in its WebAudio panel with no flag needed.
+        <strong>Open the panel before starting the load</strong> — it only lists contexts created
+        while it is watching, so an empty panel usually means it was opened second.
       </p>
-      <p>
-        Turn the load up until that percentage reaches 100, and note the point count here when it
-        does. A hundred is where the renderer has run out of budget and glitches begin.
-      </p>
+      <ol>
+        <li>
+          <code>Cmd + Option + I</code> opens DevTools. <em>Not</em> Cmd+Shift+P — that is the
+          command menu <em>inside</em> DevTools and does nothing until DevTools has focus.
+        </li>
+        <li>
+          In DevTools, the <strong>⋮</strong> at its top right → <strong>More tools</strong> →
+          <strong>WebAudio</strong>.
+        </li>
+        <li>
+          Turn the load up below. The context appears in the panel, and render capacity is the
+          percentage in its status bar at the bottom.
+        </li>
+        <li>
+          Note the point count when that percentage reaches 100 — where the renderer has run out of
+          budget and glitches begin.
+        </li>
+      </ol>
       <p class="reading"><span id="points">0</span> points</p>
       <button id="add25">+ 25</button>
       <button id="add100">+ 100</button>

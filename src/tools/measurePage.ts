@@ -40,7 +40,6 @@ const ceiling = document.getElementById('ceiling') as HTMLButtonElement
  * shows render capacity with no flag, so the eye does perfectly well — and stepping by hand beats a
  * timer, because a person reading a panel should not be racing one.
  */
-const manual = document.getElementById('manual') as HTMLDivElement
 const pointsOut = document.getElementById('points') as HTMLSpanElement
 let ramp: LoadRamp | null = null
 
@@ -77,8 +76,6 @@ ceiling.addEventListener('click', async () => {
     })
     status.textContent = measured.supported ? 'done' : 'read it from DevTools instead'
     out.textContent = formatCeiling(measured, MAX_LOAD)
-    // Only where the number has to come from a person: automatic runs need no controls.
-    manual.hidden = measured.supported
     await navigator.clipboard.writeText(out.textContent).catch(() => {})
   } catch (error) {
     status.textContent = `failed: ${error instanceof Error ? error.message : String(error)}`

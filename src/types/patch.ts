@@ -86,6 +86,7 @@ export type EffectKind =
   | 'tremolo'
   | 'ring'
   | 'pan'
+  | 'octave'
 
 /**
  * One flat parameter set for every effect, with the inspector showing only the fields the current
@@ -230,6 +231,17 @@ export interface ModParams {
    * piece rather than a wobble laid over it (PLAN §18.7).
    */
   kind?: 'lfo' | 'env'
+  /**
+   * What starts an envelope: a trigger arriving in the cascade, or every note.
+   *
+   * `trigger` is one sweep per activation of the branch the MOD hangs from — a long gesture over a
+   * whole pattern. `note` is one sweep per note, each on that note's own filter, which is the classic
+   * synth pluck.
+   *
+   * `note` only means something pointed at an **oscillator**: notes are what an oscillator has. On an
+   * effect there is one parameter and many notes, and no unambiguous reading of which note owns it.
+   */
+  fires?: 'trigger' | 'note'
   wave?: 'sine' | 'triangle' | 'square' | 'sawtooth'
   /** Hertz. An LFO's rate; an envelope has none, since the cascade decides when it runs. */
   rate?: number

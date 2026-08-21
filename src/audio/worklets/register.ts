@@ -17,6 +17,7 @@
  */
 
 import decimatorSource from 'virtual:worklet/decimator'
+import octaveSource from 'virtual:worklet/octave'
 
 /** Contexts already loaded, so a second effect on the same context does not fetch again. */
 const loaded = new WeakSet<BaseAudioContext>()
@@ -32,16 +33,20 @@ export async function registerWorklets(ctx: BaseAudioContext): Promise<boolean> 
   if (loaded.has(ctx)) return true
   if (typeof ctx.audioWorklet?.addModule !== 'function') return false
 
-  const url = URL.createObjectURL(new Blob([decimatorSource], { type: 'application/javascript' }))
+  // One module per processor: a single combined file would mean one parse error taking down every
+  // effect that needs a worklet rather than just its own.
+  const urls = [decimatorSource, octaveSource].map((source) =>
+    URL.createObjectURL(new Blob([source], { type: 'application/javascript' })),
+  )
   try {
-    await ctx.audioWorklet.addModule(url)
+    for (const url of urls) await ctx.audioWorklet.addModule(url)
     loaded.add(ctx)
     return true
   } catch {
     // A blocked fetch, a parse error, a browser that has the object and not the behaviour.
     return false
   } finally {
-    // Registered or refused, the blob has been read by now.
-    URL.revokeObjectURL(url)
+    // Registered or refused, the blobs have been read by now.
+    for (const url of urls) URL.revokeObjectURL(url)
   }
 }

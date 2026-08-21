@@ -229,7 +229,16 @@ const fx: NodeDefinition = {
 
 /** A new MOD: a sine slow enough to hear as a shape, at a depth that is obvious but not violent. */
 export function defaultModParams(): ModParams {
-  return { target: 'level', kind: 'lfo', wave: 'sine', rate: 2, depth: 0.6, attack: 40, decay: 600 }
+  return {
+    target: 'level',
+    kind: 'lfo',
+    fires: 'trigger',
+    wave: 'sine',
+    rate: 2,
+    depth: 0.6,
+    attack: 40,
+    decay: 600,
+  }
 }
 
 /**
@@ -254,7 +263,10 @@ const mod: NodeDefinition = {
   defaults: defaultModParams,
   schedule({ node, time, engine, activity }) {
     const params = node.params as ModParams
-    if (params.kind === 'env') {
+    // A per-note envelope has its own clock — every note the oscillator plays — so a trigger arriving
+    // here means nothing to it. Firing the shared shape as well would sweep every voice together,
+    // which is the other setting.
+    if (params.kind === 'env' && params.fires !== 'note') {
       engine.fireEnvelope(node.id, time)
       // The flash lasts the envelope, so what you see is how long the sweep takes.
       const attack = clamp(params.attack ?? 40, MIN_MOD_ATTACK, MAX_MOD_ATTACK)

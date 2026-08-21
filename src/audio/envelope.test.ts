@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { AudioEngine } from './engine'
 import { fakeAudio, type FakeAudio } from './fakeAudio'
+import { noNotesBecause } from './modulation'
 import { getDefinition } from '../nodes/registry'
 import { encodePatch, decodePatch } from '../state/patchCode'
 import { connectionFor, EVENT_IN, EVENT_OUT, SIGNAL_LEFT } from '../state/connections'
@@ -234,5 +235,121 @@ describe('the patch code', () => {
     // Ids are positional after decoding, so the cable is checked by what it lands on.
     const landedOn = back.nodes.find((n) => n.id === back.edges[0].target)
     expect(landedOn?.type).toBe('mod')
+  })
+})
+
+describe('an envelope that fires on every note', () => {
+  const PER_NOTE: ModParams = { ...ENV, fires: 'note', target: 'cutoff' }
+
+  const filtered = (nodeId: string, time: number) => ({
+    nodeId,
+    time,
+    freq: 440,
+    waveform: 'square' as const,
+    pulseWidth: 0.5,
+    duration: 0.5,
+    gain: 0.5,
+    attack: 5,
+    release: 20,
+    filterType: 'lowpass' as const,
+    cutoff: 1200,
+    resonance: 4,
+  })
+
+  function playing(params: ModParams, notes = 3) {
+    const fake = fakeAudio()
+    const engine = new AudioEngine()
+    engine.adopt(fake.ctx)
+    engine.createModulator('m', params)
+    engine.connectMod('m', 'osc', 'cutoff', 0.6)
+    for (let i = 0; i < notes; i++) engine.playNote(filtered('osc', i * 0.25))
+    return { fake, engine }
+  }
+
+  it('gives every note its own shape, not one shared between them', () => {
+    // The whole difference from per trigger. One gain shared across voices would sweep them together,
+    // which is what a trigger already does.
+    const { fake } = playing(PER_NOTE, 3)
+    const drivers = fake.drivers('frequency')
+    expect(drivers).toHaveLength(3)
+    expect(new Set(drivers).size).toBe(3)
+  })
+
+  it('shares one shape between notes when it fires on a trigger', () => {
+    const { fake } = playing({ ...ENV, target: 'cutoff' }, 3)
+    const drivers = fake.drivers('frequency')
+    expect(drivers).toHaveLength(3)
+    // Three connections, one gain: every voice hears the same gesture.
+    expect(new Set(drivers).size).toBe(1)
+  })
+
+  it('draws each shape from its own note, not from a shared moment', () => {
+    const { fake } = playing(PER_NOTE, 3)
+    // Three peaks written, each at a different time, which is what the ramps are.
+    const rises = fake.journal.filter((w) => w.what === 'gain' && Number(w.value) > 0)
+    expect(rises.length).toBeGreaterThanOrEqual(3)
+  })
+
+  it('ignores a trigger, since notes are its clock', () => {
+    const fake = fakeAudio()
+    const engine = new AudioEngine()
+    engine.adopt(fake.ctx)
+    engine.createModulator('m', PER_NOTE)
+    const before = fake.journal.length
+    // Nothing to fire: the shared shape is not what a per-note envelope uses.
+    engine.fireEnvelope('m', 1)
+    expect(fake.journal.length).toBe(before)
+  })
+
+  it('takes its shape down with the note rather than leaving one per note played', () => {
+    const { fake } = playing(PER_NOTE, 3)
+    expect(fake.drivers('frequency')).toHaveLength(3)
+
+    // Both halves. Unhooking a shape from the parameter is the easy one; what nearly went unnoticed is
+    // that `disconnect()` releases a node's *outputs*, so the constant feeding each shape still held
+    // it and one dead gain accumulated per note played.
+    const shapes = fake.drivers('frequency') as Array<{ incoming: unknown[] }>
+    const [constant] = fake.nodes('constant')
+    for (const shape of shapes) expect(shape.incoming).toContain(constant)
+
+    fake.endAll()
+    expect(fake.drivers('frequency')).toHaveLength(0)
+    for (const shape of shapes) expect(shape.incoming).toEqual([])
+
+    // And the shared shape keeps its feed: it belongs to the modulator, not to any note. Letting go of
+    // it here would take the trigger path down with the voices.
+    const shared = fake.nodes('gain').filter((g) => (g.incoming as unknown[]).includes(constant))
+    expect(shared).toHaveLength(1)
+  })
+
+  it('is not offered a trigger port it has no use for', () => {
+    // Checked through the definition rather than the canvas: a per-note envelope forwards a trigger
+    // like anything else, but does not run on one.
+    const fired: string[] = []
+    const engine = { fireEnvelope: (id: string) => fired.push(id) } as never
+    const result = getDefinition('mod')!.schedule!({
+      node: { id: 'm', type: 'mod', position: { x: 0, y: 0 }, params: PER_NOTE },
+      time: 1,
+      bpm: 120,
+      engine,
+      activity: new ActivityBus(() => 0),
+    })
+    expect(fired).toEqual([])
+    // Still transparent: whatever is below it still goes.
+    expect(result.outgoing).toEqual([1])
+  })
+})
+
+describe('per note where notes do not exist', () => {
+  it('says so rather than going quiet', () => {
+    // An effect has one parameter and many notes, and no honest answer to which note owns it.
+    expect(noNotesBecause('note', 'cutoff', { nodeType: 'fx', effect: 'reverb' })).toContain(
+      'oscillator',
+    )
+    // The one target built per note, and so the only one per note can mean anything on.
+    expect(noNotesBecause('note', 'cutoff', { nodeType: 'osc' })).toBeNull()
+    // An oscillator's level is its output bus: one node, shared by every note it plays.
+    expect(noNotesBecause('note', 'level', { nodeType: 'osc' })).toContain('filter')
+    expect(noNotesBecause('trigger', 'level', { nodeType: 'osc' })).toBeNull()
   })
 })

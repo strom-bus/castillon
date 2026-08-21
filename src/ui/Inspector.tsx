@@ -16,9 +16,13 @@ import { DEFAULT_DELAY_MS, DEFAULT_STEP_COUNT, STEP_COUNTS } from '../nodes/regi
 import {
   LFO_SHAPE_LABELS,
   LFO_SHAPES,
+  MOD_FIRES,
+  MOD_FIRES_HINTS,
+  MOD_FIRES_LABELS,
   MOD_KIND_HINTS,
   MOD_KIND_LABELS,
   MOD_KINDS,
+  noNotesBecause,
   MAX_RATE as MAX_MOD_RATE,
   MIN_RATE as MIN_MOD_RATE,
   silentBecause,
@@ -26,6 +30,7 @@ import {
   targetsFor,
   type Destination,
   type LfoShape,
+  type ModFires,
   type ModKind,
   type ModTarget,
 } from '../audio/modulation'
@@ -632,8 +637,10 @@ export function Inspector() {
     const described = targetOf(target, destinationType, destinationEffect as never)
     const silent = silentBecause(target, destination)
     const kind: ModKind = mod.kind === 'env' ? 'env' : 'lfo'
-    // An envelope with nothing wired into its top port never runs, and nothing else would say so.
-    const untriggered = kind === 'env' && !triggered
+    const fires: ModFires = mod.fires === 'note' ? 'note' : 'trigger'
+    // An envelope waiting on a trigger it has not been given never runs, and nothing else would say so.
+    const untriggered = kind === 'env' && fires === 'trigger' && !triggered
+    const noNotes = kind === 'env' ? noNotesBecause(fires, target, destination) : null
 
     return (
       <Panel>
@@ -678,6 +685,20 @@ export function Inspector() {
 
         {kind === 'env' ? (
           <>
+            <label className="inspector-field">
+              <span>Fires on</span>
+              <select
+                value={fires}
+                onChange={(e) => updateParams(node.id, { fires: e.target.value as ModFires })}
+              >
+                {MOD_FIRES.map((option) => (
+                  <option key={option} value={option}>
+                    {MOD_FIRES_LABELS[option]}
+                  </option>
+                ))}
+              </select>
+            </label>
+
             <TypedSlider
               label="Attack"
               value={mod.attack ?? 40}
@@ -747,8 +768,14 @@ export function Inspector() {
           </p>
         )}
 
+        {noNotes && (
+          <p className="inspector-warn">
+            Doing nothing: {noNotes}. Point it at an oscillator, or set it to fire on a trigger.
+          </p>
+        )}
+
         <p className="inspector-empty">
-          {MOD_KIND_HINTS[kind]} {described?.hint}
+          {MOD_KIND_HINTS[kind]} {kind === 'env' && MOD_FIRES_HINTS[fires]} {described?.hint}
           {!destinationType && ' Wire it to the side of an oscillator or an effect.'}
         </p>
       </Panel>

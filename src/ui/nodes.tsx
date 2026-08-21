@@ -198,7 +198,8 @@ export function ModNode({ id, data, selected }: NodeProps<FlowNode>) {
       (e) => (e.source === id || e.target === id) && (e.data?.kind ?? 'event') === 'event',
     ),
   )
-  const ports = envelope || inCascade
+  // A per-note envelope has no use for a trigger either: its clock is the notes it is pointed at.
+  const ports = (envelope && params.fires !== 'note') || inCascade
   const target = targetOf(params.target)
   const { pulsing } = useNodeActivity(id)
 

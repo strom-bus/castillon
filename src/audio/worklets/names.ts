@@ -6,3 +6,4 @@
  * into a standalone file. A shared constant is inlined into both and cannot drift.
  */
 export const DECIMATOR = 'castillon-decimator'
+export const OCTAVE = 'castillon-octave'

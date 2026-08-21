@@ -6,6 +6,7 @@ import {
   targetOf,
   type LfoShape,
   type ModTargetKey,
+  type ModFires,
   type ModKind,
 } from './modulation'
 import {
@@ -85,6 +86,8 @@ interface ModInstance {
   /** The gain an envelope's shape is drawn on. Absent for an LFO, which has no shape to draw. */
   shape?: GainNode
   kind: ModKind
+  /** What starts an envelope: a trigger in the cascade, or every note. */
+  fires: ModFires
   /** The oscillator, where there is one, so a rate change can reach it. */
   osc?: OscillatorNode
   /**
@@ -164,8 +167,16 @@ interface Voice {
   chain: AudioNode[]
   /** Its own filter, where it has one, since that is what a modulator on this oscillator points at. */
   filter: BiquadFilterNode | null
-  /** What is driving that filter, so it can be let go of when the note ends. */
-  modulated: Array<{ amount: GainNode; param: AudioParam }>
+  /**
+   * What is driving that filter, so it can be let go of when the note ends.
+   *
+   * `from` is set for a gain built for this voice alone — a per-note envelope's shape — and names what
+   * feeds it. Unhooking such a gain from the parameter is not enough: `disconnect()` lets go of a
+   * node's *outputs*, so whatever feeds it still holds a reference and one dead gain accumulates per
+   * note played. A per-trigger modulation shares one gain across every voice and must survive them,
+   * so it has no `from`.
+   */
+  modulated: Array<{ amount: GainNode; param: AudioParam; from?: AudioNode }>
 }
 
 /**
@@ -184,6 +195,8 @@ interface VoiceLink {
   oscId: NodeId
   key: 'cutoff' | 'resonance'
   amount: GainNode
+  /** The scaled depth, kept so a per-note envelope's own gain knows what to rise to. */
+  peak: number
 }
 
 /**
@@ -257,6 +270,29 @@ const NOISE_SECONDS = 3
  * it connects to is that gain's input rather than a parameter.
  */
 type ModDestination = AudioParam | AudioNode
+
+/**
+ * Draws an envelope on a parameter: up to a peak over the attack, back to nothing over the decay.
+ *
+ * Scheduled at absolute times on the audio clock, which makes it sample-accurate and correct in an
+ * offline render with nothing added — an envelope is `AudioParam` automation and nothing more.
+ *
+ * A retrigger before the previous one finished holds the current value and ramps from there rather
+ * than jumping to zero first, which would click.
+ */
+function drawEnvelope(
+  gain: AudioParam,
+  at: number,
+  peak: number,
+  attack: number,
+  decay: number,
+): void {
+  if (typeof gain.cancelAndHoldAtTime === 'function') gain.cancelAndHoldAtTime(at)
+  else gain.cancelScheduledValues(at)
+
+  gain.linearRampToValueAtTime(peak, at + attack)
+  gain.linearRampToValueAtTime(0, at + attack + decay)
+}
 
 /** A node can pass a signal on; a parameter is where one ends. That is the difference that matters. */
 function isNode(destination: ModDestination): destination is AudioNode {
@@ -456,7 +492,7 @@ export class AudioEngine implements Engine {
     }
     // Anything already pointed at this oscillator's filter takes hold of this note as it starts.
     for (const link of this.voiceLinks.values()) {
-      if (link.oscId === req.nodeId) this.attachVoice(link, voice)
+      if (link.oscId === req.nodeId) this.attachVoice(link, voice, req.time)
     }
 
     source.onended = () => {
@@ -662,6 +698,7 @@ export class AudioEngine implements Engine {
       cost: MOD_COST,
       startedAt: ctx.currentTime,
       wave: params.wave ?? 'sine',
+      fires: params.fires === 'note' ? 'note' : 'trigger',
       rate: clamp(params.rate ?? 2, MIN_RATE, MAX_RATE),
       attack: clamp(params.attack ?? 40, MIN_MOD_ATTACK, MAX_MOD_ATTACK) / 1000,
       decay: clamp(params.decay ?? 600, MIN_MOD_DECAY, MAX_MOD_DECAY) / 1000,
@@ -681,13 +718,11 @@ export class AudioEngine implements Engine {
   fireEnvelope(nodeId: NodeId, at: number): void {
     const instance = this.modulators.get(nodeId)
     if (!instance?.shape) return
-
-    const gain = instance.shape.gain
-    if (typeof gain.cancelAndHoldAtTime === 'function') gain.cancelAndHoldAtTime(at)
-    else gain.cancelScheduledValues(at)
-
-    gain.linearRampToValueAtTime(1, at + instance.attack)
-    gain.linearRampToValueAtTime(0, at + instance.attack + instance.decay)
+    // A per-note envelope has no shared gesture: each voice carries its own shape, drawn when that
+    // note starts. Drawing on the shared one as well would sweep every voice together, which is the
+    // other setting entirely.
+    if (instance.fires === 'note') return
+    drawEnvelope(instance.shape.gain, at, 1, instance.attack, instance.decay)
   }
 
   /**
@@ -703,6 +738,7 @@ export class AudioEngine implements Engine {
     // effect on the next trigger and needs nothing scheduled now.
     instance.attack = clamp(params.attack ?? 40, MIN_MOD_ATTACK, MAX_MOD_ATTACK) / 1000
     instance.decay = clamp(params.decay ?? 600, MIN_MOD_DECAY, MAX_MOD_DECAY) / 1000
+    instance.fires = params.fires === 'note' ? 'note' : 'trigger'
 
     if (!instance.osc) return
     const at = this.ctx.currentTime
@@ -994,32 +1030,58 @@ export class AudioEngine implements Engine {
   ): void {
     const ctx = this.ctx as BaseAudioContext
     const descriptor = targetOf(key)
+    const peak = descriptor ? amountFor(descriptor, depth) : 0
     const amount = ctx.createGain()
-    amount.gain.value = descriptor ? amountFor(descriptor, depth) : 0
+    amount.gain.value = peak
     instance.source.connect(amount)
 
-    const link: VoiceLink = { modId, oscId, key, amount }
+    const link: VoiceLink = { modId, oscId, key, amount, peak }
     this.voiceLinks.set(`${modId}->${oscId}`, link)
     // Notes already sounding, so a cable drawn mid-cascade is heard on the note under it rather than
     // waiting for the next one.
     for (const voice of this.voices) {
-      if (voice.nodeId === oscId) this.attachVoice(link, voice)
+      // Mid-note, so a per-note envelope drawn from now rather than from a start already past.
+      if (voice.nodeId === oscId) this.attachVoice(link, voice, this.ctx?.currentTime ?? 0)
     }
   }
 
-  private attachVoice(link: VoiceLink, voice: Voice): void {
+  /**
+   * Points a link at one voice's filter.
+   *
+   * A per-note envelope gets **its own gain for this voice**, fed from the modulator's constant and
+   * drawn from this note's start — which is the whole difference between per note and per trigger. The
+   * shared shape cannot serve: every voice would sweep together, on one gesture, which is what per
+   * trigger already is.
+   */
+  private attachVoice(link: VoiceLink, voice: Voice, at: number): void {
     if (!voice.filter) return
     const param = link.key === 'cutoff' ? voice.filter.frequency : voice.filter.Q
+    const instance = this.modulators.get(link.modId)
+
+    if (instance && instance.kind === 'env' && instance.fires === 'note') {
+      const ctx = this.ctx as BaseAudioContext
+      const shape = ctx.createGain()
+      shape.gain.value = 0
+      instance.runner.connect(shape)
+      shape.connect(param)
+      drawEnvelope(shape.gain, at, link.peak, instance.attack, instance.decay)
+      voice.modulated.push({ amount: shape, param, from: instance.runner })
+      return
+    }
+
     link.amount.connect(param)
     voice.modulated.push({ amount: link.amount, param })
   }
 
   /** Lets go of what is modulating a voice: one modulator's worth, or all of it. */
   private releaseVoice(voice: Voice, only?: GainNode): void {
-    voice.modulated = voice.modulated.filter(({ amount, param }) => {
+    voice.modulated = voice.modulated.filter(({ amount, param, from }) => {
       if (only && amount !== only) return true
       try {
         amount.disconnect(param)
+        // Built for this voice, so it goes with it — and it is what *feeds* it that has to let go,
+        // since disconnecting a node releases its outputs and not its inputs.
+        from?.disconnect(amount)
       } catch {
         // The voice is already gone, which takes its parameters with it.
       }

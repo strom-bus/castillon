@@ -159,3 +159,59 @@ export function decimate(
     state.counted--
   }
 }
+
+/**
+ * How fast the divider's detector follows the signal, and how far from zero it has to travel.
+ *
+ * The detector reads a smoothed copy rather than the signal itself. Raw, every wobble near zero counts
+ * as a crossing and the divider flips at random — a hiss rather than an octave. The threshold is
+ * hysteresis on top of that: the signal has to get clearly above zero and clearly below before the
+ * next flip counts.
+ */
+const DETECT_SMOOTHING = 0.02
+const DETECT_THRESHOLD = 0.02
+
+/** What a divider has to remember between samples. */
+export interface OctaveState {
+  /** The smoothed copy the crossings are counted on. */
+  smoothed: number
+  /** Whether the last confident reading was above the threshold. */
+  above: boolean
+  /** The divider's current sign, flipped on every crossing. */
+  sign: number
+}
+
+export function octaveState(): OctaveState {
+  return { smoothed: 0, above: false, sign: 1 }
+}
+
+/**
+ * An octave below, by dividing the signal's own frequency.
+ *
+ * The oldest trick in the pedal book and still the only way to do it without analysis: a flip-flop
+ * clocked by the signal's zero crossings gives a square at half the frequency, and multiplying the
+ * input by that square puts the fundamental an octave down. It is not a pitch shifter and does not
+ * pretend to be — on a chord it tracks the loudest partial and grinds on the rest, which is the sound
+ * rather than a shortcoming.
+ *
+ * This is what a `WaveShaperNode` cannot do. Octave *up* is full-wave rectification, a curve with no
+ * memory, which is why it has been a fourth distortion shape all along. Going down needs to know what
+ * the signal did last sample, and memory is what a worklet is for.
+ *
+ * Pure over its arguments, state included, so it can be tested with two arrays and no audio thread.
+ */
+export function octaveDown(input: Float32Array, output: Float32Array, state: OctaveState): void {
+  for (let i = 0; i < input.length; i++) {
+    state.smoothed += (input[i] - state.smoothed) * DETECT_SMOOTHING
+
+    if (state.above) {
+      if (state.smoothed < -DETECT_THRESHOLD) state.above = false
+    } else if (state.smoothed > DETECT_THRESHOLD) {
+      state.above = true
+      // One flip per cycle of the input, so the square runs at half its frequency.
+      state.sign = -state.sign
+    }
+
+    output[i] = input[i] * state.sign
+  }
+}

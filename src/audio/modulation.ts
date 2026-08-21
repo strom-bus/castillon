@@ -37,7 +37,50 @@ export const MOD_KIND_LABELS: Record<ModKind, string> = {
 
 export const MOD_KIND_HINTS: Record<ModKind, string> = {
   lfo: 'Runs continuously at its own rate, whatever the music is doing.',
-  env: 'Runs once each time the cascade triggers it. Wire a trigger into its top port.',
+  env: 'Runs once, when something starts it.',
+}
+
+/** What starts an envelope. Not a shape but a clock, which is the whole difference here. */
+export type ModFires = 'trigger' | 'note'
+
+export const MOD_FIRES: readonly ModFires[] = ['trigger', 'note']
+
+export const MOD_FIRES_LABELS: Record<ModFires, string> = {
+  trigger: 'A trigger',
+  note: 'Every note',
+}
+
+export const MOD_FIRES_HINTS: Record<ModFires, string> = {
+  trigger:
+    'One sweep each time a trigger reaches its top port. Under an Ignite that is once per pass; under a node deep in the cascade, once when that branch lights up.',
+  note: 'One sweep per note, each on that note’s own filter. Only an oscillator has notes.',
+}
+
+/**
+ * Why an envelope set to fire per note will not, or null if it will.
+ *
+ * Per note needs a target that is *built* per note, and there is exactly one: an oscillator's filter,
+ * one biquad per voice. Everything else is a single node shared by every note — an effect's cutoff, or
+ * even an oscillator's own level, which is its output bus. Pointed at one of those there is one
+ * parameter and many notes, and no honest answer to which note owns it.
+ *
+ * The same shape of answer as `silentBecause`, and for the same reason: a modulator that has quietly
+ * stopped meaning anything should say which of its settings stopped meaning it.
+ */
+export function noNotesBecause(
+  fires: ModFires | undefined,
+  target: ModTargetKey | undefined,
+  destination: Destination,
+): string | null {
+  if (fires !== 'note') return null
+  if (!destination.nodeType) return null
+
+  const described = target ? targetOf(target, destination.nodeType, destination.effect) : undefined
+  if (described?.perVoice) return null
+
+  return destination.nodeType === 'osc'
+    ? 'only an oscillator’s filter is built per note'
+    : 'only an oscillator has notes'
 }
 
 /** The four an `OscillatorNode` can make natively. An LFO has no use for a pulse width. */

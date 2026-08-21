@@ -15,7 +15,7 @@ import {
   MAX_REDUCTION,
   MIN_REDUCTION,
 } from './dsp'
-import { DECIMATOR } from './worklets/names'
+import { DECIMATOR, OCTAVE } from './worklets/names'
 import type { Random } from './random'
 import { MAX_CUTOFF, MIN_CUTOFF } from './filter'
 
@@ -704,6 +704,66 @@ const pan: EffectDescriptor = {
   },
 }
 
+/**
+ * An octave below, by dividing the signal's own frequency (see `octaveDown`).
+ *
+ * A separate effect rather than a fifth distortion Shape, which is where octave *up* lives. The three
+ * shapes there are stateless curves a `WaveShaperNode` reads; this one has to remember what the signal
+ * did last sample. Putting it behind the same selector would mean "Shape" sometimes choosing a curve
+ * and sometimes switching the node that does the processing.
+ *
+ * Two controls and no more, because there are only two worth having: how much of it you hear, which is
+ * the wrapper's mix, and how dark it is. A divider's sound is what it is.
+ */
+const octave: EffectDescriptor = {
+  kind: 'octave',
+  // Measured with `npm run measure`; a worklet doing this little costs no more than a native node.
+  cost: () => 2.5,
+  label: 'Octave',
+  params: ['cutoff'],
+  labels: { cutoff: 'Tone' },
+  defaults: { cutoff: 3000 },
+  releaseTime: 0.02,
+  create(ctx) {
+    const input = ctx.createGain()
+    const post = tone(ctx)
+
+    /**
+     * Attempted rather than checked, as with the bitcrusher: constructing the node is the only
+     * reliable test of whether the processor is registered on *this* context.
+     *
+     * Without a worklet there is no octave to be had — the whole effect is the divider — so it passes
+     * the signal through and the tone control still works. Silence would be the wrong answer: a patch
+     * that plays on one browser should not go quiet on another.
+     */
+    let divider: AudioWorkletNode | null = null
+    try {
+      divider = new AudioWorkletNode(ctx, OCTAVE)
+    } catch {
+      divider = null
+    }
+
+    if (divider) input.connect(divider).connect(post)
+    else input.connect(post)
+
+    return {
+      input,
+      output: post,
+      update(params, { at }) {
+        setTone(post, params, at)
+      },
+      paramFor(key) {
+        return key === 'cutoff' ? post.frequency : null
+      },
+      dispose() {
+        input.disconnect()
+        divider?.disconnect()
+        post.disconnect()
+      },
+    }
+  },
+}
+
 export const EFFECTS: EffectDescriptor[] = [
   reverb,
   echo,
@@ -715,6 +775,7 @@ export const EFFECTS: EffectDescriptor[] = [
   tremolo,
   ring,
   pan,
+  octave,
 ]
 
 const byKind = new Map(EFFECTS.map((e) => [e.kind, e]))

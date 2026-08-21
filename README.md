@@ -46,10 +46,14 @@ refused, since between an oscillator and an effect there is only one direction t
   effects are never disabled behind your back, since you put them there.
 - **Whole-cascade loop.** When every branch has drained, the cascade fires again. Each pass lasts
   as long as its longest branch, so the cycle breathes rather than holding a fixed pulse.
-- **An FX node** with ten effects: reverb, distortion, bitcrush, echo, filter, chorus, phaser,
-  tremolo, ring modulation and stereo pan. The bitcrusher does both halves: bit depth through a
+- **An FX node** with eleven effects: reverb, distortion, bitcrush, echo, filter, chorus, phaser,
+  tremolo, ring modulation, stereo pan and an octave divider. The bitcrusher does both halves: bit depth through a
   waveshaper, and sample rate through an `AudioWorklet`, since holding a sample between outputs is
-  memory and a curve has none. No filtering on the way down — the aliasing is the sound. They attach to an oscillator's side ports as sends —
+  memory and a curve has none. No filtering on the way down — the aliasing is the sound. The **octave
+  divider** is the other one that needs memory: a flip-flop clocked by the signal's own zero crossings
+  gives a square at half its frequency, and multiplying the input by that puts the fundamental an
+  octave down. Octave _up_ is rectification, a curve with no memory, so it has been a distortion shape
+  all along. They attach to an oscillator's side ports as sends —
   several on one oscillator, or one shared by several — and each carries a wet/dry mix, so a send is
   a blend rather than a replacement.
 - **A MOD node** that sweeps a parameter of whatever it is wired to. Which parameters it offers
@@ -64,7 +68,9 @@ refused, since between an oscillator and an effect there is only one direction t
   it. So a MOD carries event ports as well, and where you wire the trigger is what decides the
   behaviour — under an Ignite it runs once per pass, under a node deep in the tree it runs when that
   branch lights up, behind a Delay it runs late. It passes the trigger on, so one in the middle of a
-  chain never breaks the chain.
+  chain never breaks the chain. An envelope fires either on a trigger or on **every note** — one sweep
+  per note, each on that note's own filter, which is the classic filter pluck. Per note needs a target
+  that is built per note, and an oscillator's filter is the only one there is.
 - **Ignite modes.** An Ignite either fires by itself with the transport, or waits for a key. Bound to
   a key it can hold — sounding while the key is down — or toggle, starting on one press and stopping
   on the next. Built so the Ignite does not know it was a keyboard: a source emits press and release

@@ -176,19 +176,29 @@ export function FxNode({ id, data, selected }: NodeProps<FlowNode>) {
 /**
  * A modulator.
  *
- * White and grey like the FX node and for the same reason: it is not part of the cascade, so a depth
- * hue would claim it was. What it shows is its rate, because that is the number that decides what the
- * patch sounds like and what its cable is doing.
+ * White and grey like the FX node, and for the same reason where an LFO is concerned: it keeps its own
+ * clock, so a depth hue would claim it was part of the cascade. An **envelope** is a different matter
+ * — it runs only when triggered, so it pulses like the nodes around it and shows how long its sweep
+ * lasts.
+ *
+ * It carries event ports either way, since a trigger has to be able to reach it and to carry on past
+ * it. A MOD in the middle of a chain must not break the chain.
  */
 export function ModNode({ id, data, selected }: NodeProps<FlowNode>) {
   const wired = usePatchStore((s) => s.edges.some((e) => e.source === id && e.data?.kind === 'mod'))
   const ordinal = useOrdinal(id)
   const params = data.params as ModParams
-  const rate = params.rate ?? 2
+  const envelope = params.kind === 'env'
   const target = targetOf(params.target)
+  const { pulsing } = useNodeActivity(id)
 
   return (
-    <div className={`node node-mod${wired ? ' wired' : ' idle'}${selected ? ' selected' : ''}`}>
+    <div
+      className={`node node-mod${wired ? ' wired' : ' idle'}${
+        envelope && pulsing ? ' pulsing' : ''
+      }${selected ? ' selected' : ''}`}
+    >
+      <Handle type="target" id={EVENT_IN} position={Position.Top} className="port port-in" />
       <Handle
         type="source"
         id={SIGNAL_LEFT}
@@ -201,6 +211,7 @@ export function ModNode({ id, data, selected }: NodeProps<FlowNode>) {
         position={Position.Right}
         className="port port-signal"
       />
+      <Handle type="source" id={EVENT_OUT} position={Position.Bottom} className="port port-out" />
       <div className="node-header">
         <span className="node-title">
           MOD <span className="node-ordinal">{ordinal}</span>
@@ -208,8 +219,26 @@ export function ModNode({ id, data, selected }: NodeProps<FlowNode>) {
         <span className="node-meta">{target?.label ?? '—'}</span>
       </div>
       <div className="mod-body">
-        <span className="mod-rate">{rate < 1 ? rate.toFixed(2) : rate.toFixed(1)}</span>
-        <span className="mod-unit">Hz</span>
+        {envelope ? (
+          <>
+            {/* The whole length of the sweep, since that is the number that decides what it does. */}
+            <span className="mod-rate">
+              {((params.attack ?? 40) + (params.decay ?? 600)) / 1000 < 1
+                ? (((params.attack ?? 40) + (params.decay ?? 600)) / 1000).toFixed(2)
+                : (((params.attack ?? 40) + (params.decay ?? 600)) / 1000).toFixed(1)}
+            </span>
+            <span className="mod-unit">s</span>
+          </>
+        ) : (
+          <>
+            <span className="mod-rate">
+              {(params.rate ?? 2) < 1
+                ? (params.rate ?? 2).toFixed(2)
+                : (params.rate ?? 2).toFixed(1)}
+            </span>
+            <span className="mod-unit">Hz</span>
+          </>
+        )}
       </div>
     </div>
   )

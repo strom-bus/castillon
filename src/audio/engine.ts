@@ -6,8 +6,19 @@ import {
   targetOf,
   type LfoShape,
   type ModTargetKey,
+  type ModKind,
 } from './modulation'
-import type { FilterType, FxParams, ModParams, NodeId, Waveform } from '../types/patch'
+import {
+  MAX_MOD_ATTACK,
+  MAX_MOD_DECAY,
+  MIN_MOD_ATTACK,
+  MIN_MOD_DECAY,
+  type FilterType,
+  type FxParams,
+  type ModParams,
+  type NodeId,
+  type Waveform,
+} from '../types/patch'
 import { effectOr, type EffectChain } from './effects'
 import { MAX_CUTOFF, MAX_RESONANCE, MIN_CUTOFF, MIN_RESONANCE } from './filter'
 import { effectCost, MAX_LOAD, voiceCost } from './load'
@@ -61,13 +72,35 @@ interface OutputBus {
  */
 /** A modulator: an oscillator and the gain that is its depth. */
 interface ModInstance {
-  osc: OscillatorNode
+  /**
+   * Whatever produces the modulation at unit amplitude, before depth scales it.
+   *
+   * An LFO's is its oscillator, swinging between -1 and 1 for ever. An envelope's is a gain being
+   * ramped between 0 and 1 by the cascade, fed a constant 1. Everything downstream — the depth gain,
+   * the per-voice links, the inverter on a mix — connects from here and does not know which it got,
+   * which is why an envelope needed no changes to any of it.
+   */
+  source: AudioNode
+  /** The gain an envelope's shape is drawn on. Absent for an LFO, which has no shape to draw. */
+  shape?: GainNode
+  kind: ModKind
+  /** The oscillator, where there is one, so a rate change can reach it. */
+  osc?: OscillatorNode
+  /**
+   * The node that was started and therefore has to be stopped — the oscillator for an LFO, the
+   * constant for an envelope. Kept apart from `source` because for an envelope they are not the same
+   * node: the constant feeds the shape, and stopping the shape would stop nothing.
+   */
+  runner: AudioScheduledSourceNode
   depth: GainNode
   cost: number
   /** When it began, so a value-rate link can work out its phase without reading the oscillator. */
   startedAt: number
   wave: LfoShape
   rate: number
+  /** Seconds. An envelope reads these when it fires, so a change lands on the next trigger. */
+  attack: number
+  decay: number
 }
 
 /**
@@ -167,6 +200,8 @@ export interface Engine {
   nodeBusyUntil(nodeId: NodeId): number
   /** Cuts a node's live voices, to restart its sequence. */
   releaseNodeVoices(nodeId: NodeId, at: number): void
+  /** Runs a modulation envelope once, from a trigger in the cascade. */
+  fireEnvelope(nodeId: NodeId, at: number): void
 }
 
 /** Ramps a param to zero without clicking, respecting what is already scheduled. */
@@ -564,24 +599,78 @@ export class AudioEngine implements Engine {
     this.disposeModulator(nodeId)
 
     const ctx = this.ctx as BaseAudioContext
-    const osc = ctx.createOscillator()
     const depth = ctx.createGain()
-    osc.type = params.wave ?? 'sine'
-    osc.frequency.value = clamp(params.rate ?? 2, MIN_RATE, MAX_RATE)
     // Left at nothing until a cable says what it is pointing at: depth means a share of the target's
     // range, and there is no range without a target.
     depth.gain.value = 0
-    osc.connect(depth)
-    osc.start()
+
+    const kind: ModKind = params.kind === 'env' ? 'env' : 'lfo'
+    let source: AudioNode
+    let shape: GainNode | undefined
+    let osc: OscillatorNode | undefined
+
+    let runner: AudioScheduledSourceNode
+    if (kind === 'env') {
+      // A constant 1 through a gain that the cascade draws the shape on. The constant is what makes
+      // the envelope a *signal* rather than a schedule of values, so everything downstream — the
+      // per-voice links, the inverter on a mix — treats it exactly as it treats an LFO.
+      const constant = ctx.createConstantSource()
+      constant.offset.value = 1
+      shape = ctx.createGain()
+      // Silent until something triggers it. An envelope that started open would be a step, not a
+      // shape, and it would jump the first parameter it was wired to.
+      shape.gain.value = 0
+      constant.connect(shape)
+      constant.start()
+      source = shape
+      runner = constant
+    } else {
+      osc = ctx.createOscillator()
+      osc.type = params.wave ?? 'sine'
+      osc.frequency.value = clamp(params.rate ?? 2, MIN_RATE, MAX_RATE)
+      osc.start()
+      source = osc
+      runner = osc
+    }
+
+    source.connect(depth)
 
     this.modulators.set(nodeId, {
+      source,
+      shape,
+      kind,
       osc,
+      runner,
       depth,
       cost: MOD_COST,
       startedAt: ctx.currentTime,
       wave: params.wave ?? 'sine',
       rate: clamp(params.rate ?? 2, MIN_RATE, MAX_RATE),
+      attack: clamp(params.attack ?? 40, MIN_MOD_ATTACK, MAX_MOD_ATTACK) / 1000,
+      decay: clamp(params.decay ?? 600, MIN_MOD_DECAY, MAX_MOD_DECAY) / 1000,
     })
+  }
+
+  /**
+   * Runs an envelope once, from a trigger in the cascade.
+   *
+   * Scheduled at an absolute time on the audio clock like everything else the scheduler does, which
+   * makes it sample-accurate and — unlike the modulations driven by recomputation — correct in an
+   * offline render with nothing extra: it is `AudioParam` automation and nothing more.
+   *
+   * A retrigger before the previous one has finished holds the current value and ramps from there
+   * rather than jumping to zero first, which would click.
+   */
+  fireEnvelope(nodeId: NodeId, at: number): void {
+    const instance = this.modulators.get(nodeId)
+    if (!instance?.shape) return
+
+    const gain = instance.shape.gain
+    if (typeof gain.cancelAndHoldAtTime === 'function') gain.cancelAndHoldAtTime(at)
+    else gain.cancelScheduledValues(at)
+
+    gain.linearRampToValueAtTime(1, at + instance.attack)
+    gain.linearRampToValueAtTime(0, at + instance.attack + instance.decay)
   }
 
   /**
@@ -592,6 +681,13 @@ export class AudioEngine implements Engine {
   updateModulator(nodeId: NodeId, params: ModParams): void {
     const instance = this.modulators.get(nodeId)
     if (!instance || !this.ctx) return
+
+    // An envelope's times are read when it fires rather than held on a node, so changing them takes
+    // effect on the next trigger and needs nothing scheduled now.
+    instance.attack = clamp(params.attack ?? 40, MIN_MOD_ATTACK, MAX_MOD_ATTACK) / 1000
+    instance.decay = clamp(params.decay ?? 600, MIN_MOD_DECAY, MAX_MOD_DECAY) / 1000
+
+    if (!instance.osc) return
     const at = this.ctx.currentTime
     instance.osc.type = params.wave ?? 'sine'
     instance.osc.frequency.setTargetAtTime(clamp(params.rate ?? 2, MIN_RATE, MAX_RATE), at, RAMP)
@@ -610,11 +706,13 @@ export class AudioEngine implements Engine {
         this.disconnectMod(nodeId, key.slice(key.indexOf('->') + 2))
     }
     try {
-      instance.osc.stop()
+      instance.runner.stop()
     } catch {
       // Never started, or already stopped.
     }
-    instance.osc.disconnect()
+    instance.runner.disconnect()
+    // The shape only exists for an envelope, and for one it is a second node between the two.
+    instance.shape?.disconnect()
     instance.depth.disconnect()
     this.modulators.delete(nodeId)
   }
@@ -881,7 +979,7 @@ export class AudioEngine implements Engine {
     const descriptor = targetOf(key)
     const amount = ctx.createGain()
     amount.gain.value = descriptor ? amountFor(descriptor, depth) : 0
-    instance.osc.connect(amount)
+    instance.source.connect(amount)
 
     const link: VoiceLink = { modId, oscId, key, amount }
     this.voiceLinks.set(`${modId}->${oscId}`, link)

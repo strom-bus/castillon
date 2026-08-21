@@ -10,7 +10,14 @@ import type {
   PatchNode,
   Step,
 } from '../types/patch'
-import { MAX_DELAY_MS, MIN_DELAY_MS } from '../types/patch'
+import {
+  MAX_DELAY_MS,
+  MAX_MOD_ATTACK,
+  MAX_MOD_DECAY,
+  MIN_DELAY_MS,
+  MIN_MOD_ATTACK,
+  MIN_MOD_DECAY,
+} from '../types/patch'
 import type { ActivityBus } from '../viz/activity'
 
 export interface ScheduleArgs {
@@ -220,18 +227,47 @@ const fx: NodeDefinition = {
 
 /** A new MOD: a sine slow enough to hear as a shape, at a depth that is obvious but not violent. */
 export function defaultModParams(): ModParams {
-  return { target: 'level', kind: 'lfo', wave: 'sine', rate: 2, depth: 0.6 }
+  return { target: 'level', kind: 'lfo', wave: 'sine', rate: 2, depth: 0.6, attack: 40, decay: 600 }
 }
 
 /**
- * A modulator. Like FX it has no `schedule`: nothing triggers it, it runs on its own rate and shapes
- * whatever it is pointed at.
+ * A modulator, and the only node that sits in **both** graphs.
+ *
+ * Its side port shapes whatever it is pointed at. Its top and bottom ports put it in the cascade,
+ * which is what an envelope needs: a trigger arriving is what makes it run (PLAN §18.7). An LFO
+ * ignores the trigger entirely and keeps to its own rate.
+ *
+ * **The trigger is passed on.** A MOD in the middle of a chain has to be transparent, or wiring one
+ * there would silence everything below it and nothing on screen would say why. So it behaves like a
+ * Delay with no wait — and that is also what makes "trigger this, sweep that, then carry on" a single
+ * node rather than a fork.
+ *
+ * Because the trigger is explicit rather than inferred, the wiring gives three different behaviours
+ * with no modes at all: under an Ignite it runs once per pass of the cascade; under a node deep in the
+ * tree it runs when that branch lights up; behind a Delay it runs late.
  */
 const mod: NodeDefinition = {
   type: 'mod',
   label: 'MOD',
   defaults: defaultModParams,
+  schedule({ node, time, engine, activity }) {
+    const params = node.params as ModParams
+    if (params.kind === 'env') {
+      engine.fireEnvelope(node.id, time)
+      // The flash lasts the envelope, so what you see is how long the sweep takes.
+      const attack = clamp(params.attack ?? 40, MIN_MOD_ATTACK, MAX_MOD_ATTACK)
+      const decay = clamp(params.decay ?? 600, MIN_MOD_DECAY, MAX_MOD_DECAY)
+      activity.push({ kind: 'node', id: node.id, time, duration: (attack + decay) / 1000 })
+    } else {
+      // An LFO has its own clock and the trigger means nothing to it. It still flashes, so that a
+      // cable running through it does not look dead.
+      activity.push({ kind: 'node', id: node.id, time, duration: FLASH })
+    }
+    return { endTime: time, outgoing: [time] }
+  },
 }
+
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
 
 /** This order is the palette's order: what a cascade needs, in the order you need it. */
 export const NODE_DEFINITIONS: NodeDefinition[] = [start, osc, fx, mod, delay]

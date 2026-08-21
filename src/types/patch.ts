@@ -200,6 +200,12 @@ export function bindingKey(binding: IgniteBinding | null | undefined): string | 
   return binding ? `${binding.source}:${binding.code}` : null
 }
 
+/** Envelope times, in milliseconds. The same span the oscillator's own envelope uses. */
+export const MIN_MOD_ATTACK = 1
+export const MAX_MOD_ATTACK = 2000
+export const MIN_MOD_DECAY = 5
+export const MAX_MOD_DECAY = 8000
+
 export interface ModParams {
   /**
    * What it modulates on whatever it is wired to.
@@ -208,12 +214,23 @@ export interface ModParams {
    * landed on, so a MOD on a reverb can point at its decay and one on a chorus at its sweep.
    */
   target?: string
-  kind?: 'lfo'
+  /**
+   * What kind of modulator it is, and the difference is not the shape but **the clock**.
+   *
+   * An `lfo` runs on its own rate for ever, indifferent to the music. An `env` runs once, when
+   * something in the cascade triggers it — so the modulation becomes part of the structure of the
+   * piece rather than a wobble laid over it (PLAN §18.7).
+   */
+  kind?: 'lfo' | 'env'
   wave?: 'sine' | 'triangle' | 'square' | 'sawtooth'
-  /** Hertz. */
+  /** Hertz. An LFO's rate; an envelope has none, since the cascade decides when it runs. */
   rate?: number
-  /** 0 to 1, as a share of the target's own value. */
+  /** 0 to 1, as a share of the target's own value. For an envelope this is its peak. */
   depth?: number
+  /** Milliseconds to the peak, for an envelope. */
+  attack?: number
+  /** Milliseconds back to nothing. */
+  decay?: number
 }
 
 export type NodeParams = OscParams | FxParams | DelayParams | StartParams | ModParams

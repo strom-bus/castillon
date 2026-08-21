@@ -86,18 +86,21 @@ export function fakeAudio(): FakeAudio {
   function node(kind: string, fields: Record<string, unknown> = {}) {
     // Nodes record what reaches them too, and not only parameters: whether a gain has anything coming
     // into it is the difference between an inverter that negates a signal and one that outputs silence.
+    // What a connection records as its source. The proxy rather than the object behind it, so that a
+    // node found through `nodes()` and a node found through `drivers()` are the same thing to `===`.
+    let self: unknown
     const target: Record<string, unknown> = {
       incoming: [] as unknown[],
       connect(next: unknown) {
         if (next && typeof next === 'object' && 'incoming' in next) {
-          ;(next as { incoming: unknown[] }).incoming.push(target)
+          ;(next as { incoming: unknown[] }).incoming.push(self ?? target)
         }
         return next
       },
       disconnect(from?: unknown) {
         if (from && typeof from === 'object' && 'incoming' in from) {
           const list = (from as { incoming: unknown[] }).incoming
-          const at = list.indexOf(target)
+          const at = list.indexOf(self ?? target)
           if (at !== -1) list.splice(at, 1)
         }
       },
@@ -117,6 +120,7 @@ export function fakeAudio(): FakeAudio {
       },
     })
 
+    self = proxy
     const kept = built.get(kind)
     if (kept) kept.push(proxy)
     else built.set(kind, [proxy])
@@ -125,11 +129,23 @@ export function fakeAudio(): FakeAudio {
 
   function source(kind: string, fields: Record<string, unknown> = {}) {
     const built = node(kind, {
-      start() {},
-      stop() {},
+      started: false,
+      // Recorded rather than ignored: whether a source was stopped is the difference between a
+      // modulator that was disposed and one still running for the rest of the session.
+      stopped: false,
+      start() {
+        built.started = true
+      },
+      stop() {
+        built.stopped = true
+      },
       onended: null,
       ...fields,
-    }) as Record<string, unknown> & { onended: (() => void) | null }
+    }) as Record<string, unknown> & {
+      onended: (() => void) | null
+      started: boolean
+      stopped: boolean
+    }
     ended.push(() => built.onended?.())
     return built
   }
@@ -157,6 +173,7 @@ export function fakeAudio(): FakeAudio {
         attack: param('attack'),
         release: param('release'),
       }),
+    createConstantSource: () => source('constant', { offset: param('offset', 1) }),
     createOscillator: () =>
       source('osc', {
         frequency: param('oscFrequency', 440),

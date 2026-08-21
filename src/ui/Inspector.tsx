@@ -16,6 +16,9 @@ import { DEFAULT_DELAY_MS, DEFAULT_STEP_COUNT, STEP_COUNTS } from '../nodes/regi
 import {
   LFO_SHAPE_LABELS,
   LFO_SHAPES,
+  MOD_KIND_HINTS,
+  MOD_KIND_LABELS,
+  MOD_KINDS,
   MAX_RATE as MAX_MOD_RATE,
   MIN_RATE as MIN_MOD_RATE,
   silentBecause,
@@ -23,9 +26,14 @@ import {
   targetsFor,
   type Destination,
   type LfoShape,
+  type ModKind,
   type ModTarget,
 } from '../audio/modulation'
 import {
+  MAX_MOD_ATTACK,
+  MAX_MOD_DECAY,
+  MIN_MOD_ATTACK,
+  MIN_MOD_DECAY,
   DEFAULT_IGNITE,
   type IgniteBehaviour,
   type IgniteTrigger,
@@ -424,6 +432,11 @@ export function Inspector() {
    * A joined string rather than an array, so the selector returns a primitive and the panel repaints
    * when the wiring changes rather than on every store change.
    */
+  /** Whether anything triggers the selected node, which is what an envelope needs to run at all. */
+  const triggered = usePatchStore((s) =>
+    s.edges.some((e) => e.target === s.selectedId && (e.data?.kind ?? 'event') === 'event'),
+  )
+
   const modWiring = usePatchStore((s) => {
     const edge = s.edges.find((e) => e.data?.kind === 'mod' && e.source === s.selectedId)
     const destination = edge ? s.nodes.find((node) => node.id === edge.target) : undefined
@@ -606,6 +619,9 @@ export function Inspector() {
     const offered: readonly ModTarget[] = targetsFor(destinationType, destinationEffect as never)
     const described = targetOf(target, destinationType, destinationEffect as never)
     const silent = silentBecause(target, destination)
+    const kind: ModKind = mod.kind === 'env' ? 'env' : 'lfo'
+    // An envelope with nothing wired into its top port never runs, and nothing else would say so.
+    const untriggered = kind === 'env' && !triggered
 
     return (
       <Panel>
@@ -635,28 +651,67 @@ export function Inspector() {
         </label>
 
         <label className="inspector-field">
-          <span>Shape</span>
+          <span>Kind</span>
           <select
-            value={mod.wave ?? 'sine'}
-            onChange={(e) => updateParams(node.id, { wave: e.target.value as LfoShape })}
+            value={kind}
+            onChange={(e) => updateParams(node.id, { kind: e.target.value as ModKind })}
           >
-            {LFO_SHAPES.map((shape) => (
-              <option key={shape} value={shape}>
-                {LFO_SHAPE_LABELS[shape]}
+            {MOD_KINDS.map((option) => (
+              <option key={option} value={option}>
+                {MOD_KIND_LABELS[option]}
               </option>
             ))}
           </select>
         </label>
 
-        <TypedSlider
-          label="Rate"
-          value={mod.rate ?? 2}
-          min={MIN_MOD_RATE}
-          max={MAX_MOD_RATE}
-          step={0.05}
-          suffix="Hz"
-          onChange={(rate) => updateParams(node.id, { rate })}
-        />
+        {kind === 'env' ? (
+          <>
+            <TypedSlider
+              label="Attack"
+              value={mod.attack ?? 40}
+              min={MIN_MOD_ATTACK}
+              max={MAX_MOD_ATTACK}
+              step={1}
+              suffix="ms"
+              onChange={(attack) => updateParams(node.id, { attack })}
+            />
+            <TypedSlider
+              label="Decay"
+              value={mod.decay ?? 600}
+              min={MIN_MOD_DECAY}
+              max={MAX_MOD_DECAY}
+              step={5}
+              suffix="ms"
+              onChange={(decay) => updateParams(node.id, { decay })}
+            />
+          </>
+        ) : (
+          <>
+            <label className="inspector-field">
+              <span>Shape</span>
+              <select
+                value={mod.wave ?? 'sine'}
+                onChange={(e) => updateParams(node.id, { wave: e.target.value as LfoShape })}
+              >
+                {LFO_SHAPES.map((shape) => (
+                  <option key={shape} value={shape}>
+                    {LFO_SHAPE_LABELS[shape]}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <TypedSlider
+              label="Rate"
+              value={mod.rate ?? 2}
+              min={MIN_MOD_RATE}
+              max={MAX_MOD_RATE}
+              step={0.05}
+              suffix="Hz"
+              onChange={(rate) => updateParams(node.id, { rate })}
+            />
+          </>
+        )}
 
         <TypedSlider
           label="Depth"
@@ -673,8 +728,15 @@ export function Inspector() {
           </p>
         )}
 
+        {untriggered && (
+          <p className="inspector-warn">
+            Waiting for a trigger. Wire something into the port on top — an Ignite for once per
+            pass, or a node further down the cascade to run when that branch does.
+          </p>
+        )}
+
         <p className="inspector-empty">
-          {described?.hint}
+          {MOD_KIND_HINTS[kind]} {described?.hint}
           {!destinationType && ' Wire it to the side of an oscillator or an effect.'}
         </p>
       </Panel>

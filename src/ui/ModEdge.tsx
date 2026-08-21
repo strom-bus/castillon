@@ -17,6 +17,11 @@ import type { ModParams } from '../types/patch'
  *
  * Told apart from an audio cable by behaviour rather than colour, since colour already means cascade
  * depth. Event cables flow, audio cables glow, these breathe.
+ *
+ * **An envelope's cable does not breathe.** It is not periodic, so there is no cycle to show: it lights
+ * once when the cascade triggers it and fades with the sweep. So it is keyed off the *modulator* rather
+ * than the destination — what matters there is that the envelope ran, and it is the modulator that the
+ * trigger reached.
  */
 export function ModEdge({
   source,
@@ -28,15 +33,21 @@ export function ModEdge({
   sourcePosition,
   targetPosition,
 }: EdgeProps) {
-  // A number, not the node: this repaints when the rate moves and not when anything else does.
+  // Primitives, not the node: this repaints when one of these moves and not when anything else does.
   const rate = usePatchStore((s) => {
     const params = s.nodes.find((node) => node.id === source)?.data.params as ModParams | undefined
     return params?.rate ?? 2
   })
+  const envelope = usePatchStore((s) => {
+    const params = s.nodes.find((node) => node.id === source)?.data.params as ModParams | undefined
+    return params?.kind === 'env'
+  })
 
-  // Keyed off the destination, not the modulator: what makes this cable matter is whether the thing
-  // at the far end is sounding.
-  const { pulsing: live } = useNodeActivity(target)
+  // An LFO is keyed off the destination — what makes its cable matter is whether the far end is
+  // sounding. An envelope is keyed off itself, because a trigger arriving *is* the event.
+  const destination = useNodeActivity(target)
+  const modulator = useNodeActivity(source)
+  const live = envelope ? modulator.pulsing : destination.pulsing
 
   const [path] = getBezierPath({
     sourceX,
@@ -47,8 +58,10 @@ export function ModEdge({
     targetPosition,
   })
 
+  // An envelope has no cycle to show, so it never breathes: it lights for as long as the sweep lasts
+  // and goes out.
   const tooFast = rate > PULSE_RATE_CEILING
-  const breathing = live && !tooFast
+  const breathing = !envelope && live && !tooFast
 
   return (
     <>

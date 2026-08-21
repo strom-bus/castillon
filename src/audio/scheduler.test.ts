@@ -13,6 +13,7 @@ import { CascadeScheduler, MAX_DEPTH } from './scheduler'
 
 /** Fake engine: records what it is asked for without touching Web Audio. */
 class FakeEngine implements Engine {
+  envelopes: Array<{ nodeId: NodeId; at: number }> = []
   notes: NoteRequest[] = []
   released: { nodeId: NodeId; at: number }[] = []
   voices = 0
@@ -37,6 +38,11 @@ class FakeEngine implements Engine {
   }
   releaseNodeVoices(nodeId: NodeId, at: number) {
     this.released.push({ nodeId, at })
+  }
+
+  /** Recorded rather than ignored: which envelope fired when is exactly what a MOD in a chain does. */
+  fireEnvelope(nodeId: NodeId, at: number) {
+    this.envelopes.push({ nodeId, at })
   }
 }
 

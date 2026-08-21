@@ -86,6 +86,11 @@ class Measurer implements Engine {
   releaseNodeVoices(): void {
     // Nothing is sounding, so nothing needs cutting.
   }
+
+  fireEnvelope(): void {
+    // An envelope shapes what other nodes make and makes nothing of its own, so it cannot lengthen a
+    // render. Measuring one would be measuring nothing.
+  }
 }
 
 /** A bus that keeps what it is told instead of drawing it. */

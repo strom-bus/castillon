@@ -57,6 +57,12 @@ refused, since between an oscillator and an effect there is only one direction t
   are driven by recomputation instead, quantised so a sweep does not regenerate a buffer per frame.
   Depth is a share of the target's own range, so one control means the same thing on a mix as on a
   cutoff in hertz. Its cable breathes, and only once what it is pointed at is making a sound.
+- **A MOD can be an envelope instead of an LFO**, and the difference is not the shape but the clock: an
+  LFO keeps its own rate whatever the music does, an envelope runs once each time the cascade triggers
+  it. So a MOD carries event ports as well, and where you wire the trigger is what decides the
+  behaviour — under an Ignite it runs once per pass, under a node deep in the tree it runs when that
+  branch lights up, behind a Delay it runs late. It passes the trigger on, so one in the middle of a
+  chain never breaks the chain.
 - **Ignite modes.** An Ignite either fires by itself with the transport, or waits for a key. Bound to
   a key it can hold — sounding while the key is down — or toggle, starting on one press and stopping
   on the next. Built so the Ignite does not know it was a keyboard: a source emits press and release

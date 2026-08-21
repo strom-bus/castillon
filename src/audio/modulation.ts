@@ -26,7 +26,19 @@ import {
   type FxParams,
 } from '../types/patch'
 
-export type ModKind = 'lfo'
+export type ModKind = 'lfo' | 'env'
+
+export const MOD_KINDS: readonly ModKind[] = ['lfo', 'env']
+
+export const MOD_KIND_LABELS: Record<ModKind, string> = {
+  lfo: 'LFO',
+  env: 'Envelope',
+}
+
+export const MOD_KIND_HINTS: Record<ModKind, string> = {
+  lfo: 'Runs continuously at its own rate, whatever the music is doing.',
+  env: 'Runs once each time the cascade triggers it. Wire a trigger into its top port.',
+}
 
 /** The four an `OscillatorNode` can make natively. An LFO has no use for a pulse width. */
 export type LfoShape = 'sine' | 'triangle' | 'square' | 'sawtooth'

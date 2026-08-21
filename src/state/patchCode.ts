@@ -17,8 +17,12 @@ import {
   MAX_RATE,
   MAX_SWEEP,
   MIN_BPM,
+  MAX_MOD_ATTACK,
+  MAX_MOD_DECAY,
   MIN_DECAY,
   MIN_DELAY_MS,
+  MIN_MOD_ATTACK,
+  MIN_MOD_DECAY,
   MIN_NOTE,
   MIN_RATE,
   MIN_SWEEP,
@@ -105,6 +109,10 @@ const MAX_BINDING_LENGTH = 24
 const MOD_RATE_BITS = 11
 const MOD_DEPTH_BITS = 7
 const MOD_WAVE_BITS = 2
+const MOD_KIND_BITS = 1
+/** Enough for the whole millisecond range of each, since a MOD is one node and bits are not scarce. */
+const MOD_ATTACK_BITS = 11
+const MOD_DECAY_BITS = 13
 const MOD_WAVES = ['sine', 'triangle', 'square', 'sawtooth'] as const
 
 // Appended, never reordered: a code stores the index, so moving an entry would rewrite history. Four
@@ -440,19 +448,27 @@ function readText(reader: BitReader): string {
  * moment an effect gained a parameter.
  */
 function writeMod(writer: BitWriter, raw: ModParams): void {
+  // One bit for the kind, and both kinds' parameters written either way. A MOD is one node in a patch
+  // and the few spare bits are not worth a conditional layout that both ends have to agree on.
+  writer.write(raw.kind === 'env' ? 1 : 0, MOD_KIND_BITS)
   const wave = MOD_WAVES.indexOf(raw.wave ?? 'sine')
   writer.write(wave < 0 ? 0 : wave, MOD_WAVE_BITS)
   writer.write(quantise((raw.rate ?? 2) * 100, 1, 0, (1 << MOD_RATE_BITS) - 1), MOD_RATE_BITS)
   writer.write(quantise((raw.depth ?? 0.6) * 100, 1, 0, 100), MOD_DEPTH_BITS)
+  writer.write(quantise(raw.attack ?? 40, 1, MIN_MOD_ATTACK, MAX_MOD_ATTACK), MOD_ATTACK_BITS)
+  writer.write(quantise(raw.decay ?? 600, 1, MIN_MOD_DECAY, MAX_MOD_DECAY), MOD_DECAY_BITS)
   writeText(writer, raw.target ?? 'level')
 }
 
 function readMod(reader: BitReader): ModParams {
+  const kind = reader.read(MOD_KIND_BITS) === 1 ? 'env' : 'lfo'
   const wave = MOD_WAVES[reader.read(MOD_WAVE_BITS)] ?? 'sine'
   const rate = reader.read(MOD_RATE_BITS) / 100
   const depth = reader.read(MOD_DEPTH_BITS) / 100
+  const attack = reader.read(MOD_ATTACK_BITS)
+  const decay = reader.read(MOD_DECAY_BITS)
   const target = readText(reader)
-  return { kind: 'lfo', wave, rate, depth, target: target || 'level' }
+  return { kind, wave, rate, depth, attack, decay, target: target || 'level' }
 }
 
 function writeFx(writer: BitWriter, raw: FxParams): void {

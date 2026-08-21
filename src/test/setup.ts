@@ -1,3 +1,5 @@
+import { installWorkletStub } from '../audio/fakeAudio'
+
 /**
  * jsdom implements none of this, and React Flow needs it to measure the canvas.
  * Without these stubs the app cannot be mounted in tests.
@@ -57,3 +59,12 @@ const clipboard = { writeText: async (_text: string) => {} }
 if (!('clipboard' in navigator)) {
   Object.defineProperty(navigator, 'clipboard', { configurable: true, value: clipboard })
 }
+
+/**
+ * `AudioWorkletNode`, which jsdom has no notion of.
+ *
+ * The stub itself lives beside the fake audio context, so that a worklet's parameters land in the
+ * same registry as every other parameter and a test can ask what is connected to one without knowing
+ * which sort of node it belongs to.
+ */
+installWorkletStub()

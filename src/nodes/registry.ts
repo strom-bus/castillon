@@ -1,5 +1,6 @@
 import { midiToFreq, stepDuration } from '../audio/clock'
 import type { Engine } from '../audio/engine'
+import { MIN_REDUCTION } from '../audio/dsp'
 import { LAYER_THRESHOLD, MAX_LOAD } from '../audio/load'
 import type {
   DelayParams,
@@ -208,6 +209,7 @@ export function defaultFxParams(): FxParams {
     rate: 1.5,
     depth: 0.4,
     bits: 8,
+    reduction: MIN_REDUCTION,
     pan: 0,
     width: 0.3,
     sweep: 6,

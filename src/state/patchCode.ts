@@ -42,7 +42,7 @@ import {
   type StartParams,
   type Waveform,
 } from '../types/patch'
-import { MAX_BITS, MIN_BITS } from '../audio/dsp'
+import { MAX_BITS, MAX_REDUCTION, MIN_BITS, MIN_REDUCTION } from '../audio/dsp'
 import { BitReader, BitWriter } from './bits'
 
 /**
@@ -256,6 +256,9 @@ const FX_FIELDS: Field<FxParams>[] = [
   scaledField('rate', 8, 10, MIN_RATE * 10, MAX_RATE * 10),
   scaledField('depth', 7, 100, 0, 100),
   scaledField('bits', 4, 1, MIN_BITS, MAX_BITS),
+  // Appended rather than slotted beside `bits`: the order here is the wire format, and appending is
+  // the growth this format was built for — `readParams` reads only as many fields as were declared.
+  scaledField('reduction', 5, 1, MIN_REDUCTION, MAX_REDUCTION),
   // Shifted so a signed position needs no sign bit of its own.
   field<FxParams>(
     'pan',
@@ -302,6 +305,7 @@ const FX_REFERENCE: FxParams = {
   rate: 1.5,
   depth: 0.4,
   bits: 8,
+  reduction: MIN_REDUCTION,
   pan: 0,
   width: 0.3,
   shape: 'overdrive',

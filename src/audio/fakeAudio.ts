@@ -45,6 +45,40 @@ export interface FakeAudio {
   nodes(kind: string): Array<Record<string, unknown>>
 }
 
+/**
+ * The parameter factory of the most recently built fake.
+ *
+ * Needed because a worklet node is constructed through a **global** — `new AudioWorkletNode(ctx, …)`
+ * — rather than through the context, so the stub cannot be handed a fake. Pointing it at the current
+ * one keeps a worklet's parameters in the same registry as everything else, which is what lets a test
+ * ask "did anything connect to this" without knowing which sort of node it lives on.
+ */
+let currentParam: ((name: string, initial?: number) => FakeParam) | null = null
+
+/**
+ * Installs the `AudioWorkletNode` jsdom has no notion of.
+ *
+ * Called from the test setup, so that every test sees a browser that has one. Without it they would
+ * all take the fallback path — a bitcrusher with no sample-rate reduction — and the real behaviour
+ * would go unexercised, which is the opposite of what a stub is for.
+ */
+export function installWorkletStub(): void {
+  class AudioWorkletNodeStub {
+    parameters: Map<string, unknown>
+
+    constructor(_ctx: BaseAudioContext, _name: string) {
+      this.parameters = new Map([['hold', currentParam?.('hold', 1) ?? { value: 1 }]])
+    }
+
+    connect(next: unknown) {
+      return next
+    }
+    disconnect() {}
+  }
+
+  globalThis.AudioWorkletNode ??= AudioWorkletNodeStub as unknown as typeof AudioWorkletNode
+}
+
 export function fakeAudio(): FakeAudio {
   const journal: Write[] = []
   const params = new Map<string, FakeParam[]>()
@@ -155,6 +189,9 @@ export function fakeAudio(): FakeAudio {
       return now
     },
     sampleRate: 48000,
+    // Resolves: the stub node is what decides whether a processor is "registered", so this only has
+    // to not refuse.
+    audioWorklet: { addModule: () => Promise.resolve() },
     destination: node('destination'),
     createGain: () => node('gain', { gain: param('gain', 1) }),
     createBiquadFilter: () =>
@@ -200,6 +237,8 @@ export function fakeAudio(): FakeAudio {
       }
     },
   } as unknown as BaseAudioContext
+
+  currentParam = param
 
   return {
     ctx,

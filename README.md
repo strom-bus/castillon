@@ -47,7 +47,9 @@ refused, since between an oscillator and an effect there is only one direction t
 - **Whole-cascade loop.** When every branch has drained, the cascade fires again. Each pass lasts
   as long as its longest branch, so the cycle breathes rather than holding a fixed pulse.
 - **An FX node** with ten effects: reverb, distortion, bitcrush, echo, filter, chorus, phaser,
-  tremolo, ring modulation and stereo pan. They attach to an oscillator's side ports as sends —
+  tremolo, ring modulation and stereo pan. The bitcrusher does both halves: bit depth through a
+  waveshaper, and sample rate through an `AudioWorklet`, since holding a sample between outputs is
+  memory and a curve has none. No filtering on the way down — the aliasing is the sound. They attach to an oscillator's side ports as sends —
   several on one oscillator, or one shared by several — and each carries a wet/dry mix, so a send is
   a blend rather than a replacement.
 - **A MOD node** that sweeps a parameter of whatever it is wired to. Which parameters it offers
@@ -161,6 +163,7 @@ so a node's flash lands on the note you hear rather than on the moment it was sc
 ```
 src/
   audio/     engine, scheduler, effects, modulation, offline render, waveforms, noise, filter, clock
+  audio/worklets/  custom DSP that needs state between samples, bundled to run on the audio thread
   nodes/     node definitions and their scheduling logic
   state/     patch store, patch code, connection rules, persistence
   history/   undo and redo

@@ -26,6 +26,7 @@ import { fillNoise, type NoiseColor } from './noise'
 import type { Random } from './random'
 import { isNoise, pulseHarmonics, rampHarmonics } from './waveforms'
 import type { RouterOp } from './router'
+import { registerWorklets } from './worklets/register'
 
 /** Cost in points of what a voice is made of, so the budget can be about work rather than count. */
 
@@ -329,6 +330,10 @@ export class AudioEngine implements Engine {
     if (!this.ctx) {
       this.realtime = true
       this.build(new AudioContext())
+      // Before anything is built on it. `reconcile` refuses to run until the engine has started, so
+      // awaiting here is enough to guarantee no effect is ever constructed before its processor
+      // exists — which is what lets `create` stay ordinary synchronous code.
+      await this.loadWorklets()
     }
     // Only a realtime context can be suspended. Resuming an offline one would start its render.
     if (!this.realtime) return
@@ -345,6 +350,18 @@ export class AudioEngine implements Engine {
   adopt(ctx: BaseAudioContext): void {
     this.realtime = false
     this.build(ctx)
+  }
+
+  /**
+   * Loads the custom processors onto this context.
+   *
+   * Separate from `adopt` because that is synchronous and this cannot be: a processor has to be
+   * registered before a node can be built from it. An adopted context belongs to whoever adopted it,
+   * so they await this — which the render does, before it applies a single op.
+   */
+  async loadWorklets(): Promise<boolean> {
+    if (!this.ctx) return false
+    return registerWorklets(this.ctx)
   }
 
   /** The output chain: master gain into a limiter into the destination. */

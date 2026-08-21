@@ -213,6 +213,9 @@ export async function renderPatch(
   // Before `adopt`, so the master gain is built with the right value rather than ramped to it.
   engine.setMasterGain(masterGain)
   engine.adopt(ctx)
+  // Before the first op: an effect that needs a custom processor cannot be built until the processor
+  // is registered on *this* context, and a render gets a context of its own every time.
+  await engine.loadWorklets()
   applyOps(engine, diff(EMPTY_GRAPH, graphOf(patch)), patch.bpm)
 
   const scheduler = new CascadeScheduler({

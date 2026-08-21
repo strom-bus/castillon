@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { DIVISIONS } from '../audio/clock'
-import { MAX_BITS, MIN_BITS } from '../audio/dsp'
+import { MAX_BITS, MAX_REDUCTION, MIN_BITS, MIN_REDUCTION } from '../audio/dsp'
 import { EFFECTS, effectOr } from '../audio/effects'
 import {
   cutoffToSlider,
@@ -258,6 +258,18 @@ function EffectControl({
           max={MAX_BITS}
           step={1}
           onChange={(bits) => onChange({ bits })}
+        />
+      )
+    case 'reduction':
+      return (
+        <TypedSlider
+          label={name('Decimate')}
+          value={params.reduction ?? MIN_REDUCTION}
+          min={MIN_REDUCTION}
+          max={MAX_REDUCTION}
+          step={1}
+          suffix="x"
+          onChange={(reduction) => onChange({ reduction })}
         />
       )
     case 'sweep':

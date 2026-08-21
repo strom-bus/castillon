@@ -133,6 +133,14 @@ export interface FxParams {
   sweep: number
   /** Bitcrusher resolution, in bits. */
   bits: number
+  /**
+   * Sample-rate reduction: how many outputs each sample is held for. 1 leaves the rate alone.
+   *
+   * The other half of a bitcrusher, and the half that needs an `AudioWorklet` — holding a value
+   * between samples is memory, and a `WaveShaperNode` has none. Where a worklet is unavailable this
+   * does nothing and the effect crushes bits alone.
+   */
+  reduction: number
   /** Stereo position: -1 hard left, 0 centre, 1 hard right. */
   pan: number
   /**

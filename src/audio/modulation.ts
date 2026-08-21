@@ -11,7 +11,7 @@
  * bus, an effect's level, and the pair of gains that make up its mix.
  */
 
-import { MAX_BITS, MIN_BITS } from './dsp'
+import { MAX_BITS, MAX_REDUCTION, MIN_BITS, MIN_REDUCTION } from './dsp'
 import { effectOr } from './effects'
 import { MAX_CUTOFF, MAX_RESONANCE, MIN_CUTOFF, MIN_RESONANCE } from './filter'
 import {
@@ -215,6 +215,24 @@ const FX_PARAM_TARGETS: Record<string, ModTarget> = {
   // A curve, not a buffer: a few hundred floats rather than a few hundred thousand.
   drive: { key: 'drive', label: 'Drive', min: 0, max: 1, via: 'value', surcharge: 0 },
   bits: { key: 'bits', label: 'Bits', min: MIN_BITS, max: MAX_BITS, via: 'value', surcharge: 0 },
+  /**
+   * The decimator's hold count, which lives on a worklet.
+   *
+   * Connected rather than recomputed, unlike the rest of the bitcrusher's parameters: it is a real
+   * `AudioParam`, read once a block rather than once a sample. A hold count between two whole numbers
+   * is not a sound anyway, so nothing is lost by it being coarse.
+   *
+   * Priced at nothing until it has been measured — a worklet is JavaScript on the audio thread and
+   * may not behave like a native node here.
+   */
+  reduction: {
+    key: 'reduction',
+    label: 'Decimate',
+    min: MIN_REDUCTION,
+    max: MAX_REDUCTION,
+    via: 'audio',
+    surcharge: 0,
+  },
 }
 
 /**

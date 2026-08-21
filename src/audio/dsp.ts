@@ -73,9 +73,8 @@ export function distortionCurve(
 /**
  * A staircase that rounds the signal to `bits` of resolution.
  *
- * This is bit-depth reduction only. The other half of a bitcrusher — decimating the sample rate —
- * means holding samples between outputs, which a `WaveShaperNode` cannot do and which would need
- * an `AudioWorklet`. The quantisation grit is the audible half.
+ * This is bit-depth reduction only. The other half of a bitcrusher — decimating the sample rate — is
+ * `decimate` below, which needs state between samples and therefore an `AudioWorklet`.
  */
 export function crushCurve(bits: number, points = CURVE_POINTS): Float32Array<ArrayBuffer> {
   const clamped = Math.min(MAX_BITS, Math.max(MIN_BITS, Math.round(bits)))
@@ -111,4 +110,52 @@ export function impulseResponse(
     }
     return channel
   })
+}
+
+/** Sample-rate reduction: 1 leaves the signal alone, 32 holds each sample for thirty-two outputs. */
+export const MIN_REDUCTION = 1
+export const MAX_REDUCTION = 32
+
+/** What a decimator has to remember between blocks: the sample it is holding, and for how long. */
+export interface DecimateState {
+  held: number
+  counted: number
+}
+
+export function decimateState(): DecimateState {
+  return { held: 0, counted: 0 }
+}
+
+/**
+ * Sample-rate decimation, one block at a time.
+ *
+ * A sample-and-hold on the audio itself: take one sample, emit it `hold` times, take the next. The
+ * effective sample rate becomes the real one divided by `hold`, and everything above the new Nyquist
+ * folds back down — which is the sound. No filtering, deliberately: filtering it would remove the
+ * aliasing, and the aliasing is the whole point, the same argument that keeps the bit-depth shaper
+ * un-oversampled.
+ *
+ * This is the thing a `WaveShaperNode` cannot do. A curve maps a sample to a sample with no memory,
+ * and holding a value *is* memory — which is why this half of the bitcrusher waited for a worklet.
+ *
+ * Pure over its arguments, state included, so it can be tested without any of Web Audio.
+ */
+export function decimate(
+  input: Float32Array,
+  output: Float32Array,
+  hold: number,
+  state: DecimateState,
+): void {
+  const every = Math.max(1, Math.round(hold))
+
+  for (let i = 0; i < input.length; i++) {
+    // Counted up rather than down so that a hold of 1 takes every sample and changing `hold` mid-block
+    // cannot strand the counter above the new value.
+    if (state.counted <= 0) {
+      state.held = input[i]
+      state.counted = every
+    }
+    output[i] = state.held
+    state.counted--
+  }
 }

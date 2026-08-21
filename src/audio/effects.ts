@@ -7,7 +7,15 @@ import {
   type FxParams,
 } from '../types/patch'
 import { stepDuration } from './clock'
-import { crushCurve, distortionCurve, impulseResponse, MAX_BITS } from './dsp'
+import {
+  crushCurve,
+  distortionCurve,
+  impulseResponse,
+  MAX_BITS,
+  MAX_REDUCTION,
+  MIN_REDUCTION,
+} from './dsp'
+import { DECIMATOR } from './worklets/names'
 import type { Random } from './random'
 import { MAX_CUTOFF, MIN_CUTOFF } from './filter'
 
@@ -197,17 +205,40 @@ const distortion: EffectDescriptor = {
 const crush: EffectDescriptor = {
   kind: 'crush',
   // Not oversampled, so a plain table lookup plus the tone filter. Measured 2.4.
+  // Measured at 2.4 before it gained a worklet. A processor is JavaScript on the audio thread and may
+  // well not behave like a native node, so this wants re-measuring with `npm run measure`.
   cost: () => 2.4,
   label: 'Bitcrusher',
-  params: ['bits', 'cutoff'],
-  defaults: { bits: 6, cutoff: 6000 },
+  params: ['bits', 'reduction', 'cutoff'],
+  defaults: { bits: 6, reduction: MIN_REDUCTION, cutoff: 6000 },
   releaseTime: 0.02,
   create(ctx) {
     const shaper = ctx.createWaveShaper()
     // Deliberately not oversampled: here the aliasing is the sound.
     shaper.oversample = 'none'
     const post = tone(ctx)
-    shaper.connect(post)
+
+    /**
+     * The sample-rate half, which needs to hold a value between samples and so needs a worklet.
+     *
+     * Attempted rather than checked. Constructing the node is the only reliable test of whether the
+     * processor is registered on *this* context, and a browser without `AudioWorklet` should get a
+     * bitcrusher that still crushes bits rather than an effect that fails to build.
+     */
+    let decimator: AudioWorkletNode | null = null
+    try {
+      // Channel count left to follow the input: a send from one oscillator is mono, and forcing two
+      // outputs would decimate the same samples twice to produce the same two channels.
+      decimator = new AudioWorkletNode(ctx, DECIMATOR)
+    } catch {
+      decimator = null
+    }
+
+    // Bits first, then rate: quantising and then holding sounds like a cheap converter, which is what
+    // is being imitated. The other order smooths the staircase away again.
+    if (decimator) shaper.connect(decimator).connect(post)
+    else shaper.connect(post)
+
     let built = -1
 
     return {
@@ -215,21 +246,37 @@ const crush: EffectDescriptor = {
       output: post,
       update(params, { at }) {
         setTone(post, params, at)
+
+        const hold = decimator?.parameters.get('hold')
+        if (hold) {
+          const wanted = clampReduction(params.reduction ?? MIN_REDUCTION)
+          // Set rather than ramped: a hold count between two whole numbers is not a sound, it is a
+          // number the processor would round anyway.
+          hold.setValueAtTime(wanted, at)
+        }
+
         const bits = Math.round(params.bits ?? MAX_BITS)
         if (bits === built) return
         built = bits
         shaper.curve = crushCurve(bits)
       },
       paramFor(key) {
-        return key === 'cutoff' ? post.frequency : null
+        if (key === 'cutoff') return post.frequency
+        // Reachable by a cable even though it is read once a block, which is all a hold count needs.
+        if (key === 'reduction') return decimator?.parameters.get('hold') ?? null
+        return null
       },
       dispose() {
         shaper.disconnect()
+        decimator?.disconnect()
         post.disconnect()
       },
     }
   },
 }
+
+const clampReduction = (value: number) =>
+  Math.min(MAX_REDUCTION, Math.max(MIN_REDUCTION, Math.round(value)))
 
 /** Slowest possible echo: one beat at the lowest tempo. */
 const MAX_ECHO_SECONDS = 4

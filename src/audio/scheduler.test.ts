@@ -9,6 +9,7 @@ import {
 } from '../types/patch'
 import { ActivityBus, type ActivityEvent } from '../viz/activity'
 import type { Engine, NoteRequest } from './engine'
+import { MAX_LOAD } from './load'
 import { CascadeScheduler, MAX_DEPTH } from './scheduler'
 
 /** Fake engine: records what it is asked for without touching Web Audio. */
@@ -356,6 +357,15 @@ describe('delay node', () => {
 })
 
 describe('layering policy', () => {
+  /**
+   * Loads are shares of the ceiling rather than point counts.
+   *
+   * They were absolute, and broke the day the ceiling was measured rather than assumed — which is the
+   * argument for writing them this way: what these tests are about is the *threshold*, and a threshold
+   * is a fraction. `MAX_LOAD` moving by a factor of fifty should not touch them.
+   */
+  const share = (fraction: number) => MAX_LOAD * fraction
+
   function retrigger(voices: number, effects = 0) {
     const patch = patchOf(
       [{ id: 's', type: 'start', position: { x: 0, y: 0 }, params: {} }, osc('a')],
@@ -372,18 +382,18 @@ describe('layering policy', () => {
   }
 
   it('layers while there is budget left', () => {
-    expect(retrigger(10)).toHaveLength(0)
+    expect(retrigger(share(0.1))).toHaveLength(0)
   })
 
   it('degrades to a restart past 75 % of the budget', () => {
-    expect(retrigger(90).length).toBeGreaterThan(0)
+    expect(retrigger(share(0.9)).length).toBeGreaterThan(0)
   })
 
   it('counts effects towards the same budget, so a rack costs you layering', () => {
     // The same voices either way; a heavy rack alongside them is what tips it. This is the whole
     // reason the budget stopped counting voices and started counting work.
-    expect(retrigger(40)).toHaveLength(0)
-    expect(retrigger(40, 45).length).toBeGreaterThan(0)
+    expect(retrigger(share(0.4))).toHaveLength(0)
+    expect(retrigger(share(0.4), share(0.45)).length).toBeGreaterThan(0)
   })
 })
 

@@ -54,11 +54,17 @@ describe('rolling a random patch', () => {
   it('leaves the canvas in a state the app can draw', () => {
     // Straight from the generator into React Flow, so every cable needs its ports named the same
     // way a loaded patch does.
+    //
+    // Exhaustive over the three kinds rather than a ternary of two, which is what this was when there
+    // were only two — and the day the die learned to roll a modulator it started asserting that a mod
+    // cable draws itself as a cascade.
+    const drawnAs = { event: 'cascade', audio: 'signal', mod: 'modulation' } as const
+
     usePatchStore.getState().randomisePatch()
     for (const edge of usePatchStore.getState().edges) {
       expect(edge.sourceHandle).toBeTruthy()
       expect(edge.targetHandle).toBeTruthy()
-      expect(edge.type).toBe(edge.data?.kind === 'audio' ? 'signal' : 'cascade')
+      expect(edge.type).toBe(drawnAs[(edge.data?.kind ?? 'event') as keyof typeof drawnAs])
     }
   })
 

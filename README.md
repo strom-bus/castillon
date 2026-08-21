@@ -37,13 +37,24 @@ refused, since between an oscillator and an effect there is only one direction t
   Fourier series, since Web Audio ships neither.
 - **Per-voice filter** — low pass, high pass or band pass, cutoff edited on a log slider.
 - **Delay node** that holds a trigger and passes it on later, so branches drift out of step.
-- **A budget counted in work, not voices.** One point is one plain oscillator voice, the ceiling is a
-  hundred, so the meter reads as a percentage. A wavetable voice costs more than a native one, a
+- **A budget counted in work, not voices.** One point is one plain oscillator voice, and the ceiling is
+  measured rather than chosen: Chrome reports how much of each 128-sample block the audio thread has
+  used, so ramping load until that reaches a hundred per cent _is_ the ceiling rather than a proxy for
+  it. It was a hundred points for as long as nobody had measured it, and turned out to be about fifty
+  times that. A wavetable voice costs more than a native one, a
   per-voice filter adds a little, and effects are paid for the whole time they exist — a reverb is a
   `ConvolverNode`, the dearest thing here, priced by the length of its tail. The meter shows the split,
   because the standing cost of a rack is what explains why a heavy patch stops layering early. Past
-  75 % a retriggered node restarts instead of layering, so the texture degrades before it glitches;
-  effects are never disabled behind your back, since you put them there.
+  75 % a retriggered node restarts instead of layering, so the texture degrades before it glitches, and
+  that quarter of headroom is the margin for a machine slower than the one this was calibrated on.
+  Effects are never disabled behind your back, since you put them there.
+
+  Every cost is measured twice, and the second time changed three of them. An offline render is a
+  batch — the cache behaves and per-block overheads amortise — while live, every 128 samples is a fresh
+  visit. The correction turns out to scale with how much _memory traffic_ a node drags with it: a
+  buffer read was exactly right, a biquad a shade light, a convolver light by half. The two methods now
+  agree to within 1.3 % across five completely different kinds of work.
+
 - **Whole-cascade loop.** When every branch has drained, the cascade fires again. Each pass lasts
   as long as its longest branch, so the cycle breathes rather than holding a fixed pulse.
 - **An FX node** with eleven effects: reverb, distortion, bitcrush, echo, filter, chorus, phaser,

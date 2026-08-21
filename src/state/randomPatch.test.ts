@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { EFFECTS } from '../audio/effects'
-import { estimatePeakLoad, MAX_LOAD } from '../audio/load'
-import type { FxParams, OscParams } from '../types/patch'
+import { estimatePeakLoad } from '../audio/load'
+import { silentBecause } from '../audio/modulation'
+import type { FxParams, ModParams, OscParams } from '../types/patch'
 import { decodePatch, encodePatch } from './patchCode'
-import { randomPatch } from './randomPatch'
+import { randomPatch, ROLL_BUDGET } from './randomPatch'
 
 /** Deterministic, so a claim about a thousand patches means the same thing on every run. */
 function seeded(seed: number): () => number {
@@ -38,11 +39,20 @@ describe('randomPatch', () => {
   })
 
   it('leaves nothing grey and silent', () => {
-    // An orphaned node is the one outcome that would look like a bug rather than a patch.
+    // An orphaned node is the one outcome that would look like a bug rather than a patch. What counts
+    // as attached differs by kind, and saying so is the test: an FX is reached by audio rather than by
+    // triggers, and a MOD is reached by neither — it is the *source* of its own cable, so what it needs
+    // is somewhere to point.
     for (const patch of many()) {
       const seen = reachable(patch)
       for (const node of patch.nodes) {
-        if (node.type === 'fx') continue // reached by audio, not by triggers
+        if (node.type === 'fx') continue
+        if (node.type === 'mod') {
+          expect(patch.edges.some((edge) => edge.source === node.id && edge.kind === 'mod')).toBe(
+            true,
+          )
+          continue
+        }
         expect(seen.has(node.id)).toBe(true)
       }
     }
@@ -150,12 +160,15 @@ describe('randomPatch', () => {
     }
   })
 
-  it('never rolls a patch that starts over budget', () => {
-    // The condition on huge rolls: as big as it likes, but it has to play. Trimming happens after
-    // building, since the peak cost of a cascade is easier to measure on a finished patch than to
+  it('never rolls a patch over its own budget', () => {
+    // The condition on huge rolls: as big as it likes, but it has to stay readable. Trimming happens
+    // after building, since the peak cost of a cascade is easier to measure on a finished patch than to
     // forecast while making one.
+    //
+    // Its own budget, not the machine's ceiling: the two were one number only while the ceiling was
+    // wrong by a factor of fifty, and a roll fifty times bigger is several hundred nodes nobody can read.
     for (const patch of many(400)) {
-      expect(estimatePeakLoad(patch)).toBeLessThanOrEqual(MAX_LOAD)
+      expect(estimatePeakLoad(patch)).toBeLessThanOrEqual(ROLL_BUDGET)
     }
   })
 
@@ -168,9 +181,40 @@ describe('randomPatch', () => {
   it('takes effects before oscillators when it has to trim', () => {
     // Losing an effect costs a colour; losing an oscillator costs a voice. And an effect is the
     // dearest thing per node, so it is also the fastest way back under.
-    const heavy = many(400).filter((p) => estimatePeakLoad(p) > MAX_LOAD * 0.7)
+    //
+    // Measured against the roll's own budget rather than against `MAX_LOAD`, which is the separation
+    // that matters here: the ceiling says what a machine can do, and a roll is bounded by what a patch
+    // can readably *be*. They were the same number only while the ceiling was wrong.
+    const heavy = many(400).filter((p) => estimatePeakLoad(p) > ROLL_BUDGET * 0.7)
     expect(heavy.length).toBeGreaterThan(0)
     for (const patch of heavy) expect(oscs(patch).length).toBeGreaterThan(0)
+  })
+
+  it('rolls modulators, since a third of the instrument was never turning up', () => {
+    // The die knew about oscillators, delays and effects and not about MOD, so nothing it produced ever
+    // modulated anything.
+    const withMod = many(60).filter((patch) => patch.nodes.some((node) => node.type === 'mod'))
+    expect(withMod.length).toBeGreaterThan(10)
+  })
+
+  it('never points a modulator at something that would do nothing', () => {
+    // A cutoff on an oscillator with its filter off is a cable that looks wired and is not, which from
+    // a roll is indistinguishable from a bug.
+    for (const patch of many(60)) {
+      for (const edge of patch.edges.filter((e) => e.kind === 'mod')) {
+        const mod = patch.nodes.find((node) => node.id === edge.source)!
+        const destination = patch.nodes.find((node) => node.id === edge.target)!
+        const effect =
+          destination.type === 'fx' ? (destination.params as FxParams).effect : undefined
+        expect(
+          silentBecause((mod.params as ModParams).target ?? 'level', {
+            nodeType: destination.type,
+            effect,
+            filterType: (destination.params as OscParams).filterType,
+          }),
+        ).toBeNull()
+      }
+    }
   })
 
   it('survives a round trip through the patch code', () => {

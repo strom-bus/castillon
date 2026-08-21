@@ -109,9 +109,15 @@ function setTone(filter: BiquadFilterNode, params: FxParams, at: number): void {
 
 const reverb: EffectDescriptor = {
   kind: 'reverb',
-  // Measured at 31.4 for a 2.5 s tail, against a reasoned 15. Convolution is the dearest thing
-  // here by a wide margin, and it scales with the tail, so the coefficient carries the shape.
-  cost: (params) => 12.5 * Math.min(MAX_DECAY, Math.max(MIN_DECAY, params.decay ?? 2.5)),
+  // 12.5 per second of tail offline, and 20 in realtime — a hundred reverbs saturate the audio thread
+  // where the model expected a hundred and fifty-eight. Convolution is where an offline render is most
+  // optimistic, and for a reason: it walks a long impulse against the input, which a batch render
+  // caches well and a live one revisits every 128 samples.
+  //
+  // The dearest thing here by a wide margin, and it scales with the tail, so the coefficient carries
+  // the shape. At full decay it is two hundred points — a fifth of the ceiling for one node, which is
+  // true rather than discouraging.
+  cost: (params) => 20 * Math.min(MAX_DECAY, Math.max(MIN_DECAY, params.decay ?? 2.5)),
   label: 'Reverb',
   params: ['decay', 'cutoff'],
   defaults: { decay: 2.5, cutoff: 4000 },
@@ -483,11 +489,14 @@ const MAX_PHASER_FEEDBACK = 0.6
  */
 const phaser: EffectDescriptor = {
   kind: 'phaser',
-  // Four all-pass stages with an LFO on every one of them. Measured 13.5 against a reasoned 3.5,
-  // and the gap is the lesson: an automated `AudioParam` makes a biquad recompute its
-  // coefficients per sample rather than per block, so four swept filters cost far more than
-  // four filters.
-  cost: () => 13.5,
+  // Four all-pass stages with an LFO on every one of them. 13.5 offline and 15.5 in realtime, and the
+  // gap between those two is the same 13 % a per-voice biquad shows — which is what identified the
+  // correction as a property of biquads rather than of any one effect.
+  //
+  // Against a *reasoned* 3.5, and that gap is the other lesson: an automated `AudioParam` makes a
+  // biquad recompute its coefficients per sample rather than per block, so four swept filters cost far
+  // more than four filters.
+  cost: () => 15.5,
   label: 'Phaser',
   params: ['rate', 'depth', 'feedback', 'cutoff'],
   labels: { cutoff: 'Centre' },

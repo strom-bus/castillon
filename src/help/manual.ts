@@ -141,12 +141,12 @@ export const MANUAL: Section[] = [
     title: { en: 'The budget', es: 'El presupuesto' },
     body: [
       {
-        en: 'The meter counts work, not voices. One point is one plain oscillator voice, and a hundred is the ceiling — so the meter reads as a percentage. A reverb costs about thirty voices; a wavetable costs the same as a native waveform; noise costs a little over two. Those numbers are measured rather than guessed.',
-        es: 'El medidor cuenta trabajo, no voces. Un punto es una voz de oscilador simple, y cien es el techo — así el medidor se lee como un porcentaje. Un reverb cuesta unas treinta voces; una wavetable cuesta lo mismo que una forma nativa; el ruido cuesta algo más de dos. Esos números están medidos, no supuestos.',
+        en: 'The meter counts work, not voices. One point is one plain oscillator voice, and the ceiling is what the machine can actually manage before the audio thread starts dropping samples — measured, not chosen. A reverb costs about fifty voices, a per-voice filter about one, noise a little over two. Those numbers are measured twice: once against an offline render, once against the audio thread in real time.',
+        es: 'El medidor cuenta trabajo, no voces. Un punto es una voz de oscilador simple, y el techo es lo que la máquina aguanta de verdad antes de que el hilo de audio empiece a perder muestras — medido, no elegido. Un reverb cuesta unas cincuenta voces, un filtro por voz cerca de una, el ruido algo más de dos. Esos números están medidos dos veces: contra un render offline y contra el hilo de audio en directo.',
       },
       {
-        en: 'Past three quarters of the budget a retriggered oscillator restarts instead of layering, so a heavy patch degrades before it glitches. Effects are never switched off behind your back: you put them there.',
-        es: 'Pasados tres cuartos del presupuesto, un oscilador redisparado reinicia en vez de superponerse, así que un patch cargado se degrada antes de romperse. Los efectos nunca se apagan a tus espaldas: los pusiste tú.',
+        en: 'Past three quarters of the budget a retriggered oscillator restarts instead of layering, so a heavy patch degrades before it glitches. That three quarters is the safety margin — the ceiling is what one machine managed, and a slower one runs out sooner. Effects are never switched off behind your back: you put them there.',
+        es: 'Pasados tres cuartos del presupuesto, un oscilador redisparado reinicia en vez de superponerse, así que un patch cargado se degrada antes de romperse. Ese tres cuartos es el margen de seguridad — el techo es lo que aguantó una máquina, y otra más lenta se queda sin aire antes. Los efectos nunca se apagan a tus espaldas: los pusiste tú.',
       },
     ],
   },

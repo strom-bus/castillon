@@ -1,5 +1,6 @@
 import { EFFECTS } from '../audio/effects'
-import { effectCost, estimatePeakLoad, MAX_LOAD } from '../audio/load'
+import { effectCost, estimatePeakLoad } from '../audio/load'
+import { LFO_SHAPES, silentBecause, targetsFor } from '../audio/modulation'
 import { defaultDelayParams, defaultFxParams, defaultOscParams } from '../nodes/registry'
 import type {
   Division,
@@ -252,6 +253,53 @@ export function randomPatch(random: () => number = Math.random): Patch {
     wire(target, fx, 'audio')
   }
 
+  /*
+   * Modulators, which the die had never rolled — so a third of what the instrument can do never turned
+   * up in a patch nobody wired by hand.
+   *
+   * LFOs only for now. An envelope is the more musical of the two here, since it belongs to the
+   * cascade, but it needs a trigger cable and the parents that could supply one are out of scope by the
+   * time this runs. Worth a second pass rather than a worse first one.
+   *
+   * A target is drawn from what the destination actually offers, and one that would do nothing is
+   * skipped — a cutoff on an oscillator with its filter off is a cable that looks wired and is not.
+   */
+  const destinations = [...oscillators, ...nodes.filter((node) => node.type === 'fx')]
+  const modulators = c.chance(0.55) ? c.range(1, 3) : 0
+
+  for (let i = 0; i < modulators && destinations.length > 0; i++) {
+    const destination = c.pick(destinations)
+    const effect = destination.type === 'fx' ? (destination.params as FxParams).effect : undefined
+    const offered = targetsFor(destination.type, effect).filter(
+      (target) =>
+        !silentBecause(target.key, {
+          nodeType: destination.type,
+          effect,
+          filterType: (destination.params as OscParams).filterType,
+        }),
+    )
+    if (offered.length === 0) continue
+
+    const mod = add({
+      type: 'mod',
+      // Opposite the effects, which sit to the right: a modulator on a node with an effect should not
+      // land on top of it.
+      position: {
+        x: destination.position.x - Math.round(COLUMN * 0.5),
+        y: destination.position.y + i * Math.round(ROW * 0.5),
+      },
+      params: {
+        kind: 'lfo',
+        wave: c.pick([...LFO_SHAPES]),
+        // Slow: a modulation you can follow is worth more than one that buzzes.
+        rate: c.range(5, 120) / 100,
+        depth: c.range(25, 85) / 100,
+        target: c.pick(offered).key,
+      },
+    })
+    wire(mod, destination, 'mod')
+  }
+
   return trimToBudget({
     version: 1,
     bpm: c.range(70, 170, 2),
@@ -261,8 +309,18 @@ export function randomPatch(random: () => number = Math.random): Patch {
   })
 }
 
-/** Aimed under the ceiling rather than at it, so a roll has somewhere to breathe. */
-const BUDGET_TARGET = 0.85
+/**
+ * What a roll may cost, and it is **not** a share of `MAX_LOAD` any more.
+ *
+ * They were the same number for as long as the ceiling was a hundred, and separating them is the point:
+ * the ceiling is about what a machine can do, and this is about what a patch can *be*. The real ceiling
+ * turned out to be fifty times higher, and a roll fifty times bigger is not a better roll — it is
+ * several hundred nodes nobody can read on a canvas.
+ *
+ * So this is a taste number, and the only one in this file that is. Generous enough for a rack of
+ * effects and a wall of oscillators, nowhere near what the machine would allow.
+ */
+export const ROLL_BUDGET = 300
 
 /**
  * Brings a roll inside the budget by taking things away, cheapest decision first.
@@ -275,7 +333,7 @@ const BUDGET_TARGET = 0.85
  * while losing an oscillator costs a voice. Only leaves are taken, so nothing is ever orphaned.
  */
 function trimToBudget(patch: Patch): Patch {
-  const limit = MAX_LOAD * BUDGET_TARGET
+  const limit = ROLL_BUDGET
   let nodes = patch.nodes
   let edges = patch.edges
 

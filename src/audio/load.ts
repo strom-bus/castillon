@@ -25,11 +25,30 @@ import { isNoise } from './waveforms'
  * and not the work inside them — except where a parameter is automated, which pushes a node from
  * recomputing its coefficients per block to per sample, and that is where the dearest effects are.
  *
- * One machine, one browser, one offline render. The *ratios* are what transfer between machines, and
- * ratios are all these are. What no measurement settles is `MAX_LOAD` or `LAYER_THRESHOLD`: those are
- * about when a machine starts to struggle, and only listening answers that.
+ * **And then they were measured a second way, in realtime, and three of them were light.** An offline
+ * render is a batch: the cache behaves, and per-block overheads amortise. Live, every 128 samples is a
+ * fresh visit, and the correction turns out to scale with how much *memory traffic* a node drags with
+ * it — a buffer read exactly right, a biquad a shade light, a convolver light by half.
+ *
+ * The two methods now agree to within 1.3 % across five completely different kinds of work, which is
+ * why the numbers below are believable and not merely measured. See PLAN §11.11.
  */
-export const MAX_LOAD = 100
+
+/**
+ * The ceiling, measured rather than chosen.
+ *
+ * Chrome reports render capacity — the share of each 128-sample block the audio thread has used, and
+ * the fraction of blocks it failed to deliver at all. Ramping load until that reaches a hundred is the
+ * definition of a ceiling rather than a proxy for one, and this machine reached it at about 5100 points.
+ *
+ * It was 100 before, chosen because it made the meter read as a percentage. That was wrong by a factor
+ * of fifty, and not harmlessly: `LAYER_THRESHOLD` below is a share of this, so a single reverb at full
+ * decay put every oscillator permanently into restart-instead-of-layer and nothing said why.
+ *
+ * Calibrated on an Apple Silicon Mac. A device several times slower will glitch below a full meter —
+ * the margin for that is `LAYER_THRESHOLD`, which backs off well before this is reached.
+ */
+export const MAX_LOAD = 5000
 
 /** Past this share of the budget, oscillators restart instead of layering. */
 export const LAYER_THRESHOLD = 0.75
@@ -39,8 +58,13 @@ export const LAYER_THRESHOLD = 0.75
  *
  * The arithmetic in a biquad really is trivial, which is what the old guess was about. What it costs
  * is being a second node in the graph at all.
+ *
+ * 0.8 offline and 1.05 in realtime, and the realtime figure is the one that matters: 2500 filtered
+ * voices saturate the audio thread exactly as 5100 plain ones do. A phaser's four swept biquads landed
+ * on the same 13 % correction independently, which is what makes it a property of biquads rather than
+ * a stray reading.
  */
-const FILTER_COST = 0.8
+const FILTER_COST = 1.05
 
 export function voiceCost(waveform: Waveform, filtered: boolean): number {
   // Both halves of this were guessed wrong. A `PeriodicWave` is not dearer than a native type —

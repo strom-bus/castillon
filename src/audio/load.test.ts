@@ -36,16 +36,16 @@ describe('the unit', () => {
 
   it('adds the per-voice filter, at most of an oscillator', () => {
     expect(voiceCost('square', true)).toBeGreaterThan(voiceCost('square', false))
-    // Measured at 0.8, against a reasoned 0.3. The arithmetic in a biquad is trivial; being a second
-    // node in the graph is not, and that is what dominates.
-    expect(voiceCost('square', true)).toBeCloseTo(1.8, 5)
+    // 0.8 measured offline and 1.05 in realtime, against a *reasoned* 0.3. The arithmetic in a biquad is
+    // trivial; being a second node in the graph is not, and that is what dominates.
+    expect(voiceCost('square', true)).toBeCloseTo(2.05, 5)
   })
 
   it('reads the cost straight off an oscillator’s parameters', () => {
     expect(oscVoiceCost({ ...defaultOscParams(), waveform: 'square', filterType: 'off' })).toBe(1)
     expect(
       oscVoiceCost({ ...defaultOscParams(), waveform: 'pulse', filterType: 'lowpass' }),
-    ).toBeCloseTo(1.8, 5)
+    ).toBeCloseTo(2.05, 5)
   })
 })
 
@@ -68,8 +68,9 @@ describe('what effects cost', () => {
   it('prices the reverb by its tail, because a convolver is priced by its tail', () => {
     const at = (decay: number) => effectCost({ ...defaultFxParams(), effect: 'reverb', decay })
     expect(at(5)).toBeCloseTo(at(2.5) * 2, 5)
-    // A ten-second tail is most of the budget, which is the honest number.
-    expect(at(10)).toBeGreaterThan(MAX_LOAD / 2)
+    // Measured against the voice, which is the unit, rather than against the ceiling: a ten-second tail
+    // costs what a hundred oscillators cost, and that comparison stays true whatever the ceiling is.
+    expect(at(10)).toBeGreaterThan(100 * voiceCost('square', false))
   })
 
   it('charges an oversampled waveshaper more than a plain one', () => {
@@ -183,8 +184,12 @@ describe('estimating a patch', () => {
 })
 
 describe('the budget itself', () => {
-  it('is a hundred, so the meter reads as a percentage', () => {
-    expect(MAX_LOAD).toBe(100)
+  it('is the measured ceiling of the machine it was calibrated on', () => {
+    // Measured rather than chosen: Chrome's render capacity reaches a hundred per cent at about 5100
+    // points on the machine this was calibrated on. It was 100 for as long as nobody had measured it,
+    // which was wrong by a factor of fifty — and not harmlessly, since the layering back-off is a share
+    // of it and a single reverb used to hold every oscillator permanently past the threshold.
+    expect(MAX_LOAD).toBe(5000)
   })
 
   it('starts degrading before it runs out', () => {

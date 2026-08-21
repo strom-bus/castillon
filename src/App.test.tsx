@@ -1,3 +1,4 @@
+import { MAX_LOAD } from './audio/load'
 import { render, screen, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import App from './App'
@@ -22,7 +23,7 @@ describe('App', () => {
     expect(screen.getByLabelText('Random patch')).toBeDefined()
     // The load meter, which lives in the canvas opposite the palette. Asserted because it once went
     // missing from the whole app during a move and every test still passed.
-    expect(screen.getByTitle(/of 100\./)).toBeDefined()
+    expect(screen.getByTitle(new RegExp(`of ${MAX_LOAD}\\.`))).toBeDefined()
 
     // The starting patch: two independent cascades, five oscillators and a delay.
     expect(screen.getAllByText('IGNITE')).toHaveLength(2)

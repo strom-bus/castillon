@@ -4,6 +4,7 @@ import './ui/styles.css'
 import { useEffect } from 'react'
 import { installTriggers, reconcile, restartCascade } from './audio/runtime'
 import { useGalleryWindow } from './gallery/window'
+import { useManualWindow } from './help/window'
 import { installHistory } from './history/patchHistory'
 import { decodePatch } from './state/patchCode'
 import { loadStoredPatch, savePatch } from './state/persistence'
@@ -12,6 +13,7 @@ import { looksLikeShortCode } from './state/shortCode'
 import { toPatch, usePatchStore } from './state/patchStore'
 import { Canvas } from './ui/Canvas'
 import { Gallery } from './ui/Gallery'
+import { Manual } from './ui/Manual'
 import { GalleryButton } from './ui/GalleryButton'
 import { Inspector } from './ui/Inspector'
 import { Logo } from './ui/Logo'
@@ -20,6 +22,8 @@ import { Transport } from './ui/Transport'
 const AUTOSAVE_MS = 500
 
 export default function App() {
+  const manualOpen = useManualWindow((s) => s.open)
+  const hideManual = useManualWindow((s) => s.hide)
   const galleryOpen = useGalleryWindow((s) => s.open)
   const showGallery = useGalleryWindow((s) => s.show)
   const hideGallery = useGalleryWindow((s) => s.hide)
@@ -100,6 +104,7 @@ export default function App() {
       </header>
       <Transport />
       {galleryOpen && <Gallery onClose={hideGallery} />}
+      {manualOpen && <Manual onClose={hideManual} />}
       <div className="workspace">
         <Canvas />
         <Inspector />

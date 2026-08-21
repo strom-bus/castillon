@@ -648,6 +648,73 @@ input[type='range'] {
 /* Not an error — a control that is connected and currently has nothing to act on. Brand orange
    because that is already the colour this app uses to say "look here". */
 /*
+ * The HELP button, under the basics in an empty inspector.
+ *
+ * Below them rather than instead of them: what the panel already says is what somebody needs in the
+ * first minute, and the manual is for the hour after.
+ */
+.manual-open {
+  align-self: flex-start;
+  margin-top: 4px;
+}
+
+/*
+ * The manual. Prose, so it gets a reading measure and a line height the rest of the interface does not
+ * — the chrome is set at eleven pixels and tracked out, which is right for a label and unreadable for
+ * a paragraph.
+ */
+.manual {
+  max-width: 720px;
+}
+
+.manual-body {
+  overflow-y: auto;
+  padding-right: 6px;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.65;
+  letter-spacing: 0;
+}
+
+.manual-body section + section {
+  margin-top: 26px;
+}
+
+.manual-body h3 {
+  margin: 0 0 8px;
+  color: var(--brand-lit);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.manual-body p {
+  margin: 0 0 10px;
+  color: var(--muted);
+}
+
+.manual-body dl {
+  margin: 0;
+}
+
+/* Each pair on its own row: a term and its explanation read as one thing, not as two columns. */
+.manual-body dl > div + div {
+  margin-top: 12px;
+}
+
+.manual-body dt {
+  color: var(--text);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.manual-body dd {
+  margin: 3px 0 0;
+  color: var(--muted);
+}
+
+/*
  * The MIDI indicator, in the transport beside the volume.
  *
  * Dim rather than hidden, so the absence of a device is visible and hoverable — an icon that appears

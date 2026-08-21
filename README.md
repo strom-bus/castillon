@@ -99,6 +99,11 @@ refused, since between an oscillator and an effect there is only one direction t
 - **Copy and paste**, with Cmd or Ctrl. Shift-drag selects several nodes, and a copy brings their
   parameters and the cables between them. The clipboard outlives loading another patch, so an
   oscillator worth keeping can be carried from one roll of the dice to the next.
+- **A manual**, opened from the empty inspector: a window over the app, in English or Spanish, chosen
+  from the browser's locale and remembered. Only the manual has a language — the interface stays in
+  English, since its labels are three words each and translating `DIV` would make it longer without
+  making it clearer. Both languages live adjacent in one file so a half-finished edit shows up in the
+  diff rather than as a blank paragraph months later.
 - **Patch codes.** The entire patch packs into one URL-safe string you can copy and paste. Every
   parameter left at rest costs a single bit, so a code carries roughly what you actually changed.
 - **Short codes.** Six characters that stand for a patch — `K7M2QX` — and what the interface shows.

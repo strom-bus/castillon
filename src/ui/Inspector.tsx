@@ -47,6 +47,7 @@ import {
 } from '../types/patch'
 import { BindingCapture } from './BindingCapture'
 import { formatOrdinal, nodeOrdinal } from '../state/ordinals'
+import { useManualWindow } from '../help/window'
 import { usePatchStore } from '../state/patchStore'
 import { NumberInput } from './NumberInput'
 import {
@@ -434,6 +435,7 @@ function Panel({ children }: { children: ReactNode }) {
 }
 
 export function Inspector() {
+  const showManual = useManualWindow((s) => s.show)
   const node = usePatchStore((s) => s.nodes.find((n) => n.id === s.selectedId))
   // The same number the node shows on the canvas, so the panel and the node agree on which one
   // you are looking at.
@@ -492,6 +494,12 @@ export function Inspector() {
           Shift-drag selects several nodes. <strong>Copy and paste</strong> brings them back with
           their parameters, and the cables between them.
         </p>
+
+        {/* Below the basics rather than instead of them: what is written here is what somebody needs
+            in the first minute, and the manual is for the hour after. */}
+        <button type="button" className="btn manual-open" onClick={showManual}>
+          HELP
+        </button>
       </Panel>
     )
   }

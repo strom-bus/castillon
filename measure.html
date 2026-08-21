@@ -90,7 +90,16 @@
       connected to nothing, once with it connected, so the modulator's own cost cancels.
     </p>
     <p>Takes a few minutes. Leave the tab in front — a background tab is throttled.</p>
-    <button id="run">Measure</button>
+    <p>
+      The <strong>ceiling</strong> is a different question on a different thread, so it is a
+      separate run. The costs above come from timing an offline render — how fast audio can be
+      produced when nothing is waiting for it. A ceiling is whether every block of 128 samples is
+      ready <em>in time</em>, which only <code>renderCapacity</code> can answer and only in
+      realtime. That run makes a quiet sound, on purpose: silence is something a browser may
+      optimise away, and an optimised measurement measures nothing.
+    </p>
+    <button id="run">Measure costs</button>
+    <button id="ceiling">Measure the ceiling</button>
     <p id="status"></p>
     <pre id="out"></pre>
     <script type="module" src="/src/tools/measurePage.ts"></script>

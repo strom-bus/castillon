@@ -42,6 +42,8 @@ export interface CeilingStep {
 
 export interface Ceiling {
   supported: boolean
+  /** What was actually found, so a missing API can be told apart from a mistaken check. */
+  diagnosis: string
   steps: CeilingStep[]
   /** The largest rung with no dropouts and peak below the margin, or null if even the first failed. */
   safe: number | null
@@ -60,14 +62,24 @@ const wait = (seconds: number) => new Promise((done) => setTimeout(done, seconds
  */
 export async function measureCeiling(onStep: (label: string) => void): Promise<Ceiling> {
   const ctx = new AudioContext()
-  const capacity = ctx.renderCapacity
-
-  if (!capacity) {
-    await ctx.close()
-    return { supported: false, steps: [], safe: null, broke: null }
-  }
-
+  // Resumed *before* looking. A suspended context is not obviously the same object as a running one,
+  // and checking first was cheap to get wrong — which is exactly what a diagnosis is for.
   await ctx.resume()
+
+  const capacity = ctx.renderCapacity
+  if (!capacity) {
+    const onInstance = 'renderCapacity' in ctx
+    const onPrototype = 'renderCapacity' in AudioContext.prototype
+    await ctx.close()
+    return {
+      supported: false,
+      // Which of the three it is decides what to do about it, and one line of prose cannot.
+      diagnosis: `on the instance: ${onInstance} · on the prototype: ${onPrototype} · state was ${ctx.state}`,
+      steps: [],
+      safe: null,
+      broke: null,
+    }
+  }
 
   let latest: CeilingStep | null = null
   capacity.onupdate = (event) => {
@@ -135,6 +147,7 @@ export async function measureCeiling(onStep: (label: string) => void): Promise<C
 
   return {
     supported: true,
+    diagnosis: '',
     steps,
     safe: safeSteps.length > 0 ? safeSteps[safeSteps.length - 1].points : null,
     broke: broken?.points ?? null,
@@ -150,7 +163,17 @@ export async function measureCeiling(onStep: (label: string) => void): Promise<C
  */
 export function formatCeiling(ceiling: Ceiling, current: number): string {
   if (!ceiling.supported) {
-    return 'This browser has no renderCapacity, so the ceiling cannot be measured here. Chrome can.'
+    return [
+      'renderCapacity is not available here, so the ceiling cannot be measured directly.',
+      '',
+      `What was found — ${ceiling.diagnosis}`,
+      '',
+      'It is a Chrome-only API and may still be behind a flag rather than shipped: try',
+      'chrome://flags/#enable-experimental-web-platform-features, then restart the browser.',
+      '',
+      'Worth reporting either way. There is no good substitute from inside the page — an underrun',
+      'happens past everything a script can observe, which is why the API exists at all.',
+    ].join('\n')
   }
 
   const rows = ceiling.steps.map(

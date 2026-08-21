@@ -41,9 +41,10 @@ interface EdgeLike {
 export function computeDepths(nodes: NodeLike[], edges: EdgeLike[]): DepthInfo {
   const children = new Map<string, string[]>()
   for (const edge of edges) {
-    // Event cables only. An audio cable into an effect would otherwise be read as another level
-    // of cascade, which would count towards `max` and compress the whole ramp.
-    if (edge.data?.kind === 'audio') continue
+    // Event cables only. Anything else would be read as another level of cascade, counting towards
+    // `max` and compressing the ramp across the whole patch — which is exactly what an audio cable
+    // did once before this line existed. A modulation cable is the same trap wearing a new name.
+    if (edge.data?.kind === 'audio' || edge.data?.kind === 'mod') continue
     const list = children.get(edge.source)
     if (list) list.push(edge.target)
     else children.set(edge.source, [edge.target])

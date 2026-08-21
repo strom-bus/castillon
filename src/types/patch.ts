@@ -6,7 +6,14 @@ export type NodeId = string
  * The two overlaid graphs. Event cables carry timestamped triggers down the cascade; audio cables
  * carry signal sideways from an oscillator into an effect.
  */
-export type EdgeKind = 'event' | 'audio'
+/**
+ * The three kinds of cable.
+ *
+ * `event` is the cascade and it flows. `audio` is signal and it glows. `mod` looks like audio — white
+ * and grey — and pulses at its own rate, which is what tells the two apart (PLAN §18): the difference
+ * is a behaviour rather than a colour, because colour already means cascade depth.
+ */
+export type EdgeKind = 'event' | 'audio' | 'mod'
 
 export type Division = '1/4' | '1/8' | '1/16'
 
@@ -193,7 +200,23 @@ export function bindingKey(binding: IgniteBinding | null | undefined): string | 
   return binding ? `${binding.source}:${binding.code}` : null
 }
 
-export type NodeParams = OscParams | FxParams | DelayParams | StartParams
+export interface ModParams {
+  /**
+   * What it modulates on whatever it is wired to.
+   *
+   * `level` and `mix` belong to the engine; anything else is a parameter key of the effect the cable
+   * landed on, so a MOD on a reverb can point at its decay and one on a chorus at its sweep.
+   */
+  target?: string
+  kind?: 'lfo'
+  wave?: 'sine' | 'triangle' | 'square' | 'sawtooth'
+  /** Hertz. */
+  rate?: number
+  /** 0 to 1, as a share of the target's own value. */
+  depth?: number
+}
+
+export type NodeParams = OscParams | FxParams | DelayParams | StartParams | ModParams
 
 export const MIN_DELAY_MS = 10
 export const MAX_DELAY_MS = 4000

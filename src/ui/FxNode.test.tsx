@@ -21,7 +21,7 @@ function firstOsc(): string {
 function wire(from: string, to: string) {
   usePatchStore
     .getState()
-    .onConnect({ source: from, target: to, sourceHandle: 'audio-r', targetHandle: 'audio-l' })
+    .onConnect({ source: from, target: to, sourceHandle: 'signal-r', targetHandle: 'signal-l' })
 }
 
 beforeEach(() => {
@@ -56,7 +56,7 @@ describe('wiring an effect to an oscillator', () => {
     expect(
       canConnect(
         { nodes, edges },
-        { source: osc, target: fx, sourceHandle: 'audio-l', targetHandle: 'audio-r' },
+        { source: osc, target: fx, sourceHandle: 'signal-l', targetHandle: 'signal-r' },
       ),
     ).toBe(false)
   })

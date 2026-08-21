@@ -1,15 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import {
-  AUDIO_LEFT,
-  AUDIO_RIGHT,
   canConnect,
-  connectionKind,
+  connectionFor,
   EVENT_IN,
   EVENT_OUT,
+  SIGNAL_LEFT,
+  SIGNAL_RIGHT,
 } from './connections'
 
 const nodes = [
   { id: 'ig', type: 'start' },
+  { id: 'm', type: 'mod' },
   { id: 'a', type: 'osc' },
   { id: 'b', type: 'osc' },
   { id: 'f', type: 'fx' },
@@ -22,8 +23,8 @@ const rules = (edges: { source: string; target: string }[] = []) => ({ nodes, ed
 const audio = (
   source: string,
   target: string,
-  sourceHandle = AUDIO_RIGHT,
-  targetHandle = AUDIO_LEFT,
+  sourceHandle = SIGNAL_RIGHT,
+  targetHandle = SIGNAL_LEFT,
 ) => ({
   source,
   target,
@@ -38,29 +39,72 @@ const event = (source: string, target: string) => ({
   targetHandle: EVENT_IN,
 })
 
-describe('connectionKind', () => {
-  it('reads the kind off the handles', () => {
-    expect(connectionKind(audio('a', 'f'))).toBe('audio')
-    expect(connectionKind(event('a', 'b'))).toBe('event')
+describe('what a cable turns out to be', () => {
+  it('reads the kind off the nodes, not off the ports', () => {
+    // The reason one port per side works: an oscillator reaching an effect can only be audio, and a
+    // modulator reaching either can only be modulation.
+    expect(connectionFor(rules(), audio('a', 'f'))?.kind).toBe('audio')
+    expect(connectionFor(rules(), audio('m', 'a'))?.kind).toBe('mod')
+    expect(connectionFor(rules(), audio('m', 'f'))?.kind).toBe('mod')
+    expect(connectionFor(rules(), event('a', 'b'))?.kind).toBe('event')
   })
 
-  it('refuses to mix the two graphs', () => {
+  it('turns a cable drawn backwards round rather than refusing it', () => {
+    // Dragging from an oscillator onto a modulator means the same thing as the reverse, and React
+    // Flow can no longer tell us which way the user meant.
+    const decided = connectionFor(rules(), audio('a', 'm'))
+    expect(decided?.kind).toBe('mod')
+    expect(decided?.source).toBe('m')
+    expect(decided?.target).toBe('a')
+  })
+
+  it('turns a trigger cable drawn upwards round too', () => {
+    const decided = connectionFor(rules(), {
+      source: 'b',
+      target: 'a',
+      sourceHandle: EVENT_IN,
+      targetHandle: EVENT_OUT,
+    })
+    expect(decided?.source).toBe('a')
+    expect(decided?.target).toBe('b')
+  })
+
+  it('swaps the ports with the ends, so the cable still leaves the side it was drawn from', () => {
+    const decided = connectionFor(rules(), audio('a', 'm', SIGNAL_LEFT, SIGNAL_RIGHT))
+    expect(decided?.sourceHandle).toBe(SIGNAL_RIGHT)
+    expect(decided?.targetHandle).toBe(SIGNAL_LEFT)
+  })
+
+  it('refuses to mix a side port with a top or bottom one', () => {
     expect(
-      connectionKind({
+      connectionFor(rules(), {
         source: 'a',
         target: 'f',
         sourceHandle: EVENT_OUT,
-        targetHandle: AUDIO_LEFT,
+        targetHandle: SIGNAL_LEFT,
       }),
     ).toBeNull()
     expect(
-      connectionKind({
+      connectionFor(rules(), {
         source: 'a',
         target: 'b',
-        sourceHandle: AUDIO_RIGHT,
+        sourceHandle: SIGNAL_RIGHT,
         targetHandle: EVENT_IN,
       }),
     ).toBeNull()
+  })
+
+  it('refuses a signal cable between two things that have nothing to say to each other', () => {
+    expect(connectionFor(rules(), audio('a', 'b'))).toBeNull()
+    expect(connectionFor(rules(), audio('f', 'g'))).toBeNull()
+    expect(connectionFor(rules(), audio('a', 'ig'))).toBeNull()
+    expect(connectionFor(rules(), audio('m', 'd'))).toBeNull()
+  })
+
+  it('refuses a second cable between the same two nodes, whichever way it is drawn', () => {
+    const wired = rules([{ source: 'm', target: 'a' }])
+    expect(canConnect(wired, audio('m', 'a'))).toBe(false)
+    expect(canConnect(wired, audio('a', 'm'))).toBe(false)
   })
 })
 
@@ -70,22 +114,27 @@ describe('canConnect', () => {
   })
 
   it('allows either side of the oscillator to reach either side of the effect', () => {
-    expect(canConnect(rules(), audio('a', 'f', AUDIO_LEFT, AUDIO_RIGHT))).toBe(true)
-    expect(canConnect(rules(), audio('a', 'f', AUDIO_RIGHT, AUDIO_RIGHT))).toBe(true)
+    expect(canConnect(rules(), audio('a', 'f', SIGNAL_LEFT, SIGNAL_RIGHT))).toBe(true)
+    expect(canConnect(rules(), audio('a', 'f', SIGNAL_RIGHT, SIGNAL_RIGHT))).toBe(true)
   })
 
   it('refuses a second cable between the same pair, whichever sides are used', () => {
     // Two audio handles per node would otherwise let one oscillator send to one effect twice.
     const existing = rules([{ source: 'a', target: 'f' }])
-    expect(canConnect(existing, audio('a', 'f', AUDIO_LEFT, AUDIO_RIGHT))).toBe(false)
+    expect(canConnect(existing, audio('a', 'f', SIGNAL_LEFT, SIGNAL_RIGHT))).toBe(false)
   })
 
   it('refuses effect to effect, which is what keeps the audio graph one hop deep', () => {
     expect(canConnect(rules(), audio('f', 'g'))).toBe(false)
   })
 
-  it('refuses effect back into an oscillator', () => {
-    expect(canConnect(rules(), audio('f', 'a'))).toBe(false)
+  it('turns an effect dragged onto an oscillator round, since only one direction exists', () => {
+    // It used to be refused. Turning it round is the better answer: there is exactly one legal cable
+    // between an oscillator and an effect, so a drag either way can only have meant that one.
+    const decided = connectionFor(rules(), audio('f', 'a'))
+    expect(decided?.source).toBe('a')
+    expect(decided?.target).toBe('f')
+    expect(decided?.kind).toBe('audio')
   })
 
   it('refuses audio from a node that makes none', () => {

@@ -765,14 +765,14 @@ input[type='range'] {
 
 /* Same shape and size as the event ports. They are told apart by their neutral edge and by which
    side of the node they sit on, which is enough — audio runs across, events run down. */
-.port-audio {
+.port-signal {
   width: 9px;
   height: 9px;
   background: var(--surface-raised);
   border: 1px solid var(--muted);
 }
 
-.port-audio:hover {
+.port-signal:hover {
   border-color: var(--text);
 }
 
@@ -1191,4 +1191,99 @@ input[type='range'] {
 .key-clear svg {
   width: 13px;
   height: 13px;
+}
+
+/* ---------------------------------------------------------------------------
+   The MOD module and its cable (PLAN §18).
+   --------------------------------------------------------------------------- */
+
+/*
+ * A modulation cable breathes.
+ *
+ * White and grey like an audio cable, and told apart by what it does rather than by colour — colour
+ * already means cascade depth, so a third hue would compete with the one thing hue is for. Event
+ * cables flow, audio cables glow, these breathe.
+ *
+ * A swell rather than a flash: one cycle of the cable is one cycle of the modulator, and a hard blink
+ * at four hertz is a strobe where a swell is a pulse.
+ */
+@keyframes mod-breathe {
+  0%,
+  100% {
+    stroke: var(--muted);
+    opacity: 0.45;
+  }
+  50% {
+    stroke: var(--text);
+    opacity: 1;
+  }
+}
+
+.edge-mod {
+  stroke: var(--muted);
+  stroke-width: 2.5;
+  stroke-dasharray: 1 6;
+  stroke-linecap: round;
+  opacity: 0.45;
+  transition:
+    stroke 90ms linear,
+    opacity 90ms linear;
+}
+
+/* Something is being shaped: brighter, and breathing unless the rate has outrun the eye. */
+.edge-mod.active {
+  stroke: var(--text);
+  opacity: 0.9;
+}
+
+.edge-mod.breathing {
+  /* The duration is set inline from the modulator's rate; this is only the fallback. */
+  animation: mod-breathe 0.5s ease-in-out infinite;
+}
+
+.edge-hit:hover ~ .edge-mod {
+  stroke: var(--text);
+  stroke-width: 3.5;
+}
+
+/* Anyone who asked for less motion gets the cable held at its brightest rather than pulsing. */
+@media (prefers-reduced-motion: reduce) {
+  .edge-mod.breathing {
+    animation: none;
+  }
+}
+
+/* White and grey like FX, and for the same reason: it is not part of the cascade. */
+.node-mod {
+  --accent: var(--text);
+  min-width: 96px;
+  transition: border-color 120ms linear;
+}
+
+.node-mod.idle {
+  border-color: var(--border-strong);
+}
+
+.node-mod.wired {
+  border-color: var(--muted);
+}
+
+.mod-body {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: 6px 8px 8px;
+}
+
+.mod-rate {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.mod-unit {
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  color: var(--muted);
 }

@@ -1,7 +1,15 @@
 import { midiToFreq, stepDuration } from '../audio/clock'
 import type { Engine } from '../audio/engine'
 import { LAYER_THRESHOLD, MAX_LOAD } from '../audio/load'
-import type { DelayParams, FxParams, NodeParams, OscParams, PatchNode, Step } from '../types/patch'
+import type {
+  DelayParams,
+  FxParams,
+  ModParams,
+  NodeParams,
+  OscParams,
+  PatchNode,
+  Step,
+} from '../types/patch'
 import { MAX_DELAY_MS, MIN_DELAY_MS } from '../types/patch'
 import type { ActivityBus } from '../viz/activity'
 
@@ -210,8 +218,23 @@ const fx: NodeDefinition = {
   defaults: defaultFxParams,
 }
 
+/** A new MOD: a sine slow enough to hear as a shape, at a depth that is obvious but not violent. */
+export function defaultModParams(): ModParams {
+  return { target: 'level', kind: 'lfo', wave: 'sine', rate: 2, depth: 0.6 }
+}
+
+/**
+ * A modulator. Like FX it has no `schedule`: nothing triggers it, it runs on its own rate and shapes
+ * whatever it is pointed at.
+ */
+const mod: NodeDefinition = {
+  type: 'mod',
+  label: 'MOD',
+  defaults: defaultModParams,
+}
+
 /** This order is the palette's order: what a cascade needs, in the order you need it. */
-export const NODE_DEFINITIONS: NodeDefinition[] = [start, osc, fx, delay]
+export const NODE_DEFINITIONS: NodeDefinition[] = [start, osc, fx, mod, delay]
 
 const byType = new Map(NODE_DEFINITIONS.map((d) => [d.type, d]))
 

@@ -1,3 +1,4 @@
+import { MOD_COST } from './modulation'
 import type { FxParams, OscParams, Patch, Waveform } from '../types/patch'
 import { stepDuration } from './clock'
 import { effectOr } from './effects'
@@ -71,6 +72,10 @@ export function estimatePeakLoad(patch: Patch): number {
     .filter((n) => n.type === 'fx')
     .reduce((sum, n) => sum + effectCost(n.params as FxParams), 0)
 
+  // A modulator runs whether or not anything is playing, so it is standing cost like an effect. Left
+  // out, a patch of oscillators and modulators would read as cheaper than it is.
+  const modulators = patch.nodes.filter((n) => n.type === 'mod').length * MOD_COST
+
   const children = new Map<string, string[]>()
   for (const edge of patch.edges) {
     if (edge.kind !== 'event') continue
@@ -103,5 +108,5 @@ export function estimatePeakLoad(patch: Patch): number {
   }
 
   const widest = Math.max(0, ...perLevel.values())
-  return effects + widest * PEAK_ALLOWANCE
+  return effects + modulators + widest * PEAK_ALLOWANCE
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { defaultFxParams, defaultOscParams } from '../nodes/registry'
-import type { FxParams, Patch, PatchEdge, PatchNode } from '../types/patch'
+import type { FxParams, ModParams, Patch, PatchEdge, PatchNode } from '../types/patch'
 import { diff, EMPTY_GRAPH, graphOf, sendKey, type AudioGraph } from './router'
 
 function osc(id: string): PatchNode {
@@ -184,5 +184,101 @@ describe('diff', () => {
     expect(sendKey('a', 'b')).toBe('a>b')
     const before: AudioGraph = { ...EMPTY_GRAPH, sends: new Set([sendKey('a', 'b')]) }
     expect(diff(before, before)).toEqual([])
+  })
+})
+
+describe('modulation in the graph', () => {
+  const modNode = (id: string, params: Partial<ModParams> = {}): PatchNode => ({
+    id,
+    type: 'mod',
+    position: { x: 0, y: 0 },
+    params: { target: 'level', kind: 'lfo', wave: 'sine', rate: 2, depth: 0.6, ...params },
+  })
+
+  const modEdge = (source: string, target: string): PatchEdge => ({
+    id: `${source}~${target}`,
+    kind: 'mod',
+    source,
+    target,
+  })
+
+  it('sees a modulator and its cable', () => {
+    const graph = graphOf(patchOf([modNode('m'), osc('a')], [modEdge('m', 'a')]))
+    expect(graph.modulators.has('m')).toBe(true)
+    expect(graph.mods.get('m>a')?.target).toBe('level')
+  })
+
+  it('resolves the target against what the cable landed on', () => {
+    // Mix does not exist on an oscillator, so it falls back rather than doing nothing (§18.4).
+    const graph = graphOf(patchOf([modNode('m', { target: 'mix' }), osc('a')], [modEdge('m', 'a')]))
+    expect(graph.mods.get('m>a')?.target).toBe('level')
+  })
+
+  it('keeps Mix when the cable lands on an effect', () => {
+    const graph = graphOf(patchOf([modNode('m', { target: 'mix' }), fx('f')], [modEdge('m', 'f')]))
+    expect(graph.mods.get('m>f')?.target).toBe('mix')
+  })
+
+  it('drops a cable to something with nothing to modulate', () => {
+    const graph = graphOf(
+      patchOf(
+        [modNode('m'), { id: 'd', type: 'delay', position: { x: 0, y: 0 }, params: {} }],
+        [modEdge('m', 'd')],
+      ),
+    )
+    expect(graph.mods.size).toBe(0)
+  })
+
+  it('builds and wires a new modulator, in that order', () => {
+    const ops = diff(EMPTY_GRAPH, graphOf(patchOf([modNode('m'), osc('a')], [modEdge('m', 'a')])))
+    const kinds = ops.map((op) => op.op)
+    expect(kinds).toContain('createMod')
+    expect(kinds).toContain('connectMod')
+    expect(kinds.indexOf('createMod')).toBeLessThan(kinds.indexOf('connectMod'))
+  })
+
+  it('emits nothing when nothing about it changed', () => {
+    // The property the whole router exists for: dragging a node must not rewire anything.
+    const patch = patchOf([modNode('m'), osc('a')], [modEdge('m', 'a')])
+    expect(diff(graphOf(patch), graphOf(patch))).toEqual([])
+  })
+
+  it('updates rather than rebuilds when the rate moves', () => {
+    const before = graphOf(patchOf([modNode('m'), osc('a')], [modEdge('m', 'a')]))
+    const after = graphOf(patchOf([modNode('m', { rate: 7 }), osc('a')], [modEdge('m', 'a')]))
+    const ops = diff(before, after)
+    expect(ops.map((op) => op.op)).toEqual(['updateMod'])
+  })
+
+  it('lets go of the old parameter when the target moves', () => {
+    // A parameter left connected keeps whatever offset it was holding when the cable moved on.
+    const before = graphOf(patchOf([modNode('m', { target: 'mix' }), fx('f')], [modEdge('m', 'f')]))
+    const after = graphOf(
+      patchOf([modNode('m', { target: 'level' }), fx('f')], [modEdge('m', 'f')]),
+    )
+    const ops = diff(before, after)
+    expect(ops.map((op) => op.op)).toContain('disconnectMod')
+    expect(ops.map((op) => op.op)).toContain('connectMod')
+    expect(ops.findIndex((op) => op.op === 'disconnectMod')).toBeLessThan(
+      ops.findIndex((op) => op.op === 'connectMod'),
+    )
+  })
+
+  it('disposes a modulator that has gone', () => {
+    const before = graphOf(patchOf([modNode('m'), osc('a')], [modEdge('m', 'a')]))
+    const after = graphOf(patchOf([osc('a')], []))
+    const kinds = diff(before, after).map((op) => op.op)
+    expect(kinds).toContain('disconnectMod')
+    expect(kinds).toContain('disposeMod')
+    expect(kinds.indexOf('disconnectMod')).toBeLessThan(kinds.indexOf('disposeMod'))
+  })
+
+  it('does not count a modulation cable as an audio send', () => {
+    // Two graphs sharing a node pair: one cable each. The audio path must not see the modulation one.
+    const graph = graphOf(
+      patchOf([modNode('m'), osc('a'), fx('f')], [modEdge('m', 'a'), audio('a', 'f')]),
+    )
+    expect(graph.sends.has('a>f')).toBe(true)
+    expect(graph.sends.has('m>a')).toBe(false)
   })
 })

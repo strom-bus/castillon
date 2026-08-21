@@ -31,6 +31,19 @@ export interface EffectChain {
   update(params: FxParams, context: EffectContext): void
   /** Called after the node's output has already been faded out. */
   dispose(): void
+  /**
+   * The `AudioParam` behind one of this effect's parameters, where there is one.
+   *
+   * How a MOD reaches inside an effect (PLAN §18). Only some parameters have one: a cutoff is a
+   * filter's frequency and can be connected to, while a reverb's decay rebuilds an impulse response
+   * and a bitcrusher's depth rebuilds a curve — neither is a parameter Web Audio can add a signal to,
+   * so those are driven by recomputation instead and answer `null` here.
+   *
+   * Several are allowed, because some parameters are not one node: a phaser's centre is spread across
+   * four all-pass stages and an echo's time governs two delay lines, and modulating one of each would
+   * pull the effect apart rather than sweep it.
+   */
+  paramFor?(key: string): AudioParam | AudioParam[] | null
 }
 
 export interface EffectDescriptor {
@@ -114,6 +127,9 @@ const reverb: EffectDescriptor = {
         channels.forEach((channel, i) => buffer.getChannelData(i).set(channel))
         convolver.buffer = buffer
       },
+      paramFor(key) {
+        return key === 'cutoff' ? damping.frequency : null
+      },
       dispose() {
         convolver.disconnect()
         damping.disconnect()
@@ -159,6 +175,9 @@ const distortion: EffectDescriptor = {
         built = key
         shaper.curve = distortionCurve(shape, amount)
       },
+      paramFor(key) {
+        return key === 'cutoff' ? post.frequency : null
+      },
       dispose() {
         shaper.disconnect()
         dcBlock.disconnect()
@@ -193,6 +212,9 @@ const crush: EffectDescriptor = {
         if (bits === built) return
         built = bits
         shaper.curve = crushCurve(bits)
+      },
+      paramFor(key) {
+        return key === 'cutoff' ? post.frequency : null
       },
       dispose() {
         shaper.disconnect()
@@ -256,6 +278,14 @@ const echo: EffectDescriptor = {
         left.pan.setTargetAtTime(-spread, at, RAMP)
         right.pan.setTargetAtTime(spread, at, RAMP)
       },
+      paramFor(key) {
+        if (key === 'cutoff') return damping.frequency
+        if (key === 'feedback') return feedback.gain
+        // Both lines: the taps sit at T and 2T, and moving one of them would turn the pattern into
+        // something else rather than shifting it.
+        if (key === 'time') return [first.delayTime, second.delayTime]
+        return null
+      },
       dispose() {
         first.disconnect()
         second.disconnect()
@@ -299,6 +329,11 @@ const filter: EffectDescriptor = {
         const hz = type === 'off' ? MAX_CUTOFF : (params.cutoff ?? 2000)
         biquad.frequency.setTargetAtTime(Math.min(MAX_CUTOFF, Math.max(MIN_CUTOFF, hz)), at, RAMP)
         biquad.Q.setTargetAtTime(Math.max(0.1, params.resonance ?? 1), at, RAMP)
+      },
+      paramFor(key) {
+        if (key === 'cutoff') return biquad.frequency
+        if (key === 'resonance') return biquad.Q
+        return null
       },
       dispose() {
         biquad.disconnect()
@@ -359,6 +394,14 @@ const chorus: EffectDescriptor = {
           at,
           RAMP,
         )
+      },
+      paramFor(key) {
+        if (key === 'cutoff') return post.frequency
+        if (key === 'feedback') return feedback.gain
+        if (key === 'rate') return lfo.frequency
+        if (key === 'depth') return swing.gain
+        if (key === 'sweep') return line.delayTime
+        return null
       },
       dispose() {
         lfo.stop()
@@ -435,6 +478,14 @@ const phaser: EffectDescriptor = {
           RAMP,
         )
       },
+      paramFor(key) {
+        // Every stage, so the notches move together and the sweep stays a sweep.
+        if (key === 'cutoff') return stages.map((stage) => stage.frequency)
+        if (key === 'feedback') return feedback.gain
+        if (key === 'rate') return lfo.frequency
+        if (key === 'depth') return swing.gain
+        return null
+      },
       dispose() {
         lfo.stop()
         lfo.disconnect()
@@ -480,6 +531,11 @@ const tremolo: EffectDescriptor = {
         swing.gain.setTargetAtTime(depth / 2, at, RAMP)
         lfo.frequency.setTargetAtTime(Math.max(0.01, params.rate ?? 4), at, RAMP)
       },
+      paramFor(key) {
+        if (key === 'rate') return lfo.frequency
+        if (key === 'depth') return swing.gain
+        return null
+      },
       dispose() {
         lfo.stop()
         lfo.disconnect()
@@ -523,6 +579,9 @@ const ring: EffectDescriptor = {
       update(params, { at }) {
         const hz = Math.min(MAX_CUTOFF, Math.max(MIN_CUTOFF, params.cutoff ?? 400))
         carrier.frequency.setTargetAtTime(hz, at, RAMP)
+      },
+      paramFor(key) {
+        return key === 'cutoff' ? carrier.frequency : null
       },
       dispose() {
         carrier.stop()
@@ -571,6 +630,9 @@ const pan: EffectDescriptor = {
         panner.pan.setTargetAtTime(Math.min(1, Math.max(-1, params.pan ?? 0)), at, RAMP)
         const spread = Math.min(1, Math.max(0, params.width ?? 0)) * MAX_WIDTH_SECONDS
         right.delayTime.setTargetAtTime(spread, at, RAMP)
+      },
+      paramFor(key) {
+        return key === 'pan' ? panner.pan : null
       },
       dispose() {
         input.disconnect()

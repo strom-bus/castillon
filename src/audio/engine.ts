@@ -1,4 +1,13 @@
-import type { FilterType, FxParams, NodeId, Waveform } from '../types/patch'
+import {
+  amountFor,
+  MAX_RATE,
+  MIN_RATE,
+  MOD_COST,
+  targetOf,
+  type LfoShape,
+  type ModTargetKey,
+} from './modulation'
+import type { FilterType, FxParams, ModParams, NodeId, Waveform } from '../types/patch'
 import { effectOr, type EffectChain } from './effects'
 import { MAX_CUTOFF, MAX_RESONANCE, MIN_CUTOFF, MIN_RESONANCE } from './filter'
 import { effectCost, MAX_LOAD, voiceCost } from './load'
@@ -49,9 +58,45 @@ interface OutputBus {
  * transforms that should replace it. Carrying the dry here serves both, and does it once for every
  * effect rather than ten times.
  */
+/** A modulator: an oscillator and the gain that is its depth. */
+interface ModInstance {
+  osc: OscillatorNode
+  depth: GainNode
+  cost: number
+  /** When it began, so a value-rate link can work out its phase without reading the oscillator. */
+  startedAt: number
+  wave: LfoShape
+  rate: number
+}
+
+/**
+ * A modulation that cannot be connected to.
+ *
+ * A decay rebuilds an impulse response and a bit depth rebuilds a curve, so neither is an
+ * `AudioParam`. These are driven by recomputation: the modulator's value is worked out in JavaScript
+ * and pushed through the effect's own `update` (PLAN §18.3).
+ */
+interface ValueLink {
+  modId: NodeId
+  targetId: NodeId
+  key: string
+  centre: number
+  amount: number
+  /** Rounded to this before being applied, so a sweep does not rebuild a buffer for every frame. */
+  step: number
+}
+
 interface EffectInstance {
   /** Points, refreshed when a parameter that bears on it moves — a reverb's tail, most of all. */
   cost: number
+  /**
+   * The last parameters it was given, and the tempo they came with.
+   *
+   * Kept so a value-rate modulation can push a changed copy through `update` without the store
+   * knowing: modulation is not an edit, so it must never be written back to the patch.
+   */
+  params: FxParams
+  bpm: number
   input: GainNode
   dry: GainNode
   wet: GainNode
@@ -71,6 +116,28 @@ interface Voice {
   source: AudioScheduledSourceNode
   /** Everything to unhook when the voice ends. */
   chain: AudioNode[]
+  /** Its own filter, where it has one, since that is what a modulator on this oscillator points at. */
+  filter: BiquadFilterNode | null
+  /** What is driving that filter, so it can be let go of when the note ends. */
+  modulated: Array<{ amount: GainNode; param: AudioParam }>
+}
+
+/**
+ * A modulator pointed at an oscillator's filter.
+ *
+ * Every other target is a node the engine keeps for as long as the patch does, so a cable is one
+ * connection made when it is drawn. A filter is built per note and thrown away with it, so what stands
+ * here is the depth — its own gain, fed by the modulator — while the connection to the parameter is
+ * made and unmade with each voice.
+ *
+ * The gain is per link rather than the modulator's shared one because one depth means two different
+ * quantities on these two: thousands of hertz on a cutoff, and a number under twenty on a Q.
+ */
+interface VoiceLink {
+  modId: NodeId
+  oscId: NodeId
+  key: 'cutoff' | 'resonance'
+  amount: GainNode
 }
 
 /**
@@ -104,6 +171,27 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, Number.isFinite(value) ? value : min))
 }
 
+/**
+ * A modulator's wave at a phase in turns, from -1 to 1.
+ *
+ * Only for value-rate links: audio-rate ones are the oscillator itself. The two agree in shape, which
+ * is what matters — a square that stepped differently here than in the audio path would be a second
+ * definition of the same control.
+ */
+export function waveAt(shape: LfoShape, turns: number): number {
+  const phase = turns - Math.floor(turns)
+  switch (shape) {
+    case 'square':
+      return phase < 0.5 ? 1 : -1
+    case 'sawtooth':
+      return phase * 2 - 1
+    case 'triangle':
+      return phase < 0.5 ? phase * 4 - 1 : 3 - phase * 4
+    default:
+      return Math.sin(phase * Math.PI * 2)
+  }
+}
+
 const STEAL_FADE = 0.008
 /** Time constant for a parameter change that should not click. */
 const RAMP = 0.01
@@ -112,6 +200,30 @@ const MIN_RAMP = 0.005
 const NOISE_REFERENCE_FREQ = 261.6255653005986
 /** Long enough that the loop point is not audible as a pattern. */
 const NOISE_SECONDS = 3
+
+/**
+ * Where a modulator can be pointed: a parameter, or a node that leads to one.
+ *
+ * Nearly always the first. The exception is the dry half of a mix, which has to move against the wet
+ * half, and Web Audio has no negative connection — so the signal goes through a gain of -1, and what
+ * it connects to is that gain's input rather than a parameter.
+ */
+type ModDestination = AudioParam | AudioNode
+
+/** A node can pass a signal on; a parameter is where one ends. That is the difference that matters. */
+function isNode(destination: ModDestination): destination is AudioNode {
+  return 'connect' in destination
+}
+
+function connectTo(from: AudioNode, to: ModDestination): void {
+  if (isNode(to)) from.connect(to)
+  else from.connect(to)
+}
+
+function disconnectFrom(from: AudioNode, to: ModDestination): void {
+  if (isNode(to)) from.disconnect(to)
+  else from.disconnect(to)
+}
 
 export class AudioEngine implements Engine {
   /**
@@ -126,6 +238,15 @@ export class AudioEngine implements Engine {
   private masterGainValue = 0.8
   private buses = new Map<NodeId, OutputBus>()
   private effects = new Map<NodeId, EffectInstance>()
+  private modulators = new Map<NodeId, ModInstance>()
+  /** What each modulator is driving, so a rewiring can undo exactly what it did. */
+  private modLinks = new Map<string, ModDestination[]>()
+  private voiceLinks = new Map<string, VoiceLink>()
+  /** One inverter per node, so wiring a mix modulation twice does not stack them. */
+  private inverters = new Map<NodeId, GainNode>()
+  /** Modulations that cannot be connected to, driven by recomputation instead. */
+  private valueLinks = new Map<string, ValueLink>()
+  private valueTimer: number | null = null
   private directLevels = new Map<NodeId, number>()
   private pulseWaves = new Map<number, PeriodicWave>()
   private rampWaveCache: PeriodicWave | null = null
@@ -214,8 +335,9 @@ export class AudioEngine implements Engine {
     // One biquad per voice, so a filter sweep tracks each note rather than a shared bus.
     const chain: AudioNode[] = [source, gain]
     let tail: AudioNode = source
+    let filter: BiquadFilterNode | null = null
     if (req.filterType !== 'off') {
-      const filter = this.ctx.createBiquadFilter()
+      filter = this.ctx.createBiquadFilter()
       filter.type = req.filterType
       filter.frequency.setValueAtTime(clamp(req.cutoff, MIN_CUTOFF, MAX_CUTOFF), req.time)
       filter.Q.setValueAtTime(clamp(req.resonance, MIN_RESONANCE, MAX_RESONANCE), req.time)
@@ -228,8 +350,24 @@ export class AudioEngine implements Engine {
     source.start(req.time)
     source.stop(end + 0.01)
 
-    const voice: Voice = { nodeId: req.nodeId, cost, start: req.time, end, gain, source, chain }
+    const voice: Voice = {
+      nodeId: req.nodeId,
+      cost,
+      start: req.time,
+      end,
+      gain,
+      source,
+      chain,
+      filter,
+      modulated: [],
+    }
+    // Anything already pointed at this oscillator's filter takes hold of this note as it starts.
+    for (const link of this.voiceLinks.values()) {
+      if (link.oscId === req.nodeId) this.attachVoice(link, voice)
+    }
+
     source.onended = () => {
+      this.releaseVoice(voice)
       for (const node of chain) node.disconnect()
       const i = this.voices.indexOf(voice)
       if (i !== -1) this.voices.splice(i, 1)
@@ -290,6 +428,8 @@ export class AudioEngine implements Engine {
       output,
       chain,
       kind: params.effect,
+      params,
+      bpm,
     })
     chain.update(params, { at: this.ctx.currentTime, bpm })
     this.updateEffect(nodeId, params, bpm)
@@ -321,6 +461,11 @@ export class AudioEngine implements Engine {
   }
 
   updateEffect(nodeId: NodeId, params: FxParams, bpm: number): void {
+    const known = this.effects.get(nodeId)
+    if (known) {
+      known.params = params
+      known.bpm = bpm
+    }
     const instance = this.effects.get(nodeId)
     if (!this.ctx || !instance) return
     // A reverb's cost follows its tail, so this has to be refreshed on any parameter change rather
@@ -363,6 +508,301 @@ export class AudioEngine implements Engine {
       },
       (release + 0.05) * 1000,
     )
+  }
+
+  /**
+   * Builds a modulator: an oscillator through a gain, and nothing else.
+   *
+   * The gain *is* the depth, and it is what gets connected to a parameter — Web Audio adds a
+   * connected signal to the parameter's own value, so a bipolar LFO at depth `d` swings the target
+   * between `value ± d`. Kept at or below one so a level modulated to its floor lands on silence
+   * rather than passing through it into inversion.
+   */
+  createModulator(nodeId: NodeId, params: ModParams): void {
+    if (!this.ctx) return
+    this.disposeModulator(nodeId)
+
+    const ctx = this.ctx as BaseAudioContext
+    const osc = ctx.createOscillator()
+    const depth = ctx.createGain()
+    osc.type = params.wave ?? 'sine'
+    osc.frequency.value = clamp(params.rate ?? 2, MIN_RATE, MAX_RATE)
+    // Left at nothing until a cable says what it is pointing at: depth means a share of the target's
+    // range, and there is no range without a target.
+    depth.gain.value = 0
+    osc.connect(depth)
+    osc.start()
+
+    this.modulators.set(nodeId, {
+      osc,
+      depth,
+      cost: MOD_COST,
+      startedAt: ctx.currentTime,
+      wave: params.wave ?? 'sine',
+      rate: clamp(params.rate ?? 2, MIN_RATE, MAX_RATE),
+    })
+  }
+
+  /**
+   * A rate or a wave change reaches the running oscillator directly. Depth does not: it is scaled to
+   * whatever the modulator is pointed at, so the router re-connects rather than updating, and this
+   * leaves the gain alone.
+   */
+  updateModulator(nodeId: NodeId, params: ModParams): void {
+    const instance = this.modulators.get(nodeId)
+    if (!instance || !this.ctx) return
+    const at = this.ctx.currentTime
+    instance.osc.type = params.wave ?? 'sine'
+    instance.osc.frequency.setTargetAtTime(clamp(params.rate ?? 2, MIN_RATE, MAX_RATE), at, RAMP)
+  }
+
+  disposeModulator(nodeId: NodeId): void {
+    const instance = this.modulators.get(nodeId)
+    if (!instance) return
+    // Every link first: a parameter left with a stopped oscillator attached keeps whatever offset it
+    // was holding when the sound stopped.
+    // All three kinds of link, not just the connected sort: a value link outliving its modulator
+    // would leave the parameter wherever the sweep last put it, and the driver running for nothing.
+    const links = [...this.modLinks.keys(), ...this.valueLinks.keys(), ...this.voiceLinks.keys()]
+    for (const key of links) {
+      if (key.startsWith(`${nodeId}->`))
+        this.disconnectMod(nodeId, key.slice(key.indexOf('->') + 2))
+    }
+    try {
+      instance.osc.stop()
+    } catch {
+      // Never started, or already stopped.
+    }
+    instance.osc.disconnect()
+    instance.depth.disconnect()
+    this.modulators.delete(nodeId)
+  }
+
+  /**
+   * Points a modulator at a parameter.
+   *
+   * `mix` is the one that takes two: an effect's balance is a pair of gains that must move against
+   * each other, so the modulator drives the wet side directly and the dry side through an inverter.
+   * Without the inversion, sweeping the mix would swing the whole output rather than the balance.
+   */
+  connectMod(modId: NodeId, targetId: NodeId, target: ModTargetKey, depth: number): void {
+    const instance = this.modulators.get(modId)
+    if (!this.ctx || !instance) return
+
+    const descriptor = targetOf(target)
+
+    // Nothing to connect to: the parameter exists but rebuilds something rather than being an
+    // `AudioParam`, so it is driven by recomputation.
+    if (descriptor?.via === 'value') {
+      const effect = this.effects.get(targetId)
+      if (!effect) return
+      const centre = (effect.params[target as keyof FxParams] as number) ?? descriptor.min
+      this.valueLinks.set(`${modId}->${targetId}`, {
+        modId,
+        targetId,
+        key: target,
+        centre,
+        amount: amountFor(descriptor, depth),
+        // Sixty-four steps across the whole span: fine enough to hear as a sweep, coarse enough that
+        // a rebuild happens on a change somebody could notice.
+        step: (descriptor.max - descriptor.min) / 64,
+      })
+      this.syncValueTimer()
+      return
+    }
+
+    // An oscillator's filter, which does not exist yet: it arrives with the next note, and with every
+    // note after that. What is set up now is the depth; the connecting happens per voice.
+    if (!this.effects.has(targetId) && (target === 'cutoff' || target === 'resonance')) {
+      this.linkVoices(modId, targetId, target, depth, instance)
+      return
+    }
+
+    const destinations = this.modParams(targetId, target)
+    if (destinations.length === 0) return
+
+    // Depth is a share of the target's own span, so the one control means the same thing on a mix as
+    // on a cutoff in hertz. Without this, a depth of 0.6 would be six tenths of a hertz on a filter.
+    const scaled = targetOf(target)
+    instance.depth.gain.value = scaled ? amountFor(scaled, depth) : Math.max(0, Math.min(1, depth))
+
+    for (const destination of destinations) connectTo(instance.depth, destination)
+    this.modLinks.set(`${modId}->${targetId}`, destinations)
+  }
+
+  disconnectMod(modId: NodeId, targetId: NodeId): void {
+    const instance = this.modulators.get(modId)
+    const key = `${modId}->${targetId}`
+
+    const valued = this.valueLinks.get(key)
+    if (valued) {
+      this.valueLinks.delete(key)
+      this.syncValueTimer()
+      // Put back where it was, or the parameter keeps whatever the sweep last left it at.
+      const effect = this.effects.get(targetId)
+      if (effect) {
+        this.updateEffect(targetId, { ...effect.params, [valued.key]: valued.centre }, effect.bpm)
+      }
+      return
+    }
+    const perVoice = this.voiceLinks.get(key)
+    if (perVoice) {
+      this.voiceLinks.delete(key)
+      for (const voice of this.voices) this.releaseVoice(voice, perVoice.amount)
+      perVoice.amount.disconnect()
+      return
+    }
+
+    const destinations = this.modLinks.get(key)
+    this.modLinks.delete(key)
+    if (!instance || !destinations) return
+
+    for (const destination of destinations) {
+      try {
+        disconnectFrom(instance.depth, destination)
+      } catch {
+        // Already gone.
+      }
+    }
+  }
+
+  /**
+   * The parameters a target names on a node.
+   *
+   * Empty when there is nothing to point at, which is how a MOD wired to the wrong kind of node ends
+   * up doing nothing rather than throwing.
+   */
+  /**
+   * Applies every value-rate modulation once.
+   *
+   * The modulator's value is worked out rather than read: an `OscillatorNode` cannot be sampled, so
+   * the wave is evaluated at the time elapsed since it started. A link driven this way is not
+   * phase-locked to the same modulator's audio-rate links, which matters only if one MOD drives both
+   * kinds at once, and then only as a fixed offset.
+   *
+   * Rounded to a step before being applied, because the parameters that need this are exactly the ones
+   * that rebuild something: without it a sweep would regenerate an impulse response every tick rather
+   * than once per audible step.
+   */
+  private driveValues(): void {
+    if (!this.ctx || this.valueLinks.size === 0) return
+    const now = this.ctx.currentTime
+
+    for (const link of this.valueLinks.values()) {
+      const modulator = this.modulators.get(link.modId)
+      const effect = this.effects.get(link.targetId)
+      if (!modulator || !effect) continue
+
+      const phase = (now - modulator.startedAt) * modulator.rate
+      const value = link.centre + waveAt(modulator.wave, phase) * link.amount
+      const stepped = Math.round(value / link.step) * link.step
+      if (effect.params[link.key as keyof FxParams] === stepped) continue
+
+      // A copy, never the stored object: modulation is not an edit and must not reach the patch.
+      this.updateEffect(link.targetId, { ...effect.params, [link.key]: stepped }, effect.bpm)
+    }
+  }
+
+  /** Runs the value driver while there is anything for it to do, and not a moment longer. */
+  private syncValueTimer(): void {
+    const wanted = this.valueLinks.size > 0
+    if (wanted === (this.valueTimer !== null)) return
+
+    if (wanted) {
+      // Twenty times a second. Faster buys nothing: every parameter driven this way is quantised
+      // anyway, and each change may rebuild a buffer.
+      this.valueTimer = window.setInterval(() => this.driveValues(), 50)
+    } else if (this.valueTimer !== null) {
+      window.clearInterval(this.valueTimer)
+      this.valueTimer = null
+    }
+  }
+
+  /**
+   * Sets up modulation of an oscillator's filter: one gain holding the depth, and a connection to
+   * whatever that oscillator happens to be playing right now.
+   */
+  private linkVoices(
+    modId: NodeId,
+    oscId: NodeId,
+    key: 'cutoff' | 'resonance',
+    depth: number,
+    instance: ModInstance,
+  ): void {
+    const ctx = this.ctx as BaseAudioContext
+    const descriptor = targetOf(key)
+    const amount = ctx.createGain()
+    amount.gain.value = descriptor ? amountFor(descriptor, depth) : 0
+    instance.osc.connect(amount)
+
+    const link: VoiceLink = { modId, oscId, key, amount }
+    this.voiceLinks.set(`${modId}->${oscId}`, link)
+    // Notes already sounding, so a cable drawn mid-cascade is heard on the note under it rather than
+    // waiting for the next one.
+    for (const voice of this.voices) {
+      if (voice.nodeId === oscId) this.attachVoice(link, voice)
+    }
+  }
+
+  private attachVoice(link: VoiceLink, voice: Voice): void {
+    if (!voice.filter) return
+    const param = link.key === 'cutoff' ? voice.filter.frequency : voice.filter.Q
+    link.amount.connect(param)
+    voice.modulated.push({ amount: link.amount, param })
+  }
+
+  /** Lets go of what is modulating a voice: one modulator's worth, or all of it. */
+  private releaseVoice(voice: Voice, only?: GainNode): void {
+    voice.modulated = voice.modulated.filter(({ amount, param }) => {
+      if (only && amount !== only) return true
+      try {
+        amount.disconnect(param)
+      } catch {
+        // The voice is already gone, which takes its parameters with it.
+      }
+      return false
+    })
+  }
+
+  private modParams(nodeId: NodeId, target: ModTargetKey): ModDestination[] {
+    const effect = this.effects.get(nodeId)
+    if (effect) {
+      if (target === 'mix') return [effect.wet.gain, this.inverted(nodeId, effect.dry.gain)]
+      if (target === 'level') return [effect.output.gain]
+
+      // Anything else is a parameter of the effect itself, which the chain hands over by name. Null
+      // means it has one but not as an `AudioParam` — a decay or a bit depth rebuilds something — and
+      // those are driven by recomputation rather than by a connection.
+      const inside = effect.chain.paramFor?.(target) ?? null
+      if (!inside) return []
+      return Array.isArray(inside) ? inside : [inside]
+    }
+    // Not an effect, so it is an oscillator's bus. `busFor` builds one on demand, which is what lets
+    // a modulator be wired before the oscillator has played a note.
+    if (target !== 'level') return []
+    return [this.busFor(nodeId).bus.gain]
+  }
+
+  /**
+   * A parameter driven in the opposite direction.
+   *
+   * Web Audio has no negative connection, so the inversion is a gain of -1 standing between the
+   * modulator and the parameter. Cached per node so repeated wiring does not stack inverters.
+   */
+  private inverted(nodeId: NodeId, param: AudioParam): AudioNode {
+    const ctx = this.ctx as BaseAudioContext
+    const existing = this.inverters.get(nodeId)
+    if (existing) return existing
+
+    const invert = ctx.createGain()
+    invert.gain.value = -1
+    invert.connect(param)
+    this.inverters.set(nodeId, invert)
+
+    // The node, not its gain. The modulation has to pass *through* the inverter to come out negated:
+    // driving its gain instead leaves its input silent, and silence times anything is still silence,
+    // which is how a modulated mix once moved its wet side alone.
+    return invert
   }
 
   connectSend(oscId: NodeId, fxId: NodeId): void {
@@ -430,10 +870,18 @@ export class AudioEngine implements Engine {
    * the same price as sound, and an unwired reverb costing what it costs is both true and a useful
    * nudge to delete it.
    */
+  modLoad(): number {
+    let total = 0
+    for (const instance of this.modulators.values()) total += instance.cost
+    return total
+  }
+
   effectLoad(): number {
     let load = 0
     for (const effect of this.effects.values()) load += effect.cost
-    return load
+    // Modulators are counted here rather than beside voices: like an effect, an LFO runs whether or
+    // not anything is playing, so it is standing cost and belongs on that side of the meter (§2.2b).
+    return load + this.modLoad()
   }
 
   /** Voices plus effects, which is what any decision about the budget has to weigh. */
@@ -532,6 +980,21 @@ export function applyOps(target: AudioEngine, ops: RouterOp[], bpm: number): voi
         break
       case 'setDirect':
         target.setDirect(op.id, op.value)
+        break
+      case 'createMod':
+        target.createModulator(op.id, op.params)
+        break
+      case 'updateMod':
+        target.updateModulator(op.id, op.params)
+        break
+      case 'disposeMod':
+        target.disposeModulator(op.id)
+        break
+      case 'connectMod':
+        target.connectMod(op.from, op.to, op.target, op.depth)
+        break
+      case 'disconnectMod':
+        target.disconnectMod(op.from, op.to)
         break
     }
   }

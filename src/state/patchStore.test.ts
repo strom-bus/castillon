@@ -153,8 +153,8 @@ describe('ports on a loaded patch', () => {
       edges: [cable],
     })
     const toTheRight = usePatchStore.getState().edges[0]
-    expect(toTheRight.sourceHandle).toBe('audio-r')
-    expect(toTheRight.targetHandle).toBe('audio-l')
+    expect(toTheRight.sourceHandle).toBe('signal-r')
+    expect(toTheRight.targetHandle).toBe('signal-l')
 
     usePatchStore.getState().loadPatch({
       ...base,
@@ -162,8 +162,8 @@ describe('ports on a loaded patch', () => {
       edges: [cable],
     })
     const toTheLeft = usePatchStore.getState().edges[0]
-    expect(toTheLeft.sourceHandle).toBe('audio-l')
-    expect(toTheLeft.targetHandle).toBe('audio-r')
+    expect(toTheLeft.sourceHandle).toBe('signal-l')
+    expect(toTheLeft.targetHandle).toBe('signal-r')
   })
 })
 

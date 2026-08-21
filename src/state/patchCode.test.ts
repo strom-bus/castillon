@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { defaultFxParams, defaultOscParams } from '../nodes/registry'
-import type { Patch, PatchNode, StartParams } from '../types/patch'
+import type { ModParams, Patch, PatchEdge, PatchNode, StartParams } from '../types/patch'
 import { BitWriter } from './bits'
 import { INITIAL_PATCH_CODE } from './patchStore'
 import { decodePatch, encodePatch, FX_FIELD_TOTAL, OSC_FIELD_TOTAL, toBase64Url } from './patchCode'
@@ -517,6 +517,100 @@ describe('Ignite triggers in the code', () => {
     expect(starts.length).toBeGreaterThan(0)
     for (const start of starts) {
       expect((start.params as StartParams).trigger ?? 'auto').toBe('auto')
+    }
+  })
+})
+
+describe('modulation in the code', () => {
+  const modNode = (params: Partial<ModParams> = {}): PatchNode => ({
+    id: 'm',
+    type: 'mod',
+    position: { x: 0, y: 0 },
+    params: { kind: 'lfo', wave: 'sine', rate: 2, depth: 0.6, target: 'level', ...params },
+  })
+
+  const oscNode = (id: string): PatchNode => ({
+    id,
+    type: 'osc',
+    position: { x: 40, y: 0 },
+    params: defaultOscParams(),
+  })
+
+  const fxNode = (id: string, effect: string): PatchNode => ({
+    id,
+    type: 'fx',
+    position: { x: 80, y: 0 },
+    params: { ...defaultFxParams(), effect } as never,
+  })
+
+  const patchOf = (nodes: PatchNode[], edges: PatchEdge[] = []): Patch => ({
+    version: 1,
+    bpm: 120,
+    loop: true,
+    nodes,
+    edges,
+  })
+
+  const roundTrip = (patch: Patch) => decodePatch(encodePatch(patch))
+
+  it('carries a modulator there and back', () => {
+    const patch = patchOf([modNode({ wave: 'triangle', rate: 4.25, depth: 0.35 })])
+    const params = roundTrip(patch)!.nodes[0].params as ModParams
+    expect(params.wave).toBe('triangle')
+    expect(params.rate).toBeCloseTo(4.25, 2)
+    expect(params.depth).toBeCloseTo(0.35, 2)
+  })
+
+  it('carries a target that belongs to an effect, not a fixed list', () => {
+    // Written as text on purpose: the set is open, so a table of names would fail the moment an
+    // effect gained a parameter.
+    const patch = patchOf([modNode({ target: 'decay' }), fxNode('f', 'reverb')])
+    const params = roundTrip(patch)!.nodes[0].params as ModParams
+    expect(params.target).toBe('decay')
+  })
+
+  it('carries a modulation cable as its own kind', () => {
+    const patch = patchOf(
+      [modNode(), oscNode('a')],
+      [{ id: 'e', kind: 'mod', source: 'm', target: 'a' }],
+    )
+    expect(roundTrip(patch)!.edges[0].kind).toBe('mod')
+  })
+
+  it('keeps three kinds of cable apart in one patch', () => {
+    const patch = patchOf(
+      [
+        { id: 's', type: 'start', position: { x: 0, y: 0 }, params: {} },
+        oscNode('a'),
+        fxNode('f', 'reverb'),
+        modNode(),
+      ],
+      [
+        { id: 'e1', kind: 'event', source: 's', target: 'a' },
+        { id: 'e2', kind: 'audio', source: 'a', target: 'f' },
+        { id: 'e3', kind: 'mod', source: 'm', target: 'f' },
+      ],
+    )
+    expect(roundTrip(patch)!.edges.map((edge) => edge.kind)).toEqual(['event', 'audio', 'mod'])
+  })
+
+  it('costs nothing when there is no modulation', () => {
+    // A patch without any writes the code it always wrote, so nothing already shared moves.
+    const plain = patchOf(
+      [{ id: 's', type: 'start', position: { x: 0, y: 0 }, params: {} }, oscNode('a')],
+      [{ id: 'e', kind: 'event', source: 's', target: 'a' }],
+    )
+    expect(encodePatch(plain)).toBe(encodePatch(structuredClone(plain)))
+  })
+
+  it('still reads a code written before modulation existed', () => {
+    // The guarantee: cables were one bit until now, and every code in the world still has them that
+    // way. The example patch predates all of it.
+    const patch = decodePatch(INITIAL_PATCH_CODE)
+    expect(patch).not.toBeNull()
+    expect(patch!.edges.length).toBeGreaterThan(0)
+    for (const edge of patch!.edges) {
+      expect(['event', 'audio']).toContain(edge.kind)
     }
   })
 })

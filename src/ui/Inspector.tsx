@@ -14,9 +14,20 @@ import {
 import { MAX_PULSE_WIDTH, MIN_PULSE_WIDTH, WAVEFORM_NAMES, WAVEFORMS } from '../audio/waveforms'
 import { DEFAULT_DELAY_MS, DEFAULT_STEP_COUNT, STEP_COUNTS } from '../nodes/registry'
 import {
+  LFO_SHAPE_LABELS,
+  LFO_SHAPES,
+  MAX_RATE as MAX_MOD_RATE,
+  MIN_RATE as MIN_MOD_RATE,
+  targetOf,
+  targetsFor,
+  type LfoShape,
+  type ModTarget,
+} from '../audio/modulation'
+import {
   DEFAULT_IGNITE,
   type IgniteBehaviour,
   type IgniteTrigger,
+  type ModParams,
   type StartParams,
 } from '../types/patch'
 import { KeyCapture } from './KeyCapture'
@@ -405,6 +416,21 @@ export function Inspector() {
   const updateParams = usePatchStore((s) => s.updateParams)
   const setStepCount = usePatchStore((s) => s.setStepCount)
   const setEffect = usePatchStore((s) => s.setEffect)
+  /**
+   * The kinds of node the selected modulator reaches, which decide what it may point at.
+   *
+   * A joined string rather than an array, so the selector returns a primitive and the panel repaints
+   * when the wiring changes rather than on every store change.
+   */
+  const modWiring = usePatchStore((s) => {
+    const edge = s.edges.find((e) => e.data?.kind === 'mod' && e.source === s.selectedId)
+    const destination = edge ? s.nodes.find((node) => node.id === edge.target) : undefined
+    if (!destination) return ''
+    // Type and effect together: which parameters exist depends on both, and a string keeps the
+    // selector returning a primitive so the panel repaints on a rewiring rather than on anything.
+    const effect = (destination.data.params as { effect?: string }).effect ?? ''
+    return `${destination.type ?? ''}:${effect}`
+  })
 
   if (!node) {
     return (
@@ -549,6 +575,76 @@ export function Inspector() {
         <p className="inspector-empty">
           Mix runs from all clean to all effect. An oscillator with nothing attached is heard whole;
           once something is, it is heard through it.
+        </p>
+      </Panel>
+    )
+  }
+
+  if (node.type === 'mod') {
+    const mod = node.data.params as ModParams
+    const target = mod.target ?? 'level'
+    // What it is wired to decides what it can point at: a MOD on a reverb offers that reverb's decay,
+    // one on a chorus its sweep (§18.4). Unwired there is nothing yet to say otherwise.
+    const [destinationType, destinationEffect] = modWiring ? modWiring.split(':') : []
+    const offered: readonly ModTarget[] = targetsFor(destinationType, destinationEffect as never)
+    const described = targetOf(target, destinationType, destinationEffect as never)
+
+    return (
+      <Panel>
+        <h2 className="inspector-title">
+          MOD <span className="node-ordinal">{ordinal}</span>
+        </h2>
+
+        <label className="inspector-field">
+          <span>Target</span>
+          <select
+            value={target}
+            onChange={(e) => updateParams(node.id, { target: e.target.value })}
+          >
+            {offered.map((option) => (
+              <option key={option.key} value={option.key}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="inspector-field">
+          <span>Shape</span>
+          <select
+            value={mod.wave ?? 'sine'}
+            onChange={(e) => updateParams(node.id, { wave: e.target.value as LfoShape })}
+          >
+            {LFO_SHAPES.map((shape) => (
+              <option key={shape} value={shape}>
+                {LFO_SHAPE_LABELS[shape]}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <TypedSlider
+          label="Rate"
+          value={mod.rate ?? 2}
+          min={MIN_MOD_RATE}
+          max={MAX_MOD_RATE}
+          step={0.05}
+          suffix="Hz"
+          onChange={(rate) => updateParams(node.id, { rate })}
+        />
+
+        <TypedSlider
+          label="Depth"
+          value={mod.depth ?? 0.6}
+          min={0}
+          max={1}
+          step={0.01}
+          onChange={(depth) => updateParams(node.id, { depth })}
+        />
+
+        <p className="inspector-empty">
+          {described?.hint}
+          {!destinationType && ' Wire it to the side of an oscillator or an effect.'}
         </p>
       </Panel>
     )

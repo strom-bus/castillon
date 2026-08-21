@@ -29,6 +29,7 @@ import {
   type EffectKind,
   type FxParams,
   type IgniteBehaviour,
+  type ModParams,
   type OscParams,
   type Patch,
   type PatchEdge,
@@ -82,12 +83,33 @@ const HEADER_FLAG_BITS = 4
  */
 const FLAG_IGNITE_TRIGGER = 1
 
-/** How a bound Ignite's key is written: a length and then its characters. */
+/**
+ * Header flag 2: there is modulation, so cables need two bits and MOD nodes carry parameters.
+ *
+ * The second use of the reserved flags, and the reason for using one rather than widening the format
+ * outright: an edge kind has been one bit since the first version, and a third kind needs two. With
+ * the flag clear, every code already in the world still reads its cables as event or audio — which is
+ * all they ever were.
+ */
+const FLAG_MODULATION = 2
+
+/** Cable kinds, in the order their index is written. Appended to, never reordered. */
+const EDGE_KINDS = ['event', 'audio', 'mod'] as const
+
+/** How a short string is written: a length and then its characters. */
 const BINDING_LENGTH_BITS = 5
 const BINDING_CHAR_BITS = 7
 const MAX_BINDING_LENGTH = 24
 
-const NODE_TYPES = ['start', 'osc', 'delay', 'fx'] as const
+/** A modulator's rate, as hundredths of a hertz. Twenty hertz needs eleven bits. */
+const MOD_RATE_BITS = 11
+const MOD_DEPTH_BITS = 7
+const MOD_WAVE_BITS = 2
+const MOD_WAVES = ['sine', 'triangle', 'square', 'sawtooth'] as const
+
+// Appended, never reordered: a code stores the index, so moving an entry would rewrite history. Four
+// bits leave room for sixteen, of which five are used.
+const NODE_TYPES = ['start', 'osc', 'delay', 'fx', 'mod'] as const
 
 const EFFECT_CODES: EffectKind[] = [
   'reverb',
@@ -393,6 +415,46 @@ function readStart(reader: BitReader): StartParams {
   }
 }
 
+/** A length-prefixed ASCII string, which is how an open set of names travels. */
+function writeText(writer: BitWriter, text: string): void {
+  const cut = text.slice(0, MAX_BINDING_LENGTH)
+  writer.write(cut.length, BINDING_LENGTH_BITS)
+  for (const char of cut) {
+    const point = char.codePointAt(0) ?? 63
+    writer.write(point < 128 ? point : 63, BINDING_CHAR_BITS)
+  }
+}
+
+function readText(reader: BitReader): string {
+  const length = reader.read(BINDING_LENGTH_BITS)
+  let text = ''
+  for (let i = 0; i < length; i++) text += String.fromCharCode(reader.read(BINDING_CHAR_BITS))
+  return text
+}
+
+/**
+ * A modulator.
+ *
+ * The target is written as text rather than as an index, and that is the point: it is a parameter key
+ * of whatever effect the cable landed on, so the set is open and a table of names would fail the
+ * moment an effect gained a parameter.
+ */
+function writeMod(writer: BitWriter, raw: ModParams): void {
+  const wave = MOD_WAVES.indexOf(raw.wave ?? 'sine')
+  writer.write(wave < 0 ? 0 : wave, MOD_WAVE_BITS)
+  writer.write(quantise((raw.rate ?? 2) * 100, 1, 0, (1 << MOD_RATE_BITS) - 1), MOD_RATE_BITS)
+  writer.write(quantise((raw.depth ?? 0.6) * 100, 1, 0, 100), MOD_DEPTH_BITS)
+  writeText(writer, raw.target ?? 'level')
+}
+
+function readMod(reader: BitReader): ModParams {
+  const wave = MOD_WAVES[reader.read(MOD_WAVE_BITS)] ?? 'sine'
+  const rate = reader.read(MOD_RATE_BITS) / 100
+  const depth = reader.read(MOD_DEPTH_BITS) / 100
+  const target = readText(reader)
+  return { kind: 'lfo', wave, rate, depth, target: target || 'level' }
+}
+
 function writeFx(writer: BitWriter, raw: FxParams): void {
   writeParams(writer, FX_FIELDS, { ...defaultFxParams(), ...raw }, FX_REFERENCE)
 }
@@ -420,7 +482,12 @@ export function encodePatch(patch: Patch): string {
   const anyBound = patch.nodes.some(
     (node) => node.type === 'start' && (node.params as StartParams).trigger === 'bound',
   )
-  writer.write(anyBound ? FLAG_IGNITE_TRIGGER : 0, HEADER_FLAG_BITS)
+  const anyModulation =
+    patch.nodes.some((node) => node.type === 'mod') || patch.edges.some((e) => e.kind === 'mod')
+  writer.write(
+    (anyBound ? FLAG_IGNITE_TRIGGER : 0) | (anyModulation ? FLAG_MODULATION : 0),
+    HEADER_FLAG_BITS,
+  )
 
   const nodes = patch.nodes.filter((n) => (NODE_TYPES as readonly string[]).includes(n.type))
   writer.writeVarint(nodes.length)
@@ -439,6 +506,8 @@ export function encodePatch(patch: Patch): string {
       writer.write(quantise(delayMs / 10, 1, MIN_DELAY_MS / 10, MAX_DELAY_MS / 10), 9)
     } else if (node.type === 'start' && anyBound) {
       writeStart(writer, node.params as StartParams)
+    } else if (node.type === 'mod') {
+      writeMod(writer, node.params as ModParams)
     }
   }
 
@@ -448,8 +517,11 @@ export function encodePatch(patch: Patch): string {
   writer.writeVarint(edges.length)
 
   const bits = indexBitsFor(nodes.length)
+  // One bit until a third kind existed. Two only when there is modulation, so a patch without any
+  // writes the bytes it always wrote and nothing already shared changes.
+  const kindBits = anyModulation ? 2 : 1
   for (const edge of edges) {
-    writer.write(edge.kind === 'audio' ? 1 : 0, 1)
+    writer.write(Math.max(0, EDGE_KINDS.indexOf(edge.kind)), kindBits)
     writer.write(indexOf.get(edge.source) as number, bits)
     writer.write(indexOf.get(edge.target) as number, bits)
   }
@@ -469,6 +541,7 @@ export function decodePatch(code: string): Patch | null {
     const fxFields = reader.read(FIELD_COUNT_BITS)
     const flags = reader.read(HEADER_FLAG_BITS)
     const ignitesCarryTrigger = (flags & FLAG_IGNITE_TRIGGER) !== 0
+    const hasModulation = (flags & FLAG_MODULATION) !== 0
 
     const nodeCount = reader.readVarint()
     if (nodeCount > 5000) return null
@@ -489,6 +562,8 @@ export function decodePatch(code: string): Patch | null {
         params = { delayMs: reader.read(9) * 10 }
       } else if (type === 'start' && ignitesCarryTrigger) {
         params = readStart(reader)
+      } else if (type === 'mod') {
+        params = readMod(reader)
       }
 
       nodes.push({ id: `n${i}`, type, position: { x, y }, params })
@@ -500,7 +575,7 @@ export function decodePatch(code: string): Patch | null {
     const bits = indexBitsFor(nodes.length)
     const edges: PatchEdge[] = []
     for (let i = 0; i < edgeCount; i++) {
-      const kind: EdgeKind = reader.read(1) === 1 ? 'audio' : 'event'
+      const kind: EdgeKind = EDGE_KINDS[reader.read(hasModulation ? 2 : 1)] ?? 'event'
       const source = reader.read(bits)
       const target = reader.read(bits)
       if (source >= nodes.length || target >= nodes.length) return null

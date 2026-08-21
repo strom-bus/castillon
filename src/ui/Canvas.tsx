@@ -1,4 +1,5 @@
 import {
+  ConnectionMode,
   Background,
   BackgroundVariant,
   Controls,
@@ -106,6 +107,10 @@ function CanvasInner() {
           onEdgeClick={(_, edge) => removeEdge(edge.id)}
           onPaneClick={() => select(null)}
           defaultEdgeOptions={{ type: 'cascade' }}
+          // A side port takes a cable either way, which React Flow only permits loosely. Everything
+          // it stops checking as a result is checked by `connectionFor`, which decided the direction
+          // anyway.
+          connectionMode={ConnectionMode.Loose}
           proOptions={{ hideAttribution: true }}
           // Both keys: Supr and Backspace sit in different places on different keyboards, and
           // React Flow only listens for one of them by default. It ignores either while a text

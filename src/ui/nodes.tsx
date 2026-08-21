@@ -4,10 +4,18 @@ import { FILTER_LABELS } from '../audio/filter'
 import { WAVEFORM_LABELS } from '../audio/waveforms'
 import { EFFECTS } from '../audio/effects'
 import { DEFAULT_DELAY_MS } from '../nodes/registry'
-import { AUDIO_LEFT, AUDIO_RIGHT, EVENT_IN, EVENT_OUT } from '../state/connections'
+import { EVENT_IN, EVENT_OUT, SIGNAL_LEFT, SIGNAL_RIGHT } from '../state/connections'
 import { formatOrdinal, nodeOrdinal } from '../state/ordinals'
 import { usePatchStore, type FlowNode } from '../state/patchStore'
-import type { DelayParams, EffectKind, FxParams, OscParams, StartParams } from '../types/patch'
+import { targetOf } from '../audio/modulation'
+import type {
+  DelayParams,
+  EffectKind,
+  FxParams,
+  ModParams,
+  OscParams,
+  StartParams,
+} from '../types/patch'
 import { useNodeColors, type NodeColors } from '../viz/depth'
 import { useNodeActivity } from '../viz/useActivity'
 import { keyLabel } from './keys'
@@ -72,14 +80,20 @@ export function OscNode({ id, data, selected }: NodeProps<FlowNode>) {
       style={depthStyle(colors)}
     >
       <Handle type="target" id={EVENT_IN} position={Position.Top} className="port port-in" />
-      {/* Audio leaves on both sides, so an effect can sit wherever there is room and the cable
-          stays short. Events run down the node, audio runs across it. */}
-      <Handle type="source" id={AUDIO_LEFT} position={Position.Left} className="port port-audio" />
+      {/* One port per side, taking any signal cable either way: audio out to an effect, modulation
+          in from a MOD. Which it is comes from what is at the other end. There is a port on each side
+          so a neighbour can sit wherever there is room and the cable stays short. */}
       <Handle
         type="source"
-        id={AUDIO_RIGHT}
+        id={SIGNAL_LEFT}
+        position={Position.Left}
+        className="port port-signal"
+      />
+      <Handle
+        type="source"
+        id={SIGNAL_RIGHT}
         position={Position.Right}
-        className="port port-audio"
+        className="port port-signal"
       />
       <div className="node-header">
         <span className="node-title">
@@ -123,12 +137,17 @@ export function FxNode({ id, data, selected }: NodeProps<FlowNode>) {
     <div
       className={`node node-fx${state}${pulsing ? ' pulsing' : ''}${selected ? ' selected' : ''}`}
     >
-      <Handle type="target" id={AUDIO_LEFT} position={Position.Left} className="port port-audio" />
       <Handle
-        type="target"
-        id={AUDIO_RIGHT}
+        type="source"
+        id={SIGNAL_LEFT}
+        position={Position.Left}
+        className="port port-signal"
+      />
+      <Handle
+        type="source"
+        id={SIGNAL_RIGHT}
         position={Position.Right}
-        className="port port-audio"
+        className="port port-signal"
       />
       <div className="node-header">
         <span className="node-title">
@@ -149,6 +168,48 @@ export function FxNode({ id, data, selected }: NodeProps<FlowNode>) {
             </option>
           ))}
         </select>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * A modulator.
+ *
+ * White and grey like the FX node and for the same reason: it is not part of the cascade, so a depth
+ * hue would claim it was. What it shows is its rate, because that is the number that decides what the
+ * patch sounds like and what its cable is doing.
+ */
+export function ModNode({ id, data, selected }: NodeProps<FlowNode>) {
+  const wired = usePatchStore((s) => s.edges.some((e) => e.source === id && e.data?.kind === 'mod'))
+  const ordinal = useOrdinal(id)
+  const params = data.params as ModParams
+  const rate = params.rate ?? 2
+  const target = targetOf(params.target)
+
+  return (
+    <div className={`node node-mod${wired ? ' wired' : ' idle'}${selected ? ' selected' : ''}`}>
+      <Handle
+        type="source"
+        id={SIGNAL_LEFT}
+        position={Position.Left}
+        className="port port-signal"
+      />
+      <Handle
+        type="source"
+        id={SIGNAL_RIGHT}
+        position={Position.Right}
+        className="port port-signal"
+      />
+      <div className="node-header">
+        <span className="node-title">
+          MOD <span className="node-ordinal">{ordinal}</span>
+        </span>
+        <span className="node-meta">{target?.label ?? '—'}</span>
+      </div>
+      <div className="mod-body">
+        <span className="mod-rate">{rate < 1 ? rate.toFixed(2) : rate.toFixed(1)}</span>
+        <span className="mod-unit">Hz</span>
       </div>
     </div>
   )

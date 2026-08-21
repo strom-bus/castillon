@@ -1,0 +1,198 @@
+/**
+ * A Web Audio context that records instead of making a sound, for the tests.
+ *
+ * There is no Web Audio in a test runner, and the parts of the engine most worth testing are exactly
+ * the ones that are only about wiring: what got connected to what, and what value was written where.
+ * Both of those are observable without anything being audible.
+ *
+ * Two things are recorded. **Connections** are kept on the destination, so a test can ask a parameter
+ * what is driving it — which is the whole question behind modulation. **Writes** go to one journal in
+ * arrival order, both scheduled parameter changes and plain property assignments, so a test can ask
+ * the weaker but broader question of whether anything is still happening at all. That second one is
+ * what catches a modulation driven by recomputation, where there is no connection to look at.
+ */
+
+/** A scheduled write, or a property set on a node. */
+export interface Write {
+  what: string
+  value: number | string
+}
+
+export interface FakeParam {
+  value: number
+  /** What is connected into this parameter. */
+  incoming: unknown[]
+  setValueAtTime(value: number): void
+  setTargetAtTime(value: number): void
+  linearRampToValueAtTime(value: number): void
+  cancelScheduledValues(): void
+}
+
+export interface FakeAudio {
+  ctx: BaseAudioContext
+  journal: Write[]
+  /** Moves the clock, since a recomputed modulation reads it to work out its phase. */
+  advance(seconds: number): void
+  /** Ends every source that was started, the way a finished note does. */
+  endAll(): void
+  /** Everything connected into a parameter, found by the name it was created under. */
+  drivers(name: string): unknown[]
+  /** How many connections into parameters stand right now, whatever they are. */
+  wires(): number
+  /** Every parameter created under a name — a chain may have several of the same kind. */
+  params(name: string): FakeParam[]
+}
+
+export function fakeAudio(): FakeAudio {
+  const journal: Write[] = []
+  const params = new Map<string, FakeParam[]>()
+  const ended: Array<() => void> = []
+  let now = 0
+
+  function param(name: string, initial = 0): FakeParam {
+    const self: FakeParam = {
+      value: initial,
+      incoming: [],
+      setValueAtTime(value) {
+        self.value = value
+        journal.push({ what: name, value })
+      },
+      setTargetAtTime(value) {
+        self.value = value
+        journal.push({ what: name, value })
+      },
+      linearRampToValueAtTime(value) {
+        self.value = value
+        journal.push({ what: name, value })
+      },
+      cancelScheduledValues() {},
+    }
+    const kept = params.get(name)
+    if (kept) kept.push(self)
+    else params.set(name, [self])
+    return self
+  }
+
+  /**
+   * A node whose property writes are journaled.
+   *
+   * Through a proxy rather than by hand because the writes that matter most are the ones that are not
+   * parameters: a convolver's buffer and a shaper's curve are how a rebuilt modulation shows itself,
+   * and there is no method call to intercept.
+   */
+  function node(kind: string, fields: Record<string, unknown> = {}) {
+    // Nodes record what reaches them too, and not only parameters: whether a gain has anything coming
+    // into it is the difference between an inverter that negates a signal and one that outputs silence.
+    const target: Record<string, unknown> = {
+      incoming: [] as unknown[],
+      connect(next: unknown) {
+        if (next && typeof next === 'object' && 'incoming' in next) {
+          ;(next as { incoming: unknown[] }).incoming.push(target)
+        }
+        return next
+      },
+      disconnect(from?: unknown) {
+        if (from && typeof from === 'object' && 'incoming' in from) {
+          const list = (from as { incoming: unknown[] }).incoming
+          const at = list.indexOf(target)
+          if (at !== -1) list.splice(at, 1)
+        }
+      },
+      ...fields,
+    }
+
+    return new Proxy(target, {
+      set(store, key, value) {
+        store[key as string] = value
+        if (typeof value === 'number' || typeof value === 'string') {
+          journal.push({ what: `${kind}.${String(key)}`, value })
+        } else {
+          // A buffer or a curve: what it holds is not the point, only that it was replaced.
+          journal.push({ what: `${kind}.${String(key)}`, value: 'rebuilt' })
+        }
+        return true
+      },
+    })
+  }
+
+  function source(kind: string, fields: Record<string, unknown> = {}) {
+    const built = node(kind, {
+      start() {},
+      stop() {},
+      onended: null,
+      ...fields,
+    }) as Record<string, unknown> & { onended: (() => void) | null }
+    ended.push(() => built.onended?.())
+    return built
+  }
+
+  const ctx = {
+    get currentTime() {
+      return now
+    },
+    sampleRate: 48000,
+    destination: node('destination'),
+    createGain: () => node('gain', { gain: param('gain', 1) }),
+    createBiquadFilter: () =>
+      node('biquad', { frequency: param('frequency', 350), Q: param('Q', 1), type: 'lowpass' }),
+    createDelay: () => node('delay', { delayTime: param('delayTime') }),
+    createConvolver: () => node('convolver', { buffer: null, normalize: true }),
+    createWaveShaper: () => node('shaper', { curve: null, oversample: 'none' }),
+    createStereoPanner: () => node('panner', { pan: param('pan') }),
+    createChannelMerger: () => node('merger'),
+    createChannelSplitter: () => node('splitter'),
+    createDynamicsCompressor: () =>
+      node('compressor', {
+        threshold: param('threshold'),
+        knee: param('knee'),
+        ratio: param('ratio'),
+        attack: param('attack'),
+        release: param('release'),
+      }),
+    createOscillator: () =>
+      source('osc', {
+        frequency: param('oscFrequency', 440),
+        detune: param('detune'),
+        type: 'sine',
+        setPeriodicWave() {},
+      }),
+    createBufferSource: () =>
+      source('bufferSource', {
+        buffer: null,
+        loop: false,
+        playbackRate: param('playbackRate', 1),
+      }),
+    createPeriodicWave: () => ({}),
+    createBuffer: (channels: number, length: number) => ({
+      numberOfChannels: channels,
+      length,
+      sampleRate: 48000,
+      getChannelData: () => new Float32Array(length),
+    }),
+  } as unknown as BaseAudioContext
+
+  return {
+    ctx,
+    journal,
+    advance(seconds) {
+      now += seconds
+    },
+    endAll() {
+      // A copy: an ended voice may take others with it.
+      for (const end of [...ended]) end()
+    },
+    drivers(name) {
+      return (params.get(name) ?? []).flatMap((p) => p.incoming)
+    },
+    wires() {
+      let total = 0
+      for (const list of params.values()) {
+        for (const p of list) total += p.incoming.length
+      }
+      return total
+    },
+    params(name) {
+      return params.get(name) ?? []
+    },
+  }
+}

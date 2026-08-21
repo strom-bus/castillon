@@ -17,26 +17,27 @@ import type {
   EdgeKind,
   EffectKind,
   FxParams,
+  ModParams,
   NodeParams,
   OscParams,
   Patch,
   StartParams,
   Step,
 } from '../types/patch'
-import {
-  AUDIO_LEFT,
-  AUDIO_RIGHT,
-  canConnect,
-  connectionKind,
-  EVENT_IN,
-  EVENT_OUT,
-} from './connections'
+import { connectionFor, EVENT_IN, EVENT_OUT, SIGNAL_LEFT, SIGNAL_RIGHT } from './connections'
 import { decodePatch } from './patchCode'
 import { randomPatch } from './randomPatch'
 
 export type FlowNodeData = { params: NodeParams }
 export type FlowNode = Node<FlowNodeData>
 export type FlowEdge = Edge<{ kind: EdgeKind }>
+
+/** Which component draws each kind of cable. One map, so the two cannot drift apart. */
+const EDGE_COMPONENT: Record<EdgeKind, string> = {
+  event: 'cascade',
+  audio: 'signal',
+  mod: 'modulation',
+}
 
 function newId(prefix: string): string {
   return `${prefix}-${Math.random().toString(36).slice(2, 9)}`
@@ -77,7 +78,10 @@ interface PatchState {
   addNode(type: string, position: { x: number; y: number }): void
   removeEdge(id: string): void
   select(id: string | null): void
-  updateParams(id: string, partial: Partial<OscParams & FxParams & DelayParams & StartParams>): void
+  updateParams(
+    id: string,
+    partial: Partial<OscParams & FxParams & DelayParams & StartParams & ModParams>,
+  ): void
   setEffect(id: string, effect: EffectKind): void
   updateStep(id: string, index: number, partial: Partial<Step>): void
   setStepCount(id: string, count: number): void
@@ -159,8 +163,8 @@ function fromPatch(patch: Patch): {
         // not which port, and an oscillator has three source handles — so React Flow would bind
         // an unnamed cable to whichever it found first, which is how event cables started coming
         // out of the audio ports.
-        const audio = e.kind === 'audio'
-        // Which side is cosmetic, so it is chosen from the layout rather than stored: the effect
+        const sideways = e.kind !== 'event'
+        // Which side is cosmetic, so it is chosen from the layout rather than stored: the neighbour
         // attaches on the side it already sits on, and the cable stays short.
         const rightwards = (positionOf.get(e.target)?.x ?? 0) >= (positionOf.get(e.source)?.x ?? 0)
 
@@ -168,9 +172,9 @@ function fromPatch(patch: Patch): {
           id: e.id,
           source: e.source,
           target: e.target,
-          sourceHandle: audio ? (rightwards ? AUDIO_RIGHT : AUDIO_LEFT) : EVENT_OUT,
-          targetHandle: audio ? (rightwards ? AUDIO_LEFT : AUDIO_RIGHT) : EVENT_IN,
-          type: audio ? 'signal' : 'cascade',
+          sourceHandle: sideways ? (rightwards ? SIGNAL_RIGHT : SIGNAL_LEFT) : EVENT_OUT,
+          targetHandle: sideways ? (rightwards ? SIGNAL_LEFT : SIGNAL_RIGHT) : EVENT_IN,
+          type: EDGE_COMPONENT[e.kind],
           data: { kind: e.kind },
         }
       }),
@@ -204,14 +208,14 @@ export const usePatchStore = create<PatchState>((set, get) => ({
 
   onConnect(connection) {
     const { nodes, edges } = get()
-    if (!canConnect({ nodes, edges }, connection)) return
+    const decided = connectionFor({ nodes, edges }, connection)
+    if (!decided) return
 
-    const kind = connectionKind(connection) as EdgeKind
+    // `decided` rather than `connection`: a cable drawn backwards has already been turned round, so
+    // what gets stored is the direction the audio graph needs rather than the direction of the drag.
+    const { kind, ...ends } = decided
     set({
-      edges: addEdge(
-        { ...connection, type: kind === 'audio' ? 'signal' : 'cascade', data: { kind } },
-        edges,
-      ) as FlowEdge[],
+      edges: addEdge({ ...ends, type: EDGE_COMPONENT[kind], data: { kind } }, edges) as FlowEdge[],
     })
   },
 

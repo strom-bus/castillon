@@ -130,8 +130,8 @@ describe('copying more than one node', () => {
     usePatchStore.getState().onConnect({
       source: osc.id,
       target: fx.id,
-      sourceHandle: 'audio-r',
-      targetHandle: 'audio-l',
+      sourceHandle: 'signal-r',
+      targetHandle: 'signal-l',
     })
 
     select(osc.id, fx.id)

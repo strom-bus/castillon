@@ -78,6 +78,28 @@ export interface ModTarget {
   max: number
   via: ModVia
   hint?: string
+  /**
+   * What sweeping this adds to the thing being swept, in budget points — over and above what the
+   * modulator itself costs.
+   *
+   * Measured rather than reasoned (PLAN §11.10), and the shape of the answer is simple: **automating a
+   * gain is free and automating a filter is not.** A `GainNode` reading a per-sample value instead of
+   * a constant costs nothing worth counting; a biquad has to recompute its coefficients per sample
+   * instead of per block, which roughly triples it.
+   */
+  surcharge: number
+  /**
+   * Whether that is paid once or once per sounding voice.
+   *
+   * An oscillator's filter is built per note, so one cable sweeps as many biquads as there are voices
+   * in the air — which is what makes this the largest surcharge of the connected kind.
+   */
+  perVoice?: boolean
+  /**
+   * Seconds between recomputations, for the targets that rebuild something rather than being
+   * connected. Left out means every tick of the driver, twenty times a second.
+   */
+  rebuildEvery?: number
 }
 
 /** The two the engine owns, offered wherever they apply. */
@@ -87,6 +109,7 @@ const LEVEL: ModTarget = {
   min: 0,
   max: 1,
   via: 'audio',
+  surcharge: 0,
   hint: 'How loud it is. On an oscillator this is a tremolo; on an effect it fades the effect in and out.',
 }
 
@@ -96,6 +119,7 @@ const MIX: ModTarget = {
   min: 0,
   max: 1,
   via: 'audio',
+  surcharge: 0,
   hint: 'How much of the effect is heard against the clean signal, swept rather than set.',
 }
 
@@ -107,30 +131,92 @@ const MIX: ModTarget = {
  * are choices from a list, and a smooth wave has nothing to say to them.
  */
 const FX_PARAM_TARGETS: Record<string, ModTarget> = {
-  cutoff: { key: 'cutoff', label: 'Cutoff', min: MIN_CUTOFF, max: MAX_CUTOFF, via: 'audio' },
+  // The two behind a biquad, and the only two that cost anything to sweep.
+  cutoff: {
+    key: 'cutoff',
+    label: 'Cutoff',
+    min: MIN_CUTOFF,
+    max: MAX_CUTOFF,
+    via: 'audio',
+    surcharge: 2,
+  },
   resonance: {
     key: 'resonance',
     label: 'Resonance',
     min: MIN_RESONANCE,
     max: MAX_RESONANCE,
     via: 'audio',
+    surcharge: 2,
   },
-  rate: { key: 'rate', label: 'Rate', min: MIN_RATE_FX, max: MAX_RATE_FX, via: 'audio' },
-  depth: { key: 'depth', label: 'Depth', min: 0, max: 1, via: 'audio' },
-  feedback: { key: 'feedback', label: 'Feedback', min: 0, max: MAX_FEEDBACK, via: 'audio' },
-  sweep: { key: 'sweep', label: 'Sweep', min: MIN_SWEEP, max: MAX_SWEEP, via: 'audio' },
-  time: { key: 'time', label: 'Time', min: 0, max: 1, via: 'audio' },
-  pan: { key: 'pan', label: 'Pan', min: -1, max: 1, via: 'audio' },
+  // Gains, an oscillator's frequency and a delay time. All measured at nothing worth counting.
+  rate: {
+    key: 'rate',
+    label: 'Rate',
+    min: MIN_RATE_FX,
+    max: MAX_RATE_FX,
+    via: 'audio',
+    surcharge: 0,
+  },
+  depth: { key: 'depth', label: 'Depth', min: 0, max: 1, via: 'audio', surcharge: 0 },
+  feedback: {
+    key: 'feedback',
+    label: 'Feedback',
+    min: 0,
+    max: MAX_FEEDBACK,
+    via: 'audio',
+    surcharge: 0,
+  },
+  sweep: {
+    key: 'sweep',
+    label: 'Sweep',
+    min: MIN_SWEEP,
+    max: MAX_SWEEP,
+    via: 'audio',
+    surcharge: 0,
+  },
+  time: { key: 'time', label: 'Time', min: 0, max: 1, via: 'audio', surcharge: 0 },
+  pan: { key: 'pan', label: 'Pan', min: -1, max: 1, via: 'audio', surcharge: 0 },
   // Not AudioParams: each of these rebuilds something or is spread over several, so it is driven by
   // recomputation instead.
   //
   // Width is the second sort. On an echo it is a pair of pans that move against each other and on a
   // pan it is a delay in seconds, so one connection could not carry it in the right units either way
   // — whereas the effect's own `update` already knows both.
-  width: { key: 'width', label: 'Width', min: 0, max: 1, via: 'value' },
-  decay: { key: 'decay', label: 'Decay', min: MIN_DECAY, max: MAX_DECAY, via: 'value' },
-  drive: { key: 'drive', label: 'Drive', min: 0, max: 1, via: 'value' },
-  bits: { key: 'bits', label: 'Bits', min: MIN_BITS, max: MAX_BITS, via: 'value' },
+  width: { key: 'width', label: 'Width', min: 0, max: 1, via: 'value', surcharge: 0 },
+  /**
+   * The expensive one, by a wide margin and for a plain reason: it is the only parameter here whose
+   * recomputation *allocates*. A new impulse response is two channels of up to ten seconds, and
+   * rebuilding that twenty times a second measured at about 130 points — more than the whole budget.
+   *
+   * So it is rebuilt four times a second instead, which is ample for a gesture nobody sweeps quickly,
+   * and brings it to something a patch can actually afford.
+   */
+  decay: {
+    key: 'decay',
+    label: 'Decay',
+    min: MIN_DECAY,
+    max: MAX_DECAY,
+    via: 'value',
+    surcharge: 26,
+    rebuildEvery: 0.25,
+  },
+  // A curve, not a buffer: a few hundred floats rather than a few hundred thousand.
+  drive: { key: 'drive', label: 'Drive', min: 0, max: 1, via: 'value', surcharge: 0 },
+  bits: { key: 'bits', label: 'Bits', min: MIN_BITS, max: MAX_BITS, via: 'value', surcharge: 0 },
+}
+
+/**
+ * Where a parameter name means something other than the usual thing, so the surcharge does too.
+ *
+ * Both of these are a cutoff that is not behind a filter of its own, and both measured at nothing.
+ */
+const SURCHARGE_OVERRIDES: Partial<Record<EffectKind, Record<string, number>>> = {
+  // A ring modulator's Freq borrows the cutoff field for its range, but what it sets is the carrier —
+  // an oscillator's frequency, which is free to automate.
+  ring: { cutoff: 0 },
+  // A phaser's stages are already swept by its own internal LFO, so their frequencies are automated
+  // whether a MOD is there or not. A second signal into an already-automated parameter adds nothing.
+  phaser: { cutoff: 0 },
 }
 
 /**
@@ -142,8 +228,16 @@ const FX_PARAM_TARGETS: Record<string, ModTarget> = {
  */
 const OSC_TARGETS: readonly ModTarget[] = [
   LEVEL,
-  { ...FX_PARAM_TARGETS.cutoff, hint: 'Sweeps the filter of every note the oscillator plays.' },
-  { ...FX_PARAM_TARGETS.resonance, hint: 'Swells the peak at the cutoff, note by note.' },
+  {
+    ...FX_PARAM_TARGETS.cutoff,
+    hint: 'Sweeps the filter of every note the oscillator plays.',
+    perVoice: true,
+  },
+  {
+    ...FX_PARAM_TARGETS.resonance,
+    hint: 'Swells the peak at the cutoff, note by note.',
+    perVoice: true,
+  },
 ]
 
 /** As much of what a MOD is wired to as decides what it can point at, and whether that does anything. */
@@ -195,6 +289,7 @@ export function targetsFor(
       ...target,
       // The effect's own name for it, where it has renamed one: a phaser calls its cutoff Centre.
       label: descriptor.labels?.[target.key as keyof FxParams] ?? target.label,
+      surcharge: SURCHARGE_OVERRIDES[effect]?.[target.key] ?? target.surcharge,
     }))
 
   return [LEVEL, MIX, ...own]

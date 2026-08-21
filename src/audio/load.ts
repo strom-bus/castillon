@@ -1,4 +1,4 @@
-import { MOD_COST } from './modulation'
+import { MOD_COST, resolveTarget, targetOf } from './modulation'
 import type { FxParams, OscParams, Patch, Waveform } from '../types/patch'
 import { stepDuration } from './clock'
 import { effectOr } from './effects'
@@ -93,6 +93,7 @@ export function estimatePeakLoad(patch: Patch): number {
   // A modulator runs whether or not anything is playing, so it is standing cost like an effect. Left
   // out, a patch of oscillators and modulators would read as cheaper than it is.
   const modulators = patch.nodes.filter((n) => n.type === 'mod').length * MOD_COST
+  const swept = sweepCost(patch)
 
   const children = new Map<string, string[]>()
   for (const edge of patch.edges) {
@@ -126,5 +127,38 @@ export function estimatePeakLoad(patch: Patch): number {
   }
 
   const widest = Math.max(0, ...perLevel.values())
-  return effects + modulators + widest * PEAK_ALLOWANCE
+  return effects + modulators + swept + widest * PEAK_ALLOWANCE
+}
+
+/**
+ * What the modulation cables cost the things they are pointed at.
+ *
+ * Separate from what the modulators themselves cost, because it is a property of the destination:
+ * sweeping a gain is free and sweeping a filter is not. A per-voice one — an oscillator's filter is
+ * built per note — is multiplied by how many voices that oscillator has in the air, which is the same
+ * overlap the voice count uses.
+ */
+function sweepCost(patch: Patch): number {
+  const byId = new Map(patch.nodes.map((node) => [node.id, node]))
+  let total = 0
+
+  for (const edge of patch.edges) {
+    if (edge.kind !== 'mod') continue
+    const mod = byId.get(edge.source)
+    const destination = byId.get(edge.target)
+    if (!mod || !destination) continue
+
+    const effect = destination.type === 'fx' ? (destination.params as FxParams).effect : undefined
+    // Through `resolveTarget`, so a MOD pointing at something its destination no longer offers is
+    // priced as the fallback it will actually be modulating rather than as what it says.
+    const key = resolveTarget((mod.params as { target?: string }).target, destination.type, effect)
+    const target = key ? targetOf(key, destination.type, effect) : undefined
+    if (!target || target.surcharge === 0) continue
+
+    total += target.perVoice
+      ? target.surcharge * voiceOverlap(destination.params as OscParams, patch.bpm)
+      : target.surcharge
+  }
+
+  return total
 }

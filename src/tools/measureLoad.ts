@@ -53,8 +53,14 @@ export interface Measured {
  * `AudioParam` makes a node recompute its coefficients per sample rather than per block, which is the
  * only thing that explains a phaser costing four times what its node count suggests.
  *
- * Measured by difference against a modulator that exists but is connected to nothing, so the
- * modulator's own cost cancels and what is left is the sweep.
+ * Measured by difference against the *same* modulator connected to something free, so its own cost is
+ * paid on both sides and what is left is the sweep.
+ *
+ * The first attempt compared against a modulator connected to nothing at all, and that was wrong in a
+ * way the control caught: Web Audio need not render a node with no path to the destination, so an
+ * unconnected modulator costs nothing to run. Every surcharge came back at about the modulator's own
+ * cost — including `level` and `mix`, which are gains and should be free — and one came back negative.
+ * A modulator that exists but is idle is not the same as one that is running.
  */
 export interface Surcharge {
   label: string
@@ -258,13 +264,21 @@ async function measureSurcharges(
   for (const descriptor of EFFECTS) {
     const params = { effect: descriptor.kind, mix: 0.8, ...descriptor.defaults } as FxParams
 
-    /** The same graph every time; only the last cable differs, or is absent. */
+    /**
+     * The same graph every time, and a modulator that is always running. What differs is only where
+     * its cable lands: on the parameter under test, or on the oscillator's own level.
+     *
+     * The oscillator's level is the reference because it is a gain on a node that is not the subject —
+     * so it is both free and out of the way.
+     */
     const build = (sweeping: string | null) => (engine: AudioEngine) => {
       engine.playNote(note({}, 0))
       engine.createEffect('fx', params, 120)
       engine.connectSend('osc0', 'fx')
       engine.createModulator('mod', LFO)
-      if (sweeping) engine.connectMod('mod', 'fx', sweeping, 0.6)
+      // Null is the reference: wired somewhere free rather than not wired at all.
+      if (sweeping === null) engine.connectMod('mod', 'osc0', 'level', 0.6)
+      else engine.connectMod('mod', 'fx', sweeping, 0.6)
     }
 
     for (const target of targetsFor('fx', descriptor.kind)) {
@@ -289,7 +303,8 @@ async function measureSurcharges(
         engine.playNote({ ...note({ filterType: 'lowpass' }, i), nodeId: 'osc' })
       }
       engine.createModulator('mod', LFO)
-      if (sweeping) engine.connectMod('mod', 'osc', key, 0.6)
+      // Running in both cases; only the destination moves, from the free level to the filter.
+      engine.connectMod('mod', 'osc', sweeping ? key : 'level', 0.6)
     }
     const idle = await timeMedian(build(false))
     const swept = await timeMedian(build(true))

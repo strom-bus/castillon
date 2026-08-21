@@ -85,6 +85,17 @@ interface ValueLink {
   amount: number
   /** Rounded to this before being applied, so a sweep does not rebuild a buffer for every frame. */
   step: number
+  /**
+   * Seconds that must pass before this may be recomputed again.
+   *
+   * Quantising the value is not enough on its own for the parameters that *allocate*. A reverb's
+   * impulse response is two channels of up to ten seconds, and rebuilding it twenty times a second
+   * measured at more than the entire budget. Four times a second is ample for a gesture nobody sweeps
+   * quickly, and it is the difference between affordable and not.
+   */
+  every: number
+  /** When it last moved, so the interval above can be honoured. */
+  lastAt: number
 }
 
 interface EffectInstance {
@@ -258,6 +269,16 @@ export class AudioEngine implements Engine {
   /** What each modulator is driving, so a rewiring can undo exactly what it did. */
   private modLinks = new Map<string, ModDestination[]>()
   private voiceLinks = new Map<string, VoiceLink>()
+  /**
+   * What each cable adds to what it is pointed at, over and above the modulator's own cost.
+   *
+   * Automating a gain is free; automating a filter roughly triples it, because the coefficients go
+   * from per block to per sample. Kept per connection rather than per modulator, since one MOD can
+   * point at several things and the price is a property of the destination.
+   */
+  private modSurcharge = new Map<string, number>()
+  /** Per-voice surcharges, by oscillator: added to each voice as it is built rather than standing. */
+  private voiceSurcharge = new Map<NodeId, number>()
   /** One inverter per node, so wiring a mix modulation twice does not stack them. */
   private inverters = new Map<NodeId, GainNode>()
   /** Modulations that cannot be connected to, driven by recomputation instead. */
@@ -337,7 +358,11 @@ export class AudioEngine implements Engine {
     const holdEnd = req.time + req.duration
     const end = holdEnd + release
 
-    const cost = voiceCost(req.waveform, req.filterType !== 'off')
+    // A swept filter costs more than a static one, and this oscillator's filter is built per note —
+    // so the surcharge is part of what this voice costs, not standing cost. Only where there is a
+    // filter to sweep: with it off, nothing is built and nothing is charged.
+    const swept = req.filterType !== 'off' ? (this.voiceSurcharge.get(req.nodeId) ?? 0) : 0
+    const cost = voiceCost(req.waveform, req.filterType !== 'off') + swept
     if (this.totalLoadAt(req.time) + cost > MAX_LOAD) this.stealOldest(req.time)
 
     const source = this.createSource(req)
@@ -622,7 +647,10 @@ export class AudioEngine implements Engine {
         // Sixty-four steps across the whole span: fine enough to hear as a sweep, coarse enough that
         // a rebuild happens on a change somebody could notice.
         step: (descriptor.max - descriptor.min) / 64,
+        every: descriptor.rebuildEvery ?? 0,
+        lastAt: -Infinity,
       })
+      this.chargeFor(modId, targetId, target)
       this.syncValueTimer()
       return
     }
@@ -631,6 +659,7 @@ export class AudioEngine implements Engine {
     // note after that. What is set up now is the depth; the connecting happens per voice.
     if (!this.effects.has(targetId) && (target === 'cutoff' || target === 'resonance')) {
       this.linkVoices(modId, targetId, target, depth, instance)
+      this.chargeFor(modId, targetId, target)
       return
     }
 
@@ -644,11 +673,13 @@ export class AudioEngine implements Engine {
 
     for (const destination of destinations) connectTo(instance.depth, destination)
     this.modLinks.set(`${modId}->${targetId}`, destinations)
+    this.chargeFor(modId, targetId, target)
   }
 
   disconnectMod(modId: NodeId, targetId: NodeId): void {
     const instance = this.modulators.get(modId)
     const key = `${modId}->${targetId}`
+    this.refund(key, targetId)
 
     const valued = this.valueLinks.get(key)
     if (valued) {
@@ -709,10 +740,15 @@ export class AudioEngine implements Engine {
       const effect = this.effects.get(link.targetId)
       if (!modulator || !effect) continue
 
+      // Some rebuilds are dear enough to be worth doing rarely — an impulse response is two channels
+      // of up to ten seconds — so a link may ask to be left alone between turns.
+      if (now - link.lastAt < link.every) continue
+
       const phase = (now - modulator.startedAt) * modulator.rate
       const value = link.centre + waveAt(modulator.wave, phase) * link.amount
       const stepped = Math.round(value / link.step) * link.step
       if (effect.params[link.key as keyof FxParams] === stepped) continue
+      link.lastAt = now
 
       // A copy, never the stored object: modulation is not an edit and must not reach the patch.
       this.updateEffect(link.targetId, { ...effect.params, [link.key]: stepped }, effect.bpm)
@@ -784,6 +820,8 @@ export class AudioEngine implements Engine {
     this.buses.clear()
     for (const inverter of this.inverters.values()) inverter.disconnect()
     this.inverters.clear()
+    this.modSurcharge.clear()
+    this.voiceSurcharge.clear()
 
     // No links to clear and no timer to stop: `disposeModulator` releases all three kinds, the
     // recomputed ones included, and takes the timer down with the last of them. Clearing them here as
@@ -793,6 +831,39 @@ export class AudioEngine implements Engine {
     this.master?.disconnect()
     this.master = null
     this.ctx = null
+  }
+
+  /**
+   * Puts the destination's surcharge on the books.
+   *
+   * A per-voice one goes on the oscillator rather than into standing cost, because it scales with how
+   * many notes are in the air — a cable to a silent oscillator costs nothing, and the same cable to
+   * one playing sixteen-note chords costs sixteen times as much.
+   */
+  private chargeFor(modId: NodeId, targetId: NodeId, target: ModTargetKey): void {
+    const effect = this.effects.get(targetId)
+    const descriptor = targetOf(target, effect ? 'fx' : 'osc', effect?.params.effect)
+    const points = descriptor?.surcharge ?? 0
+    if (points === 0) return
+
+    if (descriptor?.perVoice) {
+      this.voiceSurcharge.set(targetId, (this.voiceSurcharge.get(targetId) ?? 0) + points)
+    } else {
+      this.modSurcharge.set(`${modId}->${targetId}`, points)
+    }
+  }
+
+  private refund(key: string, targetId: NodeId): void {
+    this.modSurcharge.delete(key)
+
+    // Per-voice charges are held by oscillator, so what is given back is one cable's worth.
+    const link = this.voiceLinks.get(key)
+    if (!link) return
+    const effect = this.effects.get(targetId)
+    const points = targetOf(link.key, effect ? 'fx' : 'osc', effect?.params.effect)?.surcharge ?? 0
+    const standing = (this.voiceSurcharge.get(targetId) ?? 0) - points
+    if (standing > 0.001) this.voiceSurcharge.set(targetId, standing)
+    else this.voiceSurcharge.delete(targetId)
   }
 
   /**
@@ -950,6 +1021,9 @@ export class AudioEngine implements Engine {
   modLoad(): number {
     let total = 0
     for (const instance of this.modulators.values()) total += instance.cost
+    // What each cable costs the thing it is pointed at. Standing, like the modulator itself: a swept
+    // filter is dearer whether or not anything is going through it.
+    for (const points of this.modSurcharge.values()) total += points
     return total
   }
 

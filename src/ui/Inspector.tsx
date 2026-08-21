@@ -13,6 +13,13 @@ import {
 } from '../audio/filter'
 import { MAX_PULSE_WIDTH, MIN_PULSE_WIDTH, WAVEFORM_NAMES, WAVEFORMS } from '../audio/waveforms'
 import { DEFAULT_DELAY_MS, DEFAULT_STEP_COUNT, STEP_COUNTS } from '../nodes/registry'
+import {
+  DEFAULT_IGNITE,
+  type IgniteBehaviour,
+  type IgniteTrigger,
+  type StartParams,
+} from '../types/patch'
+import { KeyCapture } from './KeyCapture'
 import { formatOrdinal, nodeOrdinal } from '../state/ordinals'
 import { usePatchStore } from '../state/patchStore'
 import { NumberInput } from './NumberInput'
@@ -424,14 +431,65 @@ export function Inspector() {
   }
 
   if (node.type === 'start') {
+    const ignite = node.data.params as StartParams
+    const trigger = ignite.trigger ?? DEFAULT_IGNITE.trigger
+    const behaviour = ignite.behaviour ?? DEFAULT_IGNITE.behaviour
+
     return (
       <Panel>
         <h2 className="inspector-title">
           IGNITE <span className="node-ordinal">{ordinal}</span>
         </h2>
-        <p className="inspector-empty">
-          Fires the cascade on Play. A patch can hold several: each one is an independent cascade.
-        </p>
+
+        <label className="inspector-field">
+          <span>Trigger</span>
+          <select
+            value={trigger}
+            onChange={(e) => updateParams(node.id, { trigger: e.target.value as IgniteTrigger })}
+          >
+            <option value="auto">On Play (auto)</option>
+            <option value="bound">On a key</option>
+          </select>
+        </label>
+
+        {trigger === 'bound' ? (
+          <>
+            <label className="inspector-field">
+              <span>Key</span>
+              <KeyCapture
+                code={ignite.binding?.code ?? null}
+                onChange={(code) =>
+                  updateParams(node.id, {
+                    binding: code ? { source: 'key', code } : null,
+                  })
+                }
+              />
+            </label>
+
+            <label className="inspector-field">
+              <span>While</span>
+              <select
+                value={behaviour}
+                onChange={(e) =>
+                  updateParams(node.id, { behaviour: e.target.value as IgniteBehaviour })
+                }
+              >
+                <option value="hold">Held down</option>
+                <option value="toggle">Until pressed again</option>
+              </select>
+            </label>
+
+            <p className="inspector-empty">
+              {behaviour === 'hold'
+                ? 'Runs while the key is down and stops when it is released. Play does not start it.'
+                : 'Starts on a press and stops on the next one. Play does not start it.'}
+            </p>
+          </>
+        ) : (
+          <p className="inspector-empty">
+            Fires the cascade on Play. A patch can hold several: each one is an independent cascade.
+          </p>
+        )}
       </Panel>
     )
   }

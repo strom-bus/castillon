@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { defaultFxParams, defaultOscParams } from '../nodes/registry'
-import type { Patch, PatchNode } from '../types/patch'
+import type { Patch, PatchNode, StartParams } from '../types/patch'
 import { BitWriter } from './bits'
+import { INITIAL_PATCH_CODE } from './patchStore'
 import { decodePatch, encodePatch, FX_FIELD_TOTAL, OSC_FIELD_TOTAL, toBase64Url } from './patchCode'
 
 function osc(id: string, overrides: Partial<ReturnType<typeof defaultOscParams>> = {}): PatchNode {
@@ -424,5 +425,98 @@ describe('patch code', () => {
   it('ignores surrounding whitespace, since codes get pasted', () => {
     const code = encodePatch(DEMO)
     expect(decodePatch(`  ${code}\n`)).not.toBeNull()
+  })
+})
+
+describe('Ignite triggers in the code', () => {
+  const ignite = (params: StartParams): PatchNode => ({
+    id: 's',
+    type: 'start',
+    position: { x: 0, y: 0 },
+    params,
+  })
+
+  const patchOf = (nodes: PatchNode[]): Patch => ({
+    version: 1,
+    bpm: 120,
+    loop: true,
+    nodes,
+    edges: [],
+  })
+
+  const roundTrip = (patch: Patch) => decodePatch(encodePatch(patch))
+
+  it('carries a bound key there and back', () => {
+    const patch = patchOf([
+      ignite({ trigger: 'bound', behaviour: 'hold', binding: { source: 'key', code: 'KeyA' } }),
+    ])
+    expect(roundTrip(patch)!.nodes[0].params).toEqual({
+      trigger: 'bound',
+      behaviour: 'hold',
+      binding: { source: 'key', code: 'KeyA' },
+    })
+  })
+
+  it('carries the behaviour', () => {
+    const patch = patchOf([
+      ignite({ trigger: 'bound', behaviour: 'toggle', binding: { source: 'key', code: 'Space' } }),
+    ])
+    const params = roundTrip(patch)!.nodes[0].params as StartParams
+    expect(params.behaviour).toBe('toggle')
+  })
+
+  it('carries an unusual key code, which a table of names would have lost', () => {
+    const patch = patchOf([
+      ignite({
+        trigger: 'bound',
+        behaviour: 'hold',
+        binding: { source: 'key', code: 'BracketLeft' },
+      }),
+    ])
+    const params = roundTrip(patch)!.nodes[0].params as StartParams
+    expect(params.binding?.code).toBe('BracketLeft')
+  })
+
+  it('keeps several Ignites on different keys apart', () => {
+    const patch = patchOf([
+      {
+        ...ignite({
+          trigger: 'bound',
+          behaviour: 'hold',
+          binding: { source: 'key', code: 'KeyA' },
+        }),
+        id: 'a',
+      },
+      { ...ignite({ trigger: 'auto' }), id: 'b' },
+      {
+        ...ignite({
+          trigger: 'bound',
+          behaviour: 'toggle',
+          binding: { source: 'key', code: 'KeyB' },
+        }),
+        id: 'c',
+      },
+    ])
+    const back = roundTrip(patch)!.nodes.map((node) => (node.params as StartParams).binding?.code)
+    expect(back).toEqual(['KeyA', undefined, 'KeyB'])
+  })
+
+  it('costs nothing when no Ignite is bound', () => {
+    // A patch of automatic Ignites writes the code it always wrote, so nothing already shared moves.
+    const before = encodePatch(patchOf([ignite({})]))
+    const after = encodePatch(patchOf([ignite({ trigger: 'auto' })]))
+    expect(after).toBe(before)
+  })
+
+  it('still reads a code written before triggers existed', () => {
+    // The guarantee that matters now the gallery stores codes: the example patch predates all of
+    // this, and its Ignites have to come back as automatic rather than as nonsense.
+    const patch = decodePatch(INITIAL_PATCH_CODE)
+    expect(patch).not.toBeNull()
+    const starts = patch!.nodes.filter((node) => node.type === 'start')
+    expect(starts.length).toBeGreaterThan(0)
+    for (const start of starts) {
+      expect((start.params as StartParams).trigger ?? 'auto').toBe('auto')
+    }
   })
 })

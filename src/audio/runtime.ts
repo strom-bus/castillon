@@ -1,3 +1,5 @@
+import { listenToKeyboard } from '../input/keyboard'
+import { press, release } from '../input/triggers'
 import { toPatch } from '../state/patchStore'
 import { ActivityBus } from '../viz/activity'
 import { AudioEngine } from './engine'
@@ -32,13 +34,36 @@ export function reconcile(): void {
   applied = next
 }
 
-/** Must be called from a user gesture (browser autoplay policy). */
-export async function play(): Promise<void> {
+/** Everything that has to be true before a note can be scheduled. */
+async function ready(): Promise<void> {
   await engine.start()
   // The graph has to exist before the first note is scheduled into it.
   reconcile()
   activity.start()
+}
+
+/** Must be called from a user gesture (browser autoplay policy). */
+export async function play(): Promise<void> {
+  await ready()
   scheduler.start()
+}
+
+/**
+ * Connects an input source to the bound Ignites.
+ *
+ * A key press is itself a user gesture, so it may start the audio — which it has to, because a bound
+ * Ignite is meant to play without anyone having pressed Play first (§17.4). The engine resolves
+ * immediately once started, so only the very first press pays for it.
+ */
+export function installTriggers(): () => void {
+  return listenToKeyboard({
+    press(identity) {
+      void ready().then(() => press(toPatch(), identity, scheduler))
+    },
+    release(identity) {
+      release(toPatch(), identity, scheduler)
+    },
+  })
 }
 
 /**

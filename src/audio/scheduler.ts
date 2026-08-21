@@ -1,5 +1,5 @@
 import { getDefinition } from '../nodes/registry'
-import type { NodeId, Patch, PatchNode } from '../types/patch'
+import type { NodeId, Patch, PatchNode, StartParams } from '../types/patch'
 import type { ActivityBus } from '../viz/activity'
 import type { Engine } from './engine'
 
@@ -49,6 +49,11 @@ interface Chain {
   startTime: number
 }
 
+/** Whether this node waits for an input rather than for the transport. */
+function isBound(node: PatchNode): boolean {
+  return node.type === 'start' && (node.params as StartParams).trigger === 'bound'
+}
+
 interface SchedulerDeps {
   engine: Engine
   activity: ActivityBus
@@ -70,6 +75,8 @@ export class CascadeScheduler {
   private chains = new Map<number, Chain>()
   private nextChainId = 1
   private timer: ReturnType<typeof setInterval> | null = null
+  /** Bound Ignites currently sounding. A press on one already in this set is auto-repeat, not a note. */
+  private holding = new Set<NodeId>()
   private running = false
   private deps: SchedulerDeps
 
@@ -77,14 +84,28 @@ export class CascadeScheduler {
     this.deps = deps
   }
 
+  /**
+   * Starts the tick without seeding anything.
+   *
+   * Ticking and playing are not the same thing, and a bound Ignite is why: pressing its key has to
+   * sound its own cascade without starting every automatic one alongside it (§17.1).
+   */
+  private activate(): void {
+    this.running = true
+    if (this.timer === null) {
+      this.timer = setInterval(() => this.tick(), TICK_MS)
+    }
+  }
+
   start(): void {
     if (this.running) return
-    this.running = true
+    this.activate()
     const t0 = this.deps.engine.now() + START_OFFSET
     for (const node of this.deps.getPatch().nodes) {
-      if (node.type === 'start') this.beginChain(node.id, t0)
+      // A bound Ignite waits for its input and is not seeded by the transport, which is the point of
+      // binding it (PLAN §17.1).
+      if (node.type === 'start' && !isBound(node)) this.beginChain(node.id, t0)
     }
-    this.timer = setInterval(() => this.tick(), TICK_MS)
     this.tick()
   }
 
@@ -108,12 +129,101 @@ export class CascadeScheduler {
     this.chains.clear()
     const t0 = this.deps.engine.now() + START_OFFSET
     for (const node of this.deps.getPatch().nodes) {
-      if (node.type === 'start') this.beginChain(node.id, t0)
+      if (node.type === 'start' && !isBound(node)) this.beginChain(node.id, t0)
     }
+  }
+
+  /**
+   * Fires one Ignite now, whatever the transport is doing.
+   *
+   * How a bound Ignite plays (§17.1). Immediate rather than quantised to the grid: a key that answers
+   * on the next beat is not an instrument, and a cascade started off the grid drifting against the
+   * automatic ones is the same polyrhythm the whole design is built on.
+   *
+   * Already running is left alone, so holding a key down through the browser's auto-repeat does not
+   * stack a cascade on top of itself.
+   */
+  fire(startNodeId: NodeId): void {
+    if (this.holding.has(startNodeId)) return
+    // A key works with the transport stopped, so firing starts the tick if nothing else has.
+    this.activate()
+    this.holding.add(startNodeId)
+    this.beginChain(startNodeId, this.deps.engine.now() + START_OFFSET)
+    // Straight away rather than on the next tick, so a key press sounds when it is pressed.
+    this.tick()
+  }
+
+  /**
+   * Stops one Ignite's cascade, in flight.
+   *
+   * The new capability §17.2 called for: auto cascades only ever end by draining, and `stop()` clears
+   * everything. This drops the queued events belonging to that Ignite's chains, releases the voices
+   * its nodes are holding, and leaves every other cascade untouched.
+   */
+  release(startNodeId: NodeId): void {
+    this.holding.delete(startNodeId)
+
+    const mine = new Set<number>()
+    for (const [id, chain] of this.chains) {
+      if (chain.startNodeId === startNodeId) mine.add(id)
+    }
+    if (mine.size === 0) return
+
+    // Voices are released rather than cut: the note's own release time turns a stopped cascade into a
+    // fade instead of a click.
+    //
+    // Everything downstream of the Ignite, not the nodes still in the queue. A node that is *already
+    // sounding* has had its event consumed and left the queue, so reading the queue released only the
+    // nodes that had not made a sound yet — precisely backwards.
+    const at = this.deps.engine.now()
+    for (const nodeId of this.downstreamOf(startNodeId)) {
+      this.deps.engine.releaseNodeVoices(nodeId, at)
+    }
+
+    this.queue = this.queue.filter((event) => !mine.has(event.chainId))
+    for (const id of mine) this.chains.delete(id)
+    this.deps.activity.clear()
+  }
+
+  /**
+   * Every node an Ignite can reach through event cables, itself included.
+   *
+   * Depth-capped by the same `MAX_DEPTH` the cascade uses, which is also what stops a cycle here.
+   */
+  private downstreamOf(startNodeId: NodeId): Set<NodeId> {
+    const patch = this.deps.getPatch()
+    const children = new Map<NodeId, NodeId[]>()
+    for (const edge of patch.edges) {
+      if (edge.kind !== 'event') continue
+      const list = children.get(edge.source)
+      if (list) list.push(edge.target)
+      else children.set(edge.source, [edge.target])
+    }
+
+    const found = new Set<NodeId>([startNodeId])
+    let frontier = [startNodeId]
+    for (let depth = 0; depth < MAX_DEPTH && frontier.length > 0; depth++) {
+      const next: NodeId[] = []
+      for (const id of frontier) {
+        for (const child of children.get(id) ?? []) {
+          if (found.has(child)) continue
+          found.add(child)
+          next.push(child)
+        }
+      }
+      frontier = next
+    }
+    return found
+  }
+
+  /** Whether this Ignite is currently sounding, which is what a toggle needs to know. */
+  isFiring(startNodeId: NodeId): boolean {
+    return this.holding.has(startNodeId)
   }
 
   stop(): void {
     this.running = false
+    this.holding.clear()
     if (this.timer !== null) clearInterval(this.timer)
     this.timer = null
     this.queue.length = 0
@@ -219,6 +329,10 @@ export class CascadeScheduler {
     this.chains.delete(chainId)
     if (!this.running || !patch.loop) return
     if (!patch.nodes.some((n) => n.id === chain.startNodeId)) return
+    // A bound Ignite loops for as long as it is held and not a moment longer. Without this a released
+    // key would come round again, which is the opposite of releasing it.
+    const node = patch.nodes.find((n) => n.id === chain.startNodeId)
+    if (node && isBound(node) && !this.holding.has(chain.startNodeId)) return
 
     const next =
       chain.lastEnd > chain.startTime ? chain.lastEnd : chain.startTime + EMPTY_CHAIN_DELAY

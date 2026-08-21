@@ -20,6 +20,7 @@ import type {
   NodeParams,
   OscParams,
   Patch,
+  StartParams,
   Step,
 } from '../types/patch'
 import {
@@ -76,7 +77,7 @@ interface PatchState {
   addNode(type: string, position: { x: number; y: number }): void
   removeEdge(id: string): void
   select(id: string | null): void
-  updateParams(id: string, partial: Partial<OscParams & FxParams & DelayParams>): void
+  updateParams(id: string, partial: Partial<OscParams & FxParams & DelayParams & StartParams>): void
   setEffect(id: string, effect: EffectKind): void
   updateStep(id: string, index: number, partial: Partial<Step>): void
   setStepCount(id: string, count: number): void
@@ -106,7 +107,7 @@ function makeNode(type: string, position: { x: number; y: number }, id = newId(t
  *
  * To change it, build the patch in the app, copy the PATCH CODE field and paste it here.
  */
-const INITIAL_PATCH_CODE =
+export const INITIAL_PATCH_CODE =
   'FGJaABAJBSMEAoUjiuuaDszNV6oJ5QAMfjd-slBjwdPLH11jpANAA0AGGZTmUSggKGAhkPEBdwFAw64ZsQNOALICMRkgIuicJqtoJ5sYL9gGAihZxK3A'
 
 /** Types that have been renamed. A patch saved under the old name still loads. */

@@ -1153,3 +1153,42 @@ input[type='range'] {
 .btn-icon:disabled:hover {
   color: var(--border-strong);
 }
+
+/*
+ * The key a bound Ignite answers to, on the node.
+ *
+ * No box: the depth hue already sets it apart from a white title and a grey ordinal, and a border
+ * around two characters is one box too many. Bold instead, so it reads as a label rather than as text
+ * trailing off the end of the title.
+ */
+.node-key {
+  margin-left: 7px;
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+/* Assigning a key: the button and its clear. */
+.key-capture {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.key-capture .btn {
+  min-width: 92px;
+  text-align: center;
+}
+
+/* Listening for the keystroke, which is a state worth being loud about. */
+.key-capture .btn.on {
+  background: var(--text);
+  color: var(--bg);
+  border-color: var(--text);
+}
+
+.key-clear svg {
+  width: 13px;
+  height: 13px;
+}

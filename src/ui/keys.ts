@@ -21,3 +21,17 @@ export function editing(target: EventTarget | null): boolean {
 export function withModifier(event: KeyboardEvent): boolean {
   return event.metaKey || event.ctrlKey
 }
+
+/**
+ * A key code as somebody would say it: `KeyA` reads as A, `Digit4` as 4.
+ *
+ * Anything stranger keeps its own name — `BracketLeft` is ugly but unambiguous, and inventing a
+ * prettier label for every key on every layout is a worse trade than showing the code.
+ */
+export function keyLabel(code: string | undefined | null): string {
+  if (!code) return ''
+  if (code.startsWith('Key')) return code.slice(3)
+  if (code.startsWith('Digit')) return code.slice(5)
+  if (code === 'Space') return 'SPACE'
+  return code
+}

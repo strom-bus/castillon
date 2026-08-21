@@ -150,7 +150,48 @@ export interface DelayParams {
   delayMs: number
 }
 
-export type StartParams = Record<string, never>
+/**
+ * How an Ignite is fired (PLAN §17).
+ *
+ * `auto` is what it has always done: fire when the transport starts, and loop. `bound` waits for an
+ * input instead, and is not seeded by Play at all — that is the whole point of it.
+ */
+export type IgniteTrigger = 'auto' | 'bound'
+
+/**
+ * What a bound Ignite does with a press.
+ *
+ * `hold` runs while the key is down. `toggle` starts on the first press and stops on the next. The
+ * two map onto MIDI without translation: note-on and note-off *are* press and release, so hold needs
+ * both and toggle listens to note-on alone.
+ */
+export type IgniteBehaviour = 'hold' | 'toggle'
+
+/**
+ * Where a press comes from.
+ *
+ * A discriminated union rather than a key code, because an Ignite must not know it was a keyboard: a
+ * MIDI note is a second `source` and nothing above this changes (§17.3).
+ */
+export type IgniteBinding = { source: 'key'; code: string }
+
+export interface StartParams {
+  trigger?: IgniteTrigger
+  binding?: IgniteBinding | null
+  behaviour?: IgniteBehaviour
+}
+
+/** What an Ignite does when nothing says otherwise: exactly what it did before any of this existed. */
+export const DEFAULT_IGNITE: Required<Omit<StartParams, 'binding'>> & { binding: null } = {
+  trigger: 'auto',
+  binding: null,
+  behaviour: 'hold',
+}
+
+/** The identity a binding answers to, used to match a press against the Ignites waiting for one. */
+export function bindingKey(binding: IgniteBinding | null | undefined): string | null {
+  return binding ? `${binding.source}:${binding.code}` : null
+}
 
 export type NodeParams = OscParams | FxParams | DelayParams | StartParams
 

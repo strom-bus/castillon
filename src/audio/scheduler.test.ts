@@ -479,3 +479,139 @@ describe('replacing the whole patch', () => {
     expect(engine.notes).toHaveLength(0)
   })
 })
+
+describe('bound Ignites', () => {
+  const bound = (id: string, behaviour: 'hold' | 'toggle' = 'hold'): PatchNode => ({
+    id,
+    type: 'start',
+    position: { x: 0, y: 0 },
+    params: { trigger: 'bound', behaviour, binding: { source: 'key', code: 'KeyA' } },
+  })
+
+  const auto = (id: string): PatchNode => ({
+    id,
+    type: 'start',
+    position: { x: 0, y: 0 },
+    params: {},
+  })
+
+  it('is not seeded by the transport, which is the point of binding it', () => {
+    const patch = patchOf([bound('b'), osc('a')], [edge('b', 'a')], true)
+    const scheduler = build(patch)
+    scheduler.start()
+    scheduler.drain(10)
+    expect(engine.notes).toHaveLength(0)
+  })
+
+  it('leaves an automatic Ignite alongside it working as before', () => {
+    const patch = patchOf(
+      [bound('b'), osc('x'), auto('s'), osc('y')],
+      [edge('b', 'x'), edge('s', 'y')],
+      true,
+    )
+    const scheduler = build(patch)
+    scheduler.start()
+    scheduler.drain(10)
+
+    const sounded = new Set(engine.notes.map((note) => note.nodeId))
+    expect(sounded.has('y')).toBe(true)
+    expect(sounded.has('x')).toBe(false)
+  })
+
+  it('sounds when fired', () => {
+    const patch = patchOf([bound('b'), osc('a')], [edge('b', 'a')], true)
+    const scheduler = build(patch)
+    scheduler.start()
+    scheduler.fire('b')
+    scheduler.drain(10)
+    expect(engine.notes.length).toBeGreaterThan(0)
+  })
+
+  it('ignores a second press while it is already sounding, so auto-repeat cannot stack it', () => {
+    const patch = patchOf([bound('b'), osc('a')], [edge('b', 'a')], true)
+    const scheduler = build(patch)
+    scheduler.start()
+    scheduler.fire('b')
+    scheduler.drain(1)
+    const once = engine.notes.length
+
+    scheduler.fire('b')
+    scheduler.drain(1)
+    expect(engine.notes).toHaveLength(once)
+  })
+
+  it('stops sounding anything new once released', () => {
+    const patch = patchOf([bound('b'), osc('a')], [edge('b', 'a')], true)
+    const scheduler = build(patch)
+    scheduler.start()
+    scheduler.fire('b')
+    scheduler.drain(0.5)
+
+    scheduler.release('b')
+    engine.notes.length = 0
+    scheduler.drain(30)
+    expect(engine.notes).toHaveLength(0)
+  })
+
+  it('releases the voices it was holding rather than cutting them', () => {
+    // A stopped cascade should fade by its own release time, not click.
+    const patch = patchOf([bound('b'), osc('a')], [edge('b', 'a')], true)
+    const scheduler = build(patch)
+    scheduler.start()
+    scheduler.fire('b')
+    scheduler.drain(0.5)
+
+    scheduler.release('b')
+    expect(engine.released.map((r) => r.nodeId)).toContain('a')
+  })
+
+  it('does not touch another cascade when one is released', () => {
+    const patch = patchOf(
+      [bound('b'), osc('x'), auto('s'), osc('y')],
+      [edge('b', 'x'), edge('s', 'y')],
+      true,
+    )
+    const scheduler = build(patch)
+    scheduler.start()
+    scheduler.fire('b')
+    scheduler.drain(0.5)
+
+    scheduler.release('b')
+    engine.notes.length = 0
+    scheduler.drain(10)
+
+    const sounded = new Set(engine.notes.map((note) => note.nodeId))
+    expect(sounded.has('y')).toBe(true)
+    expect(sounded.has('x')).toBe(false)
+  })
+
+  it('loops while held', () => {
+    const patch = patchOf([bound('b'), osc('a')], [edge('b', 'a')], true)
+    const scheduler = build(patch)
+    scheduler.start()
+    scheduler.fire('b')
+    scheduler.drain(10)
+    // Ten seconds of a one-second sequence is many passes, not one.
+    expect(engine.notes.length).toBeGreaterThan(8)
+  })
+
+  it('reports whether it is firing, which is what a toggle asks', () => {
+    const patch = patchOf([bound('b', 'toggle'), osc('a')], [edge('b', 'a')], true)
+    const scheduler = build(patch)
+    scheduler.start()
+    expect(scheduler.isFiring('b')).toBe(false)
+    scheduler.fire('b')
+    expect(scheduler.isFiring('b')).toBe(true)
+    scheduler.release('b')
+    expect(scheduler.isFiring('b')).toBe(false)
+  })
+
+  it('forgets what it was holding when the transport stops', () => {
+    const patch = patchOf([bound('b'), osc('a')], [edge('b', 'a')], true)
+    const scheduler = build(patch)
+    scheduler.start()
+    scheduler.fire('b')
+    scheduler.stop()
+    expect(scheduler.isFiring('b')).toBe(false)
+  })
+})

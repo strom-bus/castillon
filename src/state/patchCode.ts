@@ -11,28 +11,30 @@ import { FILTER_TYPES } from '../audio/filter'
 import {
   MAX_BPM,
   MAX_DECAY,
+  MAX_DELAY_MS,
   MAX_FEEDBACK,
+  MAX_NOTE,
   MAX_RATE,
   MAX_SWEEP,
-  MIN_DECAY,
-  MIN_RATE,
-  MIN_SWEEP,
-  MAX_DELAY_MS,
-  MAX_NOTE,
   MIN_BPM,
+  MIN_DECAY,
   MIN_DELAY_MS,
   MIN_NOTE,
+  MIN_RATE,
+  MIN_SWEEP,
   type DelayParams,
   type DistortionShape,
   type Division,
   type EdgeKind,
   type EffectKind,
   type FxParams,
+  type IgniteBehaviour,
   type OscParams,
   type Patch,
   type PatchEdge,
   type PatchNode,
   type PropagateMode,
+  type StartParams,
   type Waveform,
 } from '../types/patch'
 import { MAX_BITS, MIN_BITS } from '../audio/dsp'
@@ -67,6 +69,23 @@ const FIELD_COUNT_BITS = 6
  * a flag saying that steps carry velocity again — without needing a version bump.
  */
 const HEADER_FLAG_BITS = 4
+
+/**
+ * Header flag 1: the Ignites carry a trigger (PLAN §17).
+ *
+ * The flags were written as zero and read-and-ignored from the first version, reserved for exactly
+ * this. Using one keeps every code already in the world readable: an old code has the bit clear, so
+ * its Ignites decode as automatic — which is what they were.
+ *
+ * That matters more than it did before the gallery existed. The wall stores long codes, so a format
+ * that broke would take every published patch with it.
+ */
+const FLAG_IGNITE_TRIGGER = 1
+
+/** How a bound Ignite's key is written: a length and then its characters. */
+const BINDING_LENGTH_BITS = 5
+const BINDING_CHAR_BITS = 7
+const MAX_BINDING_LENGTH = 24
 
 const NODE_TYPES = ['start', 'osc', 'delay', 'fx'] as const
 
@@ -336,6 +355,44 @@ function readOsc(reader: BitReader, declared: number): OscParams {
   return { ...params, steps }
 }
 
+/**
+ * An Ignite's trigger.
+ *
+ * One bit for automatic, which is the overwhelming case and costs nothing. A bound one then spends a
+ * bit on its behaviour and writes its key as characters — a table of key names would be smaller and
+ * would fail the moment somebody binds a key nobody thought of.
+ */
+function writeStart(writer: BitWriter, raw: StartParams): void {
+  const bound = raw.trigger === 'bound'
+  writer.write(bound ? 1 : 0, 1)
+  if (!bound) return
+
+  writer.write(raw.behaviour === 'toggle' ? 1 : 0, 1)
+  const code = (raw.binding?.code ?? '').slice(0, MAX_BINDING_LENGTH)
+  writer.write(code.length, BINDING_LENGTH_BITS)
+  for (const char of code) {
+    // Seven bits: every key code is ASCII, and a stray character becomes a question mark rather than
+    // corrupting the bits that follow.
+    const point = char.codePointAt(0) ?? 63
+    writer.write(point < 128 ? point : 63, BINDING_CHAR_BITS)
+  }
+}
+
+function readStart(reader: BitReader): StartParams {
+  if (reader.read(1) === 0) return {}
+
+  const behaviour: IgniteBehaviour = reader.read(1) === 1 ? 'toggle' : 'hold'
+  const length = reader.read(BINDING_LENGTH_BITS)
+  let code = ''
+  for (let i = 0; i < length; i++) code += String.fromCharCode(reader.read(BINDING_CHAR_BITS))
+
+  return {
+    trigger: 'bound',
+    behaviour,
+    binding: code ? { source: 'key', code } : null,
+  }
+}
+
 function writeFx(writer: BitWriter, raw: FxParams): void {
   writeParams(writer, FX_FIELDS, { ...defaultFxParams(), ...raw }, FX_REFERENCE)
 }
@@ -358,7 +415,12 @@ export function encodePatch(patch: Patch): string {
   // node of a type shares the count. Twelve bits for a format that survives new parameters.
   writer.write(OSC_FIELDS.length, FIELD_COUNT_BITS)
   writer.write(FX_FIELDS.length, FIELD_COUNT_BITS)
-  writer.write(0, HEADER_FLAG_BITS)
+  // Only set when something needs it, so a patch of automatic Ignites still writes the byte it always
+  // did and produces the same code it always produced.
+  const anyBound = patch.nodes.some(
+    (node) => node.type === 'start' && (node.params as StartParams).trigger === 'bound',
+  )
+  writer.write(anyBound ? FLAG_IGNITE_TRIGGER : 0, HEADER_FLAG_BITS)
 
   const nodes = patch.nodes.filter((n) => (NODE_TYPES as readonly string[]).includes(n.type))
   writer.writeVarint(nodes.length)
@@ -375,6 +437,8 @@ export function encodePatch(patch: Patch): string {
     } else if (node.type === 'delay') {
       const { delayMs } = { ...defaultDelayParams(), ...(node.params as DelayParams) }
       writer.write(quantise(delayMs / 10, 1, MIN_DELAY_MS / 10, MAX_DELAY_MS / 10), 9)
+    } else if (node.type === 'start' && anyBound) {
+      writeStart(writer, node.params as StartParams)
     }
   }
 
@@ -403,9 +467,8 @@ export function decodePatch(code: string): Patch | null {
     const loop = reader.read(1) === 1
     const oscFields = reader.read(FIELD_COUNT_BITS)
     const fxFields = reader.read(FIELD_COUNT_BITS)
-    // Read and ignored: no flag is defined yet, and reading it keeps the offset right for when one
-    // is.
-    reader.read(HEADER_FLAG_BITS)
+    const flags = reader.read(HEADER_FLAG_BITS)
+    const ignitesCarryTrigger = (flags & FLAG_IGNITE_TRIGGER) !== 0
 
     const nodeCount = reader.readVarint()
     if (nodeCount > 5000) return null
@@ -424,6 +487,8 @@ export function decodePatch(code: string): Patch | null {
         params = readFx(reader, fxFields)
       } else if (type === 'delay') {
         params = { delayMs: reader.read(9) * 10 }
+      } else if (type === 'start' && ignitesCarryTrigger) {
+        params = readStart(reader)
       }
 
       nodes.push({ id: `n${i}`, type, position: { x, y }, params })

@@ -7,9 +7,10 @@ import { DEFAULT_DELAY_MS } from '../nodes/registry'
 import { AUDIO_LEFT, AUDIO_RIGHT, EVENT_IN, EVENT_OUT } from '../state/connections'
 import { formatOrdinal, nodeOrdinal } from '../state/ordinals'
 import { usePatchStore, type FlowNode } from '../state/patchStore'
-import type { DelayParams, EffectKind, FxParams, OscParams } from '../types/patch'
+import type { DelayParams, EffectKind, FxParams, OscParams, StartParams } from '../types/patch'
 import { useNodeColors, type NodeColors } from '../viz/depth'
 import { useNodeActivity } from '../viz/useActivity'
+import { keyLabel } from './keys'
 import { StepBars } from './StepBars'
 
 /**
@@ -33,10 +34,14 @@ function depthStyle(colors: NodeColors): CSSProperties {
   } as CSSProperties
 }
 
-export function StartNode({ id, selected }: NodeProps<FlowNode>) {
+export function StartNode({ id, data, selected }: NodeProps<FlowNode>) {
   const { pulsing } = useNodeActivity(id)
   const colors = useNodeColors(id)
   const ordinal = useOrdinal(id)
+  const params = data.params as StartParams
+  // Shown on the node rather than only in the inspector: with several bound Ignites, which key is
+  // which has to be readable without selecting each one to find out.
+  const key = params.trigger === 'bound' ? keyLabel(params.binding?.code) || '—' : ''
 
   return (
     <div
@@ -46,6 +51,7 @@ export function StartNode({ id, selected }: NodeProps<FlowNode>) {
     >
       <div className="node-title">
         IGNITE <span className="node-ordinal">{ordinal}</span>
+        {key && <span className="node-key">{key}</span>}
       </div>
       <Handle type="source" id={EVENT_OUT} position={Position.Bottom} className="port port-out" />
     </div>

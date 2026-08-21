@@ -1,4 +1,6 @@
 import { listenToKeyboard } from '../input/keyboard'
+import { learning, takenForBinding } from '../input/learn'
+import { onConnectRequest, startMidi } from '../input/midiStore'
 import { press, release } from '../input/triggers'
 import { toPatch } from '../state/patchStore'
 import { ActivityBus } from '../viz/activity'
@@ -56,14 +58,49 @@ export async function play(): Promise<void> {
  * immediately once started, so only the very first press pays for it.
  */
 export function installTriggers(): () => void {
-  return listenToKeyboard({
-    press(identity) {
+  const handlers = {
+    press(identity: string) {
+      // A capture waiting for a binding takes it instead. The keyboard does this for itself with a
+      // capture-phase listener; MIDI has no DOM event to intercept, so it asks here.
+      if (takenForBinding(identity)) return
       void ready().then(() => press(toPatch(), identity, scheduler))
     },
-    release(identity) {
+    release(identity: string) {
+      // Swallowed while a capture is open, so the note that assigned a binding cannot also stop an
+      // Ignite on the way back up.
+      if (learning()) return
       release(toPatch(), identity, scheduler)
     },
-  })
+  }
+
+  const stopKeyboard = listenToKeyboard(handlers)
+
+  /**
+   * MIDI is the same handlers behind a different source, which is what §17.3 was built for. It comes
+   * up without prompting: `requestMIDIAccess` shows a permission dialog, and one that appears on a page
+   * nobody has touched yet is the kind people refuse on principle. Granted before, it reconnects
+   * silently; otherwise the interface offers a button and that is what asks.
+   */
+  let stopMidi: (() => void) | null = null
+  let live = true
+
+  function connectMidi(prompt: boolean) {
+    stopMidi?.()
+    stopMidi = null
+    void startMidi(handlers, prompt).then((teardown) => {
+      if (live) stopMidi = teardown
+      else teardown()
+    })
+  }
+
+  onConnectRequest(() => connectMidi(true))
+  connectMidi(false)
+
+  return () => {
+    live = false
+    stopKeyboard()
+    stopMidi?.()
+  }
 }
 
 /**

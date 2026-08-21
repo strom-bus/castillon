@@ -45,7 +45,7 @@ import {
   type ModParams,
   type StartParams,
 } from '../types/patch'
-import { KeyCapture } from './KeyCapture'
+import { BindingCapture } from './BindingCapture'
 import { formatOrdinal, nodeOrdinal } from '../state/ordinals'
 import { usePatchStore } from '../state/patchStore'
 import { NumberInput } from './NumberInput'
@@ -514,21 +514,17 @@ export function Inspector() {
             onChange={(e) => updateParams(node.id, { trigger: e.target.value as IgniteTrigger })}
           >
             <option value="auto">On Play (auto)</option>
-            <option value="bound">On a key</option>
+            <option value="bound">On a key or note</option>
           </select>
         </label>
 
         {trigger === 'bound' ? (
           <>
             <label className="inspector-field">
-              <span>Key</span>
-              <KeyCapture
-                code={ignite.binding?.code ?? null}
-                onChange={(code) =>
-                  updateParams(node.id, {
-                    binding: code ? { source: 'key', code } : null,
-                  })
-                }
+              <span>Trigger</span>
+              <BindingCapture
+                binding={ignite.binding ?? null}
+                onChange={(binding) => updateParams(node.id, { binding })}
               />
             </label>
 

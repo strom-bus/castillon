@@ -15,6 +15,7 @@ import { usePatchStore, type FlowEdge } from '../state/patchStore'
 import { computeDepths, DepthContext, EMPTY_DEPTHS, sameDepths } from '../viz/depth'
 import { edgeTypes, nodeTypes } from './flowTypes'
 import { LoadMeter } from './LoadMeter'
+import { MidiStatus } from './MidiStatus'
 import { RandomButton } from './RandomButton'
 import { useCopyPaste } from './useCopyPaste'
 import { useUndoRedo } from './useUndoRedo'
@@ -87,8 +88,10 @@ function CanvasInner() {
           </button>
         ))}
       </div>
-      {/* Opposite the palette: on the left what a patch can gain, on the right what it costs. */}
+      {/* Opposite the palette: on the left what a patch can gain, on the right what it costs — and
+          whether there is a keyboard to play it from, which is state rather than a control. */}
       <div className="load-corner">
+        <MidiStatus />
         <LoadMeter />
       </div>
       <DepthContext.Provider value={depths}>

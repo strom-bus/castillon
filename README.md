@@ -75,6 +75,10 @@ refused, since between an oscillator and an effect there is only one direction t
   a key it can hold — sounding while the key is down — or toggle, starting on one press and stopping
   on the next. Built so the Ignite does not know it was a keyboard: a source emits press and release
   against an identity, which is the shape MIDI already has.
+- **MIDI input**, which is that promise collected: notes from a controller play the bound Ignites, and
+  nothing in the trigger layer needed changing. Assign a binding by playing it — a key or a note,
+  whichever arrives first, so there is no source to choose. A five-pin socket beside the load meter says
+  whether there is a keyboard there, and names it when there is.
 - **Undo and redo**, by whole-patch snapshot, where one step is one completed gesture — from pressing
   the mouse to letting go, so a slider drag is one step rather than a hundred. It covers the
   destructive things too, which is why rolling the dice and resetting no longer ask first: a

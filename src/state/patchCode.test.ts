@@ -614,3 +614,53 @@ describe('modulation in the code', () => {
     }
   })
 })
+
+describe('a MIDI binding', () => {
+  it('comes back as MIDI rather than as a key called "60"', () => {
+    // What it did before there was a bit for the source: the code survived and the source did not, so a
+    // shared patch arrived looking bound to a key that answers to nothing.
+    const patch: Patch = {
+      version: 1,
+      bpm: 120,
+      loop: true,
+      nodes: [
+        {
+          id: 's',
+          type: 'start',
+          position: { x: 0, y: 0 },
+          params: {
+            trigger: 'bound',
+            behaviour: 'hold',
+            binding: { source: 'midi', code: '60' },
+          },
+        },
+      ],
+      edges: [],
+    }
+    const back = decodePatch(encodePatch(patch))!
+    expect((back.nodes[0].params as StartParams).binding).toEqual({ source: 'midi', code: '60' })
+  })
+
+  it('leaves a key binding a key binding', () => {
+    const patch: Patch = {
+      version: 1,
+      bpm: 120,
+      loop: true,
+      nodes: [
+        {
+          id: 's',
+          type: 'start',
+          position: { x: 0, y: 0 },
+          params: {
+            trigger: 'bound',
+            behaviour: 'toggle',
+            binding: { source: 'key', code: 'KeyA' },
+          },
+        },
+      ],
+      edges: [],
+    }
+    const back = decodePatch(encodePatch(patch))!
+    expect((back.nodes[0].params as StartParams).binding).toEqual({ source: 'key', code: 'KeyA' })
+  })
+})

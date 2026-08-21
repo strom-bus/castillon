@@ -189,7 +189,17 @@ export type IgniteBehaviour = 'hold' | 'toggle'
  * A discriminated union rather than a key code, because an Ignite must not know it was a keyboard: a
  * MIDI note is a second `source` and nothing above this changes (§17.3).
  */
-export type IgniteBinding = { source: 'key'; code: string }
+/**
+ * What an Ignite answers to.
+ *
+ * `source` names where a press came from and `code` is that source's own way of saying which one — a
+ * physical key code, or a MIDI note number. Kept as two fields rather than one string because the
+ * source decides how the code is read and how it is shown: `KeyA` reads as A, `60` as C4.
+ *
+ * Deliberately not an enum of every source that could ever exist. Adding one is a caller, not a change
+ * here (§17.3), and the trigger layer only ever compares `${source}:${code}` against what it is given.
+ */
+export type IgniteBinding = { source: 'key' | 'midi'; code: string }
 
 export interface StartParams {
   trigger?: IgniteTrigger

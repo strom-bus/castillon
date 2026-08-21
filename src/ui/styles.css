@@ -179,6 +179,7 @@ input[type='range'] {
   z-index: 5;
   display: flex;
   align-items: center;
+  gap: 10px;
   min-height: 27px;
   font-size: 11px;
 }
@@ -647,6 +648,42 @@ input[type='range'] {
 
 /* Not an error — a control that is connected and currently has nothing to act on. Brand orange
    because that is already the colour this app uses to say "look here". */
+/*
+ * The MIDI indicator: greyed until there is something on the other end.
+ *
+ * Dim rather than hidden, so the absence of a device is visible and hoverable — an icon that appears
+ * only when it already works cannot tell you that it does not.
+ */
+.midi-status {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--border-strong);
+  cursor: default;
+  transition: color 120ms linear;
+}
+
+.midi-status svg {
+  width: 100%;
+  height: 100%;
+}
+
+.midi-status[aria-disabled='false'] {
+  cursor: pointer;
+}
+
+.midi-status[aria-disabled='false']:hover {
+  color: var(--muted);
+}
+
+.midi-status.on {
+  color: var(--text);
+}
+
 .inspector-warn {
   margin: 0 0 14px;
   color: var(--brand-lit);

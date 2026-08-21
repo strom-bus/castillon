@@ -77,7 +77,7 @@ describe('ignitesFor', () => {
     const byNote = ignite('m', {
       trigger: 'bound',
       behaviour: 'hold',
-      binding: { source: 'midi', code: '60' } as never,
+      binding: { source: 'midi', code: '60' },
     })
     expect(ignitesFor(patchOf([byNote]), 'midi:60').map((n) => n.id)).toEqual(['m'])
   })

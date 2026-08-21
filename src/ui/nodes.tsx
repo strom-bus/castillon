@@ -18,7 +18,7 @@ import type {
 } from '../types/patch'
 import { useNodeColors, type NodeColors } from '../viz/depth'
 import { useNodeActivity } from '../viz/useActivity'
-import { keyLabel } from './keys'
+import { bindingLabel } from './keys'
 import { StepBars } from './StepBars'
 
 /**
@@ -49,7 +49,7 @@ export function StartNode({ id, data, selected }: NodeProps<FlowNode>) {
   const params = data.params as StartParams
   // Shown on the node rather than only in the inspector: with several bound Ignites, which key is
   // which has to be readable without selecting each one to find out.
-  const key = params.trigger === 'bound' ? keyLabel(params.binding?.code) || '—' : ''
+  const key = params.trigger === 'bound' ? bindingLabel(params.binding) || '—' : ''
 
   return (
     <div

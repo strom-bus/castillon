@@ -1,3 +1,5 @@
+import { noteName } from '../audio/clock'
+import type { IgniteBinding } from '../types/patch'
 /**
  * Shared rules for keyboard shortcuts.
  *
@@ -28,6 +30,23 @@ export function withModifier(event: KeyboardEvent): boolean {
  * Anything stranger keeps its own name — `BracketLeft` is ugly but unambiguous, and inventing a
  * prettier label for every key on every layout is a worse trade than showing the code.
  */
+/**
+ * What a binding says on screen, whichever kind it is.
+ *
+ * A key shows the letter on it and a note shows its name: `60` means nothing to anybody and `C4` means
+ * exactly one thing. Beside `keyLabel` rather than beside the component that uses it, because a file
+ * exporting both a component and a function breaks Fast Refresh — the same reason the logo's geometry
+ * is a module of its own.
+ */
+export function bindingLabel(binding: IgniteBinding | null | undefined): string {
+  if (!binding) return ''
+  if (binding.source === 'midi') {
+    const note = Number(binding.code)
+    return Number.isFinite(note) ? noteName(note) : binding.code
+  }
+  return keyLabel(binding.code)
+}
+
 export function keyLabel(code: string | undefined | null): string {
   if (!code) return ''
   if (code.startsWith('Key')) return code.slice(3)

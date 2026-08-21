@@ -101,6 +101,7 @@ const FLAG_MODULATION = 2
 const EDGE_KINDS = ['event', 'audio', 'mod'] as const
 
 /** How a short string is written: a length and then its characters. */
+const BINDING_SOURCE_BITS = 1
 const BINDING_LENGTH_BITS = 5
 const BINDING_CHAR_BITS = 7
 const MAX_BINDING_LENGTH = 24
@@ -404,6 +405,9 @@ function writeStart(writer: BitWriter, raw: StartParams): void {
   if (!bound) return
 
   writer.write(raw.behaviour === 'toggle' ? 1 : 0, 1)
+  // Which source the code belongs to. Without it a MIDI binding came back as a *key* binding named
+  // "60", which answers to nothing — a shared patch that looked bound and was not.
+  writer.write(raw.binding?.source === 'midi' ? 1 : 0, BINDING_SOURCE_BITS)
   const code = (raw.binding?.code ?? '').slice(0, MAX_BINDING_LENGTH)
   writer.write(code.length, BINDING_LENGTH_BITS)
   for (const char of code) {
@@ -418,6 +422,7 @@ function readStart(reader: BitReader): StartParams {
   if (reader.read(1) === 0) return {}
 
   const behaviour: IgniteBehaviour = reader.read(1) === 1 ? 'toggle' : 'hold'
+  const source = reader.read(BINDING_SOURCE_BITS) === 1 ? 'midi' : 'key'
   const length = reader.read(BINDING_LENGTH_BITS)
   let code = ''
   for (let i = 0; i < length; i++) code += String.fromCharCode(reader.read(BINDING_CHAR_BITS))
@@ -425,7 +430,7 @@ function readStart(reader: BitReader): StartParams {
   return {
     trigger: 'bound',
     behaviour,
-    binding: code ? { source: 'key', code } : null,
+    binding: code ? { source, code } : null,
   }
 }
 

@@ -205,9 +205,10 @@ const distortion: EffectDescriptor = {
 const crush: EffectDescriptor = {
   kind: 'crush',
   // Not oversampled, so a plain table lookup plus the tone filter. Measured 2.4.
-  // Measured at 2.4 before it gained a worklet. A processor is JavaScript on the audio thread and may
-  // well not behave like a native node, so this wants re-measuring with `npm run measure`.
-  cost: () => 2.4,
+  // Measured at 2.21 *with* the decimator in the chain, against 2.4 without one — the same number
+  // within noise. A worklet doing a trivial hold is no dearer than the native nodes around it, which
+  // was not obvious: it is JavaScript on the audio thread.
+  cost: () => 2.3,
   label: 'Bitcrusher',
   params: ['bits', 'reduction', 'cutoff'],
   defaults: { bits: 6, reduction: MIN_REDUCTION, cutoff: 6000 },

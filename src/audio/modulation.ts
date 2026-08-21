@@ -200,8 +200,10 @@ const FX_PARAM_TARGETS: Record<string, ModTarget> = {
    * recomputation *allocates*. A new impulse response is two channels of up to ten seconds, and
    * rebuilding that twenty times a second measured at about 130 points — more than the whole budget.
    *
-   * So it is rebuilt four times a second instead, which is ample for a gesture nobody sweeps quickly,
-   * and brings it to something a patch can actually afford.
+   * So it is rebuilt four times a second instead, which is ample for a gesture nobody sweeps quickly.
+   * Measured at 12.7 afterwards — a tenfold improvement rather than the fivefold the change to the
+   * rate implied, because the reverb's own guard on a tenth of a second of decay skips a rebuild the
+   * driver would otherwise have asked for. Still by far the dearest thing to sweep, and now affordable.
    */
   decay: {
     key: 'decay',
@@ -209,7 +211,7 @@ const FX_PARAM_TARGETS: Record<string, ModTarget> = {
     min: MIN_DECAY,
     max: MAX_DECAY,
     via: 'value',
-    surcharge: 26,
+    surcharge: 13,
     rebuildEvery: 0.25,
   },
   // A curve, not a buffer: a few hundred floats rather than a few hundred thousand.
@@ -355,9 +357,11 @@ export function amountFor(target: ModTarget, depth: number): number {
 /**
  * An LFO is an oscillator and a gain. Cheap, and paid for the whole time it exists (§2.2b).
  *
- * Measured at 0.9 — a shade under one voice, which is what it is made of. What this does *not* count
- * is the cost a modulator adds to its destination: an automated `AudioParam` makes a node recompute
- * its coefficients per sample rather than per block, so modulating a filter's cutoff is dearer than
- * the modulator itself. See the note in audio/load.ts.
+ * A shade over one voice, which is roughly what it is made of. The first measurement said 0.9 and two
+ * later ones said 1.24 and 1.17, so 0.9 was the outlier rather than the reading — which is the argument
+ * for running the instrument more than once before trusting a small number.
+ *
+ * What this does *not* count is the cost a modulator adds to its destination. That is the `surcharge`
+ * on each target, because it depends on what is being swept and not on the modulator.
  */
-export const MOD_COST = 0.9
+export const MOD_COST = 1.2

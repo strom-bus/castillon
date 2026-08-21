@@ -6,7 +6,16 @@
  */
 
 import { formatReport, measureLoad, type Measured } from './measureLoad'
-import { formatCeiling, measureCeiling, startLoad, type LoadRamp } from './measureCeiling'
+import { formatCeiling, measureCeiling } from './measureCeiling'
+import {
+  CEILING,
+  LOAD_KINDS,
+  LOAD_LABELS,
+  LOAD_NOTES,
+  startRamp,
+  type LoadKind,
+  type Ramp,
+} from './loadRamp'
 import { MAX_LOAD } from '../audio/load'
 
 const run = document.getElementById('run') as HTMLButtonElement
@@ -34,37 +43,77 @@ function line(m: Measured): string {
 const ceiling = document.getElementById('ceiling') as HTMLButtonElement
 
 /**
- * The manual ramp, for browsers without `renderCapacity`.
+ * The ramp, one kind of load at a time.
  *
- * The load is built the same way either path; what differs is who reads it. Chrome's WebAudio panel
- * shows render capacity with no flag, so the eye does perfectly well — and stepping by hand beats a
- * timer, because a person reading a panel should not be racing one.
+ * Reading it is a person's job here, since `renderCapacity` is not exposed in this browser — and
+ * Chrome's WebAudio panel shows the same metric with no flag, so the eye is a perfectly good
+ * instrument. Stepped by hand rather than on a timer: somebody reading a panel should not be racing
+ * one.
+ *
+ * What makes this worth doing rather than the plain-voice ramp it replaces is the second number. The
+ * points shown are the app's own accounting, so where they disagree with Chrome's percentage, that kind
+ * of work is mispriced — and by how much, and in which direction.
  */
+const kindsBox = document.getElementById('kinds') as HTMLDivElement
+const kindNote = document.getElementById('kindNote') as HTMLParagraphElement
+const unitsOut = document.getElementById('units') as HTMLSpanElement
 const pointsOut = document.getElementById('points') as HTMLSpanElement
-let ramp: LoadRamp | null = null
+const shareOut = document.getElementById('share') as HTMLSpanElement
+const kindName = document.getElementById('kindName') as HTMLSpanElement
 
-async function ensureRamp(): Promise<LoadRamp> {
-  if (!ramp) ramp = (await startLoad()).ramp
-  return ramp
+let kind: LoadKind = 'sine'
+let ramp: Ramp | null = null
+
+function draw() {
+  const units = ramp?.units() ?? 0
+  const points = ramp?.points() ?? 0
+  unitsOut.textContent = String(units)
+  pointsOut.textContent = points.toFixed(0)
+  shareOut.textContent = ((points / CEILING) * 100).toFixed(1)
+  kindName.textContent = LOAD_LABELS[kind].toLowerCase()
+  kindNote.textContent = LOAD_NOTES[kind]
+}
+
+async function chooseKind(next: LoadKind) {
+  // A kind change tears the old ramp down: two kinds running at once would measure neither.
+  await ramp?.stop()
+  ramp = null
+  kind = next
+  for (const button of kindsBox.querySelectorAll('button')) {
+    button.classList.toggle('on', button.dataset.kind === next)
+  }
+  draw()
+}
+
+for (const option of LOAD_KINDS) {
+  const button = document.createElement('button')
+  button.textContent = LOAD_LABELS[option]
+  button.dataset.kind = option
+  button.addEventListener('click', () => void chooseKind(option))
+  kindsBox.append(button)
 }
 
 for (const [id, step] of [
-  ['add25', 25],
+  ['add1', 1],
+  ['add10', 10],
   ['add100', 100],
 ] as const) {
   document.getElementById(id)?.addEventListener('click', async () => {
-    const live = await ensureRamp()
-    live.add(step)
-    pointsOut.textContent = String(live.points())
+    ramp ??= await startRamp(kind)
+    ramp.add(step)
+    draw()
+    status.textContent = `holding ${ramp.units()} ${LOAD_LABELS[kind].toLowerCase()}`
   })
 }
 
 document.getElementById('stopLoad')?.addEventListener('click', async () => {
   await ramp?.stop()
   ramp = null
-  pointsOut.textContent = '0'
+  draw()
   status.textContent = 'stopped'
 })
+
+void chooseKind('sine')
 
 ceiling.addEventListener('click', async () => {
   ceiling.disabled = true

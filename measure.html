@@ -68,6 +68,26 @@
         padding-top: 18px;
         border-top: 1px solid #2a2a2a;
       }
+      .unit {
+        color: var(--muted);
+        font-size: 13px;
+        letter-spacing: 0.06em;
+      }
+      #kinds {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin: 14px 0 0;
+      }
+      #kinds button.on {
+        background: var(--text);
+        color: var(--bg);
+      }
+      #kindNote {
+        color: var(--muted);
+        max-width: 70ch;
+        margin: 8px 0 0;
+      }
       #manual h2 {
         margin: 0 0 10px;
         font-size: 12px;
@@ -130,11 +150,19 @@
     <button id="ceiling">Measure the ceiling</button>
 
     <div id="manual">
-      <h2>The ceiling, read from DevTools</h2>
+      <h2>The ceiling, against real content</h2>
       <p>
-        Chrome shows render capacity in its WebAudio panel with no flag needed.
-        <strong>Open the panel before starting the load</strong> — it only lists contexts created
-        while it is watching, so an empty panel usually means it was opened second.
+        A machine managed about 5400 plain voices before Chrome's renderer ran out of budget, so the
+        ceiling under test is <strong>4900 points</strong>. What that leaves open is whether a point
+        is still a point at that scale: a reverb is priced at some thirty voices, so 4900 points
+        ought to be about 158 reverbs — and nobody has checked that a convolver's
+        <em>peaks</em> behave like a sine's however well their averages agree.
+      </p>
+      <p>
+        So pick a kind of load and turn it up. Two numbers are shown: the points the app would
+        count, and what share of 4900 that is. Chrome reports its own percentage beside it.
+        <strong>Where the two agree the model holds</strong>; where they diverge, that kind of work
+        is mispriced at scale, and which way tells you which.
       </p>
       <ol>
         <li>
@@ -143,19 +171,24 @@
         </li>
         <li>
           In DevTools, the <strong>⋮</strong> at its top right → <strong>More tools</strong> →
-          <strong>WebAudio</strong>.
+          <strong>WebAudio</strong>. Open it <strong>before</strong> starting a ramp: it only lists
+          contexts created while it is watching.
         </li>
         <li>
-          Turn the load up below. The context appears in the panel, and render capacity is the
-          percentage in its status bar at the bottom.
-        </li>
-        <li>
-          Note the point count when that percentage reaches 100 — where the renderer has run out of
-          budget and glitches begin.
+          Turn one kind up until Chrome's percentage reaches 100, and note both figures. Then Stop,
+          pick the next kind, and do it again.
         </li>
       </ol>
-      <p class="reading"><span id="points">0</span> points</p>
-      <button id="add25">+ 25</button>
+
+      <div id="kinds"></div>
+      <p id="kindNote"></p>
+      <p class="reading">
+        <span id="units">0</span> <span id="kindName" class="unit">units</span> ·
+        <span id="points">0</span> <span class="unit">points</span> · <span id="share">0</span
+        ><span class="unit">% of 4900</span>
+      </p>
+      <button id="add1">+ 1</button>
+      <button id="add10">+ 10</button>
       <button id="add100">+ 100</button>
       <button id="stopLoad">Stop</button>
     </div>

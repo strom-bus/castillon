@@ -181,14 +181,24 @@ export function FxNode({ id, data, selected }: NodeProps<FlowNode>) {
  * — it runs only when triggered, so it pulses like the nodes around it and shows how long its sweep
  * lasts.
  *
- * It carries event ports either way, since a trigger has to be able to reach it and to carry on past
- * it. A MOD in the middle of a chain must not break the chain.
+ * **Its event ports only appear when they mean something.** An LFO keeps its own clock and a trigger
+ * says nothing to it, so a port there is a promise nothing keeps — and the first thing anyone asked
+ * about them was what they were for. They show for an envelope, which needs a trigger to run at all,
+ * and they also show whenever a cable is already attached: switching kind must never orphan a cable
+ * by taking away the port it was drawn to.
  */
 export function ModNode({ id, data, selected }: NodeProps<FlowNode>) {
   const wired = usePatchStore((s) => s.edges.some((e) => e.source === id && e.data?.kind === 'mod'))
   const ordinal = useOrdinal(id)
   const params = data.params as ModParams
   const envelope = params.kind === 'env'
+  // A cable already there keeps its port, whatever the kind says.
+  const inCascade = usePatchStore((s) =>
+    s.edges.some(
+      (e) => (e.source === id || e.target === id) && (e.data?.kind ?? 'event') === 'event',
+    ),
+  )
+  const ports = envelope || inCascade
   const target = targetOf(params.target)
   const { pulsing } = useNodeActivity(id)
 
@@ -198,7 +208,9 @@ export function ModNode({ id, data, selected }: NodeProps<FlowNode>) {
         envelope && pulsing ? ' pulsing' : ''
       }${selected ? ' selected' : ''}`}
     >
-      <Handle type="target" id={EVENT_IN} position={Position.Top} className="port port-in" />
+      {ports && (
+        <Handle type="target" id={EVENT_IN} position={Position.Top} className="port port-in" />
+      )}
       <Handle
         type="source"
         id={SIGNAL_LEFT}
@@ -211,7 +223,9 @@ export function ModNode({ id, data, selected }: NodeProps<FlowNode>) {
         position={Position.Right}
         className="port port-signal"
       />
-      <Handle type="source" id={EVENT_OUT} position={Position.Bottom} className="port port-out" />
+      {ports && (
+        <Handle type="source" id={EVENT_OUT} position={Position.Bottom} className="port port-out" />
+      )}
       <div className="node-header">
         <span className="node-title">
           MOD <span className="node-ordinal">{ordinal}</span>

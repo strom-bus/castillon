@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { canConnect } from '../state/connections'
+import { canConnect, EVENT_IN, EVENT_OUT } from '../state/connections'
 import { usePatchStore } from '../state/patchStore'
 import type { ModParams } from '../types/patch'
 import { Canvas } from './Canvas'
@@ -120,5 +120,68 @@ describe('the MOD module', () => {
     const slider = screen.getByLabelText('Rate') as HTMLInputElement
     fireEvent.change(slider, { target: { value: '6' } })
     expect((store().nodes.find((n) => n.id === mod)!.data.params as ModParams).rate).toBe(6)
+  })
+})
+
+describe('the event ports', () => {
+  /** A MOD of a given kind on the canvas, plus optionally a trigger wired into it. */
+  function place(kind: 'lfo' | 'env', triggered = false) {
+    const store = usePatchStore.getState()
+    store.addNode('mod', { x: 0, y: 0 })
+    const mod = usePatchStore.getState().nodes.at(-1)!
+    usePatchStore.getState().updateParams(mod.id, { kind })
+
+    if (triggered) {
+      const ignite = usePatchStore.getState().nodes.find((n) => n.type === 'start')!
+      usePatchStore.getState().onConnect({
+        source: ignite.id,
+        target: mod.id,
+        sourceHandle: EVENT_OUT,
+        targetHandle: EVENT_IN,
+      })
+    }
+    return mod.id
+  }
+
+  const portsOn = (id: string) => {
+    const node = document.querySelector(`[data-id="${id}"]`) ?? document.body
+    return {
+      top: node.querySelector('.port-in') !== null,
+      bottom: node.querySelector('.port-out') !== null,
+    }
+  }
+
+  it('are hidden on an LFO, where a trigger would mean nothing', () => {
+    // The first thing anybody asked about them was what they were for, and on an LFO the honest answer
+    // is nothing: it keeps its own clock. A visible port that does not respond is worse than no port.
+    const id = place('lfo')
+    render(
+      <ReactFlowProvider>
+        <Canvas />
+      </ReactFlowProvider>,
+    )
+    expect(portsOn(id)).toEqual({ top: false, bottom: false })
+  })
+
+  it('appear on an envelope, which cannot run without one', () => {
+    const id = place('env')
+    render(
+      <ReactFlowProvider>
+        <Canvas />
+      </ReactFlowProvider>,
+    )
+    expect(portsOn(id)).toEqual({ top: true, bottom: true })
+  })
+
+  it('stay while a cable is attached, whatever the kind says', () => {
+    // Switching an envelope back to an LFO must not take away the port a cable was drawn to.
+    const id = place('env', true)
+    usePatchStore.getState().updateParams(id, { kind: 'lfo' })
+    render(
+      <ReactFlowProvider>
+        <Canvas />
+      </ReactFlowProvider>,
+    )
+    expect(portsOn(id)).toEqual({ top: true, bottom: true })
   })
 })

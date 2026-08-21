@@ -36,6 +36,14 @@ const MEASURE_HORIZON = 120
 export const MAX_RENDER_SECONDS = 120
 /** Silence at the very end, so a file never stops exactly on a decaying tail. */
 const TAIL_PAD = 0.15
+/**
+ * How often a render stops to move the modulations that cannot be scheduled, in seconds of audio.
+ *
+ * Twenty times a second, matching the live driver, so an export sweeps at the rate playback does.
+ * Every parameter driven this way is quantised to sixty-four steps anyway, and each change may
+ * rebuild a buffer, so more often would cost a great deal and change nothing audible.
+ */
+const VALUE_STEP = 0.05
 
 export const MIN_PASSES = 1
 export const MAX_PASSES = 32
@@ -212,5 +220,49 @@ export async function renderPatch(
   scheduler.drain(plan.until)
   scheduler.stop()
 
-  return { buffer: await ctx.startRendering(), plan }
+  try {
+    driveValueModulation(ctx, engine, plan.seconds)
+    return { buffer: await ctx.startRendering(), plan }
+  } finally {
+    // A whole engine is built per export. Without this each one left a timer running against a
+    // context that had finished, twenty times a second, for the rest of the session.
+    engine.dispose()
+  }
+}
+
+/**
+ * Steps the modulations that have to be recomputed rather than connected, on audio time.
+ *
+ * Most modulation needs nothing here: a signal running into an `AudioParam` is rendered by Web Audio
+ * itself. The exception is the handful of parameters that rebuild something — a reverb's impulse
+ * response, a shaper's curve — where there is no parameter to connect to and a new value has to be
+ * written periodically.
+ *
+ * Live that is a wall-clock timer. Offline a wall clock is useless, since a minute of audio is
+ * produced in about a second, so those sweeps were arriving once or twice per render at whatever
+ * moment the timer happened to fire — which meant an export contained almost none of its own
+ * modulation, and no two exports of such a patch matched.
+ *
+ * `suspend` is the fix and is exactly what it exists for: it stops the render at a given point on the
+ * audio clock so the graph can be changed, which is the only way to sweep a convolver at all — a
+ * buffer is the one thing in Web Audio that cannot be automated. Every suspension is registered
+ * before rendering starts, which is how the API is meant to be used.
+ */
+export function driveValueModulation(
+  ctx: OfflineAudioContext,
+  engine: Pick<AudioEngine, 'hasValueModulation' | 'advanceValueModulation'>,
+  seconds: number,
+): void {
+  if (!engine.hasValueModulation()) return
+  // Older Safari has no `suspend` on an offline context. Without it the parameter simply stays at the
+  // value it was created with, which is what happened before this and is a fair degradation: a tail
+  // that does not breathe rather than one that jumps.
+  if (typeof ctx.suspend !== 'function') return
+
+  for (let at = VALUE_STEP; at < seconds; at += VALUE_STEP) {
+    void ctx.suspend(at).then(() => {
+      engine.advanceValueModulation()
+      void ctx.resume()
+    })
+  }
 }

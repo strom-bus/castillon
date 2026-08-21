@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { AudioEngine, type NoteRequest } from './engine'
 import { EFFECTS, effectOr } from './effects'
 import { fakeAudio, type FakeAudio } from './fakeAudio'
@@ -54,22 +54,21 @@ let fake: FakeAudio
 let engine: AudioEngine
 
 beforeEach(() => {
-  // Fake timers before anything is built: the recomputed modulations run on an interval, and it is
-  // set up the moment a cable lands on one.
-  vi.useFakeTimers()
   fake = fakeAudio()
   engine = new AudioEngine()
   engine.adopt(fake.ctx)
 })
 
-afterEach(() => {
-  vi.useRealTimers()
-})
-
-/** Moves both clocks together, since the driver reads one and is woken by the other. */
+/**
+ * Moves the audio clock on and steps the recomputed modulations, which is what a render does.
+ *
+ * An adopted engine starts no timer of its own: whoever adopted the context owns the clock, and a
+ * wall-clock timer there would fire against a clock that is not the one producing the audio. So this
+ * drives it the same way `renderPatch` does, one step at a time.
+ */
 function tick(seconds = 0.12): void {
   fake.advance(seconds)
-  vi.advanceTimersByTime(seconds * 1000)
+  engine.advanceValueModulation()
 }
 
 function note(nodeId: string, over: Partial<NoteRequest> = {}): NoteRequest {
@@ -278,5 +277,76 @@ describe('a deleted modulator', () => {
     tick()
     tick()
     expect(fake.journal.length).toBe(settled)
+  })
+})
+
+describe('a disposed engine', () => {
+  it('lets go of a recomputed modulation, timer and all', () => {
+    // A render builds a whole engine per export and used to throw it away without this, leaving a
+    // twenty-times-a-second driver calling a context that had finished rendering. One per export.
+    engine.createEffect('fx', paramsFor('reverb'), 120)
+    engine.createModulator('mod', LFO)
+    engine.connectMod('mod', 'fx', 'decay', 0.7)
+    expect(engine.hasValueModulation()).toBe(true)
+
+    engine.dispose()
+    expect(engine.hasValueModulation()).toBe(false)
+
+    const settled = fake.journal.length
+    tick()
+    expect(fake.journal.length).toBe(settled)
+  })
+
+  it('lets go of a connected modulation too', () => {
+    engine.createEffect('fx', paramsFor('filter'), 120)
+    engine.createModulator('mod', LFO)
+    engine.connectMod('mod', 'fx', 'cutoff', 0.7)
+    expect(fake.wires()).toBeGreaterThan(0)
+
+    engine.dispose()
+    expect(fake.wires()).toBe(0)
+  })
+
+  it('lets go of a sounding voice', () => {
+    engine.createModulator('mod', LFO)
+    engine.connectMod('mod', 'osc', 'cutoff', 0.6)
+    engine.playNote(note('osc'))
+    expect(fake.drivers('frequency')).toHaveLength(1)
+
+    engine.dispose()
+    expect(fake.drivers('frequency')).toHaveLength(0)
+  })
+})
+
+describe('a recomputed modulation on audio time', () => {
+  /** Where a swept decay lands after stepping the clock the way a render steps it. */
+  function sweep(steps: number): number[] {
+    const local = fakeAudio()
+    const rendering = new AudioEngine()
+    rendering.adopt(local.ctx)
+    rendering.createEffect('fx', paramsFor('reverb'), 120)
+    rendering.createModulator('mod', LFO)
+    rendering.connectMod('mod', 'fx', 'decay', 0.8)
+
+    const seen: number[] = []
+    for (let i = 0; i < steps; i++) {
+      local.advance(0.05)
+      rendering.advanceValueModulation()
+      seen.push(local.journal.length)
+    }
+    rendering.dispose()
+    return seen
+  }
+
+  it('follows the same path every time, which is what an export needs', () => {
+    // The reason this had to move off the wall clock: an offline render produces a minute of audio in
+    // about a second, so a 50 ms timer fired once or twice per render at whatever moment it landed on.
+    // Two exports of the same patch did not match, and neither contained much of its own modulation.
+    expect(sweep(40)).toEqual(sweep(40))
+  })
+
+  it('actually moves, rather than settling after the first step', () => {
+    const path = sweep(40)
+    expect(path.at(-1)!).toBeGreaterThan(path[0])
   })
 })

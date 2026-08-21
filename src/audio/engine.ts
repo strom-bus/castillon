@@ -719,9 +719,35 @@ export class AudioEngine implements Engine {
     }
   }
 
-  /** Runs the value driver while there is anything for it to do, and not a moment longer. */
+  /**
+   * Whether anything is being modulated by recomputation, which the caller of an offline render needs
+   * to know: it is the one kind of modulation that cannot simply be scheduled and left.
+   */
+  hasValueModulation(): boolean {
+    return this.valueLinks.size > 0
+  }
+
+  /**
+   * Moves every recomputed modulation to where the clock says it should be.
+   *
+   * Public because **who drives this depends on whose clock is running.** Live, a wall-clock timer
+   * does it. In an offline render there is no wall clock worth reading — a minute of audio is produced
+   * in a second — so the render suspends itself at intervals of *audio* time and calls this. Same
+   * loop, different clock, and the offline one is deterministic into the bargain.
+   */
+  advanceValueModulation(): void {
+    this.driveValues()
+  }
+
+  /**
+   * Runs the wall-clock driver while there is anything for it to do, and not a moment longer.
+   *
+   * Only when this engine drives a realtime context. An adopted one belongs to whoever adopted it and
+   * is stepped by them; a timer there would fire against a clock that is not the one producing the
+   * audio, which is how a render came to contain almost none of its own modulation.
+   */
   private syncValueTimer(): void {
-    const wanted = this.valueLinks.size > 0
+    const wanted = this.realtime && this.valueLinks.size > 0
     if (wanted === (this.valueTimer !== null)) return
 
     if (wanted) {
@@ -732,6 +758,41 @@ export class AudioEngine implements Engine {
       window.clearInterval(this.valueTimer)
       this.valueTimer = null
     }
+  }
+
+  /**
+   * Lets go of everything this engine holds.
+   *
+   * The live engine lasts as long as the page and never needed this. A render builds a whole engine
+   * per export and threw it away without it, which leaked a twenty-times-a-second timer per export —
+   * one that went on calling a context that had finished rendering.
+   */
+  dispose(): void {
+    for (const id of [...this.modulators.keys()]) this.disposeModulator(id)
+    for (const id of [...this.effects.keys()]) this.disposeEffect(id)
+
+    for (const voice of this.voices) {
+      this.releaseVoice(voice)
+      for (const node of voice.chain) node.disconnect()
+    }
+    this.voices = []
+
+    for (const bus of this.buses.values()) {
+      bus.bus.disconnect()
+      bus.direct.disconnect()
+    }
+    this.buses.clear()
+    for (const inverter of this.inverters.values()) inverter.disconnect()
+    this.inverters.clear()
+
+    // No links to clear and no timer to stop: `disposeModulator` releases all three kinds, the
+    // recomputed ones included, and takes the timer down with the last of them. Clearing them here as
+    // well read as thorough and was provably dead — which a mutation of it not failing any test is
+    // exactly how it was found.
+
+    this.master?.disconnect()
+    this.master = null
+    this.ctx = null
   }
 
   /**

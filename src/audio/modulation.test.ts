@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { amountFor, PULSE_RATE_CEILING, resolveTarget, targetOf, targetsFor } from './modulation'
+import {
+  amountFor,
+  PULSE_RATE_CEILING,
+  resolveTarget,
+  silentBecause,
+  targetOf,
+  targetsFor,
+} from './modulation'
 
 /**
  * What a MOD can point at, and what happens when the answer changes underneath it — which is the
@@ -121,5 +128,32 @@ describe('the pulse ceiling', () => {
     // §18.6: past this nobody sees individual cycles, and a flashing cable reads as broken.
     expect(PULSE_RATE_CEILING).toBeGreaterThan(1)
     expect(PULSE_RATE_CEILING).toBeLessThan(15)
+  })
+})
+
+describe('silentBecause', () => {
+  const osc = (filterType: string) => ({ nodeType: 'osc', filterType })
+
+  it('reports a filter target on an oscillator whose filter is off', () => {
+    expect(silentBecause('cutoff', osc('off'))).toContain('filter is off')
+    expect(silentBecause('resonance', osc('off'))).toContain('filter is off')
+  })
+
+  it('says nothing while the filter is on', () => {
+    expect(silentBecause('cutoff', osc('lowpass'))).toBeNull()
+    expect(silentBecause('resonance', osc('bandpass'))).toBeNull()
+  })
+
+  it('leaves the level alone, which does not pass through the filter', () => {
+    expect(silentBecause('level', osc('off'))).toBeNull()
+  })
+
+  it("says nothing about an effect's cutoff, which is not per voice", () => {
+    // An FX filter exists whatever the oscillator feeding it is doing.
+    expect(silentBecause('cutoff', { nodeType: 'fx', effect: 'filter' })).toBeNull()
+  })
+
+  it('says nothing when there is no destination at all', () => {
+    expect(silentBecause('cutoff', {})).toBeNull()
   })
 })

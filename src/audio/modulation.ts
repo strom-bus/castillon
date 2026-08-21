@@ -142,15 +142,35 @@ const FX_PARAM_TARGETS: Record<string, ModTarget> = {
  */
 const OSC_TARGETS: readonly ModTarget[] = [
   LEVEL,
-  {
-    ...FX_PARAM_TARGETS.cutoff,
-    hint: "Sweeps the filter of every note it plays. The oscillator's filter has to be on.",
-  },
-  {
-    ...FX_PARAM_TARGETS.resonance,
-    hint: "Swells the peak at the cutoff. The oscillator's filter has to be on.",
-  },
+  { ...FX_PARAM_TARGETS.cutoff, hint: 'Sweeps the filter of every note the oscillator plays.' },
+  { ...FX_PARAM_TARGETS.resonance, hint: 'Swells the peak at the cutoff, note by note.' },
 ]
+
+/** As much of what a MOD is wired to as decides what it can point at, and whether that does anything. */
+export interface Destination {
+  nodeType?: string
+  effect?: EffectKind
+  /** An oscillator's filter type. `off` skips the biquad, so no voice builds one to sweep. */
+  filterType?: string
+}
+
+/**
+ * Why a target cannot do anything at the moment, or null if it can.
+ *
+ * A target list is built from what a destination *has*, which is not the same as what it is doing. An
+ * oscillator has a filter whatever its type is set to, and `off` skips the biquad entirely — so a MOD
+ * pointed at that cutoff is aimed at something no voice will ever build.
+ *
+ * Reported rather than removed, and that is the design decision worth stating. Dropping the option
+ * would make `resolveTarget` quietly move a MOD that already points there onto the level instead,
+ * which is an edit nobody asked for and which nothing on screen would explain. A parameter that says
+ * why it is silent is a smaller surprise than one that changes what it is under you.
+ */
+export function silentBecause(target: ModTargetKey, destination: Destination): string | null {
+  if (destination.nodeType !== 'osc') return null
+  if (target !== 'cutoff' && target !== 'resonance') return null
+  return destination.filterType === 'off' ? 'the oscillator’s filter is off' : null
+}
 
 /**
  * The targets a destination offers.

@@ -645,6 +645,15 @@ input[type='range'] {
   letter-spacing: 0;
 }
 
+/* Not an error — a control that is connected and currently has nothing to act on. Brand orange
+   because that is already the colour this app uses to say "look here". */
+.inspector-warn {
+  margin: 0 0 14px;
+  color: var(--brand-lit);
+  line-height: 1.6;
+  letter-spacing: 0;
+}
+
 .inspector-field {
   display: block;
   margin-bottom: 14px;

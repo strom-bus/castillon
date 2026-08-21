@@ -18,8 +18,10 @@ import {
   LFO_SHAPES,
   MAX_RATE as MAX_MOD_RATE,
   MIN_RATE as MIN_MOD_RATE,
+  silentBecause,
   targetOf,
   targetsFor,
+  type Destination,
   type LfoShape,
   type ModTarget,
 } from '../audio/modulation'
@@ -426,10 +428,11 @@ export function Inspector() {
     const edge = s.edges.find((e) => e.data?.kind === 'mod' && e.source === s.selectedId)
     const destination = edge ? s.nodes.find((node) => node.id === edge.target) : undefined
     if (!destination) return ''
-    // Type and effect together: which parameters exist depends on both, and a string keeps the
-    // selector returning a primitive so the panel repaints on a rewiring rather than on anything.
-    const effect = (destination.data.params as { effect?: string }).effect ?? ''
-    return `${destination.type ?? ''}:${effect}`
+    // Type, effect and filter together: which parameters exist depends on the first two, and whether
+    // they can do anything on the third. Joined into a string so the selector returns a primitive and
+    // the panel repaints on a rewiring rather than on every store write.
+    const params = destination.data.params as { effect?: string; filterType?: string }
+    return [destination.type ?? '', params.effect ?? '', params.filterType ?? ''].join(':')
   })
 
   if (!node) {
@@ -441,8 +444,15 @@ export function Inspector() {
           other that way, and the cascade runs downward.
         </p>
         <p className="inspector-empty">
-          <strong>Side ports carry audio.</strong> An oscillator's side feeds an FX node. Several
-          effects can share one oscillator, and one effect can take several.
+          <strong>Side ports carry audio and modulation.</strong> One port takes either: an
+          oscillator's side feeds an FX node, and a MOD feeds either of them. Several effects can
+          share one oscillator, and one effect can take several.
+        </p>
+        <p className="inspector-empty">
+          A <strong>MOD</strong> sweeps one parameter of whatever it is wired to, and which
+          parameters it offers depends on what that is — a reverb's decay, a chorus's sweep, an
+          oscillator's cutoff. Drawing the cable either way round works; it knows which end is
+          which.
         </p>
         <p className="inspector-empty">
           Drag vertically on a bar to tune a step; the square underneath mutes it. Click a cable to
@@ -585,9 +595,17 @@ export function Inspector() {
     const target = mod.target ?? 'level'
     // What it is wired to decides what it can point at: a MOD on a reverb offers that reverb's decay,
     // one on a chorus its sweep (§18.4). Unwired there is nothing yet to say otherwise.
-    const [destinationType, destinationEffect] = modWiring ? modWiring.split(':') : []
+    const [destinationType, destinationEffect, destinationFilter] = modWiring
+      ? modWiring.split(':')
+      : []
+    const destination: Destination = {
+      nodeType: destinationType,
+      effect: destinationEffect as never,
+      filterType: destinationFilter,
+    }
     const offered: readonly ModTarget[] = targetsFor(destinationType, destinationEffect as never)
     const described = targetOf(target, destinationType, destinationEffect as never)
+    const silent = silentBecause(target, destination)
 
     return (
       <Panel>
@@ -601,11 +619,18 @@ export function Inspector() {
             value={target}
             onChange={(e) => updateParams(node.id, { target: e.target.value })}
           >
-            {offered.map((option) => (
-              <option key={option.key} value={option.key}>
-                {option.label}
-              </option>
-            ))}
+            {offered.map((option) => {
+              // Shown and unselectable rather than hidden, with the reason in the option itself: a
+              // list that changes length as you change a filter type is harder to read than one where
+              // an entry is visibly out of reach.
+              const unavailable = silentBecause(option.key, destination) !== null
+              return (
+                <option key={option.key} value={option.key} disabled={unavailable}>
+                  {option.label}
+                  {unavailable && ' — filter off'}
+                </option>
+              )
+            })}
           </select>
         </label>
 
@@ -641,6 +666,12 @@ export function Inspector() {
           step={0.01}
           onChange={(depth) => updateParams(node.id, { depth })}
         />
+
+        {silent && (
+          <p className="inspector-warn">
+            Doing nothing: {silent}. Turn it on in the oscillator to hear this.
+          </p>
+        )}
 
         <p className="inspector-empty">
           {described?.hint}

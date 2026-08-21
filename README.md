@@ -7,22 +7,28 @@ An `IGNITE` node fires, the oscillator wired below it runs its sequence, and whe
 triggers whatever is wired below _it_. The patch lights up and branches downward, and you watch the
 flow travel while you hear it.
 
-## Two overlaid graphs
+## Three overlaid graphs
 
-The idea the whole thing is built on. There are two kinds of connection, as in Pure Data:
+The idea the whole thing is built on. As in Pure Data there are events and there is signal — and
+signal here comes in two kinds, because a modulator carries a control voltage rather than something
+you would want to hear:
 
-|                 | The **event** graph       | The **signal** graph                    |
-| --------------- | ------------------------- | --------------------------------------- |
-| What it carries | Triggers with a timestamp | Continuous audio                        |
-| When it acts    | At discrete instants      | All the time, at 48 kHz                 |
-| What walks it   | The scheduler, in JS      | The Web Audio engine, on its own thread |
-| Ports           | Top and bottom            | Left and right                          |
-| Cables          | Thin, and they flow       | Thicker, and they glow                  |
+|                 | The **event** graph       | The **audio** graph                     | The **modulation** graph      |
+| --------------- | ------------------------- | --------------------------------------- | ----------------------------- |
+| What it carries | Triggers with a timestamp | Continuous audio                        | A value swept over time       |
+| When it acts    | At discrete instants      | All the time, at 48 kHz                 | All the time                  |
+| What walks it   | The scheduler, in JS      | The Web Audio engine, on its own thread | The engine, or a 20 Hz driver |
+| Ports           | Top and bottom            | The sides                               | The sides                     |
+| Cables          | Thin, and they flow       | Thicker, and they glow                  | Dotted, and they breathe      |
 
 **The cascade you see is the event graph.** Audio does not cascade: every sounding node plays in
 parallel into the master bus, and effects are sends off that. The two run at right angles to each
 other on purpose — triggers down, signal across — so which graph a cable belongs to is legible
 without having to remember a colour.
+
+**One side port takes either kind of signal cable**, and what a cable _is_ comes from what is at its
+ends rather than from which port you started at. A cable drawn backwards is turned round rather than
+refused, since between an oscillator and an effect there is only one direction that means anything.
 
 ## What is in it
 
@@ -40,9 +46,33 @@ without having to remember a colour.
   effects are never disabled behind your back, since you put them there.
 - **Whole-cascade loop.** When every branch has drained, the cascade fires again. Each pass lasts
   as long as its longest branch, so the cycle breathes rather than holding a fixed pulse.
-- **An FX node**, _in progress._ Effects attach to an oscillator's side ports as sends: several on
-  one oscillator, or one shared by several. The routing is built and tested; so far the only effect
-  behind the dropdown is a gain stage, with reverb, drive, echo, filter and chorus to come.
+- **An FX node** with ten effects: reverb, distortion, bitcrush, echo, filter, chorus, phaser,
+  tremolo, ring modulation and stereo pan. They attach to an oscillator's side ports as sends —
+  several on one oscillator, or one shared by several — and each carries a wet/dry mix, so a send is
+  a blend rather than a replacement.
+- **A MOD node** that sweeps a parameter of whatever it is wired to. Which parameters it offers
+  depends on the destination: a reverb's decay, a chorus's sweep, an oscillator's filter cutoff. Most
+  are reached by connecting the modulator straight into an `AudioParam`, which Web Audio does on its
+  own thread for nothing; the few that rebuild something — an impulse response, a shaper curve —
+  are driven by recomputation instead, quantised so a sweep does not regenerate a buffer per frame.
+  Depth is a share of the target's own range, so one control means the same thing on a mix as on a
+  cutoff in hertz. Its cable breathes, and only once what it is pointed at is making a sound.
+- **Ignite modes.** An Ignite either fires by itself with the transport, or waits for a key. Bound to
+  a key it can hold — sounding while the key is down — or toggle, starting on one press and stopping
+  on the next. Built so the Ignite does not know it was a keyboard: a source emits press and release
+  against an identity, which is the shape MIDI already has.
+- **Undo and redo**, by whole-patch snapshot, where one step is one completed gesture — from pressing
+  the mouse to letting go, so a slider drag is one step rather than a hundred. It covers the
+  destructive things too, which is why rolling the dice and resetting no longer ask first: a
+  confirmation is a question people learn to dismiss without reading, and undo is an answer you can
+  give after seeing the result.
+- **Audio export** to a WAV, rendered offline through an `OfflineAudioContext` rather than recorded in
+  real time, so it is faster than listening and unaffected by anything else the machine is doing.
+  Length is chosen in **repetitions of the cascade** rather than in seconds, because a cascade's
+  length is a property of the patch and not something you should have to measure.
+- **A patch gallery**, a window over the canvas rather than a page — so choosing a patch loads it into
+  the instrument already underneath. Cards draw their own cascade, and stars decay with age so the
+  popular sort does not freeze on whatever was published first.
 - **A dice button** that rolls a patch worth listening to, anywhere from one oscillator to sixty with
   a rack of effects. Truly random parameters give noise, so the taste is in the constraints: notes
   come from one scale, the tree is always fully connected so nothing sits silent, levels are divided
@@ -69,13 +99,16 @@ need somewhere to keep the patch they point at, which is a Cloudflare Worker and
 ```bash
 npx wrangler login
 npx wrangler kv namespace create PATCHES   # paste the id into wrangler.toml
+npx wrangler d1 create castillon-gallery   # the gallery; paste the id in too
+npx wrangler d1 execute castillon-gallery --remote --file src/share/schema.sql
 npx wrangler deploy                        # prints the service URL
 ```
 
 Then build the app with `VITE_SHARE_URL` set to that URL — the deploy workflow does. Until it is
-set, the Share button is hidden and everything else behaves exactly as it does without it: the
-service is a convenience layer, not a dependency. It stores the same string the app already lets you
-copy, so if it ever goes away, nothing exists only inside it.
+set, the Share button is hidden, the gallery falls back to a private shelf in this browser, and
+everything else behaves exactly as it does without it: the service is a convenience layer, not a
+dependency. It stores the same string the app already lets you copy, so if it ever goes away, nothing
+exists only inside it.
 
 ## The long code
 
@@ -98,9 +131,10 @@ Then click Play — the first click is also what unblocks audio, since browsers 
 `AudioContext` without a user gesture.
 
 ```bash
-npm test         # unit tests
-npm run lint     # oxlint
-npm run build    # production build
+npm test          # unit tests
+npm run lint      # oxlint
+npm run typecheck # tsc; neither the linter nor the build runs the compiler
+npm run build     # production build
 ```
 
 ## How it keeps time
@@ -120,9 +154,13 @@ so a node's flash lands on the note you hear rather than on the moment it was sc
 
 ```
 src/
-  audio/     engine, scheduler, waveforms, noise, filter, clock
+  audio/     engine, scheduler, effects, modulation, offline render, waveforms, noise, filter, clock
   nodes/     node definitions and their scheduling logic
-  state/     patch store, patch code, persistence
+  state/     patch store, patch code, connection rules, persistence
+  history/   undo and redo
+  input/     key bindings, and the source-agnostic layer under them
+  gallery/   the shared patch wall and its client
+  share/     short codes and the Worker's routes
   ui/        canvas, nodes, inspector, transport
   viz/       activity queue and cascade depth colouring
 ```

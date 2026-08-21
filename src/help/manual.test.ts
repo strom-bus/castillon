@@ -57,7 +57,22 @@ describe('the manual', () => {
 })
 
 describe('the language it opens in', () => {
-  it('is one of the two, whatever the browser says', () => {
-    expect(['en', 'es']).toContain(preferredLanguage())
+  it('is English, whatever the browser is set to', () => {
+    // Guessing from the locale was the first version and it is the wrong default: the interface around
+    // the manual is in English, so opening in another language leaves somebody reading two at once.
+    localStorage.clear()
+    expect(preferredLanguage()).toBe('en')
+  })
+
+  it('is whatever was chosen last, once anything has been', () => {
+    localStorage.setItem('castillon.manual.language', 'es')
+    expect(preferredLanguage()).toBe('es')
+    localStorage.clear()
+  })
+
+  it('ignores a stored value that is not a language', () => {
+    localStorage.setItem('castillon.manual.language', 'klingon')
+    expect(preferredLanguage()).toBe('en')
+    localStorage.clear()
   })
 })

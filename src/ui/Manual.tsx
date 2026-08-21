@@ -39,15 +39,16 @@ export function Manual({ onClose }: { onClose: () => void }) {
       >
         <header className="gallery-head">
           <h2>MANUAL</h2>
-          <div className="gallery-sort">
+          {/* A toggle rather than two buttons: choosing a language is one decision with two answers,
+              and two full-sized buttons gave it the weight of a section heading. */}
+          <div className="language-toggle" role="group" aria-label="Manual language">
             {LANGUAGES.map((option) => (
               <button
                 key={option}
                 type="button"
-                className={`btn${language === option ? ' on' : ''}`}
+                className={language === option ? 'on' : ''}
                 onClick={() => setLanguage(option)}
-                // Each in its own name: somebody looking for Spanish is looking for "Español".
-                lang={option}
+                aria-pressed={language === option}
               >
                 {LANGUAGE_LABELS[option]}
               </button>

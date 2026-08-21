@@ -5,9 +5,9 @@
  * and translating `DIV` or `REPS` would make them longer without making them clearer. Prose is the part
  * that needs a language, so prose is the part that has one.
  *
- * Chosen from the browser's own locale on the first visit and remembered after that, so nobody has to
- * find a switch to read their own language — the same courtesy the gallery already extends when it
- * guesses a country.
+ * English by default, and remembered once somebody chooses otherwise. Guessing from the browser's
+ * locale was the first version and it is the wrong default here: the interface around the manual is in
+ * English, so a manual that opens in another language leaves somebody reading two at once.
  */
 import { create } from 'zustand'
 
@@ -15,10 +15,10 @@ export type Language = 'en' | 'es'
 
 export const LANGUAGES: readonly Language[] = ['en', 'es']
 
-/** In each language's own name, since a person looking for Spanish is looking for "Español". */
+/** Short, because the switch is a toggle in a header and not a menu. */
 export const LANGUAGE_LABELS: Record<Language, string> = {
-  en: 'English',
-  es: 'Español',
+  en: 'EN',
+  es: 'ESP',
 }
 
 const KEY = 'castillon.manual.language'
@@ -28,10 +28,9 @@ export function preferredLanguage(): Language {
     const stored = localStorage.getItem(KEY)
     if (stored === 'en' || stored === 'es') return stored
   } catch {
-    // Storage blocked. The locale is a better guess than English regardless.
+    // Storage blocked, which is no reason to open in a different language than usual.
   }
-  // `navigator.language` is a tag like `es-419`, so the region is dropped.
-  return typeof navigator !== 'undefined' && navigator.language?.startsWith('es') ? 'es' : 'en'
+  return 'en'
 }
 
 export const useLanguage = create<{

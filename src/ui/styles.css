@@ -654,8 +654,44 @@ input[type='range'] {
  * first minute, and the manual is for the hour after.
  */
 .manual-open {
-  align-self: flex-start;
-  margin-top: 4px;
+  /* Centred and set apart: it is not one more line of the advice above it, it is the way out of it. */
+  align-self: center;
+  margin-top: 18px;
+}
+
+/*
+ * The language toggle: one decision with two answers.
+ *
+ * Smaller than a button on purpose. Two full-sized buttons put a language switch on the same footing as
+ * the manual's own heading, which is not what it is.
+ */
+.language-toggle {
+  display: flex;
+  border: 1px solid var(--border);
+}
+
+.language-toggle button {
+  padding: 3px 9px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  cursor: pointer;
+}
+
+.language-toggle button + button {
+  border-left: 1px solid var(--border);
+}
+
+.language-toggle button:hover {
+  color: var(--text);
+}
+
+.language-toggle button.on {
+  background: var(--surface-raised);
+  color: var(--text);
 }
 
 /*

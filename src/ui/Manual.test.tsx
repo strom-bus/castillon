@@ -26,9 +26,15 @@ describe('the window', () => {
     expect(screen.getByText('The one idea')).toBeDefined()
   })
 
+  it('says which of the two is showing, for anything that cannot see which is lit', () => {
+    render(<Manual onClose={() => {}} />)
+    expect(screen.getByText('EN').getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByText('ESP').getAttribute('aria-pressed')).toBe('false')
+  })
+
   it('changes what is written, not only which button is lit', () => {
     render(<Manual onClose={() => {}} />)
-    fireEvent.click(screen.getByText('Español'))
+    fireEvent.click(screen.getByText('ESP'))
 
     expect(screen.getByText('La idea')).toBeDefined()
     expect(screen.queryByText('The one idea')).toBeNull()
@@ -36,13 +42,13 @@ describe('the window', () => {
 
   it('tells the page which language it is in, for anything reading it aloud', () => {
     render(<Manual onClose={() => {}} />)
-    fireEvent.click(screen.getByText('Español'))
+    fireEvent.click(screen.getByText('ESP'))
     expect(document.querySelector('.manual-body')?.getAttribute('lang')).toBe('es')
   })
 
   it('remembers the choice, so nobody picks their language twice', () => {
     render(<Manual onClose={() => {}} />)
-    fireEvent.click(screen.getByText('Español'))
+    fireEvent.click(screen.getByText('ESP'))
     expect(localStorage.getItem('castillon.manual.language')).toBe('es')
   })
 

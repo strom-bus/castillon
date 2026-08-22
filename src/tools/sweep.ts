@@ -157,6 +157,30 @@ async function findBreak(
 }
 
 /**
+ * One subject's search, with a failure kept to that subject.
+ *
+ * A sweep is a quarter of an hour and sixteen subjects, and until now any one of them throwing took the
+ * other fifteen with it — the reverb subject choked three times over and each time cost the whole run,
+ * every finding in it included. What a subject cannot measure is a fact about that subject and says
+ * nothing about the rest, and the table has had a way of printing "no reading" since the day pan needed
+ * one.
+ */
+async function attempted(
+  subject: Subject,
+  pool: Pool,
+  onStep: (label: string) => void,
+): Promise<Found> {
+  try {
+    return await findBreak(subject, pool, onStep)
+  } catch (error) {
+    const why = error instanceof Error ? error.message : String(error)
+    console.warn(`[sweep] ${subject.label} gave up: ${why}`)
+    onStep(`${subject.label} gave up — carrying on`)
+    return { subject, clean: null, broke: null, saturated: null, unsettled: true }
+  }
+}
+
+/**
  * One reading, with any break checked a second time before it is passed on.
  *
  * A clean trial is taken as it comes: a load that failed to fail is not the reading that goes wrong. A
@@ -257,12 +281,12 @@ async function run(pool: Pool, onStep: (label: string) => void): Promise<Sweep> 
     await probe(subject, units, pool)
   }
 
-  const reference = await findBreak({ label: 'voices', filtered: true }, pool, onStep)
+  const reference = await attempted({ label: 'voices', filtered: true }, pool, onStep)
 
   const effects: Found[] = []
   for (const descriptor of EFFECTS) {
     effects.push(
-      await findBreak({ label: descriptor.label, effect: descriptor.kind }, pool, onStep),
+      await attempted({ label: descriptor.label, effect: descriptor.kind }, pool, onStep),
     )
   }
 
@@ -281,10 +305,10 @@ async function run(pool: Pool, onStep: (label: string) => void): Promise<Sweep> 
     audioTargets(subject).includes(target),
   )
 
-  surcharges.push(await findBreak({ label: 'filter · unswept', effect: subject }, pool, onStep))
+  surcharges.push(await attempted({ label: 'filter · unswept', effect: subject }, pool, onStep))
   for (const target of wanted) {
     surcharges.push(
-      await findBreak(
+      await attempted(
         { label: `filter · ${target}`, effect: subject, modulate: target },
         pool,
         onStep,
@@ -292,7 +316,7 @@ async function run(pool: Pool, onStep: (label: string) => void): Promise<Sweep> 
     )
   }
 
-  const again = await findBreak({ label: 'voices again', filtered: true }, pool, onStep)
+  const again = await attempted({ label: 'voices again', filtered: true }, pool, onStep)
   return { supported: true, reference, effects, surcharges, again }
 }
 

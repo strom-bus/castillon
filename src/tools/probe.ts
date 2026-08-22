@@ -59,6 +59,17 @@ export const WARM_UP: Array<[Subject, number]> = [
 const HOLD = 1.3
 /** How often the scheduler wakes. */
 const TICK = 0.05
+/**
+ * Milliseconds of building allowed between yields.
+ *
+ * By time and not by count, which is what it used to be. A count only works if every unit costs the same,
+ * and they differ by more than an order of magnitude: assigning a buffer to a convolver makes the browser
+ * partition the impulse response there and then, so sixteen reverbs between yields is over a second with
+ * the page dead — five times over, indistinguishable from a crash, and long enough that the watchdog meant
+ * to notice cannot run either. Sixteen of anything cheaper is imperceptible. Time is the thing that was
+ * actually meant.
+ */
+const SLICE = 25
 
 export interface Subject {
   /** What one unit is. */
@@ -373,20 +384,22 @@ async function attempt(
   const filtered = subject.filtered ?? true
   const scheduled: number[] = []
   const buildFrom = performance.now()
+  let sliceFrom = buildFrom
 
   for (let slot = 0; slot < units; slot++) {
     // Staggered, so every voice does not fire on the same tick and produce one huge spike.
     scheduled[slot] = ctx.currentTime + (slot % NOTE_RATE) / NOTE_RATE
 
     /*
-     * Yielded periodically, and now saying how far it has got.
+     * Yielded whenever this has been running long enough, and saying how far it has got.
      *
-     * Building a few hundred convolvers is seconds of synchronous work — assigning a buffer to one makes
-     * the browser partition the impulse response, once per convolver however many buffers there are — and
-     * a page that has stopped repainting is indistinguishable from one that has crashed. Yielding kept it
-     * alive; only a number that moves says which of the two it is.
+     * A page that has stopped repainting is indistinguishable from one that has crashed, so yielding keeps
+     * it alive and the moving number says which of the two it is. Both were already here and both were
+     * governed by a unit count, which assumes every unit costs about the same — and a reverb costs more
+     * than an order of magnitude more than a gain.
      */
-    if (slot > 0 && slot % 16 === 0) {
+    if (performance.now() - sliceFrom >= SLICE) {
+      sliceFrom = performance.now()
       onProgress(slot, units)
       await wait(0)
     }

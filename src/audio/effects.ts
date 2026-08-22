@@ -159,11 +159,9 @@ const reverb: EffectDescriptor = {
 
 const distortion: EffectDescriptor = {
   kind: 'distortion',
-  // Four-times oversampling means the shaper and two resampling filters, measured at 15 against
-  // a reasoned 3.5. The one place the old arithmetic-based guess was directionally right and
-  // still four times too low.
-  // A waveshaper with 4x oversampling, which is dear but not as dear as 15: measured 0.81 against a
-  // broken ceiling, three sweeps after the offline harness picked that number.
+  // Four-times oversampling means the shaper and two resampling filters. Arithmetic guessed 3.5, the
+  // offline harness said 15, and a sweep against a real dropout settled it at 10.9 — so the guess was
+  // directionally right and three times low, and the render was half again too high.
   cost: () => 10.9,
   label: 'Distortion',
   params: ['shape', 'drive', 'cutoff'],

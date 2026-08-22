@@ -272,13 +272,33 @@ async function quiet(ctx: AudioContext): Promise<boolean> {
  * trial bounded by the number under test could never exceed it — which is how one earlier measurement
  * silently capped itself at the answer it was looking for.
  */
+/**
+ * The longest a single trial may take before it is called stuck.
+ *
+ * Generous: a trial waits up to four seconds for silence, builds several hundred nodes, then holds for two
+ * more, and can do all of that twice when a context turns out to be spoiled. Anything past a minute is not
+ * slow, it is not coming back.
+ */
+const TRIAL_PATIENCE = 60
+
 export async function probe(subject: Subject, units: number, pool: Pool): Promise<Trial> {
+  /*
+   * Watched as a whole, not only at each await inside it.
+   *
+   * Guarding the individual calls covered the ones known to be able to stall, which is only the ones
+   * thought of. A trial that stops between them looks the same from outside and says nothing at all, and a
+   * sweep died on the distortion subject with no more to go on than the rung it died at. If the wait
+   * expires the trial is reported stuck by name; if instead the page itself has frozen, nothing fires —
+   * and that silence is the other half of the diagnosis, since it means a loop and not a pending promise.
+   */
+  const where = `${subject.label} at ${units} units`
+
   // Two attempts. A context that will not go quiet is retired and the same load tried once on a fresh one,
   // because the usual cause is the previous trial's teardown rather than anything about this load.
-  const first = await attempt(subject, units, await pool.get())
+  const first = await guard(attempt(subject, units, await pool.get()), TRIAL_PATIENCE, where)
   if (first.settled) return first
   pool.retire()
-  return await attempt(subject, units, await pool.get())
+  return await guard(attempt(subject, units, await pool.get()), TRIAL_PATIENCE, `${where}, retried`)
 }
 
 async function attempt(subject: Subject, units: number, ctx: AudioContext): Promise<Trial> {

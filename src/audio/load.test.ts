@@ -73,10 +73,24 @@ describe('what effects cost', () => {
     expect(at(10)).toBeGreaterThan(100 * voiceCost('square', false))
   })
 
-  it('charges an oversampled waveshaper more than a plain one', () => {
+  it('charges an oversampled waveshaper more than a worklet doing almost nothing', () => {
     const drive = effectCost({ ...defaultFxParams(), effect: 'distortion' })
     const crush = effectCost({ ...defaultFxParams(), effect: 'crush' })
-    expect(drive).toBeGreaterThan(crush * 3)
+    // It used to be more than three times as much, and the gap closed from the other side: a sweep
+    // against a real dropout found the bitcrusher's worklet costing 5.3 rather than 2.3. An offline
+    // render barely charges for the crossing into JavaScript, so the cheap reading was the render's
+    // rather than the machine's. The ordering survives; the multiple did not.
+    expect(drive).toBeGreaterThan(crush)
+  })
+
+  it('charges a worklet more than the native nodes it sits among', () => {
+    // The finding that moved two costs at once. Both worklet effects were priced like the cheap native
+    // graphs they resemble, and both were out by more than a factor of two — because what they actually
+    // do is run JavaScript on the audio thread, once a block, for ever.
+    const filter = effectCost({ ...defaultFxParams(), effect: 'filter' })
+    for (const effect of ['crush', 'octave'] as const) {
+      expect(effectCost({ ...defaultFxParams(), effect })).toBeGreaterThan(filter)
+    }
   })
 
   it('falls back rather than throwing on an effect this build lacks', () => {
@@ -185,11 +199,19 @@ describe('estimating a patch', () => {
 
 describe('the budget itself', () => {
   it('is the measured ceiling of the machine it was calibrated on', () => {
-    // Measured with the engine playing real notes until `playbackStats` counted an underrun, which is
-    // the failure itself rather than a proxy. Three wrong answers came first — a hundred that was
-    // chosen rather than measured, five thousand from hand-built voices with constant gains, and five
-    // hundred extrapolated from render-capacity peaks, which are not the failure criterion.
-    expect(MAX_LOAD).toBe(3000)
+    /*
+     * Measured with the engine playing real notes until `playbackStats` counted an underrun, which is
+     * the failure itself rather than a proxy. Several wrong answers came first: a hundred that was
+     * chosen rather than measured; five thousand from hand-built voices with constant gains; five
+     * hundred extrapolated from render-capacity peaks, which are not the failure criterion; and around
+     * three thousand from a ramp whose note scheduler diverged when it fell behind, firing bursts of
+     * simultaneous voices that inflated the reading just before it broke.
+     *
+     * This one is two independent readings of the same subject, taken at opposite ends of a sweep that
+     * measured fifteen other things in between — 2716 points and 2778, 2.3 per cent apart. The
+     * agreement is the evidence: a drifting instrument cannot produce it.
+     */
+    expect(MAX_LOAD).toBe(2750)
   })
 
   it('starts degrading before it runs out', () => {

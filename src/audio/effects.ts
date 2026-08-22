@@ -117,7 +117,7 @@ const reverb: EffectDescriptor = {
   // The dearest thing here by a wide margin, and it scales with the tail, so the coefficient carries
   // the shape. At full decay it is two hundred points — a fifth of the ceiling for one node, which is
   // true rather than discouraging.
-  cost: (params) => 20 * Math.min(MAX_DECAY, Math.max(MIN_DECAY, params.decay ?? 2.5)),
+  cost: (params) => 15 * Math.min(MAX_DECAY, Math.max(MIN_DECAY, params.decay ?? 2.5)),
   label: 'Reverb',
   params: ['decay', 'cutoff'],
   defaults: { decay: 2.5, cutoff: 4000 },
@@ -212,9 +212,10 @@ const crush: EffectDescriptor = {
   kind: 'crush',
   // Not oversampled, so a plain table lookup plus the tone filter. Measured 2.4.
   // Measured at 2.21 *with* the decimator in the chain, against 2.4 without one — the same number
-  // within noise. A worklet doing a trivial hold is no dearer than the native nodes around it, which
-  // was not obvious: it is JavaScript on the audio thread.
-  cost: () => 2.3,
+  // A worklet is far dearer than the native nodes around it, which the offline harness could not see:
+  // it is JavaScript running on the audio thread, every block. Measured 5.3 against a broken ceiling,
+  // where the earlier 2.3 came from a render that does not pay for the crossing.
+  cost: () => 5.3,
   label: 'Bitcrusher',
   params: ['bits', 'reduction', 'cutoff'],
   defaults: { bits: 6, reduction: MIN_REDUCTION, cutoff: 6000 },
@@ -367,8 +368,9 @@ const echo: EffectDescriptor = {
  */
 const filter: EffectDescriptor = {
   kind: 'filter',
-  // One biquad and the wet/dry pair, which is the cheapest an effect gets here. Measured 2.
-  cost: () => 2,
+  // One biquad and the wet/dry pair, which is the cheapest an effect gets here. Measured 3.4 realtime,
+  // against 2 offline: a biquad's memory traffic is the part a render does not charge for.
+  cost: () => 3.4,
   label: 'Filter',
   params: ['filterType', 'cutoff', 'resonance'],
   // Here the cutoff is the point rather than a shaping stage.
@@ -415,8 +417,9 @@ const MAX_CHORUS_FEEDBACK = 0.7
  */
 const chorus: EffectDescriptor = {
   kind: 'chorus',
-  // Modulated delay lines: the modulation is what costs, not the delay. Measured 5.
-  cost: () => 5,
+  // Modulated delay lines: the modulation is what costs, not the delay. Held 256 of them at a modelled
+  // 3195 points without a dropout, so 5 was over by at least a sixth.
+  cost: () => 4.3,
   label: 'Chorus',
   params: ['sweep', 'rate', 'depth', 'feedback', 'cutoff'],
   defaults: { sweep: 22, rate: 1.2, depth: 0.4, feedback: 0 },
@@ -726,8 +729,9 @@ const pan: EffectDescriptor = {
  */
 const octave: EffectDescriptor = {
   kind: 'octave',
-  // Measured with `npm run measure`; a worklet doing this little costs no more than a native node.
-  cost: () => 2.5,
+  // A worklet costs far more than the native nodes it sits among — JavaScript on the audio thread, every
+  // block, which an offline render charges almost nothing for. Measured 7.1 against a broken ceiling.
+  cost: () => 7.1,
   label: 'Octave',
   params: ['cutoff'],
   labels: { cutoff: 'Tone' },

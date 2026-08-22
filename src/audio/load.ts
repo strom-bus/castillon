@@ -80,7 +80,7 @@ import { isNoise } from './waveforms'
  * glitch below a full meter, and `LAYER_THRESHOLD` is the only margin standing between — which is
  * enough for a somewhat slower machine and not for a phone.
  */
-export const MAX_LOAD = 3000
+export const MAX_LOAD = 2750
 
 /** Past this share of the budget, oscillators restart instead of layering. */
 export const LAYER_THRESHOLD = 0.75

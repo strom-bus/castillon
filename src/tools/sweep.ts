@@ -31,11 +31,12 @@ const CEILING_UNITS = 4096
 /**
  * And where it gives up on cost, which is the guard that matters.
  *
- * Half again over the ceiling. Only enough headroom to bracket a break that should land near one times it,
- * and no more — every unit past that is main-thread work spent proving something already known. Set at four
- * times, the doubling reached loads this machine cannot even schedule, let alone render.
+ * Twice the ceiling. Half again was too tight: it stopped eight of sixteen subjects before they failed at
+ * all, and a subject that never fails yields only a one-sided bound. Twice is as far as this can reach
+ * before the note scheduler itself becomes the limit, which is what the saturation check is there to catch.
+ * Four times, the first attempt, reached loads this machine cannot even schedule, let alone render.
  */
-const POINT_CAP = Math.round(MAX_LOAD * 1.5)
+const POINT_CAP = Math.round(MAX_LOAD * 2)
 /** How tight the bisection gets, as a share of the bracket. Four per cent is well inside the noise. */
 const PRECISION = 0.04
 
@@ -269,6 +270,28 @@ export function formatSweep(result: Sweep): string {
       )
     }
     if (!clean || !units) return `  ${found.subject.label.padEnd(20)} never broke, or broke at once`
+
+    /*
+     * A subject that never broke is not a measurement, and must not be printed as one.
+     *
+     * The cost cap stops the doubling before some subjects fail at all, and a run of these read exactly
+     * like real breaks — eight of sixteen rows, including a reverb figure that a whole conclusion was
+     * nearly drawn from. What such a row does prove is one-sided: the load held, so the model is not
+     * *under*-pricing it. Only a reading above the ceiling proves anything at all, and what it proves is
+     * a lower bound on how much the model is over by.
+     */
+    if (!found.broke) {
+      const over = referencePoints > 0 ? clean / referencePoints : 0
+      const says =
+        over > 1
+          ? `over-priced by at least ${over.toFixed(2)}x`
+          : 'nothing — it never reached the ceiling'
+      return (
+        `  ${found.subject.label.padEnd(20)} ${String(units).padStart(5)} units` +
+        `   ${clean.toFixed(0).padStart(6)} points` +
+        `   HELD, capped — proves ${says}`
+      )
+    }
     const out = factor(found, referencePoints)
     return (
       `  ${found.subject.label.padEnd(20)} ${String(units).padStart(5)} units` +

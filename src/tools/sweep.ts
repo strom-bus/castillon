@@ -38,6 +38,9 @@ const CEILING_UNITS = 4096
  * Four times, the first attempt, reached loads this machine cannot even schedule, let alone render.
  */
 const POINT_CAP = Math.round(MAX_LOAD * 2)
+/** Underruns at or below which a break might be a stray glitch, and so is worth running again. */
+const MARGINAL = 4
+
 /** How tight the bisection gets, as a share of the bracket. Four per cent is well inside the noise. */
 const PRECISION = 0.04
 
@@ -170,6 +173,17 @@ async function confirmed(
   report(subject, first)
   if (first.underruns === 0 || !first.settled || first.saturated) return first
 
+  /*
+   * Only a *marginal* break is worth a second run.
+   *
+   * The point of confirming is to throw out a break caused by one stray dropout from elsewhere on the
+   * machine, and a stray dropout is one or two blocks. A thread that has genuinely run out drops dozens:
+   * this rung reported eighty-two, which is not something a second opinion is going to overturn. Repeating
+   * it anyway paid for the most expensive load in the sweep twice over to verify the unambiguous, on the
+   * one subject where building the load is itself most of the cost.
+   */
+  if (first.underruns > MARGINAL) return first
+
   const again = await probe(subject, units, pool)
   report(subject, again)
   return again
@@ -223,7 +237,8 @@ function report(subject: Subject, trial: Trial): void {
         ? `DROPPED ${trial.underruns}`
         : 'clean'
   console.info(
-    `[sweep] ${subject.label} · ${trial.units} units · ${trial.points.toFixed(0)} points · ${state}`,
+    `[sweep] ${subject.label} · ${trial.units} units · ${trial.points.toFixed(0)} points · ` +
+      `built in ${trial.buildSeconds.toFixed(1)}s · ${state}`,
   )
 }
 

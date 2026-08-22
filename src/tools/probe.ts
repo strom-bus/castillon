@@ -104,6 +104,14 @@ export interface Trial {
   /** Share of wall time the note scheduler spent running. */
   schedulerShare: number
   /**
+   * Seconds spent building the load, which for one subject is most of what a trial costs.
+   *
+   * Assigning a buffer to a convolver makes the browser partition the impulse response, and that happens
+   * once per convolver whether or not the buffer is shared. Nothing else here has a setup cost worth
+   * naming, so without this a slow trial and a stuck one look alike from the outside.
+   */
+  buildSeconds: number
+  /**
    * Whether the audio thread ever went quiet before the reading was taken.
    *
    * An unsettled trial is not a soft result, it is no result. Tearing down a few hundred effects glitches
@@ -313,7 +321,15 @@ async function attempt(subject: Subject, units: number, ctx: AudioContext): Prom
    * belongs to the load.
    */
   if (!(await quiet(ctx))) {
-    return { units, points: 0, underruns: 0, saturated: false, schedulerShare: 0, settled: false }
+    return {
+      units,
+      points: 0,
+      underruns: 0,
+      saturated: false,
+      schedulerShare: 0,
+      settled: false,
+      buildSeconds: 0,
+    }
   }
 
   const engine = new AudioEngine()
@@ -328,6 +344,7 @@ async function attempt(subject: Subject, units: number, ctx: AudioContext): Prom
 
   const filtered = subject.filtered ?? true
   const scheduled: number[] = []
+  const buildFrom = performance.now()
 
   for (let slot = 0; slot < units; slot++) {
     // Staggered, so every voice does not fire on the same tick and produce one huge spike.
@@ -350,6 +367,8 @@ async function attempt(subject: Subject, units: number, ctx: AudioContext): Prom
       }
     }
   }
+
+  const buildSeconds = (performance.now() - buildFrom) / 1000
 
   /** Milliseconds spent inside the scheduler, so a saturated main thread can say so. */
   let schedulerMs = 0
@@ -383,6 +402,7 @@ async function attempt(subject: Subject, units: number, ctx: AudioContext): Prom
       saturated: share > SATURATED_AT,
       schedulerShare: share,
       settled: true,
+      buildSeconds,
     }
   } finally {
     window.clearInterval(timer)

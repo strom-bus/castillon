@@ -152,6 +152,15 @@ const reverb: EffectDescriptor = {
       dispose() {
         convolver.disconnect()
         damping.disconnect()
+        /*
+         * And let go of the impulse response, which disconnecting does not.
+         *
+         * It is the only allocation here big enough to matter: a two-and-a-half second tail is a megabyte,
+         * one per effect rather than one shared, so a trial holding sixty-six of them is sixty-three. A
+         * disconnected convolver still owns its buffer, so all of that stayed anchored until the whole
+         * context was collected — and a sweep repeats the subject a dozen times over.
+         */
+        convolver.buffer = null
       },
     }
   },

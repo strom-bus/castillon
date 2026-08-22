@@ -712,12 +712,26 @@ export class AudioEngine implements Engine {
    * this is called the node is already gone from the patch — so the sound has to be let go rather
    * than stopped.
    */
-  disposeEffect(nodeId: NodeId): void {
+  /**
+   * Takes an effect out, gracefully by default.
+   *
+   * `now` skips the courtesy, and the courtesy is the whole cost. Removing an effect from a patch that is
+   * playing has to fade it or it clicks, so the teardown waits out the release and happens on a timer. When
+   * the engine itself is going away there is nobody left to click at: a render has finished, or a
+   * measurement trial is being replaced by the next one. Deferring there means the old graph is still
+   * standing while the new one is built — and holding, in a reverb's case, a megabyte of impulse response
+   * per effect that nothing can reach and nothing has released.
+   */
+  disposeEffect(nodeId: NodeId, now = false): void {
     const instance = this.effects.get(nodeId)
     if (!instance) return
     this.effects.delete(nodeId)
 
-    if (!this.ctx) {
+    if (!this.ctx || now) {
+      instance.input.disconnect()
+      instance.dry.disconnect()
+      instance.wet.disconnect()
+      instance.output.disconnect()
       instance.chain.dispose()
       return
     }
@@ -1149,7 +1163,7 @@ export class AudioEngine implements Engine {
    */
   dispose(): void {
     for (const id of [...this.modulators.keys()]) this.disposeModulator(id)
-    for (const id of [...this.effects.keys()]) this.disposeEffect(id)
+    for (const id of [...this.effects.keys()]) this.disposeEffect(id, true)
 
     for (const voice of this.voices) {
       this.releaseVoice(voice)

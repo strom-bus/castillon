@@ -147,22 +147,27 @@
       optimise away, and an optimised measurement measures nothing.
     </p>
     <button id="run">Measure costs</button>
-    <button id="ceiling">Measure the ceiling</button>
+    <button id="ceiling">Find the ceiling (automatic)</button>
 
+    <p>
+      <strong>Find the ceiling</strong> plays real notes through the app's own engine and watches
+      <code>AudioContext.playbackStats</code> for a dropout — so what it reports is the number the
+      meter itself shows at the moment the audio thread first fails. No panel to read, no percentage
+      to interpret. It needs Chrome 146 or later; if it is not there it says so, and the manual ramp
+      below still works.
+    </p>
     <div id="manual">
-      <h2>The ceiling, against real content</h2>
+      <h2>The ceiling, read from DevTools by hand</h2>
       <p>
-        A machine managed about 5400 plain voices before Chrome's renderer ran out of budget, so the
-        ceiling under test is <strong>4900 points</strong>. What that leaves open is whether a point
-        is still a point at that scale: a reverb is priced at some thirty voices, so 4900 points
-        ought to be about 158 reverbs — and nobody has checked that a convolver's
-        <em>peaks</em> behave like a sine's however well their averages agree.
+        This ramp is the older one, kept because it isolates *kinds* of work: it builds voices by
+        hand, with constant gains, sustained. That turned out to be its flaw as a way to find the
+        ceiling — a voice the app builds carries a scheduled envelope and is rebuilt on every note,
+        and neither cost is here. What it is still good for is comparing one kind of node against
+        another.
       </p>
       <p>
-        So pick a kind of load and turn it up. Two numbers are shown: the points the app would
-        count, and what share of 4900 that is. Chrome reports its own percentage beside it.
-        <strong>Where the two agree the model holds</strong>; where they diverge, that kind of work
-        is mispriced at scale, and which way tells you which.
+        Read the percentage in Chrome's WebAudio panel beside the points, and where the two
+        disagree, that kind of work is mispriced at scale.
       </p>
       <ol>
         <li>

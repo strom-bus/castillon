@@ -6,7 +6,7 @@
  */
 
 import { formatReport, measureLoad, type Measured } from './measureLoad'
-import { formatCeiling, measureCeiling } from './measureCeiling'
+import { findCeiling, formatCeiling } from './findCeiling'
 import {
   CEILING,
   LOAD_KINDS,
@@ -16,7 +16,6 @@ import {
   type LoadKind,
   type Ramp,
 } from './loadRamp'
-import { MAX_LOAD } from '../audio/load'
 
 const run = document.getElementById('run') as HTMLButtonElement
 const status = document.getElementById('status') as HTMLParagraphElement
@@ -120,11 +119,16 @@ ceiling.addEventListener('click', async () => {
   run.disabled = true
   out.textContent = ''
   try {
-    const measured = await measureCeiling((label) => {
-      status.textContent = `holding ${label}…`
-    })
-    status.textContent = measured.supported ? 'done' : 'read it from DevTools instead'
-    out.textContent = formatCeiling(measured, MAX_LOAD)
+    const measured = await findCeiling(
+      (label) => {
+        status.textContent = `holding ${label}…`
+      },
+      // Filtered voices with a reverb every eight slots: closer to a patch than a wall of sines, which
+      // is what mismeasured this the first time.
+      { filtered: true, effectEvery: 8 },
+    )
+    status.textContent = measured.supported ? 'done' : 'no playbackStats — use the manual ramp'
+    out.textContent = formatCeiling(measured)
     await navigator.clipboard.writeText(out.textContent).catch(() => {})
   } catch (error) {
     status.textContent = `failed: ${error instanceof Error ? error.message : String(error)}`

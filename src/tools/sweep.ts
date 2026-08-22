@@ -30,12 +30,11 @@ const CEILING_UNITS = 4096
 /**
  * And where it gives up on cost, which is the guard that matters.
  *
- * Four times the ceiling: a load the model already reckons is four times what the machine can take, and
- * which still has not dropped a sample, is not going to. Without this the doubling reaches four thousand
- * reverbs, and four thousand reverbs is four gigabytes of impulse responses built one random number at a
- * time — a hung tab rather than a slow measurement.
+ * Half again over the ceiling. Only enough headroom to bracket a break that should land near one times it,
+ * and no more — every unit past that is main-thread work spent proving something already known. Set at four
+ * times, the doubling reached loads this machine cannot even schedule, let alone render.
  */
-const POINT_CAP = MAX_LOAD * 4
+const POINT_CAP = Math.round(MAX_LOAD * 1.5)
 /** How tight the bisection gets, as a share of the bracket. Four per cent is well inside the noise. */
 const PRECISION = 0.04
 
@@ -44,6 +43,8 @@ export interface Found {
   /** The largest load that held, and the smallest that broke. */
   clean: Trial | null
   broke: Trial | null
+  /** The trial where the main thread, not the audio thread, ran out — which invalidates the search. */
+  saturated: Trial | null
 }
 
 export interface Sweep {
@@ -70,6 +71,8 @@ async function findBreak(subject: Subject, onStep: (label: string) => void): Pro
       `${subject.label} · ${units} units · ~${projectedPoints(subject, units).toFixed(0)} points`,
     )
     const trial = await probe(subject, units)
+    // A saturated main thread is not a reading. Stop rather than double into a tab that stops answering.
+    if (trial.saturated) return { subject, clean, broke: null, saturated: trial }
     if (trial.underruns > 0) {
       broke = trial
       break
@@ -78,7 +81,7 @@ async function findBreak(subject: Subject, onStep: (label: string) => void): Pro
     units *= 2
   }
 
-  if (!broke) return { subject, clean, broke: null }
+  if (!broke) return { subject, clean, broke: null, saturated: null }
 
   // Bisect between the last load that held and the first that did not.
   let low = clean?.units ?? 0
@@ -87,6 +90,7 @@ async function findBreak(subject: Subject, onStep: (label: string) => void): Pro
     const middle = Math.round((low + high) / 2)
     onStep(`${subject.label} · ${middle} units · narrowing`)
     const trial = await probe(subject, middle)
+    if (trial.saturated) return { subject, clean, broke, saturated: trial }
     if (trial.underruns > 0) {
       broke = trial
       high = middle
@@ -96,7 +100,7 @@ async function findBreak(subject: Subject, onStep: (label: string) => void): Pro
     }
   }
 
-  return { subject, clean, broke }
+  return { subject, clean, broke, saturated: null }
 }
 
 /**
@@ -162,6 +166,13 @@ export function formatSweep(result: Sweep): string {
   const row = (found: Found) => {
     const clean = found.clean?.points
     const units = found.clean?.units
+    if (found.saturated) {
+      const share = (found.saturated.schedulerShare * 100).toFixed(0)
+      return (
+        `  ${found.subject.label.padEnd(20)} ${String(found.saturated.units).padStart(5)} units` +
+        `   main thread saturated (${share}% scheduling) — audio thread was never the limit`
+      )
+    }
     if (!clean || !units) return `  ${found.subject.label.padEnd(20)} never broke, or broke at once`
     const out = factor(found, referencePoints)
     return (
@@ -175,7 +186,10 @@ export function formatSweep(result: Sweep): string {
     `MAX_LOAD is ${MAX_LOAD}. Every factor below is measured against voices, which is the unit.`,
     '',
     'Reference:',
-    row(result.reference ?? ({ subject: { label: 'voices' }, clean: null, broke: null } as Found)),
+    row(
+      result.reference ??
+        ({ subject: { label: 'voices' }, clean: null, broke: null, saturated: null } as Found),
+    ),
     '',
     'Effects — one per unit, each fed by its own voice:',
     ...result.effects.map(row),

@@ -25,6 +25,8 @@ const HORIZON = 0.25
 const SETTLE = 0.7
 /** Seconds the load is held and watched. */
 const HOLD = 1.3
+/** How often the scheduler wakes. */
+const TICK = 0.05
 
 export interface Subject {
   /** What one unit is. */
@@ -69,9 +71,44 @@ export interface Trial {
   points: number
   /** Blocks the audio thread failed to deliver while the load was held. */
   underruns: number
+  /**
+   * Whether the *main* thread was the thing that could not keep up.
+   *
+   * A trial where scheduling notes eats the main thread is not a reading about the audio thread at all,
+   * and it must not be reported as one. Left unsaid, it looks exactly like a very high ceiling — right up
+   * until the tab stops answering.
+   */
+  saturated: boolean
+  /** Share of wall time the note scheduler spent running. */
+  schedulerShare: number
 }
 
+/** Beyond this share of the main thread spent scheduling, the trial is not measuring the audio thread. */
+const SATURATED_AT = 0.5
+
 const wait = (seconds: number) => new Promise((done) => setTimeout(done, seconds * 1000))
+
+/**
+ * When a slot should fire next, given where it got to and what time it is now.
+ *
+ * The clamp to `now` is the whole point, and it is why this is a function rather than four lines inside
+ * the timer. A slot resumed from wherever it left off will, after any tick that ran late, be sitting in
+ * the past — and then it owes a note for every beat since. Each of those is a real oscillator, gain,
+ * filter and four automation points, so paying the debt makes the next tick later still, which makes the
+ * debt larger. It diverges rather than settling: a hundred and seventy-eight notes a tick becomes seven
+ * thousand inside a second, and the page never comes back.
+ *
+ * Skipping the missed notes loses a little construction churn. Replaying them loses the tab.
+ */
+export function fires(from: number, now: number): { times: number[]; next: number } {
+  let at = Math.max(from, now)
+  const times: number[] = []
+  while (at < now + HORIZON) {
+    times.push(at)
+    at += 1 / NOTE_RATE
+  }
+  return { times, next: at }
+}
 
 function note(slot: number, at: number, filtered: boolean): NoteRequest {
   return {
@@ -145,29 +182,36 @@ export async function probe(subject: Subject, units: number): Promise<Trial> {
     }
   }
 
+  /** Milliseconds spent inside the scheduler, so a saturated main thread can say so. */
+  let schedulerMs = 0
+
   const timer = window.setInterval(() => {
+    const entered = performance.now()
     const now = engine.now()
     for (let slot = 0; slot < units; slot++) {
-      let at = scheduled[slot] ?? now
-      while (at < now + HORIZON) {
-        engine.playNote(note(slot, Math.max(at, now), filtered))
-        at += 1 / NOTE_RATE
-      }
-      scheduled[slot] = at
+      const due = fires(scheduled[slot] ?? now, now)
+      for (const at of due.times) engine.playNote(note(slot, at, filtered))
+      scheduled[slot] = due.next
     }
-  }, 50)
+    schedulerMs += performance.now() - entered
+  }, TICK * 1000)
 
   try {
     await wait(SETTLE)
     const before = readPlayback(ctx)
     const points = engine.voiceLoadAt(engine.now()) + engine.effectLoad()
+    schedulerMs = 0
+    const watchFrom = performance.now()
     await wait(HOLD)
     const after = readPlayback(ctx)
+    const share = schedulerMs / (performance.now() - watchFrom)
 
     return {
       units,
       points,
       underruns: (after?.events ?? 0) - (before?.events ?? 0),
+      saturated: share > SATURATED_AT,
+      schedulerShare: share,
     }
   } finally {
     window.clearInterval(timer)

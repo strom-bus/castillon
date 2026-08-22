@@ -193,7 +193,10 @@ const FX_PARAM_TARGETS: Record<string, ModTarget> = {
     min: MIN_CUTOFF,
     max: MAX_CUTOFF,
     via: 'audio',
-    surcharge: 2,
+    // Nothing measurable. A sweep put 248 modulated cutoffs against 240 unmodulated ones and the audio
+    // thread failed at the same load either way, so whatever this costs is under the method's resolution
+    // of about one point per unit — shared with MOD_COST, that leaves half a point each.
+    surcharge: 0.5,
   },
   resonance: {
     key: 'resonance',
@@ -201,7 +204,8 @@ const FX_PARAM_TARGETS: Record<string, ModTarget> = {
     min: MIN_RESONANCE,
     max: MAX_RESONANCE,
     via: 'audio',
-    surcharge: 2,
+    // As cutoff: below what the instrument can resolve.
+    surcharge: 0.5,
   },
   // Gains, an oscillator's frequency and a delay time. All measured at nothing worth counting.
   rate: {
@@ -400,11 +404,16 @@ export function amountFor(target: ModTarget, depth: number): number {
 /**
  * An LFO is an oscillator and a gain. Cheap, and paid for the whole time it exists (§2.2b).
  *
- * A shade over one voice, which is roughly what it is made of. The first measurement said 0.9 and two
- * later ones said 1.24 and 1.17, so 0.9 was the outlier rather than the reading — which is the argument
- * for running the instrument more than once before trusting a small number.
+ * The earlier readings of 0.9, 1.24 and 1.17 all came from offline renders, and a render charges an LFO
+ * as if it were most of a voice. It is not: a voice's gain carries a four-point envelope and its own
+ * biquad, and it is built and destroyed on every note, where an LFO is made once and then simply runs.
+ *
+ * Against a real dropout the difference does not show at all. The sweep's own control is modulating a
+ * plain gain — work the model prices at exactly this constant and nothing else — and 287 units of it
+ * broke no sooner than 240 units carrying no modulator. So the true figure is under the method's
+ * resolution, about a point per unit, and this is half of that with the target surcharge taking the rest.
  *
  * What this does *not* count is the cost a modulator adds to its destination. That is the `surcharge`
  * on each target, because it depends on what is being swept and not on the modulator.
  */
-export const MOD_COST = 1.2
+export const MOD_COST = 0.5

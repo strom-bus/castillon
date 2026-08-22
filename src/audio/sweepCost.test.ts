@@ -61,8 +61,20 @@ describe('the price of a sweep, in a patch estimate', () => {
   it("charges for sweeping an oscillator's filter, once per voice in the air", () => {
     const swept = estimatePeakLoad(patchWith('cutoff'))
     const still = estimatePeakLoad(patchWith('level'))
-    // Per voice is the point: one cable, as many biquads as there are notes sounding.
-    expect(swept).toBeGreaterThan(still + 1)
+    const surcharge = targetsFor('osc').find((target) => target.key === 'cutoff')?.surcharge ?? 0
+
+    /*
+     * Read from the table rather than pinned as a number.
+     *
+     * This used to assert that the difference beat a point, which is a claim about the surcharge's size
+     * wearing the clothes of one about its shape. It held only while sweeping a cutoff happened to cost
+     * 2, and it stopped holding when a sweep against a real dropout found 248 modulated cutoffs failing
+     * at the same load as 240 unmodulated ones and brought the figure to half a point.
+     */
+    expect(surcharge).toBeGreaterThan(0)
+    // One voice in the air here, so one surcharge. Per voice rather than per cable is the claim, and what
+    // carries it is the multiplier being the voice count — which the effect case below does not have.
+    expect(swept - still).toBeCloseTo(surcharge, 5)
   })
 
   it("charges for sweeping an effect's cutoff", () => {

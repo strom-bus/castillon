@@ -162,7 +162,9 @@ const distortion: EffectDescriptor = {
   // Four-times oversampling means the shaper and two resampling filters, measured at 15 against
   // a reasoned 3.5. The one place the old arithmetic-based guess was directionally right and
   // still four times too low.
-  cost: () => 15,
+  // A waveshaper with 4x oversampling, which is dear but not as dear as 15: measured 0.81 against a
+  // broken ceiling, three sweeps after the offline harness picked that number.
+  cost: () => 10.9,
   label: 'Distortion',
   params: ['shape', 'drive', 'cutoff'],
   defaults: { drive: 0.4, cutoff: 4000 },
@@ -292,7 +294,8 @@ const MAX_ECHO_SECONDS = 4
 const echo: EffectDescriptor = {
   kind: 'echo',
   // Two delay lines, a feedback gain, two panners and the tone filter. Measured 5.7.
-  cost: () => 5.7,
+  // Two delays, two pans and a feedback path. Measured 1.13 light against a broken ceiling.
+  cost: () => 7.4,
   label: 'Echo',
   params: ['time', 'feedback', 'width', 'cutoff'],
   labels: { width: 'Spread' },
@@ -368,9 +371,10 @@ const echo: EffectDescriptor = {
  */
 const filter: EffectDescriptor = {
   kind: 'filter',
-  // One biquad and the wet/dry pair, which is the cheapest an effect gets here. Measured 3.4 realtime,
-  // against 2 offline: a biquad's memory traffic is the part a render does not charge for.
-  cost: () => 3.4,
+  // One biquad and the wet/dry pair, which is the cheapest an effect gets here. Offline said 2; realtime
+  // says 4.5, averaged over the two readings a sweep takes of this one. A biquad's memory traffic is the
+  // part a render does not charge for.
+  cost: () => 4.5,
   label: 'Filter',
   params: ['filterType', 'cutoff', 'resonance'],
   // Here the cutoff is the point rather than a shaping stage.
@@ -417,8 +421,8 @@ const MAX_CHORUS_FEEDBACK = 0.7
  */
 const chorus: EffectDescriptor = {
   kind: 'chorus',
-  // Modulated delay lines: the modulation is what costs, not the delay. Held 256 of them at a modelled
-  // 3195 points without a dropout, so 5 was over by at least a sixth.
+  // Modulated delay lines: the modulation is what costs, not the delay. Read 0.96 against a broken
+  // ceiling once 5 had come down to 4.3, so this one is settled.
   cost: () => 4.3,
   label: 'Chorus',
   params: ['sweep', 'rate', 'depth', 'feedback', 'cutoff'],
@@ -499,7 +503,9 @@ const phaser: EffectDescriptor = {
   // Against a *reasoned* 3.5, and that gap is the other lesson: an automated `AudioParam` makes a
   // biquad recompute its coefficients per sample rather than per block, so four swept filters cost far
   // more than four filters.
-  cost: () => 15.5,
+  // Four cascaded allpasses and an LFO. The dearest thing here after a reverb tail, but 15.5 was well
+  // over: measured 0.71 against a broken ceiling, the largest single misprice the sweep found.
+  cost: () => 8.7,
   label: 'Phaser',
   params: ['rate', 'depth', 'feedback', 'cutoff'],
   labels: { cutoff: 'Centre' },
@@ -730,8 +736,9 @@ const pan: EffectDescriptor = {
 const octave: EffectDescriptor = {
   kind: 'octave',
   // A worklet costs far more than the native nodes it sits among — JavaScript on the audio thread, every
-  // block, which an offline render charges almost nothing for. Measured 7.1 against a broken ceiling.
-  cost: () => 7.1,
+  // block, which an offline render charges almost nothing for. 2.5 was the render's answer; 7.1 was an
+  // overshoot correcting it, and 4.8 is where two sweeps agree.
+  cost: () => 4.8,
   label: 'Octave',
   params: ['cutoff'],
   labels: { cutoff: 'Tone' },

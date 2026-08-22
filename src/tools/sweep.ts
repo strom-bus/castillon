@@ -71,9 +71,12 @@ export interface Sweep {
 /**
  * Doubles until something breaks, then bisects the bracket.
  *
- * A trial that breaks is trusted immediately rather than repeated. That errs towards a *lower* break point,
- * which is the safe direction for a budget — and repeating every trial would triple a sweep that already
- * takes minutes.
+ * A break is confirmed before it is believed, which it used not to be. Trusting one immediately was
+ * defended as erring low and therefore safe, and that was wrong twice over: a stray dropout from anywhere
+ * on the machine reads as a break, nothing ever revisits it, and the subject keeps that answer for the rest
+ * of the run. One sweep put the filter effect at 124 units in the effects group and 294 in the surcharge
+ * group — the same subject, from one glitch believed. Only breaks are repeated, so this costs a handful of
+ * trials rather than doubling the sweep.
  */
 async function findBreak(
   subject: Subject,
@@ -104,8 +107,7 @@ async function findBreak(
     onStep(
       `${subject.label} · ${units} units · ~${projectedPoints(subject, units).toFixed(0)} points`,
     )
-    const trial = await probe(subject, units, pool)
-    report(subject, trial)
+    const trial = await confirmed(subject, units, pool, report)
     // A saturated main thread is not a reading. Stop rather than double into a tab that stops answering.
     if (trial.saturated) return { subject, clean, broke: null, saturated: trial, unsettled: false }
     if (!trial.settled) return { subject, clean, broke: null, saturated: null, unsettled: true }
@@ -136,8 +138,7 @@ async function findBreak(
   while (high - low > Math.max(1, Math.round(high * PRECISION))) {
     const middle = Math.round((low + high) / 2)
     onStep(`${subject.label} · ${middle} units · narrowing`)
-    const trial = await probe(subject, middle, pool)
-    report(subject, trial)
+    const trial = await confirmed(subject, middle, pool, report)
     if (trial.saturated) return { subject, clean, broke, saturated: trial, unsettled: false }
     if (!trial.settled) return { subject, clean, broke, saturated: null, unsettled: true }
     if (trial.underruns > 0) {
@@ -150,6 +151,28 @@ async function findBreak(
   }
 
   return { subject, clean, broke, saturated: null, unsettled: false }
+}
+
+/**
+ * One reading, with any break checked a second time before it is passed on.
+ *
+ * A clean trial is taken as it comes: a load that failed to fail is not the reading that goes wrong. A
+ * broken one is repeated, and only counts if it breaks again — otherwise the confirming trial is returned
+ * instead, which is a clean reading at that load and exactly what the search should have seen.
+ */
+async function confirmed(
+  subject: Subject,
+  units: number,
+  pool: Pool,
+  report: (subject: Subject, trial: Trial) => void,
+): Promise<Trial> {
+  const first = await probe(subject, units, pool)
+  report(subject, first)
+  if (first.underruns === 0 || !first.settled || first.saturated) return first
+
+  const again = await probe(subject, units, pool)
+  report(subject, again)
+  return again
 }
 
 /**
@@ -252,6 +275,15 @@ async function run(pool: Pool, onStep: (label: string) => void): Promise<Sweep> 
 
 /** How far the two reference readings may differ before the sweep is calling itself untrustworthy. */
 const DRIFT_LIMIT = 0.15
+/**
+ * And how far the two readings of the filter effect may.
+ *
+ * A wider allowance than the drift check because these two sit far apart in the running order and carry
+ * whatever the reference drift does as well. It is the check that has caught two bad runs, both times by
+ * eye — the numbers were printed and nothing compared them, so a table whose duplicate readings were 2.3
+ * times apart still announced that its figures stood.
+ */
+const AGREEMENT_LIMIT = 0.25
 
 /** The two reference readings, and what their disagreement costs the rest. */
 function drift(result: Sweep): { share: number; trustworthy: boolean } | null {
@@ -260,6 +292,20 @@ function drift(result: Sweep): { share: number; trustworthy: boolean } | null {
   if (!first || !last) return null
   const share = Math.abs(last - first) / first
   return { share, trustworthy: share <= DRIFT_LIMIT }
+}
+
+/**
+ * The same subject measured twice, once in each group, and whether the two agree.
+ *
+ * Independent of drift and catches what drift cannot: a spurious break leaves the reference untouched and
+ * shows up only as one subject disagreeing with itself.
+ */
+function agreement(result: Sweep): { share: number; trustworthy: boolean } | null {
+  const inEffects = result.effects.find((found) => found.subject.effect === 'filter')?.clean?.points
+  const inSurcharges = result.surcharges.find((found) => !found.subject.modulate)?.clean?.points
+  if (!inEffects || !inSurcharges) return null
+  const share = Math.abs(inSurcharges - inEffects) / Math.min(inEffects, inSurcharges)
+  return { share, trustworthy: share <= AGREEMENT_LIMIT }
 }
 
 /** What one subject's break point says the model is out by. */
@@ -329,21 +375,49 @@ export function formatSweep(result: Sweep): string {
     )
   }
 
+  /*
+   * Two checks, and a table is only worth reading if both pass.
+   *
+   * They fail for different reasons, which is why one cannot stand in for the other. Drift is the machine
+   * changing under the measurement, and shows in the reference. Agreement is one subject disagreeing with
+   * itself, which a spurious break causes and which leaves the reference untouched — a run whose duplicate
+   * readings were 2.3 times apart passed the drift check at 13 per cent and announced that its figures
+   * stood.
+   */
   const moved = drift(result)
-  const verdict = !moved
-    ? ['Only one reference reading, so there is no check on drift and nothing here is confirmed.']
-    : moved.trustworthy
-      ? [
-          `Voices read ${result.reference?.clean?.points?.toFixed(0)} points at the start and ` +
-            `${result.again?.clean?.points?.toFixed(0)} at the end, ` +
-            `${(moved.share * 100).toFixed(1)}% apart. Nothing drifted; the figures below stand.`,
-        ]
+  const agreed = agreement(result)
+  const first = result.reference?.clean?.points?.toFixed(0)
+  const last = result.again?.clean?.points?.toFixed(0)
+
+  const problems: string[] = []
+  if (!moved) {
+    problems.push('Only one reference reading, so drift is unchecked.')
+  } else if (!moved.trustworthy) {
+    problems.push(
+      `Voices read ${first} points at the start and ${last} at the end, ` +
+        `${(moved.share * 100).toFixed(1)}% apart on identical work — the machine changed as it ran, so ` +
+        'each figure reflects where it came in the order as much as what it measured.',
+    )
+  }
+  if (!agreed) {
+    problems.push(
+      'The filter effect was not measured twice, so nothing checks a subject against itself.',
+    )
+  } else if (!agreed.trustworthy) {
+    problems.push(
+      `The filter effect reads ${(agreed.share * 100).toFixed(0)}% apart between its two measurements, ` +
+        'which is one subject disagreeing with itself rather than anything drifting. A break believed on ' +
+        'one stray dropout does this, and it lands on whichever subject was unlucky.',
+    )
+  }
+
+  const verdict =
+    problems.length > 0
+      ? ['TRUST NOTHING BELOW.', ...problems]
       : [
-          `TRUST NOTHING BELOW. Voices read ${result.reference?.clean?.points?.toFixed(0)} points at the ` +
-            `start and ${result.again?.clean?.points?.toFixed(0)} at the end, ` +
-            `${(moved.share * 100).toFixed(1)}% apart on identical work.`,
-          'The sweep damaged itself as it ran, so each figure reflects where it came in the order as much',
-          'as what it measured. Shorten the run or give each subject its own context.',
+          `Voices read ${first} points at the start and ${last} at the end, ` +
+            `${((moved?.share ?? 0) * 100).toFixed(1)}% apart, and the filter effect agrees with itself ` +
+            `to ${((agreed?.share ?? 0) * 100).toFixed(0)}%. The figures below stand.`,
         ]
 
   return [

@@ -283,13 +283,18 @@ async function quiet(ctx: AudioContext): Promise<boolean> {
 /**
  * The longest a single trial may take before it is called stuck.
  *
- * Generous: a trial waits up to four seconds for silence, builds several hundred nodes, then holds for two
- * more, and can do all of that twice when a context turns out to be spoiled. Anything past a minute is not
- * slow, it is not coming back.
+ * Half a minute, which was a whole one and too long to be of use. A watchdog is only a diagnosis if
+ * somebody is still watching when it fires, and nobody stares at a frozen tab for sixty seconds — the
+ * report that came back was "stuck", from a run that may simply have been working.
  */
-const TRIAL_PATIENCE = 60
+const TRIAL_PATIENCE = 30
 
-export async function probe(subject: Subject, units: number, pool: Pool): Promise<Trial> {
+export async function probe(
+  subject: Subject,
+  units: number,
+  pool: Pool,
+  onProgress: (built: number, of: number) => void = () => {},
+): Promise<Trial> {
   /*
    * Watched as a whole, not only at each await inside it.
    *
@@ -303,13 +308,26 @@ export async function probe(subject: Subject, units: number, pool: Pool): Promis
 
   // Two attempts. A context that will not go quiet is retired and the same load tried once on a fresh one,
   // because the usual cause is the previous trial's teardown rather than anything about this load.
-  const first = await guard(attempt(subject, units, await pool.get()), TRIAL_PATIENCE, where)
+  const first = await guard(
+    attempt(subject, units, await pool.get(), onProgress),
+    TRIAL_PATIENCE,
+    where,
+  )
   if (first.settled) return first
   pool.retire()
-  return await guard(attempt(subject, units, await pool.get()), TRIAL_PATIENCE, `${where}, retried`)
+  return await guard(
+    attempt(subject, units, await pool.get(), onProgress),
+    TRIAL_PATIENCE,
+    `${where}, retried`,
+  )
 }
 
-async function attempt(subject: Subject, units: number, ctx: AudioContext): Promise<Trial> {
+async function attempt(
+  subject: Subject,
+  units: number,
+  ctx: AudioContext,
+  onProgress: (built: number, of: number) => void,
+): Promise<Trial> {
   /*
    * Silence is demanded before the load exists, which is the only moment the answer means one thing.
    *
@@ -350,9 +368,18 @@ async function attempt(subject: Subject, units: number, ctx: AudioContext): Prom
     // Staggered, so every voice does not fire on the same tick and produce one huge spike.
     scheduled[slot] = ctx.currentTime + (slot % NOTE_RATE) / NOTE_RATE
 
-    // Yielded periodically. Building a few hundred convolvers is seconds of synchronous work, and a page
-    // that has stopped repainting is indistinguishable from one that has crashed.
-    if (slot > 0 && slot % 16 === 0) await wait(0)
+    /*
+     * Yielded periodically, and now saying how far it has got.
+     *
+     * Building a few hundred convolvers is seconds of synchronous work — assigning a buffer to one makes
+     * the browser partition the impulse response, once per convolver however many buffers there are — and
+     * a page that has stopped repainting is indistinguishable from one that has crashed. Yielding kept it
+     * alive; only a number that moves says which of the two it is.
+     */
+    if (slot > 0 && slot % 16 === 0) {
+      onProgress(slot, units)
+      await wait(0)
+    }
 
     if (subject.effect) {
       const descriptor = effectOr(subject.effect)

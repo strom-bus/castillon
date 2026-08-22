@@ -110,7 +110,7 @@ async function findBreak(
     onStep(
       `${subject.label} · ${units} units · ~${projectedPoints(subject, units).toFixed(0)} points`,
     )
-    const trial = await confirmed(subject, units, pool, report)
+    const trial = await confirmed(subject, units, pool, report, onStep)
     // A saturated main thread is not a reading. Stop rather than double into a tab that stops answering.
     if (trial.saturated) return { subject, clean, broke: null, saturated: trial, unsettled: false }
     if (!trial.settled) return { subject, clean, broke: null, saturated: null, unsettled: true }
@@ -141,7 +141,7 @@ async function findBreak(
   while (high - low > Math.max(1, Math.round(high * PRECISION))) {
     const middle = Math.round((low + high) / 2)
     onStep(`${subject.label} · ${middle} units · narrowing`)
-    const trial = await confirmed(subject, middle, pool, report)
+    const trial = await confirmed(subject, middle, pool, report, onStep)
     if (trial.saturated) return { subject, clean, broke, saturated: trial, unsettled: false }
     if (!trial.settled) return { subject, clean, broke, saturated: null, unsettled: true }
     if (trial.underruns > 0) {
@@ -168,8 +168,12 @@ async function confirmed(
   units: number,
   pool: Pool,
   report: (subject: Subject, trial: Trial) => void,
+  onStep: (label: string) => void = () => {},
 ): Promise<Trial> {
-  const first = await probe(subject, units, pool)
+  const building = (built: number, of: number) =>
+    onStep(`${subject.label} · ${units} units · building ${built}/${of}`)
+
+  const first = await probe(subject, units, pool, building)
   report(subject, first)
   if (first.underruns === 0 || !first.settled || first.saturated) return first
 
@@ -184,7 +188,7 @@ async function confirmed(
    */
   if (first.underruns > MARGINAL) return first
 
-  const again = await probe(subject, units, pool)
+  const again = await probe(subject, units, pool, building)
   report(subject, again)
   return again
 }
@@ -213,7 +217,11 @@ export async function sweep(onStep: (label: string) => void): Promise<Sweep> {
      * distinction.
      */
     return await run(pool, (label) => {
-      console.info(`[sweep] → ${label}`)
+      // Progress within a trial goes to the page and not to the console. It is there so that a slow build
+      // can be told from a stuck one, which wants a number that moves in front of somebody — a thousand
+      // extra lines in the console would bury the trail that localises a stall, and slow the console down
+      // while doing it.
+      if (!label.includes('building')) console.info(`[sweep] → ${label}`)
       onStep(label)
     })
   } finally {

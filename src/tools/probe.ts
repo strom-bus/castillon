@@ -12,6 +12,7 @@
 
 import { effectOr } from '../audio/effects'
 import { AudioEngine, type NoteRequest } from '../audio/engine'
+import { effectCost, voiceCost } from '../audio/load'
 import { targetsFor } from '../audio/modulation'
 import type { EffectKind, FxParams } from '../types/patch'
 import { playbackStatsAvailable, readPlayback } from './playbackStats'
@@ -39,6 +40,27 @@ export interface Subject {
   modulate?: string
   /** Whether each voice carries its own filter. */
   filtered?: boolean
+}
+
+/** Voices overlapping per slot, at this note rate and release. */
+const OVERLAP = (1 / NOTE_RATE + 0.05 + 0.4) / (1 / NOTE_RATE)
+
+/**
+ * What the model reckons a load will cost, before any of it is built.
+ *
+ * Needed as a guard rather than as a measurement. A reverb generates its own impulse response — two
+ * channels of up to ten seconds, one random number per sample — so four thousand of them is a billion
+ * random numbers and four gigabytes of buffers, built synchronously. That is not a slow trial, it is a
+ * hung tab. Projecting the cost first means a subject too cheap to ever be the limit stops doubling
+ * instead of trying to.
+ */
+export function projectedPoints(subject: Subject, units: number): number {
+  const voice = voiceCost('sawtooth', subject.filtered ?? true) * OVERLAP
+  if (!subject.effect) return units * voice
+
+  const descriptor = effectOr(subject.effect)
+  const params = { effect: subject.effect, mix: 0.6, ...descriptor.defaults } as FxParams
+  return units * (voice + effectCost(params))
 }
 
 export interface Trial {
@@ -93,7 +115,9 @@ export async function probe(subject: Subject, units: number): Promise<Trial> {
   engine.ceiling = Number.POSITIVE_INFINITY
   engine.setMasterGain(0.04)
   engine.adopt(ctx)
-  await engine.loadWorklets()
+  // Only where a processor is actually wanted. Registering both modules on every trial is a compile per
+  // fresh context, two hundred times across a sweep, for two effects out of eleven.
+  if (subject.effect === 'crush' || subject.effect === 'octave') await engine.loadWorklets()
   await ctx.resume()
 
   const filtered = subject.filtered ?? true
@@ -102,6 +126,10 @@ export async function probe(subject: Subject, units: number): Promise<Trial> {
   for (let slot = 0; slot < units; slot++) {
     // Staggered, so every voice does not fire on the same tick and produce one huge spike.
     scheduled[slot] = ctx.currentTime + (slot % NOTE_RATE) / NOTE_RATE
+
+    // Yielded periodically. Building a few hundred convolvers is seconds of synchronous work, and a page
+    // that has stopped repainting is indistinguishable from one that has crashed.
+    if (slot > 0 && slot % 16 === 0) await wait(0)
 
     if (subject.effect) {
       const descriptor = effectOr(subject.effect)

@@ -14,12 +14,28 @@
 import { EFFECTS } from '../audio/effects'
 import { MAX_LOAD } from '../audio/load'
 import type { EffectKind } from '../types/patch'
-import { audioTargets, probe, probingAvailable, type Subject, type Trial } from './probe'
+import {
+  audioTargets,
+  probe,
+  probingAvailable,
+  projectedPoints,
+  type Subject,
+  type Trial,
+} from './probe'
 
 /** Where the doubling starts. Small enough that a very dear effect is bracketed on the first few. */
 const FIRST = 8
-/** Where it gives up: a subject this cheap is telling us it is not the limit. */
+/** Where it gives up on count: a subject this cheap is telling us it is not the limit. */
 const CEILING_UNITS = 4096
+/**
+ * And where it gives up on cost, which is the guard that matters.
+ *
+ * Four times the ceiling: a load the model already reckons is four times what the machine can take, and
+ * which still has not dropped a sample, is not going to. Without this the doubling reaches four thousand
+ * reverbs, and four thousand reverbs is four gigabytes of impulse responses built one random number at a
+ * time — a hung tab rather than a slow measurement.
+ */
+const POINT_CAP = MAX_LOAD * 4
 /** How tight the bisection gets, as a share of the bracket. Four per cent is well inside the noise. */
 const PRECISION = 0.04
 
@@ -49,8 +65,10 @@ async function findBreak(subject: Subject, onStep: (label: string) => void): Pro
   let broke: Trial | null = null
 
   let units = FIRST
-  while (units <= CEILING_UNITS) {
-    onStep(`${subject.label} · ${units}`)
+  while (units <= CEILING_UNITS && projectedPoints(subject, units) <= POINT_CAP) {
+    onStep(
+      `${subject.label} · ${units} units · ~${projectedPoints(subject, units).toFixed(0)} points`,
+    )
     const trial = await probe(subject, units)
     if (trial.underruns > 0) {
       broke = trial
@@ -67,7 +85,7 @@ async function findBreak(subject: Subject, onStep: (label: string) => void): Pro
   let high = broke.units
   while (high - low > Math.max(1, Math.round(high * PRECISION))) {
     const middle = Math.round((low + high) / 2)
-    onStep(`${subject.label} · ${middle}`)
+    onStep(`${subject.label} · ${middle} units · narrowing`)
     const trial = await probe(subject, middle)
     if (trial.underruns > 0) {
       broke = trial

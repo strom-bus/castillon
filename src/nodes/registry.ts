@@ -1,4 +1,4 @@
-import { midiToFreq, stepDuration } from '../audio/clock'
+import { detuneRatio, midiToFreq, stepDuration } from '../audio/clock'
 import { trackedCutoff } from '../audio/filter'
 import type { Engine } from '../audio/engine'
 import { MIN_REDUCTION } from '../audio/dsp'
@@ -122,6 +122,8 @@ export function defaultOscParams(): OscParams {
   return {
     waveform: 'square',
     pulseWidth: 0.5,
+    // Dead centre, so a node made today is in tune exactly as one made before detune existed was.
+    detune: 0,
     steps: DEFAULT_NOTES.map((note) => ({ note, active: true, velocity: 1 })),
     division: '1/8',
     gain: 0.25,
@@ -170,7 +172,7 @@ const osc: NodeDefinition = {
       engine.playNote({
         nodeId: node.id,
         time: at,
-        freq: midiToFreq(s.note),
+        freq: midiToFreq(s.note) * detuneRatio(params.detune ?? 0),
         // ?? keeps patches saved before waveforms existed playable.
         waveform: params.waveform ?? 'square',
         pulseWidth: params.pulseWidth ?? 0.5,

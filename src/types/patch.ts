@@ -54,6 +54,14 @@ export interface OscParams {
   waveform: Waveform
   /** Pulse duty cycle, 0–1. Only used with `waveform: 'pulse'`. */
   pulseWidth: number
+  /**
+   * Cents off the note, ±50. The cascade's answer to unison.
+   *
+   * A classic thickens a sound by stacking voices on one oscillator, which here would multiply the load
+   * budget. The cascade already gives you several oscillators; what it does not give is a reason for two
+   * of them to read as one voice instead of two. A few cents apart is that reason, and it adds no voices.
+   */
+  detune: number
   steps: Step[]
   division: Division
   /** 0–1 */

@@ -117,26 +117,36 @@ describe('patch code', () => {
   })
 
   it('charges almost nothing for a parameter left alone', () => {
-    // The point of the mask. A fixed layout paid for every field of every node whether it had been
-    // touched or not, and in a real patch almost nothing is.
-    const plain = encodePatch(patchOf([osc('a')]))
-    const fiddled = encodePatch(
-      patchOf([
-        osc('a', {
-          waveform: 'pink',
-          division: '1/16',
-          gain: 0.9,
-          attack: 300,
-          release: 900,
-          gate: 0.95,
-          filterType: 'bandpass',
-          cutoff: 700,
-          resonance: 14,
-          propagateMode: 'onStep',
-        }),
-      ]),
-    )
-    expect(fiddled.length).toBeGreaterThan(plain.length * 1.5)
+    /*
+     * The point of the mask: a fixed layout paid for every field of every node whether it had been
+     * touched or not, and in a real patch almost nothing is.
+     *
+     * Measured as cost *per node* rather than as a ratio of two whole codes, which is what this used to
+     * be. Two things defeat the simpler forms. The mask spends a bit per field, so every field added to
+     * the format lengthens the untouched code too and quietly narrows any ratio — four new oscillator
+     * fields took it from 1.53 to exactly 1.5 and it failed having found nothing wrong. And the code is
+     * packed into characters, so touching one field can disappear into the padding and show no growth at
+     * all. A slope over eight nodes has neither problem: a header is constant, and a field added but not
+     * set costs both sides the same bit.
+     */
+    const FIELDS = {
+      waveform: 'pink',
+      division: '1/16',
+      gain: 0.9,
+      attack: 300,
+      release: 900,
+      gate: 0.95,
+      filterType: 'bandpass',
+      cutoff: 700,
+      resonance: 14,
+      propagateMode: 'onStep',
+    } as const
+
+    const nodes = (count: number, over: object = {}) =>
+      encodePatch(patchOf(Array.from({ length: count }, (_, i) => osc(`o${i}`, over)))).length
+    const perNode = (over: object = {}) => (nodes(9, over) - nodes(1, over)) / 8
+
+    expect(perNode(FIELDS)).toBeGreaterThan(perNode())
   })
 
   it('costs an FX node little when its effect leaves most fields at rest', () => {

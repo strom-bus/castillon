@@ -244,6 +244,8 @@ const OSC_FIELDS: Field<OscParams>[] = [
   scaledField('decay', 11, 1, 0, 2000),
   scaledField('keyTrack', 7, 100, 0, 100),
   scaledField('glide', 10, 1, 0, 1000),
+  // Stored shifted, since the field encoder works in non-negative steps and this one runs either way.
+  scaledField('detune', 7, 1, -50, 50),
 ]
 
 const FX_FIELDS: Field<FxParams>[] = [
@@ -288,6 +290,7 @@ const FX_FIELDS: Field<FxParams>[] = [
 const OSC_REFERENCE: OscParams = {
   waveform: 'square',
   pulseWidth: 0.5,
+  detune: 0,
   steps: [],
   division: '1/8',
   gain: 0.25,

@@ -946,6 +946,15 @@ export function Inspector() {
         onChange={(attack) => set({ attack })}
       />
       <Slider
+        label="Detune"
+        value={params.detune ?? 0}
+        min={-50}
+        max={50}
+        step={1}
+        suffix=" ¢"
+        onChange={(detune) => set({ detune })}
+      />
+      <Slider
         label="Glide"
         value={params.glide ?? 0}
         min={0}

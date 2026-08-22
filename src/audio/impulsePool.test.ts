@@ -48,16 +48,24 @@ describe('a load of reverbs at one decay', () => {
 
 describe('reverbs at different decays', () => {
   it('do not share a tail, since the tail is the decay', () => {
-    // Sharing across decays would make a two-second room and a ten-second one sound the same length.
+    /*
+     * The pool is filled at the short decay first, which is what makes this a test of the key rather than
+     * of the pool. With room left over, a long reverb gets a fresh tail whatever the key says, and keying
+     * every decay together passed — the fault only shows once the pool is full and has a tail to hand back.
+     */
     const fake = fakeAudio()
     const engine = new AudioEngine()
     engine.adopt(fake.ctx)
-    engine.createEffect('short', { ...defaultFxParams(), effect: 'reverb', decay: 1 }, 120)
+    for (let i = 0; i < MOST; i++) {
+      engine.createEffect(`short${i}`, { ...defaultFxParams(), effect: 'reverb', decay: 1 }, 120)
+    }
     engine.createEffect('long', { ...defaultFxParams(), effect: 'reverb', decay: 8 }, 120)
 
-    const [first, second] = fake.nodes('convolver').map((node) => node.buffer)
-    expect(first).not.toBe(second)
-    expect((first as { length: number }).length).toBeLessThan((second as { length: number }).length)
+    const tails = fake.nodes('convolver').map((node) => node.buffer as { length: number })
+    const short = tails[0]!.length
+    const long = tails[tails.length - 1]!.length
+    // Sharing across decays would make a one-second room and an eight-second one the same length.
+    expect(long).toBeGreaterThan(short)
   })
 })
 

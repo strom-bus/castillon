@@ -16,6 +16,10 @@ const passages = (): Passage[] =>
     section.title,
     ...section.body,
     ...(section.terms ?? []).flatMap((term) => [term.term, term.text]),
+    // Detail included, and it is the larger half of the manual by weight. Left out, everything written
+    // for a beginner could drift out of one language without a single test noticing — which is the exact
+    // failure the two languages were put side by side to prevent.
+    ...(section.detail ?? []).flatMap((term) => [term.term, term.text]),
   ])
 
 describe('the manual', () => {
@@ -41,6 +45,27 @@ describe('the manual', () => {
       const ratio = passage.es.length / passage.en.length
       expect(ratio, `lopsided: ${passage.en}`).toBeGreaterThan(0.5)
       expect(ratio, `lopsided: ${passage.en}`).toBeLessThan(2)
+    }
+  })
+
+  it('goes further on every section a beginner would need it on', () => {
+    /*
+     * Every section but one, and the exception earns it: shortcuts is already a list of specifics, so a
+     * page behind a button would only be the same list again. The rest each hide the part somebody who
+     * has never used a synthesiser needs — what each control actually does — from somebody who does not.
+     */
+    const without = MANUAL.filter((section) => !section.detail?.length).map((section) => section.id)
+    expect(without).toEqual([])
+  })
+
+  it('spends the detail on controls rather than on more prose', () => {
+    // It is a reference, and a reference is read by looking something up. Named entries can be scanned;
+    // paragraphs have to be read from the top to find out whether they answer the question.
+    for (const section of MANUAL) {
+      for (const term of section.detail ?? []) {
+        expect(term.term.en.length, `unnamed detail in ${section.id}`).toBeGreaterThan(0)
+        expect(term.term.en.length, `heading not a name in ${section.id}`).toBeLessThan(40)
+      }
     }
   })
 

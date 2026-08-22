@@ -693,6 +693,42 @@ input[type='range'] {
   border-color: var(--border-strong);
 }
 
+/* Read more, and the way back out of it.
+
+   Both borrow the close button's understatement rather than announcing themselves: they are navigation
+   in a document, not actions on the patch, and a filled button among paragraphs reads as the loudest
+   thing on the page when it should be the quietest thing you can still find. */
+.manual-more,
+.manual-back {
+  display: block;
+  padding: 3px 9px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  cursor: pointer;
+}
+
+.manual-more:hover,
+.manual-back:hover {
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+
+/* Read more sits under the section it belongs to and inset from the left, so it reads as part of that
+   section rather than as the start of the next one. */
+.manual-more {
+  margin: 4px 0 0 auto;
+}
+
+/* Back sits above the heading, where somebody looks when they want out — at the foot of a long page it
+   is only found by whoever read to the end. */
+.manual-back {
+  margin: 0 0 14px 0;
+}
+
 .language-toggle button {
   padding: 3px 9px;
   border: 0;

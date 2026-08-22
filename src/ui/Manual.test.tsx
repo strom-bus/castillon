@@ -5,6 +5,7 @@ import { useManualWindow } from '../help/window'
 import { usePatchStore } from '../state/patchStore'
 import { Inspector } from './Inspector'
 import { Manual } from './Manual'
+import { MANUAL } from '../help/manual'
 
 /**
  * The manual: a window over the app, in one of two languages.
@@ -101,5 +102,63 @@ describe('getting to it', () => {
     usePatchStore.getState().select(id)
     render(<Inspector />)
     expect(screen.queryByText('HELP')).toBeNull()
+  })
+})
+
+/**
+ * Read more, and the way back.
+ *
+ * The manual has two audiences wanting opposite things: somebody who has used a synthesiser wants the
+ * ideas and the differences and stops there, while somebody who has not needs to know what every slider
+ * does. Folding the second away keeps the first short — and only works if getting back is obvious, since
+ * a reader who feels lost in a manual closes it.
+ */
+describe('reading further', () => {
+  it('offers more on every section that has more', () => {
+    render(<Manual onClose={() => {}} />)
+    const more = screen.getAllByRole('button', { name: /read more/i })
+    expect(more.length).toBe(MANUAL.filter((section) => section.detail?.length).length)
+    expect(more.length).toBeGreaterThan(0)
+  })
+
+  it('shows one section detail in place of the list', () => {
+    // In place of, not folded into: detail expanded inline pushes everything after it out of reach and
+    // the reader loses where they were.
+    render(<Manual onClose={() => {}} />)
+    fireEvent.click(screen.getAllByRole('button', { name: /read more/i })[0]!)
+
+    expect(screen.queryAllByRole('button', { name: /read more/i })).toHaveLength(0)
+    expect(screen.getByText(MANUAL[0]!.detail![0]!.term.en)).toBeTruthy()
+  })
+
+  it('comes back to the list, and to the top of it', () => {
+    render(<Manual onClose={() => {}} />)
+    fireEvent.click(screen.getAllByRole('button', { name: /read more/i })[0]!)
+    fireEvent.click(screen.getByRole('button', { name: /back to the manual/i }))
+
+    expect(screen.getAllByRole('button', { name: /read more/i }).length).toBeGreaterThan(0)
+  })
+
+  it('lets Escape leave the section before it leaves the manual', () => {
+    // Otherwise reading one page costs the whole manual to get out of, which teaches people not to open
+    // one in the first place.
+    let closed = false
+    render(<Manual onClose={() => (closed = true)} />)
+    fireEvent.click(screen.getAllByRole('button', { name: /read more/i })[0]!)
+
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(closed).toBe(false)
+    expect(screen.getAllByRole('button', { name: /read more/i }).length).toBeGreaterThan(0)
+
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(closed).toBe(true)
+  })
+
+  it('says both in Spanish too, since a beginner is the reader here', () => {
+    render(<Manual onClose={() => {}} />)
+    fireEvent.click(screen.getByRole('button', { name: 'ESP' }))
+
+    fireEvent.click(screen.getAllByRole('button', { name: /leer más/i })[0]!)
+    expect(screen.getByRole('button', { name: /volver al manual/i })).toBeTruthy()
   })
 })

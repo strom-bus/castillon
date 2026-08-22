@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { LANGUAGE_LABELS, LANGUAGES, useLanguage } from '../help/language'
 import { MANUAL } from '../help/manual'
 
@@ -17,15 +17,38 @@ export function Manual({ onClose }: { onClose: () => void }) {
   const language = useLanguage((s) => s.language)
   const setLanguage = useLanguage((s) => s.set)
   const closer = useRef<HTMLButtonElement>(null)
+  const body = useRef<HTMLDivElement>(null)
+
+  /**
+   * Which section has been opened out, if any.
+   *
+   * One at a time and in place of the list rather than expanded inside it. Detail folded into a long page
+   * pushes everything after it out of reach, and the reader loses where they were; replacing the page
+   * keeps both views short and makes going back a single thing to press.
+   */
+  const [opened, setOpened] = useState<string | null>(null)
+  const section = opened ? MANUAL.find((one) => one.id === opened) : null
 
   useEffect(() => {
     closer.current?.focus()
     function onKey(event: KeyboardEvent) {
-      if (event.key === 'Escape') onClose()
+      // Escape steps back out of a section first, and only closes the manual from the list. Otherwise
+      // reading one page costs the whole manual to leave.
+      if (event.key !== 'Escape') return
+      if (opened) setOpened(null)
+      else onClose()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  }, [onClose, opened])
+
+  // Back to the top on the way in and on the way out: arriving halfway down a page nobody scrolled is
+  // disorienting, and returning to the list at the depth of a page that is gone is worse.
+  useEffect(() => {
+    // Assigned rather than scrolled: `scrollTo` is not on every element everywhere, and this needs no
+    // animation — the page it would animate across has already been replaced.
+    if (body.current) body.current.scrollTop = 0
+  }, [opened])
 
   return (
     // The backdrop closes on its own click, but not on one that started inside.
@@ -61,25 +84,51 @@ export function Manual({ onClose }: { onClose: () => void }) {
 
         {/* `lang` on the scrolling body rather than on every paragraph: it is what tells a screen
             reader which voice to read in, and hyphenation which rules to use. */}
-        <div className="manual-body" lang={language}>
-          {MANUAL.map((section) => (
-            <section key={section.id}>
+        <div className="manual-body" lang={language} ref={body}>
+          {section ? (
+            <section>
+              {/* At the top, because that is where somebody looks when they want out, and because at the
+                  bottom of a long page it is only found by whoever read to the end. */}
+              <button type="button" className="manual-back" onClick={() => setOpened(null)}>
+                {language === 'es' ? '\u2190 Volver al manual' : '\u2190 Back to the manual'}
+              </button>
               <h3>{section.title[language]}</h3>
-              {section.body.map((passage, i) => (
-                <p key={i}>{passage[language]}</p>
-              ))}
-              {section.terms && (
-                <dl>
-                  {section.terms.map((term, i) => (
-                    <div key={i}>
-                      <dt>{term.term[language]}</dt>
-                      <dd>{term.text[language]}</dd>
-                    </div>
-                  ))}
-                </dl>
-              )}
+              <dl>
+                {(section.detail ?? []).map((term, i) => (
+                  <div key={i}>
+                    <dt>{term.term[language]}</dt>
+                    <dd>{term.text[language]}</dd>
+                  </div>
+                ))}
+              </dl>
             </section>
-          ))}
+          ) : (
+            MANUAL.map((one) => (
+              <section key={one.id}>
+                <h3>{one.title[language]}</h3>
+                {one.body.map((passage, i) => (
+                  <p key={i}>{passage[language]}</p>
+                ))}
+                {one.terms && (
+                  <dl>
+                    {one.terms.map((term, i) => (
+                      <div key={i}>
+                        <dt>{term.term[language]}</dt>
+                        <dd>{term.text[language]}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                )}
+                {/* Only where there is more to read. A button that opens an empty page teaches the reader
+                    to stop pressing them. */}
+                {one.detail && one.detail.length > 0 && (
+                  <button type="button" className="manual-more" onClick={() => setOpened(one.id)}>
+                    {language === 'es' ? 'Leer más \u2192' : 'Read more \u2192'}
+                  </button>
+                )}
+              </section>
+            ))
+          )}
         </div>
       </div>
     </div>

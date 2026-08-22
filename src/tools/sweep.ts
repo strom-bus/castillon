@@ -19,6 +19,7 @@ import {
   openPool,
   probe,
   projectedPoints,
+  WARM_UP,
   type Pool,
   type Subject,
   type Trial,
@@ -204,6 +205,12 @@ function report(subject: Subject, trial: Trial): void {
 }
 
 async function run(pool: Pool, onStep: (label: string) => void): Promise<Sweep> {
+  // Discarded on purpose: the point is to have run this code, not to know what it said.
+  for (const [subject, units] of WARM_UP) {
+    onStep(`warming up · ${subject.label} · ${units} units`)
+    await probe(subject, units, pool)
+  }
+
   const reference = await findBreak({ label: 'voices', filtered: true }, pool, onStep)
 
   const effects: Found[] = []
@@ -314,7 +321,11 @@ export function formatSweep(result: Sweep): string {
     return (
       `  ${found.subject.label.padEnd(20)} ${String(units).padStart(5)} units` +
       `   ${clean.toFixed(0).padStart(6)} points` +
-      `   model out by ${out ? out.toFixed(2) : '?'}x`
+      `   model out by ${out ? out.toFixed(2) : '?'}x` +
+      // Printed on every row, not only when it trips the limit. Whether this column falls across a run is
+      // the difference between a machine that warmed up and one that wore out, and a whole sweep was
+      // thrown away for want of being able to tell which.
+      `   ${((found.clean?.schedulerShare ?? 0) * 100).toFixed(0).padStart(3)}% sched`
     )
   }
 

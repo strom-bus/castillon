@@ -29,6 +29,22 @@ const QUIET = 0.6
 const PATIENCE = 4
 /** Trials a context runs before it is retired, whether or not it looks well. */
 const PER_CONTEXT = 12
+
+/**
+ * Loads run and thrown away before anything is believed, so the first real trial is not the cold one.
+ *
+ * A sweep read its reference at 2415 points, measured fifteen other things, and read the same reference
+ * again at 3171 — thirty-one per cent higher. Damage accumulating would have pushed the second reading
+ * *down*; up means the machine got faster as it went. The reference runs first, on the coldest code in
+ * the whole run, and by the end `playNote` has been called hundreds of thousands of times and optimised.
+ * Cheaper scheduling leaves more processor for the audio thread, so the ceiling appears to rise.
+ */
+export const WARM_UP: Array<[Subject, number]> = [
+  [{ label: 'voices', filtered: true }, 128],
+  [{ label: 'voices', filtered: true }, 256],
+  [{ label: 'reverb', effect: 'reverb' }, 32],
+  [{ label: 'bitcrusher', effect: 'crush' }, 96],
+]
 /** Seconds the load is held and watched. */
 const HOLD = 1.3
 /** How often the scheduler wakes. */
@@ -97,8 +113,14 @@ export interface Trial {
   settled: boolean
 }
 
-/** Beyond this share of the main thread spent scheduling, the trial is not measuring the audio thread. */
-const SATURATED_AT = 0.5
+/**
+ * Beyond this share of the main thread spent scheduling, the trial is not measuring the audio thread.
+ *
+ * A third, not a half. Half was chosen as an obvious ceiling and it was too lax: a sweep drifted 31 per
+ * cent upwards over its own length without a single trial tripping it, which only makes sense if the main
+ * thread was competing hard enough to move the answer long before it dominated.
+ */
+const SATURATED_AT = 0.34
 
 const wait = (seconds: number) => new Promise((done) => setTimeout(done, seconds * 1000))
 

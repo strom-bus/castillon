@@ -77,6 +77,19 @@ export function Manual({ onClose }: { onClose: () => void }) {
               </button>
             ))}
           </div>
+          {/* Beside CLOSE rather than above the text, and for one reason that settles it: the header
+              does not scroll and the body does. In the body it was reachable at the top of a detail page
+              and gone by the bottom, which is where somebody who has read enough actually is.
+
+              A word and not a glyph, because every other control here is a word — an arrow and a cross
+              would be the only two symbols in the interface, and an unlabelled icon asks the reader to
+              guess, which is a poor thing to ask of the beginner this page exists for. The arrow stays
+              in front of it: direction from the symbol, certainty from the word. */}
+          {section && (
+            <button type="button" className="manual-back" onClick={() => setOpened(null)}>
+              {language === 'es' ? '\u2190 VOLVER' : '\u2190 BACK'}
+            </button>
+          )}
           <button ref={closer} type="button" className="manual-close" onClick={onClose}>
             CLOSE
           </button>
@@ -87,11 +100,6 @@ export function Manual({ onClose }: { onClose: () => void }) {
         <div className="manual-body" lang={language} ref={body}>
           {section ? (
             <section>
-              {/* At the top, because that is where somebody looks when they want out, and because at the
-                  bottom of a long page it is only found by whoever read to the end. */}
-              <button type="button" className="manual-back" onClick={() => setOpened(null)}>
-                {language === 'es' ? '\u2190 Volver al manual' : '\u2190 Back to the manual'}
-              </button>
               <h3>{section.title[language]}</h3>
               <dl>
                 {(section.detail ?? []).map((term, i) => (

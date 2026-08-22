@@ -700,7 +700,6 @@ input[type='range'] {
    thing on the page when it should be the quietest thing you can still find. */
 .manual-more,
 .manual-back {
-  display: block;
   padding: 3px 9px;
   border: 1px solid var(--border);
   background: transparent;
@@ -717,16 +716,11 @@ input[type='range'] {
   border-color: var(--border-strong);
 }
 
-/* Read more sits under the section it belongs to and inset from the left, so it reads as part of that
-   section rather than as the start of the next one. */
+/* Read more sits under the section it belongs to and pushed to the right margin, so it reads as the end
+   of that section rather than as the start of the next one. */
 .manual-more {
+  display: block;
   margin: 4px 0 0 auto;
-}
-
-/* Back sits above the heading, where somebody looks when they want out — at the foot of a long page it
-   is only found by whoever read to the end. */
-.manual-back {
-  margin: 0 0 14px 0;
 }
 
 .language-toggle button {

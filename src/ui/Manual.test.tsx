@@ -134,7 +134,7 @@ describe('reading further', () => {
   it('comes back to the list, and to the top of it', () => {
     render(<Manual onClose={() => {}} />)
     fireEvent.click(screen.getAllByRole('button', { name: /read more/i })[0]!)
-    fireEvent.click(screen.getByRole('button', { name: /back to the manual/i }))
+    fireEvent.click(screen.getByRole('button', { name: /back/i }))
 
     expect(screen.getAllByRole('button', { name: /read more/i }).length).toBeGreaterThan(0)
   })
@@ -159,6 +159,35 @@ describe('reading further', () => {
     fireEvent.click(screen.getByRole('button', { name: 'ESP' }))
 
     fireEvent.click(screen.getAllByRole('button', { name: /leer más/i })[0]!)
-    expect(screen.getByRole('button', { name: /volver al manual/i })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /volver/i })).toBeTruthy()
+  })
+})
+
+describe('where the way out lives', () => {
+  it('keeps Back in the header, beside Close, rather than in the text', () => {
+    /*
+     * The header does not scroll and the body does. In the body it was reachable at the top of a detail
+     * page and gone by the bottom — which is exactly where somebody who has read enough is standing.
+     */
+    render(<Manual onClose={() => {}} />)
+    fireEvent.click(screen.getAllByRole('button', { name: /read more/i })[0]!)
+
+    const back = screen.getByRole('button', { name: /back/i })
+    const close = screen.getByRole('button', { name: /close/i })
+    expect(back.parentElement).toBe(close.parentElement)
+  })
+
+  it('shows it only inside a section', () => {
+    // Nothing to go back to from the list, and a control that does nothing teaches people to ignore it.
+    render(<Manual onClose={() => {}} />)
+    expect(screen.queryByRole('button', { name: /back/i })).toBeNull()
+  })
+
+  it('says a word and not only a symbol', () => {
+    // Every other control here is a word. An arrow and a cross would be the only two glyphs in the
+    // interface, and an unlabelled icon asks the reader to guess — a poor thing to ask of a beginner.
+    render(<Manual onClose={() => {}} />)
+    fireEvent.click(screen.getAllByRole('button', { name: /read more/i })[0]!)
+    expect(screen.getByRole('button', { name: /back/i }).textContent).toMatch(/BACK/)
   })
 })

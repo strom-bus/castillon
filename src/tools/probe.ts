@@ -278,6 +278,20 @@ export async function probe(subject: Subject, units: number, pool: Pool): Promis
 }
 
 async function attempt(subject: Subject, units: number, ctx: AudioContext): Promise<Trial> {
+  /*
+   * Silence is demanded before the load exists, which is the only moment the answer means one thing.
+   *
+   * Asked afterwards it cannot tell two opposite situations apart. A context still glitching from the last
+   * trial's teardown never goes quiet — and neither does a load that is genuinely failing, which is the
+   * very result being looked for. Pan came back as "no reading" twice for exactly that: it follows the
+   * heaviest subject in the run, and both its attempts were overloaded loads being read as spoiled
+   * contexts. On an empty context there is nothing to glitch, so whatever glitches after this point
+   * belongs to the load.
+   */
+  if (!(await quiet(ctx))) {
+    return { units, points: 0, underruns: 0, saturated: false, schedulerShare: 0, settled: false }
+  }
+
   const engine = new AudioEngine()
   engine.ceiling = Number.POSITIVE_INFINITY
   engine.setMasterGain(0.04)
@@ -328,8 +342,8 @@ async function attempt(subject: Subject, units: number, ctx: AudioContext): Prom
   }, TICK * 1000)
 
   try {
+    // Long enough for the graph just built to stop settling; what it drops after this counts.
     await wait(SETTLE)
-    const settled = await quiet(ctx)
     const before = readPlayback(ctx)
     const points = engine.voiceLoadAt(engine.now()) + engine.effectLoad()
     schedulerMs = 0
@@ -344,7 +358,7 @@ async function attempt(subject: Subject, units: number, ctx: AudioContext): Prom
       underruns: (after?.events ?? 0) - (before?.events ?? 0),
       saturated: share > SATURATED_AT,
       schedulerShare: share,
-      settled,
+      settled: true,
     }
   } finally {
     window.clearInterval(timer)

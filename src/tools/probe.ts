@@ -21,8 +21,18 @@ import { playbackStatsAvailable, readPlayback } from './playbackStats'
 const NOTE_RATE = 6
 /** How far ahead notes are scheduled. */
 const HORIZON = 0.25
-/** Seconds before a reading is believed: a context that has just been built is still settling. */
-const SETTLE = 0.7
+/**
+ * Seconds before a reading is believed, which has to outlast the load arriving as well as the context.
+ *
+ * Slots stagger their first note across most of a second so they do not all fire on one tick, and a voice
+ * lives for its duration plus its release — so the overlap a slot is supposed to carry is not reached for
+ * about a second and a half. Reading at seven tenths caught the load on its way up: the same subject
+ * measured 7.2 points a slot in one sweep and 4.4 in the next, with more slots in the one that read less.
+ *
+ * That difference was made by moving the wait for silence to before the build, which was right for its own
+ * reasons and took away the extra second the reading had been leaning on without anyone intending it to.
+ */
+const SETTLE = 1.5
 /** Underruns must hold still this long before a trial counts as having a clean baseline. */
 const QUIET = 0.6
 /** And this is as long as it will wait for that. Past here the context is spoiled, not settling. */
@@ -412,13 +422,28 @@ async function attempt(
   }, TICK * 1000)
 
   try {
-    // Long enough for the graph just built to stop settling; what it drops after this counts.
+    // Long enough for the graph just built to stop settling and the load to arrive; what it drops after
+    // this counts.
     await wait(SETTLE)
     const before = readPlayback(ctx)
-    const points = engine.voiceLoadAt(engine.now()) + engine.effectLoad()
     schedulerMs = 0
     const watchFrom = performance.now()
-    await wait(HOLD)
+
+    /*
+     * Sampled across the hold rather than once at the start of it.
+     *
+     * One instant is a poor account of a load that is a sum of voices coming and going: the count moves
+     * from moment to moment, and a single reading is as likely to catch a trough as the plateau. Averaging
+     * over the window the underruns are counted in also makes the two describe the same stretch of time,
+     * which they did not before.
+     */
+    const samples: number[] = []
+    for (let taken = 0; taken < HOLD * 10; taken++) {
+      await wait(0.1)
+      samples.push(engine.voiceLoadAt(engine.now()) + engine.effectLoad())
+    }
+    const points = samples.reduce((sum, one) => sum + one, 0) / Math.max(1, samples.length)
+
     const after = readPlayback(ctx)
     const share = schedulerMs / (performance.now() - watchFrom)
 

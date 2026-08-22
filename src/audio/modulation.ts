@@ -84,11 +84,20 @@ export function noNotesBecause(
 }
 
 /** The four an `OscillatorNode` can make natively. An LFO has no use for a pulse width. */
-export type LfoShape = 'sine' | 'triangle' | 'square' | 'sawtooth'
+/**
+ * `random` is not a fifth waveform but a different behaviour: a value held, then jumped, at the rate.
+ *
+ * Every other shape here is periodic, so until this existed every modulation in the app was ultimately
+ * predictable — a wobble you could learn. That sits badly with an instrument whose whole claim is that the
+ * cascade breathes rather than keeping a pulse, which is also why we chose not to sync to a clock. A
+ * stepped random is the one shape that varies without repeating.
+ */
+export type LfoShape = 'sine' | 'triangle' | 'square' | 'sawtooth' | 'random'
 
-export const LFO_SHAPES: readonly LfoShape[] = ['sine', 'triangle', 'square', 'sawtooth']
+export const LFO_SHAPES: readonly LfoShape[] = ['sine', 'triangle', 'square', 'sawtooth', 'random']
 
 export const LFO_SHAPE_LABELS: Record<LfoShape, string> = {
+  random: 'Random',
   sine: 'Sine',
   triangle: 'Triangle',
   square: 'Square',

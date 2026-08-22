@@ -249,6 +249,10 @@ export function fakeAudio(): FakeAudio {
         numberOfChannels: channels,
         length,
         sampleRate: 48000,
+        // Real buffers have one and a random modulator reads it to pick where in the loop to start.
+        // Without it that offset was always zero here, so every such modulator ran in lockstep and the
+        // stub reported agreement the browser would not have.
+        duration: length / 48000,
         getChannelData: (channel: number) => data[channel],
       }
     },

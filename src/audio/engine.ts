@@ -107,6 +107,13 @@ interface ModInstance {
   /** The oscillator, where there is one, so a rate change can reach it. */
   osc?: OscillatorNode
   /**
+   * The looping buffer of held values, where the shape is a stepped random instead.
+   *
+   * Exactly one of this and `osc` is present on an LFO, and which it is decides where a rate change has
+   * to land: an oscillator's frequency, or a buffer's playback rate.
+   */
+  stepper?: AudioBufferSourceNode
+  /**
    * The node that was started and therefore has to be stopped — the oscillator for an LFO, the
    * constant for an envelope. Kept apart from `source` because for an envelope they are not the same
    * node: the constant feeds the shape, and stopping the shape would stop nothing.
@@ -279,6 +286,17 @@ const NOISE_REFERENCE_FREQ = 261.6255653005986
 const NOISE_SECONDS = 3
 
 /**
+ * Steps a second the shared random-hold buffer runs at when played back untouched.
+ *
+ * A stepped random cannot be an oscillator, so it is a buffer of held values played on loop, and the rate
+ * is the playback rate. One buffer serves every random modulator in the engine — each starts at its own
+ * offset, so two of them are uncorrelated without either owning a megabyte.
+ */
+const STEP_REFERENCE_HZ = 8
+/** Steps in it. Sixty-four at a couple of hertz is half a minute before anything comes round again. */
+const RANDOM_STEPS = 64
+
+/**
  * Where a modulator can be pointed: a parameter, or a node that leads to one.
  *
  * Nearly always the first. The exception is the dry half of a mix, which has to move against the wet
@@ -387,6 +405,9 @@ export class AudioEngine implements Engine {
   private rampWaveCache: PeriodicWave | null = null
   /** The last pitch each node played, which is where its next slide starts from. */
   private lastFreq = new Map<NodeId, number>()
+
+  /** Built once and shared: every random modulator reads the same held values from its own offset. */
+  private randomSteps: AudioBuffer | null = null
 
   private noiseBuffers = new Map<NoiseColor, AudioBuffer>()
 
@@ -727,6 +748,8 @@ export class AudioEngine implements Engine {
     let shape: GainNode | undefined
     let osc: OscillatorNode | undefined
 
+    let stepper: AudioBufferSourceNode | undefined
+
     let runner: AudioScheduledSourceNode
     if (kind === 'env') {
       // A constant 1 through a gain that the cascade draws the shape on. The constant is what makes
@@ -743,12 +766,11 @@ export class AudioEngine implements Engine {
       source = shape
       runner = constant
     } else {
-      osc = ctx.createOscillator()
-      osc.type = params.wave ?? 'sine'
-      osc.frequency.value = clamp(params.rate ?? 2, MIN_RATE, MAX_RATE)
-      osc.start()
-      source = osc
-      runner = osc
+      const built = this.buildLfoSource(params, clamp(params.rate ?? 2, MIN_RATE, MAX_RATE))
+      source = built.source
+      runner = built.runner
+      osc = built.osc
+      stepper = built.stepper
     }
 
     source.connect(depth)
@@ -758,6 +780,7 @@ export class AudioEngine implements Engine {
       shape,
       kind,
       osc,
+      stepper,
       runner,
       depth,
       cost: MOD_COST,
@@ -805,10 +828,100 @@ export class AudioEngine implements Engine {
     instance.decay = clamp(params.decay ?? 600, MIN_MOD_DECAY, MAX_MOD_DECAY) / 1000
     instance.fires = params.fires === 'note' ? 'note' : 'trigger'
 
-    if (!instance.osc) return
+    if (instance.kind !== 'lfo') return
     const at = this.ctx.currentTime
-    instance.osc.type = params.wave ?? 'sine'
-    instance.osc.frequency.setTargetAtTime(clamp(params.rate ?? 2, MIN_RATE, MAX_RATE), at, RAMP)
+    const rate = clamp(params.rate ?? 2, MIN_RATE, MAX_RATE)
+
+    /*
+     * Crossing between a stepped random and a periodic shape swaps the source and nothing else.
+     *
+     * The two cannot be the same node — one is an oscillator and one is a buffer — so this is the only
+     * change on a live modulator that needs new hardware. Rebuilding the whole modulator would have been
+     * the obvious move and would have silently cut the cable: `disposeModulator` releases every link.
+     * Every link hangs off `depth`, though, so replacing what feeds it is invisible downstream.
+     */
+    if ((params.wave === 'random') !== Boolean(instance.stepper)) {
+      instance.source.disconnect(instance.depth)
+      try {
+        instance.runner.stop()
+      } catch {
+        // Already stopped, which is not a problem: the point is that it is not running.
+      }
+      const rebuilt = this.buildLfoSource(params, rate)
+      instance.source = rebuilt.source
+      instance.osc = rebuilt.osc
+      instance.stepper = rebuilt.stepper
+      instance.runner = rebuilt.runner
+      instance.source.connect(instance.depth)
+      instance.wave = params.wave ?? 'sine'
+      instance.rate = rate
+      return
+    }
+
+    if (instance.stepper) {
+      instance.stepper.playbackRate.setTargetAtTime(rate / STEP_REFERENCE_HZ, at, RAMP)
+      return
+    }
+    if (!instance.osc) return
+    instance.osc.type = params.wave === 'random' ? 'sine' : (params.wave ?? 'sine')
+    instance.osc.frequency.setTargetAtTime(rate, at, RAMP)
+  }
+
+  /**
+   * The thing that produces an LFO's unit swing, which is one of two quite different nodes.
+   *
+   * Shared between building a modulator and changing one, so that switching a live LFO to a stepped
+   * random gives exactly the node a fresh one would have had.
+   */
+  private buildLfoSource(
+    params: ModParams,
+    rate: number,
+  ): {
+    source: AudioNode
+    runner: AudioScheduledSourceNode
+    osc?: OscillatorNode
+    stepper?: AudioBufferSourceNode
+  } {
+    const ctx = this.ctx as BaseAudioContext
+
+    if (params.wave === 'random') {
+      const stepper = ctx.createBufferSource()
+      stepper.buffer = this.randomStepBuffer()
+      stepper.loop = true
+      stepper.playbackRate.value = rate / STEP_REFERENCE_HZ
+      // Started somewhere arbitrary in the buffer, so two random modulators are not the same sequence
+      // walking in step with each other.
+      stepper.start(ctx.currentTime, this.random() * (stepper.buffer?.duration ?? 0))
+      return { source: stepper, runner: stepper, stepper }
+    }
+
+    const osc = ctx.createOscillator()
+    osc.type = params.wave ?? 'sine'
+    osc.frequency.value = rate
+    osc.start()
+    return { source: osc, runner: osc, osc }
+  }
+
+  /**
+   * One buffer of held random values, shared by every random modulator in the engine.
+   *
+   * Held rather than interpolated is the whole point, so each value occupies a run of identical samples.
+   * Resampling for a rate other than the reference smooths only the single sample at each edge, which is
+   * a step either way as far as anything downstream is concerned.
+   */
+  private randomStepBuffer(): AudioBuffer {
+    if (this.randomSteps) return this.randomSteps
+    const ctx = this.ctx as BaseAudioContext
+    const held = Math.floor(ctx.sampleRate / STEP_REFERENCE_HZ)
+    const buffer = ctx.createBuffer(1, held * RANDOM_STEPS, ctx.sampleRate)
+    const data = buffer.getChannelData(0)
+    for (let step = 0; step < RANDOM_STEPS; step++) {
+      // Bipolar, like every other shape here: a unipolar modulator would only ever push one way.
+      const value = this.random() * 2 - 1
+      data.fill(value, step * held, (step + 1) * held)
+    }
+    this.randomSteps = buffer
+    return buffer
   }
 
   disposeModulator(nodeId: NodeId): void {

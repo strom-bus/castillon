@@ -109,13 +109,15 @@ const MAX_BINDING_LENGTH = 24
 /** A modulator's rate, as hundredths of a hertz. Twenty hertz needs eleven bits. */
 const MOD_RATE_BITS = 11
 const MOD_DEPTH_BITS = 7
-const MOD_WAVE_BITS = 2
+// Three, since a stepped random made five shapes of four. The header carries the count, so widening a
+// field is a format change like any other and nothing saved before it needs to survive.
+const MOD_WAVE_BITS = 3
 const MOD_KIND_BITS = 1
 const MOD_FIRES_BITS = 1
 /** Enough for the whole millisecond range of each, since a MOD is one node and bits are not scarce. */
 const MOD_ATTACK_BITS = 11
 const MOD_DECAY_BITS = 13
-const MOD_WAVES = ['sine', 'triangle', 'square', 'sawtooth'] as const
+const MOD_WAVES = ['sine', 'triangle', 'square', 'sawtooth', 'random'] as const
 
 // Appended, never reordered: a code stores the index, so moving an entry would rewrite history. Four
 // bits leave room for sixteen, of which five are used.

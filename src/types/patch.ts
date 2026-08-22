@@ -288,7 +288,7 @@ export interface ModParams {
    * effect there is one parameter and many notes, and no unambiguous reading of which note owns it.
    */
   fires?: 'trigger' | 'note'
-  wave?: 'sine' | 'triangle' | 'square' | 'sawtooth'
+  wave?: 'sine' | 'triangle' | 'square' | 'sawtooth' | 'random'
   /** Hertz. An LFO's rate; an envelope has none, since the cascade decides when it runs. */
   rate?: number
   /** 0 to 1, as a share of the target's own value. For an envelope this is its peak. */

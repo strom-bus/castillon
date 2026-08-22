@@ -114,19 +114,32 @@ document.getElementById('stopLoad')?.addEventListener('click', async () => {
 
 void chooseKind('sine')
 
-ceiling.addEventListener('click', async () => {
+const ceilingVoices = document.getElementById('ceilingVoices') as HTMLButtonElement
+
+/**
+ * Two runs rather than one, and the second is the cross-check that matters.
+ *
+ * The first is a mixture — filtered voices with a reverb every eighth slot — which is closer to a patch
+ * than a wall of sines, and a wall of sines is what mismeasured this the first time. But in *points* a
+ * reverb every eight slots is about two thirds of the load, so that run calibrates the ceiling mostly
+ * against convolution.
+ *
+ * Voices only says whether that mattered. If both break near the same point count, the relative prices
+ * hold and the ceiling is the ceiling. If voices alone run much further, convolution is still underpriced
+ * and the mixture was measuring the reverb rather than the machine.
+ */
+async function measureCeilingWith(
+  button: HTMLButtonElement,
+  options: Parameters<typeof findCeiling>[1],
+) {
   ceiling.disabled = true
+  ceilingVoices.disabled = true
   run.disabled = true
   out.textContent = ''
   try {
-    const measured = await findCeiling(
-      (label) => {
-        status.textContent = `holding ${label}…`
-      },
-      // Filtered voices with a reverb every eight slots: closer to a patch than a wall of sines, which
-      // is what mismeasured this the first time.
-      { filtered: true, effectEvery: 8 },
-    )
+    const measured = await findCeiling((label) => {
+      status.textContent = `holding ${label}…`
+    }, options)
     status.textContent = measured.supported ? 'done' : 'no playbackStats — use the manual ramp'
     out.textContent = formatCeiling(measured)
     await navigator.clipboard.writeText(out.textContent).catch(() => {})
@@ -134,9 +147,18 @@ ceiling.addEventListener('click', async () => {
     status.textContent = `failed: ${error instanceof Error ? error.message : String(error)}`
   } finally {
     ceiling.disabled = false
+    ceilingVoices.disabled = false
     run.disabled = false
+    void button
   }
-})
+}
+
+ceiling.addEventListener('click', () =>
+  measureCeilingWith(ceiling, { filtered: true, effectEvery: 8 }),
+)
+ceilingVoices.addEventListener('click', () =>
+  measureCeilingWith(ceilingVoices, { filtered: true, effectEvery: 0 }),
+)
 
 run.addEventListener('click', async () => {
   run.disabled = true

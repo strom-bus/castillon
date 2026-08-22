@@ -147,7 +147,8 @@
       optimise away, and an optimised measurement measures nothing.
     </p>
     <button id="run">Measure costs</button>
-    <button id="ceiling">Find the ceiling (automatic)</button>
+    <button id="ceiling">Find the ceiling</button>
+    <button id="ceilingVoices">Find it again, voices only</button>
 
     <p>
       <strong>Find the ceiling</strong> plays real notes through the app's own engine and watches
@@ -156,6 +157,9 @@
       to interpret. It needs Chrome 146 or later; if it is not there it says so, and the manual ramp
       below still works.
     </p>
+    <p id="status"></p>
+    <pre id="out"></pre>
+
     <div id="manual">
       <h2>The ceiling, read from DevTools by hand</h2>
       <p>
@@ -197,8 +201,6 @@
       <button id="add100">+ 100</button>
       <button id="stopLoad">Stop</button>
     </div>
-    <p id="status"></p>
-    <pre id="out"></pre>
     <script type="module" src="/src/tools/measurePage.ts"></script>
   </body>
 </html>

@@ -35,20 +35,33 @@ import { isNoise } from './waveforms'
  */
 
 /**
- * The ceiling, measured rather than chosen.
+ * The ceiling, measured rather than chosen — and measured **with this engine playing real notes**.
  *
- * Chrome reports render capacity — the share of each 128-sample block the audio thread has used, and
- * the fraction of blocks it failed to deliver at all. Ramping load until that reaches a hundred is the
- * definition of a ceiling rather than a proxy for one, and this machine reached it at about 5100 points.
+ * `AudioContext.playbackStats` counts underruns: blocks the audio thread failed to deliver, each one
+ * audible. Ramping the engine's own voices until that counter moves is the definition of a ceiling
+ * rather than a proxy for one, and it does so at a little over three thousand points here.
  *
- * It was 100 before, chosen because it made the meter read as a percentage. That was wrong by a factor
- * of fifty, and not harmlessly: `LAYER_THRESHOLD` below is a share of this, so a single reverb at full
- * decay put every oscillator permanently into restart-instead-of-layer and nothing said why.
+ * Three wrong answers preceded it, and each was wrong for a different reason worth remembering.
  *
- * Calibrated on an Apple Silicon Mac. A device several times slower will glitch below a full meter —
- * the margin for that is `LAYER_THRESHOLD`, which backs off well before this is reached.
+ * **A hundred** was chosen, not measured, because it made the meter read as a percentage. Wrong by a
+ * factor of thirty, and not harmlessly: `LAYER_THRESHOLD` below is a share of this, so a single reverb
+ * at full decay held every oscillator permanently in restart-instead-of-layer and nothing said why.
+ *
+ * **Five thousand** came from ramping hand-built voices — an oscillator through a *constant* gain,
+ * sustained. A voice this engine builds carries a scheduled envelope, which makes its gain a-rate
+ * rather than k-rate, and is created and destroyed on every note. Those two cost about 1.67× the
+ * difference, and the model counts both at zero — which is fine, because measuring in the app's own
+ * units absorbs them into this number rather than needing a correction per voice.
+ *
+ * **Five hundred** was an extrapolation from Chrome's render-capacity *peaks*, and peaks are not the
+ * failure criterion: the thread only drops a sample when it sustains past its budget. Peaks overstated
+ * the load by six times.
+ *
+ * Calibrated on an Apple Silicon Mac with nothing else running. A device several times slower will
+ * glitch below a full meter, and `LAYER_THRESHOLD` is the only margin standing between — which is
+ * enough for a somewhat slower machine and not for a phone.
  */
-export const MAX_LOAD = 5000
+export const MAX_LOAD = 3000
 
 /** Past this share of the budget, oscillators restart instead of layering. */
 export const LAYER_THRESHOLD = 0.75

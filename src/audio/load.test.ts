@@ -185,11 +185,11 @@ describe('estimating a patch', () => {
 
 describe('the budget itself', () => {
   it('is the measured ceiling of the machine it was calibrated on', () => {
-    // Measured rather than chosen: Chrome's render capacity reaches a hundred per cent at about 5100
-    // points on the machine this was calibrated on. It was 100 for as long as nobody had measured it,
-    // which was wrong by a factor of fifty — and not harmlessly, since the layering back-off is a share
-    // of it and a single reverb used to hold every oscillator permanently past the threshold.
-    expect(MAX_LOAD).toBe(5000)
+    // Measured with the engine playing real notes until `playbackStats` counted an underrun, which is
+    // the failure itself rather than a proxy. Three wrong answers came first — a hundred that was
+    // chosen rather than measured, five thousand from hand-built voices with constant gains, and five
+    // hundred extrapolated from render-capacity peaks, which are not the failure criterion.
+    expect(MAX_LOAD).toBe(3000)
   })
 
   it('starts degrading before it runs out', () => {

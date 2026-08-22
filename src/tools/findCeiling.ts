@@ -19,7 +19,7 @@ const RUNG = 4
 /** Seconds to hold each rung. Long enough for a rung to actually be tested, short enough to finish. */
 const HOLD = 1.2
 /** A hard stop, in case a machine simply never struggles. */
-const MAX_SLOTS = 600
+const MAX_SLOTS = 900
 /** Rungs allowed to pass unbroken before the whole thing is believed to be idle-safe. */
 const SETTLE_RUNGS = 2
 

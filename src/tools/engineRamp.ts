@@ -58,6 +58,10 @@ export function startEngineRamp(options: EngineRampOptions = {}): {
   const { filtered = true, effectEvery = 0 } = options
   const ctx = new AudioContext()
   const engine = new AudioEngine()
+  // Uncapped, so the ramp can pass the number it is measuring. With the engine's own ceiling in place
+  // it stops stealing voices at exactly `MAX_LOAD` and the ramp can never break — which made one run
+  // report "nothing dropped" when what had happened was that nothing more was allowed to start.
+  engine.ceiling = Number.POSITIVE_INFINITY
   engine.setMasterGain(0.05)
   engine.adopt(ctx)
   void engine.loadWorklets()
@@ -75,14 +79,16 @@ export function startEngineRamp(options: EngineRampOptions = {}): {
       freq: 90 * Math.pow(2, (slot % 30) / 12),
       waveform: 'sawtooth',
       pulseWidth: 0.5,
-      // Overlapping: a note outlasting its own step is what makes a patch layer, and layering is most
-      // of what the budget is about.
+      // Overlapping generously, which does two things: layering is most of what the budget is about,
+      // and a slot that carries several voices reaches a given point count with far fewer notes being
+      // scheduled — so the main thread's own scheduling stays well clear of being the bottleneck
+      // instead of the audio thread.
       duration: 1 / NOTE_RATE + 0.05,
       gain: 0.5,
       // The envelope is the point. This is what makes a voice's gain a-rate, and a hand-built voice
       // with a constant gain is the thing that mismeasured the ceiling by an order of magnitude.
       attack: 6,
-      release: 90,
+      release: 400,
       filterType: filtered ? 'lowpass' : 'off',
       cutoff: 700 + (slot % 40) * 80,
       resonance: 5,

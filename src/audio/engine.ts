@@ -321,6 +321,16 @@ export class AudioEngine implements Engine {
    */
   private readonly random: Random
 
+  /**
+   * Where this engine starts stealing voices instead of layering them.
+   *
+   * `MAX_LOAD` for anything that plays. A field rather than the constant read directly because the
+   * instrument that *measures* `MAX_LOAD` has to be able to exceed it — a cap wired to the number under
+   * test makes the measurement circular, which is exactly how one run of it silently capped itself at
+   * the answer it was trying to find.
+   */
+  ceiling = MAX_LOAD
+
   constructor(random: Random = Math.random) {
     this.random = random
   }
@@ -451,7 +461,7 @@ export class AudioEngine implements Engine {
     // filter to sweep: with it off, nothing is built and nothing is charged.
     const swept = req.filterType !== 'off' ? (this.voiceSurcharge.get(req.nodeId) ?? 0) : 0
     const cost = voiceCost(req.waveform, req.filterType !== 'off') + swept
-    if (this.totalLoadAt(req.time) + cost > MAX_LOAD) this.stealOldest(req.time)
+    if (this.totalLoadAt(req.time) + cost > this.ceiling) this.stealOldest(req.time)
 
     const source = this.createSource(req)
 

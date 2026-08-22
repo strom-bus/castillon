@@ -41,8 +41,13 @@ const POINT_CAP = Math.round(MAX_LOAD * 2)
 /** Underruns at or below which a break might be a stray glitch, and so is worth running again. */
 const MARGINAL = 4
 
-/** How tight the bisection gets, as a share of the bracket. Four per cent is well inside the noise. */
-const PRECISION = 0.04
+/**
+ * How tight the bisection gets, as a share of the bracket.
+ *
+ * A tenth, because narrowing a boundary to four per cent when the boundary itself moves by thirty between
+ * runs is precision that is not there. It also buys a trial or two back per subject.
+ */
+const PRECISION = 0.1
 
 export interface Found {
   subject: Subject
@@ -323,14 +328,19 @@ async function run(pool: Pool, onStep: (label: string) => void): Promise<Sweep> 
 /** How far the two reference readings may differ before the sweep is calling itself untrustworthy. */
 const DRIFT_LIMIT = 0.15
 /**
- * And how far the two readings of the filter effect may.
+ * And how far the two readings of the filter effect may, which is further than one would like.
  *
- * A wider allowance than the drift check because these two sit far apart in the running order and carry
- * whatever the reference drift does as well. It is the check that has caught two bad runs, both times by
- * eye — the numbers were printed and nothing compared them, so a table whose duplicate readings were 2.3
- * times apart still announced that its figures stood.
+ * Set from five paired readings across three clean sweeps rather than from taste. Those pairs disagreed by
+ * 3.4, 3.7, 11.1, 16.3 and 28.6 per cent, so a break point simply has that much run-to-run spread — and
+ * the fault this check exists for, a break believed on one stray dropout, measured 137. Half separates the
+ * two with room on both sides; a quarter, which is what it was, sat inside the natural spread and refused
+ * a sweep whose model priced the subject to within 0.2 per cent.
+ *
+ * That leaves it a backstop against gross faults rather than a fine instrument, which is the honest
+ * description of it. The defence that matters now runs at the source: a marginal break is measured again
+ * before it is believed.
  */
-const AGREEMENT_LIMIT = 0.25
+const AGREEMENT_LIMIT = 0.5
 
 /** The two reference readings, and what their disagreement costs the rest. */
 function drift(result: Sweep): { share: number; trustworthy: boolean } | null {
@@ -458,6 +468,15 @@ export function formatSweep(result: Sweep): string {
     )
   }
 
+  /*
+   * What the table can and cannot resolve, said out loud.
+   *
+   * Break points move by up to thirty per cent between runs of the same subject, so a factor inside that
+   * of 1.00 is not distinguishable from 1.00 and must not be retuned as though it were. Three costs were
+   * once corrected from a single reading, and one of them had to be corrected back.
+   */
+  const FLOOR = 0.15
+
   const verdict =
     problems.length > 0
       ? ['TRUST NOTHING BELOW.', ...problems]
@@ -465,6 +484,8 @@ export function formatSweep(result: Sweep): string {
           `Voices read ${first} points at the start and ${last} at the end, ` +
             `${((moved?.share ?? 0) * 100).toFixed(1)}% apart, and the filter effect agrees with itself ` +
             `to ${((agreed?.share ?? 0) * 100).toFixed(0)}%. The figures below stand.`,
+          `Anything within ${(FLOOR * 100).toFixed(0)}% of 1.00 is priced as well as this method can ` +
+            'tell. Only what clears that is worth moving.',
         ]
 
   return [

@@ -50,10 +50,19 @@ export const MOD_FIRES_LABELS: Record<ModFires, string> = {
   note: 'Every note',
 }
 
+/**
+ * What each choice does — and, on the one that does not have it, what the other one offers.
+ *
+ * Scaling by velocity is three selections deep: a MOD is an LFO until told otherwise, an envelope fires on
+ * a trigger until told otherwise, and only then does the control appear. That is the right place for it,
+ * since only a per-note envelope has a note whose velocity it could read, but nothing pointed at it from
+ * anywhere a person would be standing. So the trigger hint mentions it, which is where somebody is when
+ * they are one step away.
+ */
 export const MOD_FIRES_HINTS: Record<ModFires, string> = {
   trigger:
-    'One sweep each time a trigger reaches its top port. Under an Ignite that is once per pass; under a node deep in the cascade, once when that branch lights up.',
-  note: 'One sweep per note, each on that note’s own filter. Only an oscillator has notes.',
+    'One sweep each time a trigger reaches its top port. Under an Ignite that is once per pass; under a node deep in the cascade, once when that branch lights up. Firing on every note instead lets the sweep take its depth from each step’s velocity.',
+  note: 'One sweep per note, each on that note’s own filter. Only an oscillator has notes, and each one can scale the sweep by its own velocity.',
 }
 
 /**

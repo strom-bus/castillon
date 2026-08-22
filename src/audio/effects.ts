@@ -8,12 +8,12 @@ import {
 } from '../types/patch'
 import { stepDuration } from './clock'
 import {
-  crushCurve,
-  distortionCurve,
-  impulseResponse,
   MAX_BITS,
   MAX_REDUCTION,
   MIN_REDUCTION,
+  crushCurve,
+  distortionCurve,
+  fillImpulse,
 } from './dsp'
 import { DECIMATOR, OCTAVE } from './worklets/names'
 import type { Random } from './random'
@@ -141,10 +141,7 @@ const reverb: EffectDescriptor = {
         if (decay === built) return
         built = decay
 
-        const channels = impulseResponse(decay, ctx.sampleRate, random)
-        const buffer = ctx.createBuffer(channels.length, channels[0].length, ctx.sampleRate)
-        channels.forEach((channel, i) => buffer.getChannelData(i).set(channel))
-        convolver.buffer = buffer
+        convolver.buffer = impulseFor(ctx, decay, random)
       },
       paramFor(key) {
         return key === 'cutoff' ? damping.frequency : null
@@ -164,6 +161,54 @@ const reverb: EffectDescriptor = {
       },
     }
   },
+}
+
+/**
+ * Distinct tails kept per decay, rather than one per reverb.
+ *
+ * Not one shared tail: two reverbs on the same impulse response are perfectly correlated, so they sum
+ * three decibels louder and lose the diffusion that is the point of a room. Four is plenty of
+ * incoherence — nobody can hear the fifth reverb repeating the first — and it turns what a load of them
+ * costs from linear into constant.
+ *
+ * A megabyte per second of tail is nothing for the three or four reverbs a patch has, and it is a hundred
+ * and fifty megabytes for a measurement holding seventy-nine. That measurement is where it was found: a
+ * sweep stopped while building them, not in any loop, with the tab frozen in collection and no watchdog
+ * able to fire because nothing was running to fire it.
+ */
+const IMPULSE_VARIANTS = 4
+
+/** Keyed weakly, so a closed context takes its tails with it rather than outliving the render. */
+const impulses = new WeakMap<BaseAudioContext, Map<string, AudioBuffer[]>>()
+
+function impulseFor(ctx: BaseAudioContext, decay: number, random: () => number): AudioBuffer {
+  let forContext = impulses.get(ctx)
+  if (!forContext) {
+    forContext = new Map()
+    impulses.set(ctx, forContext)
+  }
+
+  const key = decay.toFixed(1)
+  let kept = forContext.get(key)
+  if (!kept) {
+    kept = []
+    forContext.set(key, kept)
+  }
+
+  if (kept.length < IMPULSE_VARIANTS) {
+    const length = Math.max(1, Math.floor(decay * ctx.sampleRate))
+    const buffer = ctx.createBuffer(2, length, ctx.sampleRate)
+    // Straight into the buffer's own storage: building each channel separately and copying it in
+    // allocates the whole tail twice.
+    fillImpulse(buffer.getChannelData(0), random)
+    fillImpulse(buffer.getChannelData(1), random)
+    kept.push(buffer)
+    return buffer
+  }
+
+  // Drawn from the same source of randomness as the tails themselves, so a seeded render still renders
+  // the same thing twice.
+  return kept[Math.floor(random() * kept.length)] as AudioBuffer
 }
 
 const distortion: EffectDescriptor = {

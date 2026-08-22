@@ -94,6 +94,23 @@ export function crushCurve(bits: number, points = CURVE_POINTS): Float32Array<Ar
  * reflections, no modal structure — but for a synth tail it is convincing, and two decorrelated
  * channels give it width.
  */
+/**
+ * Writes one channel of a reverb tail into an array that already exists.
+ *
+ * In place because the caller has somewhere to put it. Building the channel separately and copying it into
+ * an audio buffer allocates the whole tail twice, and a tail is a megabyte — which is nothing for one
+ * reverb and a hundred and fifty for a measurement holding seventy-nine of them.
+ */
+export function fillImpulse(channel: Float32Array, random: () => number = Math.random): void {
+  const length = channel.length
+  for (let i = 0; i < length; i++) {
+    // Squared so the tail falls away steeply at first and then lingers, which is what a decay sounds
+    // like; a straight ramp reads as a fade rather than a room.
+    const envelope = Math.pow(1 - i / length, 2)
+    channel[i] = (random() * 2 - 1) * envelope
+  }
+}
+
 export function impulseResponse(
   seconds: number,
   sampleRate: number,
@@ -102,12 +119,7 @@ export function impulseResponse(
   const length = Math.max(1, Math.floor(seconds * sampleRate))
   return [0, 1].map(() => {
     const channel = new Float32Array(length)
-    for (let i = 0; i < length; i++) {
-      // Squared so the tail falls away steeply at first and then lingers, which is what a decay
-      // sounds like; a straight ramp reads as a fade rather than a room.
-      const envelope = Math.pow(1 - i / length, 2)
-      channel[i] = (random() * 2 - 1) * envelope
-    }
+    fillImpulse(channel, random)
     return channel
   })
 }

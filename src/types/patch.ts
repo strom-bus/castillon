@@ -79,6 +79,13 @@ export interface OscParams {
   cutoff: number
   /** Biquad Q. */
   resonance: number
+  /**
+   * How much of the note's pitch the cutoff follows, 0–1. At 1 it doubles every octave.
+   *
+   * Measured up from C1, so it only ever opens the filter. See `trackedCutoff` for why absolute Hz is
+   * the wrong unit on an instrument that picks its own register.
+   */
+  keyTrack: number
   propagateMode: PropagateMode
 }
 

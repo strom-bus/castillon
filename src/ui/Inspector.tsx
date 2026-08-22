@@ -895,6 +895,14 @@ export function Inspector() {
             step={0.1}
             onChange={(resonance) => set({ resonance })}
           />
+          <Slider
+            label="Key follow"
+            value={params.keyTrack ?? 0}
+            min={0}
+            max={1}
+            step={0.05}
+            onChange={(keyTrack) => set({ keyTrack })}
+          />
         </>
       )}
 

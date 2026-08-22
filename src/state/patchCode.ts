@@ -242,6 +242,7 @@ const OSC_FIELDS: Field<OscParams>[] = [
   // Appended, which costs nothing: `readParams` reads only as many fields as are declared, so a code
   // written before this existed simply stops early and the reference below supplies the rest.
   scaledField('decay', 11, 1, 0, 2000),
+  scaledField('keyTrack', 7, 100, 0, 100),
 ]
 
 const FX_FIELDS: Field<FxParams>[] = [
@@ -296,6 +297,7 @@ const OSC_REFERENCE: OscParams = {
   filterType: 'off',
   cutoff: 2000,
   resonance: 1,
+  keyTrack: 0,
   propagateMode: 'onEnd',
 }
 

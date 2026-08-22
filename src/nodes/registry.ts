@@ -1,4 +1,5 @@
 import { midiToFreq, stepDuration } from '../audio/clock'
+import { trackedCutoff } from '../audio/filter'
 import type { Engine } from '../audio/engine'
 import { MIN_REDUCTION } from '../audio/dsp'
 import { LAYER_THRESHOLD, MAX_LOAD } from '../audio/load'
@@ -132,6 +133,8 @@ export function defaultOscParams(): OscParams {
     filterType: 'off',
     cutoff: 2000,
     resonance: 1,
+    // Off, so a node made today sounds as one made before tracking existed did.
+    keyTrack: 0,
     propagateMode: 'onEnd',
   }
 }
@@ -175,7 +178,7 @@ const osc: NodeDefinition = {
         decay: params.decay ?? 0,
         release: params.release,
         filterType: params.filterType ?? 'off',
-        cutoff: params.cutoff ?? 2000,
+        cutoff: trackedCutoff(params.cutoff ?? 2000, s.note, params.keyTrack ?? 0),
         resonance: params.resonance ?? 1,
       })
     }

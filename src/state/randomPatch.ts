@@ -55,6 +55,34 @@ const COLUMN = 560
 const ROW = 230
 
 /**
+ * Half a grid step, which is about one node's footprint.
+ *
+ * Cascade nodes land on whole steps, so the halves between them are where an effect or a modulator can
+ * sit without covering anything.
+ */
+const CELL_X = COLUMN / 2
+const CELL_Y = ROW / 2
+
+/**
+ * Where to look for room beside a node, nearest first.
+ *
+ * Generated rather than written out so the search cannot run out: it spirals outwards until something is
+ * free. `side` is -1 to look left and 1 to look right, which is the only difference between placing an
+ * effect and placing a modulator — effects go to the right of what they process, modulators to the left
+ * of what they shape, so a node with both is not sandwiched.
+ */
+function nearbyCells(side: 1 | -1): Array<[number, number]> {
+  const cells: Array<[number, number]> = []
+  for (let out = 1; out <= 8; out++) {
+    for (let down = 0; down <= out; down++) {
+      cells.push([side * out, down])
+      if (down > 0) cells.push([side * out, -down])
+    }
+  }
+  return cells
+}
+
+/**
  * How big a roll comes out.
  *
  * The size is chosen *first* and everything else follows from it, because the interesting thing
@@ -161,10 +189,31 @@ export function randomPatch(random: () => number = Math.random): Patch {
   const nodes: PatchNode[] = []
   const edges: PatchEdge[] = []
   let n = 0
+  /**
+   * Cells already occupied, so nothing is ever placed on top of anything.
+   *
+   * Effects and modulators used to be offset by the loop index that produced them, which grows without
+   * bound — the fifth effect landed nearly three rows below its oscillator, on top of whatever lived
+   * there. A patch that looks like a mistake is worse than a patch that is merely dense.
+   */
+  const taken = new Set<string>()
+  const cellOf = (x: number, y: number) => `${Math.round(x / CELL_X)},${Math.round(y / CELL_Y)}`
+
   const add = (node: Omit<PatchNode, 'id'>): PatchNode => {
     const withId = { ...node, id: `r${n++}` }
+    taken.add(cellOf(node.position.x, node.position.y))
     nodes.push(withId)
     return withId
+  }
+
+  /** The nearest free cell beside a node, on the side asked for. */
+  const beside = (from: PatchNode, side: 1 | -1): { x: number; y: number } => {
+    for (const [across, down] of nearbyCells(side)) {
+      const at = { x: from.position.x + across * CELL_X, y: from.position.y + down * CELL_Y }
+      if (!taken.has(cellOf(at.x, at.y))) return at
+    }
+    // Eight cells out in both directions and everything taken: further out still beats overlapping.
+    return { x: from.position.x + side * CELL_X * 9, y: from.position.y }
   }
   const wire = (from: PatchNode, to: PatchNode, kind: PatchEdge['kind'] = 'event') =>
     edges.push({ id: `e${edges.length}`, kind, source: from.id, target: to.id })
@@ -252,12 +301,9 @@ export function randomPatch(random: () => number = Math.random): Patch {
     const target = c.pick(oscillators)
     const fx = add({
       type: 'fx',
-      // Beside its oscillator, and stepped down by index: several effects may share one oscillator,
-      // which is a patch worth making, and without the step they would land on the same spot.
-      position: {
-        x: target.position.x + COLUMN * 0.55,
-        y: target.position.y + i * Math.round(ROW * 0.55),
-      },
+      // The nearest free cell to its right. Several effects may share one oscillator, which is a patch
+      // worth making, so each takes the next space along rather than a fixed offset.
+      position: beside(target, 1),
       params: randomFx(c),
     })
     wire(target, fx, 'audio')
@@ -328,12 +374,8 @@ export function randomPatch(random: () => number = Math.random): Patch {
 
     const mod = add({
       type: 'mod',
-      // Opposite the effects, which sit to the right: a modulator on a node with an effect should not
-      // land on top of it.
-      position: {
-        x: destination.position.x - Math.round(COLUMN * 0.5),
-        y: destination.position.y + i * Math.round(ROW * 0.5),
-      },
+      // Opposite the effects, which sit to the right, so a node with both is not sandwiched.
+      position: beside(destination, -1),
       params,
     })
     wire(mod, destination, 'mod')

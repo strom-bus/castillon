@@ -297,3 +297,37 @@ describe('the modulators it rolls', () => {
     expect(lfos).toBeGreaterThan(params.length / 2)
   })
 })
+
+describe('where it puts things', () => {
+  it('never stacks two nodes on the same spot', () => {
+    // Effects and modulators were offset by the loop index that produced them, and a loop index grows
+    // without bound: the fifth effect landed nearly three rows below its oscillator, on top of whatever
+    // lived there. A patch that looks like a mistake is worse than one that is merely dense — and this
+    // is the test that would have caught it, since nothing about the arithmetic looked wrong.
+    for (const patch of many(400)) {
+      const cells = new Set<string>()
+      for (const node of patch.nodes) {
+        // Half a grid step in each direction, which is about one node's footprint.
+        const cell = `${Math.round(node.position.x / 280)},${Math.round(node.position.y / 115)}`
+        expect(cells.has(cell), `two nodes at ${cell}`).toBe(false)
+        cells.add(cell)
+      }
+    }
+  })
+
+  it('keeps effects to one side and modulators to the other', () => {
+    // So a node carrying both is not sandwiched between them.
+    for (const patch of many(80)) {
+      for (const edge of patch.edges) {
+        if (edge.kind !== 'audio' && edge.kind !== 'mod') continue
+        const from = patch.nodes.find((node) => node.id === edge.source)!
+        const to = patch.nodes.find((node) => node.id === edge.target)!
+
+        // Audio runs oscillator → effect, so the effect is to the right. Modulation runs mod →
+        // destination, so the modulator is to the left.
+        if (edge.kind === 'audio') expect(to.position.x).toBeGreaterThan(from.position.x)
+        else expect(from.position.x).toBeLessThan(to.position.x)
+      }
+    }
+  })
+})

@@ -88,6 +88,9 @@ export function startEngineRamp(options: EngineRampOptions = {}): {
       // The envelope is the point. This is what makes a voice's gain a-rate, and a hand-built voice
       // with a constant gain is the thing that mismeasured the ceiling by an order of magnitude.
       attack: 6,
+      // Flat, deliberately: the ceiling was measured against a note that holds its peak, and changing
+      // the subject would invalidate every figure the sweep produced.
+      decay: 0,
       release: 400,
       filterType: filtered ? 'lowpass' : 'off',
       cutoff: 700 + (slot % 40) * 80,

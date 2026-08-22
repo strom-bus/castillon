@@ -239,6 +239,9 @@ const OSC_FIELDS: Field<OscParams>[] = [
   ),
   scaledField('resonance', 8, 10, MIN_RESONANCE * 10, MAX_RESONANCE * 10),
   indexField('propagateMode', 2, PROPAGATE_CODES),
+  // Appended, which costs nothing: `readParams` reads only as many fields as are declared, so a code
+  // written before this existed simply stops early and the reference below supplies the rest.
+  scaledField('decay', 11, 1, 0, 2000),
 ]
 
 const FX_FIELDS: Field<FxParams>[] = [
@@ -287,6 +290,7 @@ const OSC_REFERENCE: OscParams = {
   division: '1/8',
   gain: 0.25,
   attack: 4,
+  decay: 0,
   release: 40,
   gate: 0.6,
   filterType: 'off',

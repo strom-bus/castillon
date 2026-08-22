@@ -81,6 +81,7 @@ function note(nodeId: string, over: Partial<NoteRequest> = {}): NoteRequest {
     duration: 0.5,
     gain: 0.8,
     attack: 5,
+    decay: 0,
     release: 50,
     filterType: 'lowpass',
     cutoff: 1200,

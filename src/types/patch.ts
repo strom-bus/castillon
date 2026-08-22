@@ -60,6 +60,17 @@ export interface OscParams {
   gain: number
   /** Milliseconds. */
   attack: number
+  /**
+   * Milliseconds to fall from the attack peak to silence, or 0 to hold the peak until the note ends.
+   *
+   * There is deliberately no sustain level to go with it. A sustain stage exists on a keyboard because
+   * a keyboard cannot know how long the key will be held; here every note is scheduled with a duration
+   * known in advance, and then the two controls stop being independent — a decay reaching zero at a
+   * third of the note is a pluck, and one that would take three times the note is a flat top. The time
+   * alone already sweeps from percussive to sustained, and a level would only add the ability to stop
+   * decaying, which is the same thing as choosing a longer decay (PLAN §18.9).
+   */
+  decay: number
   release: number
   /** Fraction of the step the note lasts. 0.6 is percussive, 1 is legato. */
   gate: number

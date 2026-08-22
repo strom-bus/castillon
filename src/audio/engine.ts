@@ -44,6 +44,8 @@ export interface NoteRequest {
   gain: number
   /** Milliseconds. */
   attack: number
+  /** Milliseconds from the attack peak down to silence. 0 holds the peak until the note ends. */
+  decay: number
   release: number
   filterType: FilterType
   /** Hz. */
@@ -468,7 +470,32 @@ export class AudioEngine implements Engine {
     const gain = this.ctx.createGain()
     gain.gain.setValueAtTime(0, req.time)
     gain.gain.linearRampToValueAtTime(req.gain, req.time + rise)
-    gain.gain.setValueAtTime(req.gain, holdEnd)
+
+    /*
+     * Between the peak and the end of the note, which is where a decay lives.
+     *
+     * Three cases rather than one, because a decay and a note length are set independently and either can
+     * be the shorter. A decay that finishes first leaves silence to sit in — that is the whole point of
+     * having one. A decay still falling when the note ends has to hand the release whatever is left,
+     * computed rather than guessed: scheduling a ramp to a time already past would be ignored, and the
+     * release would then start from the peak and undo the decay entirely.
+     */
+    const peakAt = req.time + rise
+    const decay = Math.max(0, req.decay / 1000)
+    const decayEnd = peakAt + decay
+
+    if (decay <= 0) {
+      gain.gain.setValueAtTime(req.gain, holdEnd)
+    } else if (decayEnd < holdEnd) {
+      gain.gain.linearRampToValueAtTime(0, decayEnd)
+      gain.gain.setValueAtTime(0, holdEnd)
+    } else {
+      // No clamp needed, and one was tried: this branch runs only when the decay outlasts the note, so
+      // the fraction cannot exceed one and the remainder cannot go negative. Guarding it anyway was
+      // provably dead — mutating the guard away failed nothing, because nothing could reach it.
+      gain.gain.linearRampToValueAtTime(req.gain * (1 - (holdEnd - peakAt) / decay), holdEnd)
+    }
+
     gain.gain.linearRampToValueAtTime(0, end)
 
     // One biquad per voice, so a filter sweep tracks each note rather than a shared bus.

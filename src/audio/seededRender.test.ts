@@ -40,6 +40,7 @@ const NOISE: NoteRequest = {
   duration: 0.5,
   gain: 0.8,
   attack: 5,
+  decay: 0,
   release: 50,
   filterType: 'off',
   cutoff: 1200,

@@ -125,6 +125,8 @@ export function defaultOscParams(): OscParams {
     division: '1/8',
     gain: 0.25,
     attack: 4,
+    // Zero, so a node created today sounds exactly as one created before decay existed did.
+    decay: 0,
     release: 40,
     gate: 0.6,
     filterType: 'off',
@@ -170,6 +172,7 @@ const osc: NodeDefinition = {
         duration: step * params.gate,
         gain: params.gain * s.velocity,
         attack: params.attack,
+        decay: params.decay ?? 0,
         release: params.release,
         filterType: params.filterType ?? 'off',
         cutoff: params.cutoff ?? 2000,

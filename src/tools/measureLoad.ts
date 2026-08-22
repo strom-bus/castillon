@@ -102,6 +102,7 @@ function note(over: Partial<NoteRequest>, index: number): NoteRequest {
     duration: RENDER_SECONDS,
     gain: 0.02,
     attack: 5,
+    decay: 0,
     release: 5,
     filterType: 'off',
     cutoff: 2000,

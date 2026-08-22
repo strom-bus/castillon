@@ -938,6 +938,15 @@ export function Inspector() {
         onChange={(attack) => set({ attack })}
       />
       <Slider
+        label="Decay"
+        value={params.decay ?? 0}
+        min={0}
+        max={2000}
+        step={5}
+        suffix=" ms"
+        onChange={(decay) => set({ decay })}
+      />
+      <Slider
         label="Release"
         value={params.release}
         min={5}

@@ -89,6 +89,29 @@ const SATURATED_AT = 0.5
 const wait = (seconds: number) => new Promise((done) => setTimeout(done, seconds * 1000))
 
 /**
+ * Refuses to wait for ever.
+ *
+ * Every await in a trial talks to the audio system, and the audio system is entitled to simply never
+ * answer — a context that cannot start leaves `resume()` pending indefinitely, and there is no event to
+ * say so. Unguarded, that is a frozen tab and no information. Guarded, it is a line saying which call
+ * stopped and on which trial, which is the difference between a bug report and a diagnosis.
+ */
+async function guard<T>(work: Promise<T>, seconds: number, what: string): Promise<T> {
+  let bell: ReturnType<typeof setTimeout>
+  const alarm = new Promise<never>((_, fail) => {
+    bell = setTimeout(
+      () => fail(new Error(`${what} did not answer within ${seconds}s`)),
+      seconds * 1000,
+    )
+  })
+  try {
+    return await Promise.race([work, alarm])
+  } finally {
+    clearTimeout(bell!)
+  }
+}
+
+/**
  * When a slot should fire next, given where it got to and what time it is now.
  *
  * The clamp to `now` is the whole point, and it is why this is a function rather than four lines inside
@@ -130,13 +153,19 @@ function note(slot: number, at: number, filtered: boolean): NoteRequest {
   }
 }
 
-/** Whether trials can be run at all here. */
-export async function probingAvailable(): Promise<boolean> {
+/**
+ * The one context a whole sweep runs in, started and checked.
+ *
+ * One, not one per trial. A browser caps how many audio contexts a page may hold at once, and a sweep
+ * bisecting sixteen subjects wants well over a hundred — past the cap `new AudioContext()` yields
+ * something that never reaches `running`, so `resume()` never settles and the sweep stops dead with no
+ * error to show. Nothing needed the fresh context anyway: what a trial must not inherit is the previous
+ * graph, and `dispose()` takes that down to the master gain.
+ */
+export async function openProbeContext(): Promise<{ ctx: AudioContext; supported: boolean }> {
   const ctx = new AudioContext()
-  await ctx.resume()
-  const yes = playbackStatsAvailable(ctx)
-  await ctx.close()
-  return yes
+  await guard(ctx.resume(), 5, 'opening the audio context')
+  return { ctx, supported: playbackStatsAvailable(ctx) }
 }
 
 /**
@@ -146,16 +175,16 @@ export async function probingAvailable(): Promise<boolean> {
  * trial bounded by the number under test could never exceed it — which is how one earlier measurement
  * silently capped itself at the answer it was looking for.
  */
-export async function probe(subject: Subject, units: number): Promise<Trial> {
-  const ctx = new AudioContext()
+export async function probe(subject: Subject, units: number, ctx: AudioContext): Promise<Trial> {
   const engine = new AudioEngine()
   engine.ceiling = Number.POSITIVE_INFINITY
   engine.setMasterGain(0.04)
   engine.adopt(ctx)
-  // Only where a processor is actually wanted. Registering both modules on every trial is a compile per
-  // fresh context, two hundred times across a sweep, for two effects out of eleven.
-  if (subject.effect === 'crush' || subject.effect === 'octave') await engine.loadWorklets()
-  await ctx.resume()
+  // Only where a processor is actually wanted, and only once per context: registering a module is a
+  // compile, and eleven effects out of thirteen never touch one.
+  if (subject.effect === 'crush' || subject.effect === 'octave') {
+    await guard(engine.loadWorklets(), 10, 'registering the worklet modules')
+  }
 
   const filtered = subject.filtered ?? true
   const scheduled: number[] = []
@@ -216,7 +245,8 @@ export async function probe(subject: Subject, units: number): Promise<Trial> {
   } finally {
     window.clearInterval(timer)
     engine.dispose()
-    await ctx.close()
+    // Yielded once, so the graph this trial built is actually released before the next one is measured.
+    await wait(0.05)
   }
 }
 

@@ -16,8 +16,8 @@ import { MAX_LOAD } from '../audio/load'
 import type { EffectKind } from '../types/patch'
 import {
   audioTargets,
+  openProbeContext,
   probe,
-  probingAvailable,
   projectedPoints,
   type Subject,
   type Trial,
@@ -61,7 +61,11 @@ export interface Sweep {
  * which is the safe direction for a budget — and repeating every trial would triple a sweep that already
  * takes minutes.
  */
-async function findBreak(subject: Subject, onStep: (label: string) => void): Promise<Found> {
+async function findBreak(
+  subject: Subject,
+  ctx: AudioContext,
+  onStep: (label: string) => void,
+): Promise<Found> {
   let clean: Trial | null = null
   let broke: Trial | null = null
 
@@ -70,7 +74,8 @@ async function findBreak(subject: Subject, onStep: (label: string) => void): Pro
     onStep(
       `${subject.label} · ${units} units · ~${projectedPoints(subject, units).toFixed(0)} points`,
     )
-    const trial = await probe(subject, units)
+    const trial = await probe(subject, units, ctx)
+    report(subject, trial)
     // A saturated main thread is not a reading. Stop rather than double into a tab that stops answering.
     if (trial.saturated) return { subject, clean, broke: null, saturated: trial }
     if (trial.underruns > 0) {
@@ -89,7 +94,8 @@ async function findBreak(subject: Subject, onStep: (label: string) => void): Pro
   while (high - low > Math.max(1, Math.round(high * PRECISION))) {
     const middle = Math.round((low + high) / 2)
     onStep(`${subject.label} · ${middle} units · narrowing`)
-    const trial = await probe(subject, middle)
+    const trial = await probe(subject, middle, ctx)
+    report(subject, trial)
     if (trial.saturated) return { subject, clean, broke, saturated: trial }
     if (trial.underruns > 0) {
       broke = trial
@@ -111,15 +117,54 @@ async function findBreak(subject: Subject, onStep: (label: string) => void): Pro
  * points is 0.06 % of the ceiling and invisible on its own — ramped across hundreds of units it is not.
  */
 export async function sweep(onStep: (label: string) => void): Promise<Sweep> {
-  if (!(await probingAvailable())) {
+  const { ctx, supported } = await openProbeContext()
+  if (!supported) {
+    await ctx.close()
     return { supported: false, reference: null, effects: [], surcharges: [] }
   }
 
-  const reference = await findBreak({ label: 'voices', filtered: true }, onStep)
+  try {
+    /*
+     * Announced before it runs, not only after it finishes.
+     *
+     * The two together are what localise a stall. A line saying a trial started, with no line saying how
+     * it went, means it died building that load — which is a different fault from one that reports a
+     * reading and then never begins the next. Twice now a diagnosis has cost a rerun for want of that
+     * distinction.
+     */
+    return await run(ctx, (label) => {
+      console.info(`[sweep] → ${label}`)
+      onStep(label)
+    })
+  } finally {
+    await ctx.close()
+  }
+}
+
+/**
+ * Every trial, echoed to the console as well as to the page.
+ *
+ * The page is the wrong place to watch a sweep from: building a few hundred nodes starves repainting, so
+ * a label that has not changed means nothing in particular. The console keeps its line whatever the
+ * renderer is doing, which makes the last one printed the answer to where it stopped.
+ */
+function report(subject: Subject, trial: Trial): void {
+  const state = trial.saturated
+    ? `SATURATED (${(trial.schedulerShare * 100).toFixed(0)}% scheduling)`
+    : trial.underruns > 0
+      ? `DROPPED ${trial.underruns}`
+      : 'clean'
+  console.info(
+    `[sweep] ${subject.label} · ${trial.units} units · ${trial.points.toFixed(0)} points · ${state}`,
+  )
+}
+
+async function run(ctx: AudioContext, onStep: (label: string) => void): Promise<Sweep> {
+  const reference = await findBreak({ label: 'voices', filtered: true }, ctx, onStep)
 
   const effects: Found[] = []
   for (const descriptor of EFFECTS) {
-    effects.push(await findBreak({ label: descriptor.label, effect: descriptor.kind }, onStep))
+    effects.push(await findBreak({ label: descriptor.label, effect: descriptor.kind }, ctx, onStep))
   }
 
   /*
@@ -137,10 +182,14 @@ export async function sweep(onStep: (label: string) => void): Promise<Sweep> {
     audioTargets(subject).includes(target),
   )
 
-  surcharges.push(await findBreak({ label: 'filter · unswept', effect: subject }, onStep))
+  surcharges.push(await findBreak({ label: 'filter · unswept', effect: subject }, ctx, onStep))
   for (const target of wanted) {
     surcharges.push(
-      await findBreak({ label: `filter · ${target}`, effect: subject, modulate: target }, onStep),
+      await findBreak(
+        { label: `filter · ${target}`, effect: subject, modulate: target },
+        ctx,
+        onStep,
+      ),
     )
   }
 

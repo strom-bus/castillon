@@ -82,8 +82,24 @@ async function findBreak(
   let clean: Trial | null = null
   let broke: Trial | null = null
 
+  const perUnit = projectedPoints(subject, 1)
+  /** The largest load the cost cap allows, which the doubling on its own would sail past and abandon. */
+  const most = Math.min(CEILING_UNITS, Math.floor(POINT_CAP / perUnit))
+
   let units = FIRST
-  while (units <= CEILING_UNITS && projectedPoints(subject, units) <= POINT_CAP) {
+  while (units <= CEILING_UNITS) {
+    /*
+     * One last rung at the cap itself, rather than stopping at the last power of two beneath it.
+     *
+     * Doubling is coarse, and the cap falls where it falls: a run of this stopped eleven subjects out of
+     * twelve with between a half and a whole doubling of allowed headroom still unexplored, reverb at 64
+     * units when 121 were affordable. Half the table came back as one-sided bounds for want of one more
+     * trial each.
+     */
+    if (units > most) {
+      if (!clean || most <= clean.units) break
+      units = most
+    }
     onStep(
       `${subject.label} · ${units} units · ~${projectedPoints(subject, units).toFixed(0)} points`,
     )
@@ -106,6 +122,8 @@ async function findBreak(
       break
     }
     clean = trial
+    // Already at the cap: doubling from here only overshoots, and the guard above would send it back.
+    if (units >= most) break
     units *= 2
   }
 

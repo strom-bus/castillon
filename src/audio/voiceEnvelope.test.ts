@@ -30,6 +30,7 @@ function note(over: Partial<NoteRequest> = {}): NoteRequest {
     attack: 10,
     decay: 0,
     glide: 0,
+    velocity: 1,
     release: 100,
     filterType: 'off',
     cutoff: 2000,

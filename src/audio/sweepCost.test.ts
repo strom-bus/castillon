@@ -121,6 +121,7 @@ describe('the price of a sweep, in the live meter', () => {
     attack: 5,
     decay: 0,
     glide: 0,
+    velocity: 1,
     release: 20,
     filterType: 'lowpass',
     cutoff: 1200,

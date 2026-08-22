@@ -289,6 +289,14 @@ export interface ModParams {
    */
   fires?: 'trigger' | 'note'
   wave?: 'sine' | 'triangle' | 'square' | 'sawtooth' | 'random'
+  /**
+   * Whether a per-note envelope's peak is scaled by the note's velocity.
+   *
+   * Only per-note envelopes can honour it, being the only modulator with a note to read. It is what turns
+   * a step's velocity from a second name for level into a source: the same cable on a cutoff opens further
+   * on a hard step than on a soft one.
+   */
+  byVelocity?: boolean
   /** Hertz. An LFO's rate; an envelope has none, since the cascade decides when it runs. */
   rate?: number
   /** 0 to 1, as a share of the target's own value. For an envelope this is its peak. */

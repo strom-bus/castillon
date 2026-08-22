@@ -61,6 +61,14 @@ export interface NoteRequest {
   release: number
   /** Milliseconds to slide from the previous note on this node into this one. 0 jumps. */
   glide: number
+  /**
+   * The step's velocity, 0–1, kept apart from `gain` even though `gain` already has it folded in.
+   *
+   * Because loudness is the least of what a velocity can say. Scaling the gain is all it did, and that
+   * made it very nearly a second name for level — the useful thing is a per-note *source*, so a hard step
+   * can open a filter further than a soft one. That needs the number itself, not its effect on volume.
+   */
+  velocity: number
   filterType: FilterType
   /** Hz. */
   cutoff: number
@@ -128,6 +136,8 @@ interface ModInstance {
   /** Seconds. An envelope reads these when it fires, so a change lands on the next trigger. */
   attack: number
   decay: number
+  /** Whether a per-note envelope's peak is scaled by the note's own velocity. */
+  byVelocity: boolean
 }
 
 /**
@@ -190,6 +200,8 @@ interface Voice {
   chain: AudioNode[]
   /** Its own filter, where it has one, since that is what a modulator on this oscillator points at. */
   filter: BiquadFilterNode | null
+  /** What the step asked for, so a per-note envelope can be scaled by it. */
+  velocity: number
   /**
    * What is driving that filter, so it can be let go of when the note ends.
    *
@@ -574,6 +586,7 @@ export class AudioEngine implements Engine {
       source,
       chain,
       filter,
+      velocity: req.velocity,
       modulated: [],
     }
     // Anything already pointed at this oscillator's filter takes hold of this note as it starts.
@@ -790,6 +803,7 @@ export class AudioEngine implements Engine {
       rate: clamp(params.rate ?? 2, MIN_RATE, MAX_RATE),
       attack: clamp(params.attack ?? 40, MIN_MOD_ATTACK, MAX_MOD_ATTACK) / 1000,
       decay: clamp(params.decay ?? 600, MIN_MOD_DECAY, MAX_MOD_DECAY) / 1000,
+      byVelocity: params.byVelocity === true,
     })
   }
 
@@ -827,6 +841,7 @@ export class AudioEngine implements Engine {
     instance.attack = clamp(params.attack ?? 40, MIN_MOD_ATTACK, MAX_MOD_ATTACK) / 1000
     instance.decay = clamp(params.decay ?? 600, MIN_MOD_DECAY, MAX_MOD_DECAY) / 1000
     instance.fires = params.fires === 'note' ? 'note' : 'trigger'
+    instance.byVelocity = params.byVelocity === true
 
     if (instance.kind !== 'lfo') return
     const at = this.ctx.currentTime
@@ -1243,7 +1258,15 @@ export class AudioEngine implements Engine {
       shape.gain.value = 0
       instance.runner.connect(shape)
       shape.connect(param)
-      drawEnvelope(shape.gain, at, link.peak, instance.attack, instance.decay)
+      /*
+       * Scaled by the note, where the modulator asks for it.
+       *
+       * This is what makes a velocity a modulation source rather than a second volume control: the same
+       * cable, wired to a cutoff, opens further on a hard step than on a soft one. It belongs here and
+       * nowhere else — a per-note envelope is the only modulator that has a note to read.
+       */
+      const peak = link.peak * (instance.byVelocity ? voice.velocity : 1)
+      drawEnvelope(shape.gain, at, peak, instance.attack, instance.decay)
       voice.modulated.push({ amount: shape, param, from: instance.runner })
       return
     }

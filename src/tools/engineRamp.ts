@@ -92,6 +92,7 @@ export function startEngineRamp(options: EngineRampOptions = {}): {
       // the subject would invalidate every figure the sweep produced.
       decay: 0,
       glide: 0,
+      velocity: 1,
       release: 400,
       filterType: filtered ? 'lowpass' : 'off',
       cutoff: 700 + (slot % 40) * 80,

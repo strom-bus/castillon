@@ -476,6 +476,7 @@ function writeMod(writer: BitWriter, raw: ModParams): void {
   // and the few spare bits are not worth a conditional layout that both ends have to agree on.
   writer.write(raw.kind === 'env' ? 1 : 0, MOD_KIND_BITS)
   writer.write(raw.fires === 'note' ? 1 : 0, MOD_FIRES_BITS)
+  writer.write(raw.byVelocity === true ? 1 : 0, 1)
   const wave = MOD_WAVES.indexOf(raw.wave ?? 'sine')
   writer.write(wave < 0 ? 0 : wave, MOD_WAVE_BITS)
   writer.write(quantise((raw.rate ?? 2) * 100, 1, 0, (1 << MOD_RATE_BITS) - 1), MOD_RATE_BITS)
@@ -488,13 +489,14 @@ function writeMod(writer: BitWriter, raw: ModParams): void {
 function readMod(reader: BitReader): ModParams {
   const kind = reader.read(MOD_KIND_BITS) === 1 ? 'env' : 'lfo'
   const fires = reader.read(MOD_FIRES_BITS) === 1 ? 'note' : 'trigger'
+  const byVelocity = reader.read(1) === 1
   const wave = MOD_WAVES[reader.read(MOD_WAVE_BITS)] ?? 'sine'
   const rate = reader.read(MOD_RATE_BITS) / 100
   const depth = reader.read(MOD_DEPTH_BITS) / 100
   const attack = reader.read(MOD_ATTACK_BITS)
   const decay = reader.read(MOD_DECAY_BITS)
   const target = readText(reader)
-  return { kind, fires, wave, rate, depth, attack, decay, target: target || 'level' }
+  return { kind, fires, byVelocity, wave, rate, depth, attack, decay, target: target || 'level' }
 }
 
 function writeFx(writer: BitWriter, raw: FxParams): void {

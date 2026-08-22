@@ -703,6 +703,17 @@ export function Inspector() {
               </select>
             </label>
 
+            {fires === 'note' && (
+              <label className="inspector-field">
+                <span>Scale by velocity</span>
+                <input
+                  type="checkbox"
+                  checked={mod.byVelocity === true}
+                  onChange={(e) => updateParams(node.id, { byVelocity: e.target.checked })}
+                />
+              </label>
+            )}
+
             <TypedSlider
               label="Attack"
               value={mod.attack ?? 40}

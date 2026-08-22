@@ -42,6 +42,7 @@ const NOISE: NoteRequest = {
   attack: 5,
   decay: 0,
   glide: 0,
+  velocity: 1,
   release: 50,
   filterType: 'off',
   cutoff: 1200,

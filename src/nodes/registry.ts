@@ -178,6 +178,7 @@ const osc: NodeDefinition = {
         pulseWidth: params.pulseWidth ?? 0.5,
         duration: step * params.gate,
         gain: params.gain * s.velocity,
+        velocity: s.velocity,
         attack: params.attack,
         decay: params.decay ?? 0,
         release: params.release,

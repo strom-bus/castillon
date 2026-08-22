@@ -23,6 +23,12 @@ const NOTE_RATE = 6
 const HORIZON = 0.25
 /** Seconds before a reading is believed: a context that has just been built is still settling. */
 const SETTLE = 0.7
+/** Underruns must hold still this long before a trial counts as having a clean baseline. */
+const QUIET = 0.6
+/** And this is as long as it will wait for that. Past here the context is spoiled, not settling. */
+const PATIENCE = 4
+/** Trials a context runs before it is retired, whether or not it looks well. */
+const PER_CONTEXT = 12
 /** Seconds the load is held and watched. */
 const HOLD = 1.3
 /** How often the scheduler wakes. */
@@ -81,6 +87,14 @@ export interface Trial {
   saturated: boolean
   /** Share of wall time the note scheduler spent running. */
   schedulerShare: number
+  /**
+   * Whether the audio thread ever went quiet before the reading was taken.
+   *
+   * An unsettled trial is not a soft result, it is no result. Tearing down a few hundred effects glitches
+   * for longer than a fixed pause allows for, and those glitches land in whatever is measured next — which
+   * is how seven phasers came to look like the limit of a thread that had just carried four hundred voices.
+   */
+  settled: boolean
 }
 
 /** Beyond this share of the main thread spent scheduling, the trial is not measuring the audio thread. */
@@ -154,18 +168,75 @@ function note(slot: number, at: number, filtered: boolean): NoteRequest {
 }
 
 /**
- * The one context a whole sweep runs in, started and checked.
+ * Contexts, handed out a few trials at a time.
  *
- * One, not one per trial. A browser caps how many audio contexts a page may hold at once, and a sweep
- * bisecting sixteen subjects wants well over a hundred — past the cap `new AudioContext()` yields
- * something that never reaches `running`, so `resume()` never settles and the sweep stops dead with no
- * error to show. Nothing needed the fresh context anyway: what a trial must not inherit is the previous
- * graph, and `dispose()` takes that down to the master gain.
+ * Neither extreme works. One per trial wants over a hundred in a sweep, and a browser caps how many a page
+ * may hold at once — past the cap `new AudioContext()` yields something that never reaches `running`, so
+ * `resume()` stays pending with no event to say why, and the sweep dies where it stands. One for the whole
+ * sweep instead lets damage pile up: the same filter subject read 1650 points early on and 907 at the end,
+ * a factor of 1.8 on something identical.
+ *
+ * So a dozen trials each, which is eight or nine contexts for a sweep — far under any cap, and short enough
+ * that nothing accumulates far. A trial that finds its context spoiled can also retire it early.
  */
-export async function openProbeContext(): Promise<{ ctx: AudioContext; supported: boolean }> {
-  const ctx = new AudioContext()
-  await guard(ctx.resume(), 5, 'opening the audio context')
-  return { ctx, supported: playbackStatsAvailable(ctx) }
+export interface Pool {
+  get(): Promise<AudioContext>
+  /** Throw this context away: something it did cannot be trusted. */
+  retire(): void
+  close(): Promise<void>
+}
+
+export async function openPool(): Promise<{ pool: Pool; supported: boolean }> {
+  let ctx: AudioContext | null = null
+  let left = 0
+
+  const fresh = async () => {
+    if (ctx) await guard(ctx.close(), 5, 'closing the audio context').catch(() => {})
+    ctx = new AudioContext()
+    await guard(ctx.resume(), 5, 'opening the audio context')
+    left = PER_CONTEXT
+    return ctx
+  }
+
+  const first = await fresh()
+  return {
+    supported: playbackStatsAvailable(first),
+    pool: {
+      async get() {
+        if (!ctx || left <= 0) return await fresh()
+        left--
+        return ctx
+      },
+      retire() {
+        left = 0
+      },
+      async close() {
+        if (ctx) await guard(ctx.close(), 5, 'closing the audio context').catch(() => {})
+        ctx = null
+      },
+    },
+  }
+}
+
+/**
+ * Waits for the audio thread to stop dropping things, so a reading starts from silence.
+ *
+ * A fixed pause cannot do this job. How long a context needs depends on what was torn down before it, and
+ * the honest signal is the counter itself holding still — not a duration somebody picked.
+ */
+async function quiet(ctx: AudioContext): Promise<boolean> {
+  const started = performance.now()
+  let last = readPlayback(ctx)?.events ?? 0
+  let since = 0
+
+  while ((performance.now() - started) / 1000 < PATIENCE) {
+    await wait(0.1)
+    const now = readPlayback(ctx)?.events ?? 0
+    since = now === last ? since + 0.1 : 0
+    last = now
+    if (since >= QUIET) return true
+  }
+  return false
 }
 
 /**
@@ -175,7 +246,16 @@ export async function openProbeContext(): Promise<{ ctx: AudioContext; supported
  * trial bounded by the number under test could never exceed it — which is how one earlier measurement
  * silently capped itself at the answer it was looking for.
  */
-export async function probe(subject: Subject, units: number, ctx: AudioContext): Promise<Trial> {
+export async function probe(subject: Subject, units: number, pool: Pool): Promise<Trial> {
+  // Two attempts. A context that will not go quiet is retired and the same load tried once on a fresh one,
+  // because the usual cause is the previous trial's teardown rather than anything about this load.
+  const first = await attempt(subject, units, await pool.get())
+  if (first.settled) return first
+  pool.retire()
+  return await attempt(subject, units, await pool.get())
+}
+
+async function attempt(subject: Subject, units: number, ctx: AudioContext): Promise<Trial> {
   const engine = new AudioEngine()
   engine.ceiling = Number.POSITIVE_INFINITY
   engine.setMasterGain(0.04)
@@ -227,6 +307,7 @@ export async function probe(subject: Subject, units: number, ctx: AudioContext):
 
   try {
     await wait(SETTLE)
+    const settled = await quiet(ctx)
     const before = readPlayback(ctx)
     const points = engine.voiceLoadAt(engine.now()) + engine.effectLoad()
     schedulerMs = 0
@@ -241,6 +322,7 @@ export async function probe(subject: Subject, units: number, ctx: AudioContext):
       underruns: (after?.events ?? 0) - (before?.events ?? 0),
       saturated: share > SATURATED_AT,
       schedulerShare: share,
+      settled,
     }
   } finally {
     window.clearInterval(timer)

@@ -16,9 +16,10 @@ import { MAX_LOAD } from '../audio/load'
 import type { EffectKind } from '../types/patch'
 import {
   audioTargets,
-  openProbeContext,
+  openPool,
   probe,
   projectedPoints,
+  type Pool,
   type Subject,
   type Trial,
 } from './probe'
@@ -45,6 +46,8 @@ export interface Found {
   broke: Trial | null
   /** The trial where the main thread, not the audio thread, ran out — which invalidates the search. */
   saturated: Trial | null
+  /** Whether the search was abandoned because no trial could be trusted. A result, not a number. */
+  unsettled: boolean
 }
 
 export interface Sweep {
@@ -52,6 +55,15 @@ export interface Sweep {
   reference: Found | null
   effects: Found[]
   surcharges: Found[]
+  /**
+   * The reference measured again at the end, which is what says whether any of the rest means anything.
+   *
+   * The same subject twice, first and last, with the whole sweep in between. If the two agree, nothing
+   * drifted and every figure here stands. If they do not, the sweep damaged itself as it went and the
+   * numbers are an artefact of their position in the running order — which is exactly what happened
+   * before this existed, discovered only because one subject happened to be measured twice by accident.
+   */
+  again: Found | null
 }
 
 /**
@@ -63,7 +75,7 @@ export interface Sweep {
  */
 async function findBreak(
   subject: Subject,
-  ctx: AudioContext,
+  pool: Pool,
   onStep: (label: string) => void,
 ): Promise<Found> {
   let clean: Trial | null = null
@@ -74,11 +86,21 @@ async function findBreak(
     onStep(
       `${subject.label} · ${units} units · ~${projectedPoints(subject, units).toFixed(0)} points`,
     )
-    const trial = await probe(subject, units, ctx)
+    const trial = await probe(subject, units, pool)
     report(subject, trial)
     // A saturated main thread is not a reading. Stop rather than double into a tab that stops answering.
-    if (trial.saturated) return { subject, clean, broke: null, saturated: trial }
+    if (trial.saturated) return { subject, clean, broke: null, saturated: trial, unsettled: false }
+    if (!trial.settled) return { subject, clean, broke: null, saturated: null, unsettled: true }
     if (trial.underruns > 0) {
+      /*
+       * A break on the very first rung is not a break.
+       *
+       * Nothing was ever held cleanly, so there is no bracket to bisect and nothing to compare — and the
+       * number it would print is the starting rung, which says more about where the search begins than
+       * about the subject. Seven phasers were reported as the limit of a thread that had just carried four
+       * hundred and forty-eight voices.
+       */
+      if (!clean) return { subject, clean: null, broke: trial, saturated: null, unsettled: true }
       broke = trial
       break
     }
@@ -86,7 +108,7 @@ async function findBreak(
     units *= 2
   }
 
-  if (!broke) return { subject, clean, broke: null, saturated: null }
+  if (!broke) return { subject, clean, broke: null, saturated: null, unsettled: false }
 
   // Bisect between the last load that held and the first that did not.
   let low = clean?.units ?? 0
@@ -94,9 +116,10 @@ async function findBreak(
   while (high - low > Math.max(1, Math.round(high * PRECISION))) {
     const middle = Math.round((low + high) / 2)
     onStep(`${subject.label} · ${middle} units · narrowing`)
-    const trial = await probe(subject, middle, ctx)
+    const trial = await probe(subject, middle, pool)
     report(subject, trial)
-    if (trial.saturated) return { subject, clean, broke, saturated: trial }
+    if (trial.saturated) return { subject, clean, broke, saturated: trial, unsettled: false }
+    if (!trial.settled) return { subject, clean, broke, saturated: null, unsettled: true }
     if (trial.underruns > 0) {
       broke = trial
       high = middle
@@ -106,7 +129,7 @@ async function findBreak(
     }
   }
 
-  return { subject, clean, broke, saturated: null }
+  return { subject, clean, broke, saturated: null, unsettled: false }
 }
 
 /**
@@ -117,10 +140,10 @@ async function findBreak(
  * points is 0.06 % of the ceiling and invisible on its own — ramped across hundreds of units it is not.
  */
 export async function sweep(onStep: (label: string) => void): Promise<Sweep> {
-  const { ctx, supported } = await openProbeContext()
+  const { pool, supported } = await openPool()
   if (!supported) {
-    await ctx.close()
-    return { supported: false, reference: null, effects: [], surcharges: [] }
+    await pool.close()
+    return { supported: false, reference: null, effects: [], surcharges: [], again: null }
   }
 
   try {
@@ -132,12 +155,12 @@ export async function sweep(onStep: (label: string) => void): Promise<Sweep> {
      * reading and then never begins the next. Twice now a diagnosis has cost a rerun for want of that
      * distinction.
      */
-    return await run(ctx, (label) => {
+    return await run(pool, (label) => {
       console.info(`[sweep] → ${label}`)
       onStep(label)
     })
   } finally {
-    await ctx.close()
+    await pool.close()
   }
 }
 
@@ -149,22 +172,26 @@ export async function sweep(onStep: (label: string) => void): Promise<Sweep> {
  * renderer is doing, which makes the last one printed the answer to where it stopped.
  */
 function report(subject: Subject, trial: Trial): void {
-  const state = trial.saturated
-    ? `SATURATED (${(trial.schedulerShare * 100).toFixed(0)}% scheduling)`
-    : trial.underruns > 0
-      ? `DROPPED ${trial.underruns}`
-      : 'clean'
+  const state = !trial.settled
+    ? 'UNSETTLED — the context never went quiet'
+    : trial.saturated
+      ? `SATURATED (${(trial.schedulerShare * 100).toFixed(0)}% scheduling)`
+      : trial.underruns > 0
+        ? `DROPPED ${trial.underruns}`
+        : 'clean'
   console.info(
     `[sweep] ${subject.label} · ${trial.units} units · ${trial.points.toFixed(0)} points · ${state}`,
   )
 }
 
-async function run(ctx: AudioContext, onStep: (label: string) => void): Promise<Sweep> {
-  const reference = await findBreak({ label: 'voices', filtered: true }, ctx, onStep)
+async function run(pool: Pool, onStep: (label: string) => void): Promise<Sweep> {
+  const reference = await findBreak({ label: 'voices', filtered: true }, pool, onStep)
 
   const effects: Found[] = []
   for (const descriptor of EFFECTS) {
-    effects.push(await findBreak({ label: descriptor.label, effect: descriptor.kind }, ctx, onStep))
+    effects.push(
+      await findBreak({ label: descriptor.label, effect: descriptor.kind }, pool, onStep),
+    )
   }
 
   /*
@@ -182,18 +209,31 @@ async function run(ctx: AudioContext, onStep: (label: string) => void): Promise<
     audioTargets(subject).includes(target),
   )
 
-  surcharges.push(await findBreak({ label: 'filter · unswept', effect: subject }, ctx, onStep))
+  surcharges.push(await findBreak({ label: 'filter · unswept', effect: subject }, pool, onStep))
   for (const target of wanted) {
     surcharges.push(
       await findBreak(
         { label: `filter · ${target}`, effect: subject, modulate: target },
-        ctx,
+        pool,
         onStep,
       ),
     )
   }
 
-  return { supported: true, reference, effects, surcharges }
+  const again = await findBreak({ label: 'voices again', filtered: true }, pool, onStep)
+  return { supported: true, reference, effects, surcharges, again }
+}
+
+/** How far the two reference readings may differ before the sweep is calling itself untrustworthy. */
+const DRIFT_LIMIT = 0.15
+
+/** The two reference readings, and what their disagreement costs the rest. */
+function drift(result: Sweep): { share: number; trustworthy: boolean } | null {
+  const first = result.reference?.clean?.points
+  const last = result.again?.clean?.points
+  if (!first || !last) return null
+  const share = Math.abs(last - first) / first
+  return { share, trustworthy: share <= DRIFT_LIMIT }
 }
 
 /** What one subject's break point says the model is out by. */
@@ -215,6 +255,12 @@ export function formatSweep(result: Sweep): string {
   const row = (found: Found) => {
     const clean = found.clean?.points
     const units = found.clean?.units
+    if (found.unsettled) {
+      return (
+        `  ${found.subject.label.padEnd(20)} no reading — the audio thread never went quiet, so ` +
+        `nothing here could be trusted`
+      )
+    }
     if (found.saturated) {
       const share = (found.saturated.schedulerShare * 100).toFixed(0)
       return (
@@ -231,13 +277,38 @@ export function formatSweep(result: Sweep): string {
     )
   }
 
+  const moved = drift(result)
+  const verdict = !moved
+    ? ['Only one reference reading, so there is no check on drift and nothing here is confirmed.']
+    : moved.trustworthy
+      ? [
+          `Voices read ${result.reference?.clean?.points?.toFixed(0)} points at the start and ` +
+            `${result.again?.clean?.points?.toFixed(0)} at the end, ` +
+            `${(moved.share * 100).toFixed(1)}% apart. Nothing drifted; the figures below stand.`,
+        ]
+      : [
+          `TRUST NOTHING BELOW. Voices read ${result.reference?.clean?.points?.toFixed(0)} points at the ` +
+            `start and ${result.again?.clean?.points?.toFixed(0)} at the end, ` +
+            `${(moved.share * 100).toFixed(1)}% apart on identical work.`,
+          'The sweep damaged itself as it ran, so each figure reflects where it came in the order as much',
+          'as what it measured. Shorten the run or give each subject its own context.',
+        ]
+
   return [
     `MAX_LOAD is ${MAX_LOAD}. Every factor below is measured against voices, which is the unit.`,
+    '',
+    ...verdict,
     '',
     'Reference:',
     row(
       result.reference ??
-        ({ subject: { label: 'voices' }, clean: null, broke: null, saturated: null } as Found),
+        ({
+          subject: { label: 'voices' },
+          clean: null,
+          broke: null,
+          saturated: null,
+          unsettled: false,
+        } as Found),
     ),
     '',
     'Effects — one per unit, each fed by its own voice:',
@@ -245,6 +316,9 @@ export function formatSweep(result: Sweep): string {
     '',
     'Sweeping a parameter — the same effect with and without a modulator on one target:',
     ...result.surcharges.map(row),
+    '',
+    'Reference again, for the drift check at the top:',
+    row(result.again ?? ({ subject: { label: 'voices again' } } as Found)),
     '',
     'A factor near 1 means that kind of work is priced right. Above 1 means the model is light: it costs',
     'more than the app believes. The control in the last group is `level`, a gain, which should come out',

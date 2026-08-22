@@ -243,6 +243,7 @@ const OSC_FIELDS: Field<OscParams>[] = [
   // written before this existed simply stops early and the reference below supplies the rest.
   scaledField('decay', 11, 1, 0, 2000),
   scaledField('keyTrack', 7, 100, 0, 100),
+  scaledField('glide', 10, 1, 0, 1000),
 ]
 
 const FX_FIELDS: Field<FxParams>[] = [
@@ -293,6 +294,7 @@ const OSC_REFERENCE: OscParams = {
   attack: 4,
   decay: 0,
   release: 40,
+  glide: 0,
   gate: 0.6,
   filterType: 'off',
   cutoff: 2000,

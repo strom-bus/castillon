@@ -91,6 +91,7 @@ export function startEngineRamp(options: EngineRampOptions = {}): {
       // Flat, deliberately: the ceiling was measured against a note that holds its peak, and changing
       // the subject would invalidate every figure the sweep produced.
       decay: 0,
+      glide: 0,
       release: 400,
       filterType: filtered ? 'lowpass' : 'off',
       cutoff: 700 + (slot % 40) * 80,

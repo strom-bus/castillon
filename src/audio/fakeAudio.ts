@@ -16,6 +16,15 @@
 export interface Write {
   what: string
   value: number | string
+  /**
+   * Which automation method wrote it, where more than one can write the same parameter.
+   *
+   * Recorded because a pitch slide must ramp exponentially and not linearly — pitch is heard in ratios,
+   * so a linear ramp in hertz crosses the bottom of an octave quickly and crawls through the top, audible
+   * as the slide slowing down. Without this the stub reported both spellings identically and swapping one
+   * for the other failed nothing.
+   */
+  how?: 'set' | 'target' | 'linear' | 'exponential'
 }
 
 export interface FakeParam {
@@ -25,6 +34,7 @@ export interface FakeParam {
   setValueAtTime(value: number): void
   setTargetAtTime(value: number): void
   linearRampToValueAtTime(value: number): void
+  exponentialRampToValueAtTime(value: number): void
   cancelScheduledValues(): void
 }
 
@@ -92,15 +102,21 @@ export function fakeAudio(): FakeAudio {
       incoming: [],
       setValueAtTime(value) {
         self.value = value
-        journal.push({ what: name, value })
+        journal.push({ what: name, value, how: 'set' })
       },
       setTargetAtTime(value) {
         self.value = value
-        journal.push({ what: name, value })
+        journal.push({ what: name, value, how: 'target' })
       },
       linearRampToValueAtTime(value) {
         self.value = value
-        journal.push({ what: name, value })
+        journal.push({ what: name, value, how: 'linear' })
+      },
+      // Added when a glide started using it. A stub missing a method the engine calls does not report a
+      // wrong value, it throws — and the failure names the test rather than the omission.
+      exponentialRampToValueAtTime(value) {
+        self.value = value
+        journal.push({ what: name, value, how: 'exponential' })
       },
       cancelScheduledValues() {},
     }

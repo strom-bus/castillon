@@ -31,6 +31,18 @@ import { registerWorklets } from './worklets/register'
 
 /** Cost in points of what a voice is made of, so the budget can be about work rather than count. */
 
+/**
+ * How long a slide actually gets, in seconds.
+ *
+ * Never longer than the note it belongs to: a slide still travelling when its note ends never arrives,
+ * and what is heard is a pitch that was on its way somewhere. Its own function because the clamp is the
+ * part worth pinning, and the automation it feeds records values without times — so a test watching the
+ * parameter cannot see a duration at all.
+ */
+export function glideSeconds(glideMs: number, duration: number): number {
+  return Math.min(Math.max(0, glideMs / 1000), Math.max(0, duration))
+}
+
 export interface NoteRequest {
   nodeId: NodeId
   /** Absolute time on the audio clock. */
@@ -47,6 +59,8 @@ export interface NoteRequest {
   /** Milliseconds from the attack peak down to silence. 0 holds the peak until the note ends. */
   decay: number
   release: number
+  /** Milliseconds to slide from the previous note on this node into this one. 0 jumps. */
+  glide: number
   filterType: FilterType
   /** Hz. */
   cutoff: number
@@ -371,6 +385,9 @@ export class AudioEngine implements Engine {
   private directLevels = new Map<NodeId, number>()
   private pulseWaves = new Map<number, PeriodicWave>()
   private rampWaveCache: PeriodicWave | null = null
+  /** The last pitch each node played, which is where its next slide starts from. */
+  private lastFreq = new Map<NodeId, number>()
+
   private noiseBuffers = new Map<NoiseColor, AudioBuffer>()
 
   /** Must be called from a user gesture: browsers block audio otherwise. */
@@ -465,7 +482,18 @@ export class AudioEngine implements Engine {
     const cost = voiceCost(req.waveform, req.filterType !== 'off') + swept
     if (this.totalLoadAt(req.time) + cost > this.ceiling) this.stealOldest(req.time)
 
-    const source = this.createSource(req)
+    /*
+     * Where the slide starts, remembered rather than passed in.
+     *
+     * The scheduler hands over one note at a time and each gets its own oscillator, so the pitch to slide
+     * *from* is not in the request — it is whatever this node played last. Keeping it here rather than
+     * having the sequencer work it out also gets the case a sequencer cannot see: a looping patch slides
+     * from the last step of one pass into the first of the next, across the boundary.
+     */
+    const from = this.lastFreq.get(req.nodeId)
+    this.lastFreq.set(req.nodeId, req.freq)
+
+    const source = this.createSource(req, from)
 
     const gain = this.ctx.createGain()
     gain.gain.setValueAtTime(0, req.time)
@@ -1016,6 +1044,7 @@ export class AudioEngine implements Engine {
     // well read as thorough and was provably dead — which a mutation of it not failing any test is
     // exactly how it was found.
 
+    this.lastFreq.clear()
     this.master?.disconnect()
     this.master = null
     this.ctx = null
@@ -1188,14 +1217,42 @@ export class AudioEngine implements Engine {
    * Noise is a looping buffer rather than an oscillator, and its playback rate follows the note
    * so the sequencer still does something musical: higher notes give brighter noise.
    */
-  private createSource(req: NoteRequest): AudioScheduledSourceNode {
+  /**
+   * Sets a pitch, sliding into it if there is somewhere to slide from.
+   *
+   * Exponential rather than linear, because pitch is heard in ratios: a linear ramp in hertz crosses the
+   * bottom of an octave quickly and crawls through the top, which is audible as the slide slowing down.
+   */
+  private setPitch(
+    param: AudioParam,
+    to: number,
+    from: number | undefined,
+    req: NoteRequest,
+  ): void {
+    const glide = glideSeconds(req.glide, req.duration)
+    if (glide <= 0 || from === undefined || from === to) {
+      param.setValueAtTime(to, req.time)
+      return
+    }
+    param.setValueAtTime(from, req.time)
+    param.exponentialRampToValueAtTime(to, req.time + glide)
+  }
+
+  private createSource(req: NoteRequest, from?: number): AudioScheduledSourceNode {
     const ctx = this.ctx as BaseAudioContext
 
     if (isNoise(req.waveform)) {
       const source = ctx.createBufferSource()
       source.buffer = this.noiseBuffer(req.waveform)
       source.loop = true
-      source.playbackRate.setValueAtTime(req.freq / NOISE_REFERENCE_FREQ, req.time)
+      // A slide is as meaningful on a noise buffer as on an oscillator: the rate is what pitches it.
+      const scale = 1 / NOISE_REFERENCE_FREQ
+      this.setPitch(
+        source.playbackRate,
+        req.freq * scale,
+        from === undefined ? undefined : from * scale,
+        req,
+      )
       return source
     }
 
@@ -1207,7 +1264,7 @@ export class AudioEngine implements Engine {
     } else {
       osc.type = req.waveform
     }
-    osc.frequency.setValueAtTime(req.freq, req.time)
+    this.setPitch(osc.frequency, req.freq, from, req)
     return osc
   }
 

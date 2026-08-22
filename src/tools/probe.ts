@@ -184,6 +184,7 @@ function note(slot: number, at: number, filtered: boolean): NoteRequest {
     attack: 6,
     // Flat, deliberately: changing the subject would invalidate every figure the sweep produced.
     decay: 0,
+    glide: 0,
     release: 400,
     filterType: filtered ? 'lowpass' : 'off',
     cutoff: 700 + (slot % 40) * 80,

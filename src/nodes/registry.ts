@@ -129,6 +129,8 @@ export function defaultOscParams(): OscParams {
     // Zero, so a node created today sounds exactly as one created before decay existed did.
     decay: 0,
     release: 40,
+    // No slide, so a node made today jumps between steps as one made before glide existed did.
+    glide: 0,
     gate: 0.6,
     filterType: 'off',
     cutoff: 2000,
@@ -177,6 +179,7 @@ const osc: NodeDefinition = {
         attack: params.attack,
         decay: params.decay ?? 0,
         release: params.release,
+        glide: params.glide ?? 0,
         filterType: params.filterType ?? 'off',
         cutoff: trackedCutoff(params.cutoff ?? 2000, s.note, params.keyTrack ?? 0),
         resonance: params.resonance ?? 1,

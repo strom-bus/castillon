@@ -72,6 +72,16 @@ export interface OscParams {
    */
   decay: number
   release: number
+  /**
+   * Milliseconds to slide from the previous step's pitch into this one's. 0 jumps, as before.
+   *
+   * Per oscillator rather than per patch, because in a cascade a step list belongs to one oscillator and
+   * the slide is between *its* consecutive notes — which is the same gesture as a 303's, and the one
+   * classic control that reads as melodic intent rather than as timbre. It also does something here that
+   * it cannot do on a keyboard: the cascade retriggers the same oscillator over and over, so a glide
+   * turns a list of steps into a continuous line rather than a sequence of separate events.
+   */
+  glide: number
   /** Fraction of the step the note lasts. 0.6 is percussive, 1 is legato. */
   gate: number
   filterType: FilterType

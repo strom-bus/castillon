@@ -103,6 +103,7 @@ function note(over: Partial<NoteRequest>, index: number): NoteRequest {
     gain: 0.02,
     attack: 5,
     decay: 0,
+    glide: 0,
     release: 5,
     filterType: 'off',
     cutoff: 2000,

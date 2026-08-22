@@ -7,6 +7,7 @@
 
 import { formatReport, measureLoad, type Measured } from './measureLoad'
 import { findCeiling, formatCeiling } from './findCeiling'
+import { formatSweep, sweep } from './sweep'
 import {
   CEILING,
   LOAD_KINDS,
@@ -152,6 +153,36 @@ async function measureCeilingWith(
     void button
   }
 }
+
+/**
+ * The precise sweep: every effect and a few modulation targets, each bracketed by doubling and then
+ * bisected. Minutes rather than seconds, and it needs nobody watching — which is the whole point of
+ * counting underruns instead of reading a percentage.
+ */
+const sweepButton = document.getElementById('sweep') as HTMLButtonElement
+
+sweepButton.addEventListener('click', async () => {
+  sweepButton.disabled = true
+  ceiling.disabled = true
+  ceilingVoices.disabled = true
+  run.disabled = true
+  out.textContent = ''
+  try {
+    const result = await sweep((label) => {
+      status.textContent = `trying ${label}…`
+    })
+    status.textContent = 'done'
+    out.textContent = formatSweep(result)
+    await navigator.clipboard.writeText(out.textContent).catch(() => {})
+  } catch (error) {
+    status.textContent = `failed: ${error instanceof Error ? error.message : String(error)}`
+  } finally {
+    sweepButton.disabled = false
+    ceiling.disabled = false
+    ceilingVoices.disabled = false
+    run.disabled = false
+  }
+})
 
 ceiling.addEventListener('click', () =>
   measureCeilingWith(ceiling, { filtered: true, effectEvery: 8 }),

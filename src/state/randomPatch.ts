@@ -4,6 +4,7 @@ import { LFO_SHAPES, silentBecause, targetsFor } from '../audio/modulation'
 import { defaultDelayParams, defaultFxParams, defaultOscParams } from '../nodes/registry'
 import type {
   Division,
+  ModParams,
   FxParams,
   OscParams,
   Patch,
@@ -176,6 +177,14 @@ export function randomPatch(random: () => number = Math.random): Patch {
   const cascadeRows = size.depth[1] * 2 + 2
 
   const oscillators: PatchNode[] = []
+  /**
+   * What triggers each oscillator, kept so a modulator can be given the same trigger.
+   *
+   * An envelope set to fire on a trigger needs a cable, and the node that would supply one is only in
+   * scope inside the loop below. Recording it is the whole reason the die can roll an envelope at all —
+   * the first version rolled LFOs only because this was thrown away.
+   */
+  const triggeredBy = new Map<string, PatchNode>()
 
   for (let cascade = 0; cascade < cascades; cascade++) {
     const originColumn = (cascade % perRow) * cascadeColumns
@@ -220,6 +229,7 @@ export function randomPatch(random: () => number = Math.random): Patch {
           params: {},
         })
         wire(via ?? parent, osc)
+        triggeredBy.set(osc.id, via ?? parent)
         children.push(osc)
         oscillators.push(osc)
       }
@@ -257,9 +267,15 @@ export function randomPatch(random: () => number = Math.random): Patch {
    * Modulators, which the die had never rolled — so a third of what the instrument can do never turned
    * up in a patch nobody wired by hand.
    *
-   * LFOs only for now. An envelope is the more musical of the two here, since it belongs to the
-   * cascade, but it needs a trigger cable and the parents that could supply one are out of scope by the
-   * time this runs. Worth a second pass rather than a worse first one.
+   * All three flavours, and the kind depends on what the destination can support:
+   *
+   * - **Per note** needs a target built per note, which is an oscillator's filter and nothing else. It
+   *   needs no trigger cable — notes are its clock — which makes it the *easiest* of the three to roll
+   *   rather than the hardest, the opposite of what the first pass assumed.
+   * - **Per trigger** needs a cable from whatever triggers the destination, so the sweep lands when
+   *   that branch lights up. Only oscillators have a trigger to share.
+   * - **An LFO** needs nothing and fits anywhere, so it stays the commonest: it reads as a texture
+   *   rather than as a gesture, and a patch of nothing but gestures is exhausting.
    *
    * A target is drawn from what the destination actually offers, and one that would do nothing is
    * skipped — a cutoff on an oscillator with its filter off is a cable that looks wired and is not.
@@ -280,6 +296,36 @@ export function randomPatch(random: () => number = Math.random): Patch {
     )
     if (offered.length === 0) continue
 
+    const perVoice = offered.filter((entry) => entry.perVoice)
+    const trigger = triggeredBy.get(destination.id)
+    const kind = c.weighted<'lfo' | 'note' | 'trigger'>([
+      ['lfo', 5],
+      ['note', perVoice.length > 0 ? 3 : 0],
+      ['trigger', trigger ? 3 : 0],
+    ])
+    const target = kind === 'note' ? c.pick(perVoice) : c.pick(offered)
+
+    const params: ModParams =
+      kind === 'lfo'
+        ? {
+            kind: 'lfo',
+            wave: c.pick([...LFO_SHAPES]),
+            // Slow: a modulation you can follow is worth more than one that buzzes.
+            rate: c.range(5, 120) / 100,
+            depth: c.range(25, 85) / 100,
+            target: target.key,
+          }
+        : {
+            kind: 'env',
+            fires: kind,
+            // A per-note sweep has one note to fit inside; one on a trigger has a whole branch, so it
+            // can take its time.
+            attack: kind === 'note' ? c.range(2, 60) : c.range(20, 600),
+            decay: kind === 'note' ? c.range(40, 500) : c.range(200, 2500),
+            depth: c.range(30, 90) / 100,
+            target: target.key,
+          }
+
     const mod = add({
       type: 'mod',
       // Opposite the effects, which sit to the right: a modulator on a node with an effect should not
@@ -288,16 +334,11 @@ export function randomPatch(random: () => number = Math.random): Patch {
         x: destination.position.x - Math.round(COLUMN * 0.5),
         y: destination.position.y + i * Math.round(ROW * 0.5),
       },
-      params: {
-        kind: 'lfo',
-        wave: c.pick([...LFO_SHAPES]),
-        // Slow: a modulation you can follow is worth more than one that buzzes.
-        rate: c.range(5, 120) / 100,
-        depth: c.range(25, 85) / 100,
-        target: c.pick(offered).key,
-      },
+      params,
     })
     wire(mod, destination, 'mod')
+    // The same trigger the destination answers to, so the sweep lands when that branch lights up.
+    if (kind === 'trigger' && trigger) wire(trigger, mod)
   }
 
   return trimToBudget({

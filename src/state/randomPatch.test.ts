@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { EFFECTS } from '../audio/effects'
 import { estimatePeakLoad } from '../audio/load'
-import { silentBecause } from '../audio/modulation'
-import type { FxParams, ModParams, OscParams } from '../types/patch'
+import { silentBecause, targetOf } from '../audio/modulation'
+import type { FxParams, ModParams, OscParams, Patch } from '../types/patch'
 import { decodePatch, encodePatch } from './patchCode'
 import { randomPatch, ROLL_BUDGET } from './randomPatch'
 
@@ -237,5 +237,63 @@ describe('randomPatch', () => {
       const spots = new Set(patch.nodes.map((n) => `${n.position.x},${n.position.y}`))
       expect(spots.size).toBe(patch.nodes.length)
     }
+  })
+})
+
+describe('the modulators it rolls', () => {
+  const modsOf = (patch: Patch) => patch.nodes.filter((node) => node.type === 'mod')
+  const many400 = () => many(400)
+
+  it('rolls all three flavours, not just the one that needs nothing', () => {
+    // The first version rolled LFOs only, because the node that supplies a trigger was thrown away
+    // before the modulators were added. An envelope is the flavour that belongs to the cascade, so a
+    // die that never rolls one never shows what the module is for.
+    const kinds = new Set<string>()
+    for (const patch of many400()) {
+      for (const mod of modsOf(patch)) {
+        const params = mod.params as ModParams
+        kinds.add(params.kind === 'lfo' ? 'lfo' : `env:${params.fires}`)
+      }
+    }
+    expect(kinds).toContain('lfo')
+    expect(kinds).toContain('env:note')
+    expect(kinds).toContain('env:trigger')
+  })
+
+  it('gives every envelope that waits for a trigger something that triggers it', () => {
+    // Otherwise it is a modulator that never runs, and the panel would have to explain a patch the die
+    // built. This is the condition the whole `triggeredBy` map exists for.
+    for (const patch of many400()) {
+      for (const mod of modsOf(patch)) {
+        const params = mod.params as ModParams
+        if (params.kind !== 'env' || params.fires === 'note') continue
+        const triggered = patch.edges.some(
+          (edge) => edge.target === mod.id && (edge.kind ?? 'event') === 'event',
+        )
+        expect(triggered).toBe(true)
+      }
+    }
+  })
+
+  it('points every per-note envelope at something built per note', () => {
+    // Per note only means anything on an oscillator's filter. Anywhere else there is one parameter and
+    // many notes, and the modulator would sit there doing nothing.
+    for (const patch of many400()) {
+      for (const mod of modsOf(patch)) {
+        const params = mod.params as ModParams
+        if (params.kind !== 'env' || params.fires !== 'note') continue
+
+        const edge = patch.edges.find((e) => e.source === mod.id && e.kind === 'mod')!
+        const destination = patch.nodes.find((node) => node.id === edge.target)!
+        const target = targetOf(params.target, destination.type)
+        expect(target?.perVoice).toBe(true)
+      }
+    }
+  })
+
+  it('keeps an LFO the commonest, since a patch of nothing but gestures is exhausting', () => {
+    const params = many400().flatMap((patch) => modsOf(patch).map((mod) => mod.params as ModParams))
+    const lfos = params.filter((p) => p.kind === 'lfo').length
+    expect(lfos).toBeGreaterThan(params.length / 2)
   })
 })

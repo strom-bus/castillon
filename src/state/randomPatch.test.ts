@@ -333,12 +333,14 @@ describe('where it puts things', () => {
     const stepped = (count: number) =>
       cellsOf({ type: 'osc', position: at, params: { steps: Array.from({ length: count }) } })
 
-    expect(stepped(2)).toHaveLength(1)
-    expect(stepped(8)).toHaveLength(1)
-    expect(stepped(16)).toHaveLength(2)
-    // Anything without steps is one cell, however it is asked.
-    expect(cellsOf({ type: 'fx', position: at, params: {} })).toHaveLength(1)
-    expect(cellsOf({ type: 'osc', position: at, params: {} })).toHaveLength(1)
+    // Two rows tall in every case, since a node is taller than half a row whatever it holds. So the
+    // count is rows times columns, and only the columns depend on the steps.
+    expect(stepped(2)).toHaveLength(2)
+    expect(stepped(8)).toHaveLength(2)
+    expect(stepped(16)).toHaveLength(4)
+    // Anything without steps is one column, however it is asked.
+    expect(cellsOf({ type: 'fx', position: at, params: {} })).toHaveLength(2)
+    expect(cellsOf({ type: 'osc', position: at, params: {} })).toHaveLength(2)
   })
 
   it('keeps effects to one side and modulators to the other', () => {

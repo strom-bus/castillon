@@ -66,6 +66,14 @@ const CELL_Y = ROW / 2
 /** Rows of cells a node covers: it is taller than half a row, and no node is taller than a whole one. */
 const CELLS_TALL = 2
 
+/**
+ * How far along a row to look, in half columns, before trying a different row.
+ *
+ * Two full columns. Far enough to clear a sixteen-step sequencer and whatever sits past it, near enough
+ * that the thing still reads as attached to what it is wired to rather than as adrift beside it.
+ */
+const REACH = 4
+
 /** Step bars, from the stylesheet: each one this wide, this far apart, inside this much padding. */
 const STEP_WIDTH = 26
 const STEP_GAP = 6
@@ -118,19 +126,23 @@ export function cellsOf(node: {
  */
 function nearbyCells(side: 1 | -1): Array<[number, number]> {
   const cells: Array<[number, number]> = []
-  for (let out = 1; out <= 8; out++) {
-    for (let down = 0; down <= out; down++) {
-      /*
-       * Whole rows down, half columns across.
-       *
-       * Claiming the half-row beneath a node is not enough on its own, because a probe half a row down is
-       * also a column or more across, and there the cell is genuinely free. What it is not is usable: the
-       * node landing on it claims two rows, the lower of which is the row a wide neighbour occupies. So the
-       * halves between rows are not somewhere anything can sit, and offering them only finds cells that
-       * look free and are not.
-       */
-      cells.push([side * out, down * CELLS_TALL])
-      if (down > 0) cells.push([side * out, -down * CELLS_TALL])
+  /*
+   * The row is searched to its end before any other row is considered.
+   *
+   * Which is the whole preference: an effect alongside what it processes reads as belonging to it, and the
+   * same effect a row lower reads as a voice of its own. The nesting used to run the other way — every
+   * vertical offset at one column out, before ever trying two columns out — and a wide sequencer covers the
+   * half-column beside it, so the first cell that came back free was reliably the one underneath.
+   *
+   * Whole rows down, half columns across. Claiming the half-row beneath a node is not enough on its own,
+   * because a probe half a row down is also a column or more across, and there the cell is genuinely free.
+   * What it is not is usable: the node landing on it claims two rows, the lower of which is the row a wide
+   * neighbour occupies.
+   */
+  for (let ring = 0; ring <= 8; ring++) {
+    const rows = ring === 0 ? [0] : [ring * CELLS_TALL, -ring * CELLS_TALL]
+    for (const down of rows) {
+      for (let out = 1; out <= REACH; out++) cells.push([side * out, down])
     }
   }
   return cells

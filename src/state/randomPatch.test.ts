@@ -343,6 +343,37 @@ describe('where it puts things', () => {
     expect(cellsOf({ type: 'osc', position: at, params: {} })).toHaveLength(2)
   })
 
+  it('puts what hangs off a node beside it rather than below it', () => {
+    let alongside = 0
+    let total = 0
+    for (const patch of many(400)) {
+      const at = new Map(patch.nodes.map((node) => [node.id, node]))
+      for (const edge of patch.edges) {
+        if (edge.kind !== 'audio' && edge.kind !== 'mod') continue
+        const from = at.get(edge.source)
+        const to = at.get(edge.target)
+        if (!from || !to) continue
+
+        // Audio runs oscillator → effect and modulation runs modulator → destination, so the node that
+        // was placed relative to the other is the effect in one case and the modulator in the other.
+        const placed = edge.kind === 'audio' ? to : from
+        const anchored = edge.kind === 'audio' ? from : to
+        total++
+        if (placed.position.y === anchored.position.y) alongside++
+      }
+    }
+
+    /*
+     * A rate rather than a rule, because a row genuinely fills up and then below is the right answer.
+     *
+     * What it guards is the search order. Looking for room used to try every vertical offset at one
+     * column out before ever trying two columns out, and a sixteen-step sequencer covers the half-column
+     * beside it — so the first free cell was reliably the one underneath, and an effect that belongs to an
+     * oscillator read as a voice of its own. Sweeping the row first took this from 74 per cent to 98.
+     */
+    expect(alongside / total).toBeGreaterThan(0.95)
+  })
+
   it('keeps effects to one side and modulators to the other', () => {
     // So a node carrying both is not sandwiched between them.
     for (const patch of many(80)) {

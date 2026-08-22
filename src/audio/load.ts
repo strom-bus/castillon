@@ -57,6 +57,25 @@ import { isNoise } from './waveforms'
  * failure criterion: the thread only drops a sample when it sustains past its budget. Peaks overstated
  * the load by six times.
  *
+ * **And it is not one number.** Three ramps, all valid, broke at different point counts depending on
+ * what they were made of:
+ *
+ * | composition | broke at |
+ * | --- | --- |
+ * | 62 % reverb, short notes | 3106 |
+ * | 45 % reverb, long notes | 3742 |
+ * | voices only | 3108 |
+ *
+ * Not monotonic in reverb share, so it is not a mispriced effect. The likeliest remainder is the cost
+ * of *building* a note — the run with the shortest notes churned through the most of them and broke
+ * earliest — which this model counts at zero along with everything else about construction.
+ *
+ * Three unknowns can be fitted to three readings and the fit is meaningless, so it has not been. What
+ * matters is the spread: **twenty per cent**, and `LAYER_THRESHOLD` already holds back twenty-five.
+ * The margin that exists for slower machines absorbs the whole uncertainty, so the number below is the
+ * lowest of the three, rounded down. Voices only is also the closest of the three to a real patch,
+ * since a patch is mostly voices.
+ *
  * Calibrated on an Apple Silicon Mac with nothing else running. A device several times slower will
  * glitch below a full meter, and `LAYER_THRESHOLD` is the only margin standing between — which is
  * enough for a somewhat slower machine and not for a phone.

@@ -4,7 +4,7 @@ import { estimatePeakLoad } from '../audio/load'
 import { silentBecause, targetOf } from '../audio/modulation'
 import type { FxParams, ModParams, OscParams, Patch } from '../types/patch'
 import { decodePatch, encodePatch } from './patchCode'
-import { randomPatch, ROLL_BUDGET } from './randomPatch'
+import { ROLL_BUDGET, cellsOf, randomPatch } from './randomPatch'
 
 /** Deterministic, so a claim about a thousand patches means the same thing on every run. */
 function seeded(seed: number): () => number {
@@ -305,14 +305,40 @@ describe('where it puts things', () => {
     // lived there. A patch that looks like a mistake is worse than one that is merely dense — and this
     // is the test that would have caught it, since nothing about the arithmetic looked wrong.
     for (const patch of many(400)) {
-      const cells = new Set<string>()
+      const cells = new Map<string, string>()
       for (const node of patch.nodes) {
-        // Half a grid step in each direction, which is about one node's footprint.
-        const cell = `${Math.round(node.position.x / 280)},${Math.round(node.position.y / 115)}`
-        expect(cells.has(cell), `two nodes at ${cell}`).toBe(false)
-        cells.add(cell)
+        /*
+         * Every cell the node covers, not the one it sits at.
+         *
+         * This test passed while effects were still landing on sixteen-step oscillators, because it
+         * counted one cell per node and so agreed with the bug it was there to catch. An oscillator is as
+         * wide as its step bars — 522 pixels at sixteen of them, against a cell's 280 — and asking the
+         * placement's own footprint keeps the two from drifting apart again.
+         */
+        for (const cell of cellsOf(node)) {
+          expect(
+            cells.has(cell),
+            `${node.type} covers ${cell}, already held by ${cells.get(cell)}`,
+          ).toBe(false)
+          cells.set(cell, node.type)
+        }
       }
     }
+  })
+
+  it('gives a long sequencer more room than a short one', () => {
+    // The claim the test above rests on, pinned on its own: if this ever returns one cell for sixteen
+    // steps, that test goes back to agreeing with the bug and says nothing.
+    const at = { x: 0, y: 0 }
+    const stepped = (count: number) =>
+      cellsOf({ type: 'osc', position: at, params: { steps: Array.from({ length: count }) } })
+
+    expect(stepped(2)).toHaveLength(1)
+    expect(stepped(8)).toHaveLength(1)
+    expect(stepped(16)).toHaveLength(2)
+    // Anything without steps is one cell, however it is asked.
+    expect(cellsOf({ type: 'fx', position: at, params: {} })).toHaveLength(1)
+    expect(cellsOf({ type: 'osc', position: at, params: {} })).toHaveLength(1)
   })
 
   it('keeps effects to one side and modulators to the other', () => {

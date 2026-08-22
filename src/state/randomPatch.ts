@@ -63,6 +63,40 @@ const ROW = 230
 const CELL_X = COLUMN / 2
 const CELL_Y = ROW / 2
 
+/** Step bars, from the stylesheet: each one this wide, this far apart, inside this much padding. */
+const STEP_WIDTH = 26
+const STEP_GAP = 6
+const STEP_PADDING = 16
+
+/**
+ * Which cells a node covers, which for one kind of node is more than one.
+ *
+ * An oscillator has no width of its own: it is as wide as its step bars, and sixteen of them come to 522
+ * pixels against a cell's 280. Claiming a single cell for it is why effects and modulators still landed
+ * on top of the longer sequencers after the first fix — the placement had no idea they were wide, and
+ * neither did the test, which counted one cell a node and so agreed with the bug.
+ *
+ * Read at the moment of claiming rather than stored, because an oscillator is positioned before its steps
+ * are rolled: how many there are depends on nothing the placement knows.
+ */
+export function cellsOf(node: {
+  type: string
+  position: { x: number; y: number }
+  params: unknown
+}) {
+  const steps = node.type === 'osc' ? ((node.params as OscParams).steps?.length ?? 0) : 0
+  const width = steps > 0 ? steps * STEP_WIDTH + (steps - 1) * STEP_GAP + STEP_PADDING : 0
+  const wide = Math.max(1, Math.ceil(width / CELL_X))
+
+  const cells: string[] = []
+  for (let across = 0; across < wide; across++) {
+    cells.push(
+      `${Math.round(node.position.x / CELL_X) + across},${Math.round(node.position.y / CELL_Y)}`,
+    )
+  }
+  return cells
+}
+
 /**
  * Where to look for room beside a node, nearest first.
  *
@@ -198,10 +232,13 @@ export function randomPatch(random: () => number = Math.random): Patch {
    */
   const taken = new Set<string>()
   const cellOf = (x: number, y: number) => `${Math.round(x / CELL_X)},${Math.round(y / CELL_Y)}`
+  const claim = (node: { type: string; position: { x: number; y: number }; params: unknown }) => {
+    for (const cell of cellsOf(node)) taken.add(cell)
+  }
 
   const add = (node: Omit<PatchNode, 'id'>): PatchNode => {
     const withId = { ...node, id: `r${n++}` }
-    taken.add(cellOf(node.position.x, node.position.y))
+    claim(node)
     nodes.push(withId)
     return withId
   }
@@ -290,6 +327,9 @@ export function randomPatch(random: () => number = Math.random): Patch {
 
   for (const osc of oscillators) {
     osc.params = randomOsc(c, scale, root, oscillators.length)
+    // Claimed again now that it has steps, and so a width. Everything placed with `beside` comes after
+    // this, which is the only reason a late claim is enough.
+    claim(osc)
   }
 
   const wanted = Math.round(

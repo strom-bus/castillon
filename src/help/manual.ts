@@ -95,8 +95,8 @@ export const MANUAL: Section[] = [
       {
         term: { en: 'OSC', es: 'OSC' },
         text: {
-          en: 'A sequencer and a voice in one. Two to sixteen steps: drag a bar to tune it, click the square underneath to mute it. Ten waveforms, four noises among them, and a filter built per note rather than shared.',
-          es: 'Un secuenciador y una voz a la vez. De dos a dieciséis pasos: arrastra una barra para afinarla, pulsa el cuadrado de debajo para silenciarla. Diez formas de onda, cuatro ruidos entre ellas, y un filtro construido por nota y no compartido.',
+          en: 'A sequencer and a voice in one. Two to sixteen steps: drag a bar to tune it, click the square underneath to mute it. Ten waveforms, four noises among them, and a filter built per note rather than shared. Its envelope has a decay but no sustain, because the length of a note is decided in advance here: a short decay is a pluck, a long one a flat top. Glide slides from one step into the next, Detune sets it a few cents off so that two oscillators read as one thick voice, and Key follow opens the filter as the pitch rises — which matters because the die picks the register, not you.',
+          es: 'Un secuenciador y una voz a la vez. De dos a dieciséis pasos: arrastra una barra para afinarla, pulsa el cuadrado de debajo para silenciarla. Diez formas de onda, cuatro ruidos entre ellas, y un filtro construido por nota y no compartido. Su envolvente tiene decay pero no sustain, porque aquí la duración de una nota se decide de antemano: un decay corto es un pluck, uno largo un techo plano. Glide desliza de un paso al siguiente, Detune la desafina unos cents para que dos osciladores se lean como una sola voz gorda, y Key follow abre el filtro a medida que sube la altura — que importa porque el registro lo elige el dado, no tú.',
         },
       },
       {
@@ -116,8 +116,8 @@ export const MANUAL: Section[] = [
       {
         term: { en: 'MOD', es: 'MOD' },
         text: {
-          en: 'Sweeps one parameter of whatever it points at, and which parameters it offers depends on what that is. An LFO keeps its own rate; an envelope runs once, when the cascade triggers it or on every note. Where you wire the trigger decides the gesture: under an IGNITE it runs once per pass, under a node deep in the tree it runs when that branch lights up.',
-          es: 'Barre un parámetro de lo que tenga apuntado, y qué parámetros ofrece depende de qué sea. Un LFO mantiene su propio ritmo; una envolvente corre una vez, cuando la cascada la dispara o en cada nota. Dónde cableas el disparo decide el gesto: bajo un IGNITE corre una vez por pasada, bajo un nodo profundo corre cuando esa rama se enciende.',
+          en: 'Sweeps one parameter of whatever it points at, and which parameters it offers depends on what that is. An LFO keeps its own rate; an envelope runs once, when the cascade triggers it or on every note. Where you wire the trigger decides the gesture: under an IGNITE it runs once per pass, under a node deep in the tree it runs when that branch lights up. Four of the LFO shapes repeat; Random holds a value and jumps instead, so it varies without ever coming round again. An envelope firing on every note can take its depth from that note velocity, which is what makes a step velocity a source rather than a second volume control.',
+          es: 'Barre un parámetro de lo que tenga apuntado, y qué parámetros ofrece depende de qué sea. Un LFO mantiene su propio ritmo; una envolvente corre una vez, cuando la cascada la dispara o en cada nota. Dónde cableas el disparo decide el gesto: bajo un IGNITE corre una vez por pasada, bajo un nodo profundo corre cuando esa rama se enciende. Cuatro de las formas del LFO se repiten; Random en cambio sostiene un valor y salta, así que varía sin volver nunca al principio. Una envolvente que dispara en cada nota puede tomar su profundidad de la velocity de esa nota, que es lo que convierte la velocity de un paso en una fuente y no en un segundo control de volumen.',
         },
       },
     ],

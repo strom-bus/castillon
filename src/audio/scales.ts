@@ -24,8 +24,13 @@ export type ScaleName =
   | 'blues'
   | 'wholeTone'
 
-/** Semitones above the root, which is how a scale is a scale rather than a list of notes. */
-const DEGREES: Record<Exclude<ScaleName, 'free'>, number[]> = {
+/**
+ * Semitones above the root, which is how a scale is a scale rather than a list of notes.
+ *
+ * Exported because the dice draws its notes from one of these, and drawing from its own private copy is
+ * how the generator ended up choosing notes from a scale it then never declared on the oscillator.
+ */
+export const DEGREES: Record<Exclude<ScaleName, 'free'>, number[]> = {
   major: [0, 2, 4, 5, 7, 9, 11],
   minor: [0, 2, 3, 5, 7, 8, 10],
   dorian: [0, 2, 3, 5, 7, 9, 10],

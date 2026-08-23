@@ -2,8 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { EFFECTS } from '../audio/effects'
 import { estimatePeakLoad } from '../audio/load'
 import { silentBecause, targetOf } from '../audio/modulation'
-import type { FxParams, ModParams, OscParams, Patch } from '../types/patch'
+import type { FxParams, ModParams, OscParams, Patch, WarpParams } from '../types/patch'
 import { decodePatch, encodePatch } from './patchCode'
+import { warpDoingNothing } from './transpose'
 import { ROLL_BUDGET, cellsOf, randomPatch } from './randomPatch'
 
 /** Deterministic, so a claim about a thousand patches means the same thing on every run. */
@@ -47,14 +48,98 @@ describe('randomPatch', () => {
       const seen = reachable(patch)
       for (const node of patch.nodes) {
         if (node.type === 'fx') continue
-        if (node.type === 'mod') {
-          expect(patch.edges.some((edge) => edge.source === node.id && edge.kind === 'mod')).toBe(
-            true,
-          )
+        // A MOD and a WARP are both the *source* of their own cable — nothing points at them, so what
+        // they need is somewhere to point rather than something upstream. Walking triggers only would
+        // report every one of them as stranded.
+        if (node.type === 'mod' || node.type === 'warp') {
+          const kind = node.type === 'mod' ? 'mod' : 'warp'
+          expect(
+            patch.edges.some((edge) => edge.source === node.id && edge.kind === kind),
+            `${node.type} ${node.id} points at nothing`,
+          ).toBe(true)
           continue
         }
-        expect(seen.has(node.id)).toBe(true)
+        expect(seen.has(node.id), `${node.type} ${node.id} is stranded`).toBe(true)
       }
+    }
+  })
+
+  it('rolls every part of the machine, given enough rolls', () => {
+    /*
+     * The dice is how most people meet the instrument, so a feature it can never produce is a feature
+     * most people never see. That has been true twice: modulators for months, and then the whole step
+     * scope — velocity, chance, rolls, slides — which lived in the format and the engine while the dice
+     * kept writing sequences of plain notes at full level.
+     *
+     * Over two hundred rolls rather than one, because each of these is deliberately uncommon. A patch
+     * where every oscillator thins out and rolls is mush; the odds are set so one voice does and the
+     * others keep time, which means a single roll proves nothing either way.
+     */
+    const patches = many(200)
+    const nodes = patches.flatMap((patch) => patch.nodes)
+    const oscillators = nodes.filter((n) => n.type === 'osc').map((n) => n.params as OscParams)
+    const steps = oscillators.flatMap((params) => params.steps)
+
+    const rolled: Record<string, boolean> = {
+      scale: oscillators.some((params) => (params.scale ?? 'free') !== 'free'),
+      chance: oscillators.some((p) => p.useChance) && steps.some((s) => s.chance != null),
+      ratchets: oscillators.some((p) => p.useRatchet) && steps.some((s) => (s.ratchet ?? 1) > 1),
+      rollFading: steps.some((step) => (step.ratchetRamp ?? 0) > 0),
+      rollSwelling: steps.some((step) => (step.ratchetRamp ?? 0) < 0),
+      quietStep: steps.some((step) => step.velocity < 1),
+      slide: steps.some((step) => step.slide === true),
+      glide: oscillators.some((params) => (params.glide ?? 0) > 0),
+      decay: oscillators.some((params) => (params.decay ?? 0) > 0),
+      detune: oscillators.some((params) => (params.detune ?? 0) !== 0),
+      keyTrack: oscillators.some((params) => (params.keyTrack ?? 0) > 0),
+      warp: nodes.some((node) => node.type === 'warp'),
+      warpPitch: nodes.some((n) => n.type === 'warp' && (n.params as WarpParams).transpose !== 0),
+      warpSpeed: nodes.some(
+        (n) => n.type === 'warp' && ((n.params as WarpParams).speed ?? 1) !== 1,
+      ),
+    }
+
+    const never = Object.entries(rolled)
+      .filter(([, there]) => !there)
+      .map(([what]) => what)
+    expect(never, `never rolled in 200: ${never.join(', ')}`).toEqual([])
+  })
+
+  it('keeps the plain sound reachable, so not every roll is a special effect', () => {
+    /*
+     * The other half of the test above, and the one that would go wrong if the odds were simply raised
+     * until everything appeared. A generator where every oscillator rolls and thins out and slides has
+     * no plain voice left to hear the special ones against, and every patch it makes sounds the same
+     * kind of busy.
+     */
+    const oscillators = many(200)
+      .flatMap((patch) => patch.nodes)
+      .filter((node) => node.type === 'osc')
+      .map((node) => node.params as OscParams)
+
+    const plain = oscillators.filter((params) => !params.useChance && !params.useRatchet)
+    expect(plain.length / oscillators.length).toBeGreaterThan(0.3)
+  })
+
+  it('never rolls a warp that does nothing', () => {
+    /*
+     * A warp attached to nothing, or attached to a branch with no notes under it, is the failure that
+     * looks most like success: settings in the panel, a cable on screen, and a patch that sounds
+     * untouched. The dice must not be able to produce one.
+     */
+    for (const patch of many(120)) {
+      for (const node of patch.nodes.filter((one) => one.type === 'warp')) {
+        const why = warpDoingNothing(patch.nodes, patch.edges, node.id)
+        expect(why, `${node.id}: ${why}`).toBeNull()
+      }
+    }
+  })
+
+  it('never rolls more than one warp, since two of them stack', () => {
+    // Two warps that reach the same notes combine, and two rolled at random combine in a way nobody
+    // chose. One is a decision; three is an accident.
+    for (const patch of many(120)) {
+      expect(patch.nodes.filter((node) => node.type === 'warp').length).toBeLessThanOrEqual(1)
     }
   })
 

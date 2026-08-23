@@ -1,6 +1,7 @@
 import { EFFECTS } from '../audio/effects'
 import { effectCost, estimatePeakLoad } from '../audio/load'
 import { LFO_SHAPES, silentBecause, targetsFor } from '../audio/modulation'
+import { DEGREES, type ScaleName } from '../audio/scales'
 import { defaultDelayParams, defaultFxParams, defaultOscParams } from '../nodes/registry'
 import type {
   Division,
@@ -11,6 +12,7 @@ import type {
   PatchEdge,
   PatchNode,
   Waveform,
+  WarpParams,
 } from '../types/patch'
 
 /**
@@ -24,13 +26,23 @@ import type {
  * The generator takes its randomness as an argument, which is what makes any of that testable.
  */
 
-/** Intervals from the root. Each of these sounds deliberate whichever notes get drawn from it. */
-const SCALES: number[][] = [
-  [0, 3, 5, 7, 10], // minor pentatonic
-  [0, 2, 4, 7, 9], // major pentatonic
-  [0, 2, 3, 5, 7, 9, 10], // dorian
-  [0, 1, 3, 5, 7, 8, 10], // phrygian
-  [0, 2, 4, 6, 8, 10], // whole tone
+/**
+ * Which scales the dice draws from, named rather than spelled out as intervals.
+ *
+ * It used to carry its own private copy of five interval lists, and that was the bug: the generator chose
+ * notes from a scale and then never told the oscillator which one, so the first bar somebody dragged on a
+ * rolled patch left the key the patch was written in. Taking the names from the app means the value it
+ * writes and the notes it drew cannot disagree.
+ *
+ * A subset, not all of them. Each of these sounds deliberate whichever notes get drawn from it, which is
+ * not true of every scale the instrument offers.
+ */
+const SCALES: Exclude<ScaleName, 'free'>[] = [
+  'minorPentatonic',
+  'pentatonic',
+  'dorian',
+  'phrygian',
+  'wholeTone',
 ]
 
 /** Weighted towards pitch. Noise is a colour to reach for, not a coin flip. */
@@ -204,12 +216,52 @@ function chanceFrom(random: () => number): Chance {
   }
 }
 
-function randomOsc(c: Chance, scale: number[], root: number, voices: number): OscParams {
+function randomOsc(
+  c: Chance,
+  scale: Exclude<ScaleName, 'free'>,
+  root: number,
+  voices: number,
+): OscParams {
+  /*
+   * Whether this oscillator uses the step scope, decided once for the whole sequence.
+   *
+   * Per oscillator rather than per step, because that is what the switches are: one line that thins out
+   * and rolls, against another that keeps time, is music. Every line doing both at once is mush, so the
+   * odds are deliberately below a half — a rolled patch should have one voice doing this and not four.
+   */
+  const varies = c.chance(0.35)
+  const rolls = c.chance(0.3)
+  // A glide time, or none at all: without one the per-step switch below has nothing to work with.
+  const glide = c.chance(0.3) ? c.range(30, 220) : 0
+
   const steps = Array.from({ length: c.pick(STEP_COUNTS) }, () => ({
-    note: root + c.pick(scale) + 12 * c.int(3),
+    note: root + c.pick(DEGREES[scale]) + 12 * c.int(3),
     // Rests are what makes a sequence a phrase rather than a run of notes.
     active: c.chance(0.78),
-    velocity: 1,
+    /*
+     * Mostly full, sometimes not.
+     *
+     * An accent is a note louder than its neighbours, so a sequence where every step drew its own level
+     * has no accents at all — it has a texture. Two steps in five at a lower level leaves the rest as
+     * the reference the quiet ones are heard against.
+     */
+    velocity: c.chance(0.4) ? c.range(35, 85) / 100 : 1,
+    // Only on the oscillators that turned the switch on, and only on some of their steps.
+    ...(varies && c.chance(0.4) ? { chance: c.range(25, 85) / 100 } : {}),
+    ...(rolls && c.chance(0.3)
+      ? {
+          ratchet: c.pick([2, 2, 3, 4]),
+          // Mostly fading, which is what a roll does: a flat roll is four notes stuck together, and one
+          // that swells is a deliberate effect rather than the ordinary case.
+          ratchetRamp: c.weighted([
+            [c.range(40, 90) / 100, 6],
+            [0, 2],
+            [-c.range(30, 70) / 100, 2],
+          ]),
+        }
+      : {}),
+    // A slide is worth one note in a phrase, not most of them.
+    ...(glide > 0 && c.chance(0.2) ? { slide: true } : {}),
   }))
 
   const filtered = c.chance(0.45)
@@ -219,15 +271,31 @@ function randomOsc(c: Chance, scale: number[], root: number, voices: number): Os
     pulseWidth: c.range(15, 85) / 100,
     steps,
     division: c.pick(DIVISIONS),
+    // Written down rather than left implicit, so dragging a bar on a rolled patch stays in the key the
+    // patch was rolled in — which is the first thing anybody does to one.
+    scale,
+    scaleRoot: ((root % 12) + 12) % 12,
+    useChance: varies,
+    useRatchet: rolls,
     // Divided by the root of the voice count, because sources that are not in phase sum in power
     // rather than in amplitude. That keeps a wall of oscillators about as loud as a single one.
     gain: Math.max(0.03, c.range(20, 40) / 100 / Math.sqrt(voices)),
     attack: c.chance(0.25) ? c.range(60, 400) : c.range(1, 20),
+    // Zero most of the time: a note that holds its level is the plainer sound and the one to fall back
+    // to, and a decay on every voice makes a whole patch sound plucked.
+    decay: c.chance(0.35) ? c.range(60, 700) : 0,
     release: c.range(30, 600),
     gate: c.range(35, 95) / 100,
+    glide,
+    // Small, and often none. Detune is for two voices beating against each other, and its whole use is
+    // that it is a few cents — a big value is just a patch out of tune.
+    detune: c.chance(0.3) ? c.range(-14, 14) : 0,
     filterType: filtered ? c.pick(['lowpass', 'highpass', 'bandpass'] as const) : 'off',
     cutoff: c.range(300, 6000, 50),
     resonance: c.range(1, 12),
+    // Only means anything with a filter, and mostly on: without it the top of a wide sequence goes dull
+    // while the bottom stays open, which reads as a patch that runs out of energy as it climbs.
+    keyTrack: filtered ? c.range(0, 90) / 100 : 0,
     propagateMode: c.weighted([
       ['onEnd', 8],
       ['onStart', 2],
@@ -453,6 +521,47 @@ export function randomPatch(random: () => number = Math.random): Patch {
     wire(mod, destination, 'mod')
     // The same trigger the destination answers to, so the sweep lands when that branch lights up.
     if (kind === 'trigger' && trigger) wire(trigger, mod)
+  }
+
+  /*
+   * A warp, sometimes, and never more than one.
+   *
+   * It bends everything the cascade reaches from where it lands, which makes it the widest-reaching node
+   * there is and the one most easily overdone: two of them stack, and two rolled at random stack in a way
+   * nobody chose. One is a patch with a decision in it; three is a patch with an accident in it.
+   *
+   * Where it lands decides how much it takes. On an Ignite it takes that whole cascade, which is the
+   * reading worth having when a patch has more than one — two cascades and one of them warped is a
+   * conversation. On an oscillator it takes that branch and leaves its siblings alone, which is the
+   * reading worth having when there is only one cascade to bend.
+   *
+   * And it is given one dimension rather than four. All four at once is a patch nobody can hear their way
+   * back out of, and each on its own is legible: this branch is a third up, or this one runs at two
+   * thirds of the speed, or this one happens most of the time.
+   */
+  const ignites = nodes.filter((node) => node.type === 'start')
+  if (c.chance(0.3) && oscillators.length > 1) {
+    const onCascade = ignites.length > 1 && c.chance(0.6)
+    const host = onCascade ? c.pick(ignites) : c.pick(oscillators)
+    const params = c.weighted<WarpParams>([
+      // A third or a fifth in degrees of the scale, so it is an interval and not an interval-shaped
+      // number of semitones. Away from zero, since a warp of nothing is a node that does nothing.
+      [{ transpose: c.pick([-4, -2, 2, 3, 4]) }, 4],
+      // Ratios from the same list the panel offers, so a rolled patch cannot hold a speed a person
+      // could not have chosen.
+      [{ transpose: 0, speed: c.pick([0.5, 2 / 3, 1.5, 2]) }, 3],
+      [{ transpose: 0, chance: c.range(55, 90) / 100 }, 2],
+      [{ transpose: 0, velocity: c.range(40, 80) / 100 }, 1],
+    ])
+
+    const warp = add({
+      type: 'warp',
+      // To the left, like the modulators: the right-hand side belongs to effects, and a node with one of
+      // each should not be sandwiched between them.
+      position: beside(host, -1),
+      params,
+    })
+    wire(warp, host, 'warp')
   }
 
   return trimToBudget({

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { OscParams } from '../types/patch'
-import { toPatch, usePatchStore } from './patchStore'
+import { toPatch, EDGE_COMPONENT, usePatchStore } from './patchStore'
 
 beforeEach(() => {
   usePatchStore.getState().resetPatch()
@@ -55,16 +55,15 @@ describe('rolling a random patch', () => {
     // Straight from the generator into React Flow, so every cable needs its ports named the same
     // way a loaded patch does.
     //
-    // Exhaustive over the three kinds rather than a ternary of two, which is what this was when there
-    // were only two — and the day the die learned to roll a modulator it started asserting that a mod
-    // cable draws itself as a cascade.
-    const drawnAs = { event: 'cascade', audio: 'signal', mod: 'modulation' } as const
-
+    // Against the app's own table rather than a copy of it kept here. The copy was a hand-written map of
+    // three kinds, and it went stale twice: once the day the die learned to roll a modulator, and again
+    // the day a fourth kind of cable existed — both times asserting that the new cable draws itself as a
+    // cascade, which is the exact failure it was written to catch.
     usePatchStore.getState().randomisePatch()
     for (const edge of usePatchStore.getState().edges) {
       expect(edge.sourceHandle).toBeTruthy()
       expect(edge.targetHandle).toBeTruthy()
-      expect(edge.type).toBe(drawnAs[(edge.data?.kind ?? 'event') as keyof typeof drawnAs])
+      expect(edge.type).toBe(EDGE_COMPONENT[edge.data?.kind ?? 'event'])
     }
   })
 

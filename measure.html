@@ -137,7 +137,12 @@
       budget prices at nothing today. Each of those is the same graph twice: once with a modulator
       connected to nothing, once with it connected, so the modulator's own cost cancels.
     </p>
-    <p>Takes a few minutes. Leave the tab in front — a background tab is throttled.</p>
+    <p>
+      Takes a few minutes. Leave the tab in front — a background tab is throttled. And close
+      everything else that makes sound, this app included: every <code>AudioContext</code> on the
+      machine shares one audio device, so a second tab holding one puts glitches in this reading and
+      they are indistinguishable from the load failing. A second dev server counts.
+    </p>
     <p>
       The <strong>ceiling</strong> is a different question on a different thread, so it is a
       separate run. The costs above come from timing an offline render — how fast audio can be

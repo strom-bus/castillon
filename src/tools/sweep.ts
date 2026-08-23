@@ -434,10 +434,15 @@ function agreement(result: Sweep): { share: number; trustworthy: boolean } | nul
  *
  * "The audio thread never went quiet" was all this said, and it was not enough to act on: the retry on a
  * fresh context is already automatic, so a failure means it happened twice — the second time on a context
- * carrying nothing. Whether underruns were still pouring in (the device is busy with a context that was
- * closed, since they share one audio thread and `close()` resolving is not the thread going idle), or a
- * handful arrived and the patience simply ran out, or none arrived at all (the counter is not moving and
- * the check itself is broken) are three separate problems that looked identical in the report.
+ * carrying nothing. Whether underruns were still pouring in, or a handful arrived and the patience simply
+ * ran out, or none arrived at all — the counter is not moving and this check is itself the fault — are
+ * three separate problems that looked identical in the report.
+ *
+ * The flood case deliberately does not name its cause. Every `AudioContext` on the machine shares one
+ * audio device, so an empty context can be glitching because a context this run closed is still tearing
+ * down, *or* because another tab is holding one — the app itself, or a second dev server. From inside the
+ * page those are indistinguishable, and guessing between them in the report would send somebody looking
+ * in one of two places with no reason to prefer it.
  */
 function describeSettling(found: Found): string {
   const settling = found.stalled?.settling
@@ -448,7 +453,7 @@ function describeSettling(found: Found): string {
     settling.events === 0
       ? 'no underruns at all arrived, so the counter is not moving and this check is the fault'
       : rate > 5
-        ? 'still glitching hard — the device is busy with something already closed'
+        ? 'the audio device is busy with something else — a context still tearing down, or another tab'
         : 'nearly settled, so the patience is too short'
 
   return ` after ${settling.waited.toFixed(1)}s with ${settling.events} underruns during the wait: ${reading}`

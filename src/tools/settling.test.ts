@@ -65,13 +65,17 @@ describe('a subject that would not settle', () => {
     expect(report).toContain('37 underruns')
   })
 
-  it('reads a flood as the device still busy with something already closed', () => {
+  it('reads a flood as the device being busy, without guessing with what', () => {
     /*
-     * Better than nine a second on a context carrying nothing. A closed context's teardown does not free
-     * the audio thread when `close()` resolves, and every context shares that one thread — so a fresh one
-     * inherits the mess, which is why retrying on a fresh context did not help.
+     * Better than nine a second on a context carrying nothing. Every `AudioContext` on the machine shares
+     * one audio device, so it can be a context this run closed still tearing down — `close()` resolving is
+     * not the thread going idle — or another tab holding one, the app itself included. From inside the page
+     * those are indistinguishable, and naming one would send somebody looking in the wrong place half the
+     * time.
      */
-    expect(stalled(4, 37)).toMatch(/busy with something already closed/)
+    const report = stalled(4, 37)
+    expect(report).toMatch(/audio device is busy with something else/)
+    expect(report).toMatch(/another tab/)
   })
 
   it('reads a trickle as the patience being too short', () => {

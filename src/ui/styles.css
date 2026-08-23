@@ -866,6 +866,27 @@ input[type='range'] {
   letter-spacing: 0;
 }
 
+/*
+ * A group of controls under a heading.
+ *
+ * The rule above it does the separating and the heading only names it, which is why the heading is small
+ * and quiet: it is a signpost, not a section of the document. A panel of six shouting titles would read as
+ * six panels.
+ */
+.inspector-group + .inspector-group {
+  margin-top: 22px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.inspector-group-title {
+  margin: 0 0 12px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  color: var(--border-strong);
+}
+
 .inspector-field {
   display: block;
   margin-bottom: 14px;

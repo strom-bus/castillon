@@ -149,3 +149,58 @@ describe('a MOD pointed at something that cannot answer', () => {
     expect((params as { target?: string }).target).toBe('cutoff')
   })
 })
+
+/**
+ * How the oscillator's panel is laid out, which until now was not laid out at all.
+ *
+ * Fifteen controls in a flat list gave a new parameter nowhere to belong, so decay, glide and key follow
+ * each landed at the bottom for no reason anybody could read off the screen. The order is the same idea
+ * this whole instrument runs on applied once more: what happens first is written first.
+ */
+describe('the oscillator panel', () => {
+  function selectOsc() {
+    const osc = usePatchStore.getState().nodes.find((n) => n.type === 'osc')!
+    usePatchStore.getState().select(osc.id)
+    render(<Inspector />)
+    return osc.id
+  }
+
+  /** Group headings, in the order they appear on screen. */
+  const headings = () =>
+    Array.from(document.querySelectorAll('.inspector-group-title')).map((el) => el.textContent)
+
+  it('reads in the order a note is lived', () => {
+    // Chosen, timed, given a tone, given a shape, given a colour — and last, what to fire next.
+    selectOsc()
+    expect(headings()).toEqual(['SEQUENCE', 'VOICE', 'SHAPE', 'FILTER', 'NEXT'])
+  })
+
+  it('leaves no control stranded outside a group', () => {
+    // One that belongs nowhere is exactly the state this replaced, and it would be invisible: a field
+    // between two groups looks like it belongs to whichever one the eye reached last.
+    selectOsc()
+    const fields = Array.from(document.querySelectorAll('.inspector-field, .inspector-slider'))
+    const orphans = fields.filter((el) => !el.closest('.inspector-group'))
+    expect(orphans.map((el) => el.textContent?.slice(0, 30))).toEqual([])
+  })
+
+  it('puts what fires next on its own, and last', () => {
+    /*
+     * Because it is not about this node: it is where this one finishes and the next begins. It spent a
+     * long time seventh in a flat list, which is a poor place for one of the few controls the whole
+     * instrument turns on.
+     */
+    selectOsc()
+    const next = Array.from(document.querySelectorAll('.inspector-group')).at(-1)!
+    expect(next.querySelector('.inspector-group-title')?.textContent).toBe('NEXT')
+    expect(next.textContent).toContain('Propagation')
+  })
+
+  it('keeps the filter last of the sound groups, since it is the one that changes size', () => {
+    // One control becomes four the moment it is switched on, and a group that grows unsettles less at
+    // the bottom than in the middle.
+    selectOsc()
+    const order = headings()
+    expect(order.indexOf('FILTER')).toBe(order.indexOf('NEXT') - 1)
+  })
+})

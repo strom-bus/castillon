@@ -585,4 +585,87 @@ const stress: Preset = {
   patch: stressPatch(),
 }
 
-export const PRESETS: Preset[] = [descent, drift, hive, chance, bend, stress]
+/**
+ * Ducking, whose key is the cascade rather than a track of audio.
+ *
+ * The thing this instrument can do that no other one can, and it turned out to be already built — a MOD
+ * set to an envelope, fired by a trigger, pointed at an oscillator's level, with the depth taken below
+ * zero. What was missing was any way to find that: six choices deep and nothing anywhere names it. A
+ * preset is the one place a feature can be *seen* being used, so this is the naming.
+ *
+ * Everywhere else a sidechain is keyed by a signal — a compressor listening to a kick drum, guessing at
+ * the beat from its amplitude. Here the key is the trigger itself, which is not a guess: the pad ducks
+ * because the low branch *fired*, not because something got loud. It cannot mistime and it cannot be
+ * fooled by a quiet hit.
+ */
+const duck: Preset = {
+  id: 'duck',
+  name: 'DUCK',
+  about:
+    'A pad pushed out of the way by the branch below it, keyed by the trigger and not by a signal.',
+  patch: patchOf(
+    92,
+    [
+      ignite('i', 1, 0),
+      // The pad: long, soft and always there, which is what makes the ducking audible at all.
+      osc('pad', 0, 1, {
+        waveform: 'sawtooth',
+        detune: -7,
+        steps: steps([note(0, 0), null, note(4, 0), null]),
+        division: '1/4',
+        gain: 0.26,
+        attack: 220,
+        decay: 0,
+        release: 900,
+        gate: 1,
+        filterType: 'lowpass',
+        cutoff: 1300,
+        resonance: 3,
+        keyTrack: 0.4,
+        // Beside the low branch rather than after it, so both run against each other every pass.
+        propagateMode: 'onStart',
+      }),
+      // The key. Short and low, and its *trigger* is what does the ducking — the sound it makes is
+      // incidental, which is why this works even on a pass where its own step is silent.
+      osc('low', 2, 1, {
+        waveform: 'sine',
+        steps: steps([note(0, -2), null, null, note(0, -2), null, null, note(0, -2), null]),
+        division: '1/8',
+        gain: 0.32,
+        attack: 2,
+        decay: 90,
+        release: 120,
+        gate: 0.4,
+        filterType: 'lowpass',
+        cutoff: 500,
+        resonance: 1,
+      }),
+      /*
+       * The ducker: an envelope fired by the cascade, pointed at the pad's level, pulling *down*.
+       *
+       * Attack is how fast the pad gets out of the way and decay is how long it takes to come back —
+       * two milliseconds and a third of a second, which is the shape every sidechain has. The negative
+       * depth is the whole trick, and it is the only setting here that is not obvious.
+       */
+      mod('duck', 0, 2, {
+        kind: 'env',
+        fires: 'trigger',
+        target: 'level',
+        depth: -0.8,
+        attack: 2,
+        decay: 320,
+      }),
+      fx('rv', 3, 2, { effect: 'reverb', mix: 0.24, decay: 3, cutoff: 2600 }),
+    ],
+    [
+      wire('i', 'pad'),
+      wire('i', 'low'),
+      // The key: the same trigger that fires the low branch fires the ducker, so they cannot drift apart.
+      wire('i', 'duck'),
+      wire('duck', 'pad', 'mod'),
+      wire('pad', 'rv', 'audio'),
+    ],
+  ),
+}
+
+export const PRESETS: Preset[] = [descent, drift, hive, chance, bend, duck, stress]

@@ -1020,6 +1020,23 @@ export const MANUAL: Section[] = [
             },
           },
           {
+            term: { en: 'Ducking', es: 'Ducking' },
+            text: {
+              en: 'A MOD set to an envelope, fired by a trigger, pointed at an oscillator’s Level, with the Depth taken *below* zero. Now whenever that trigger fires, this oscillator gets out of the way and comes back — Attack is how fast it ducks and Decay is how long it takes to return. Wire the ducker from the same place that fires the branch you want to hear through the gap, and the two can never drift apart.',
+              es: 'Un MOD puesto en envolvente, disparado por un trigger, apuntando al Level de un oscilador, con el Depth *por debajo* de cero. Ahora, cada vez que ese disparo ocurre, este oscilador se aparta y vuelve — Attack es lo rápido que se aparta y Decay lo que tarda en volver. Cablea el ducker desde el mismo sitio que dispara la rama que quieres oír por el hueco, y los dos no pueden desfasarse.',
+            },
+          },
+          {
+            term: {
+              en: 'Why keying on a trigger is different',
+              es: 'Por qué disparar y no escuchar',
+            },
+            text: {
+              en: 'Everywhere else a sidechain listens to a *signal* and guesses at the beat from how loud it got. Here the key is the trigger itself, so the pad moves because the other branch fired — not because something crossed a threshold. It cannot mistime, and a quiet hit ducks exactly as much as a loud one. The preset called DUCK is this and nothing else.',
+              es: 'En cualquier otro sitio un sidechain escucha una *señal* y adivina el pulso por lo fuerte que sonó. Aquí la llave es el disparo mismo, así que el pad se aparta porque la otra rama disparó — no porque algo cruzara un umbral. No puede desajustarse, y un golpe flojo agacha exactamente lo mismo que uno fuerte. El preset llamado DUCK es esto y nada más.',
+            },
+          },
+          {
             term: { en: 'Per note means per voice', es: 'Por nota es por voz' },
             text: {
               en: 'An envelope firing per note gets its own sweep on every note, because an oscillator’s filter is built fresh for each one. That is also why it is the most expensive kind of modulation there is: one cable, and as many sweeps as there are notes in the air.',

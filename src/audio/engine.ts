@@ -1135,8 +1135,17 @@ export class AudioEngine implements Engine {
 
     // Depth is a share of the target's own span, so the one control means the same thing on a mix as
     // on a cutoff in hertz. Without this, a depth of 0.6 would be six tenths of a hertz on a filter.
-    const scaled = targetOf(target)
-    instance.depth.gain.value = scaled ? amountFor(scaled, depth) : Math.max(0, Math.min(1, depth))
+    /*
+     * The descriptor resolved at the top, rather than looked up a second time here.
+     *
+     * The second lookup asked `targetOf(target)` with no node type — the same omission that made a
+     * modulation to an oscillator's pitch connect to nothing — and it carried a fallback for the case
+     * where that answers undefined. The fallback was unreachable: a target that resolves to nothing has
+     * no destinations either, and this line is past the point where that returned. So it was a clamp
+     * nothing could run, quietly disagreeing with `amountFor` about whether a depth may be negative.
+     */
+    if (!descriptor) return
+    instance.depth.gain.value = amountFor(descriptor, depth)
 
     for (const destination of destinations) connectTo(instance.depth, destination)
     this.modLinks.set(`${modId}->${targetId}`, destinations)

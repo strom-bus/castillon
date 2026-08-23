@@ -260,6 +260,15 @@ describe('the presets', () => {
       byVelocity: nodes.some(
         (node) => node.type === 'mod' && (node.params as ModParams).byVelocity === true,
       ),
+      /*
+       * A modulation pulling *down*, which is the whole of ducking and the one thing here that nobody
+       * would find by exploring: an envelope, fired by a trigger, pointed at a level, with the depth
+       * taken below zero. Six choices deep and nothing names it, so if no preset shows it, it may as
+       * well not exist.
+       */
+      ducking: nodes.some(
+        (node) => node.type === 'mod' && ((node.params as ModParams).depth ?? 0) < 0,
+      ),
       delay: nodes.some((node) => node.type === 'delay'),
       // And each dimension a warp bends, which is four controls that all look alike and are not.
       warpPitch: nodes.some(

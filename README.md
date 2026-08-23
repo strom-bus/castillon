@@ -142,6 +142,16 @@ refused, since between an oscillator and an effect there is only one direction t
   most likely to want it. Beats and not bars, since there is no time signature here; four beats is what
   most people would call a bar and the list says so.
 
+  **Ducking, keyed by the cascade rather than by a signal.** An envelope fired by a trigger, pointed at
+  an oscillator's level, with the depth taken below zero: whenever that trigger fires, this oscillator
+  gets out of the way and comes back. Everywhere else a sidechain listens to a track and guesses at the
+  beat from how loud it got; here the key is the trigger itself, so a branch moves because another branch
+  _fired_ — it cannot mistime, and a quiet hit ducks exactly as much as a loud one.
+
+  It needed no new node, and that is the point worth recording: it fell out of a signed depth and a
+  trigger port that already existed. What it lacked was a name — six choices deep with nothing anywhere
+  saying what they add up to. The preset called DUCK is that name.
+
   And a trigger arriving at a MOD means _start now_ for **both** kinds. An envelope fires; an LFO begins
   its cycle again, so the wobble lines up with the cascade instead of drifting against it. The port used
   to mean nothing at all to an LFO — a whole input wasted on the one node where a phase is worth having.
@@ -260,11 +270,12 @@ refused, since between an oscillator and an effect there is only one direction t
 - **A patch gallery**, a window over the canvas rather than a page — so choosing a patch loads it into
   the instrument already underneath. Cards draw their own cascade, and stars decay with age so the
   popular sort does not freeze on whatever was published first. Two tabs: the patches people have
-  shared, and **six presets** that come with the machine.
+  shared, and **seven presets** that come with the machine.
 
-  Five are built around one idea that is hard to arrive at by rolling and small enough to read at a
+  Six are built around one idea that is hard to arrive at by rolling and small enough to read at a
   glance — the plain cascade, why there is no clock, one phrase driving another note by note, a figure
-  that never repeats itself, and a branch bent from the side. The sixth is not music at all: the load
+  that never repeats itself, a branch bent from the side, and a pad ducked by the branch beside it. The
+  seventh is not music at all: the load
   test, which used to live only as a two-thousand-character code in a text file, and is far more useful
   where it can be opened. It is the one preset exempt from arriving under the layering threshold, and it
   says "not music" on its own card so the exemption cannot mislead. They
@@ -304,7 +315,7 @@ refused, since between an oscillator and an effect there is only one direction t
   it longer without making it clearer. Both languages live adjacent in one file so a half-finished
   edit shows up in the diff rather than as a blank paragraph months later.
 
-  Fourteen chapters and a hundred and thirty entries, written for whoever is using the instrument
+  Fourteen chapters and a hundred and thirty-two entries, written for whoever is using the instrument
   rather than for whoever built it: no entry explains how something is implemented, and every one says
   what a control does to the sound and when you would reach for it. One chapter per module, each in
   the order its own panel is in and under the panel's own group headings, so reading the manual and

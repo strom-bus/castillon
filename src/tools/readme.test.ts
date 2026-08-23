@@ -28,6 +28,7 @@ import { EDGE_KINDS_IN_ORDER } from './readmeFacts'
 const WORDS: Record<number, string> = {
   4: 'four',
   7: 'seven',
+  8: 'eight',
   14: 'fourteen',
   6: 'six',
   10: 'ten',

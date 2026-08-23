@@ -286,17 +286,20 @@ export function ModNode({ id, data, selected }: NodeProps<FlowNode>) {
  * what happens beneath it. One moves a branch in time and the other moves it in pitch.
  */
 export function WarpNode({ id, data, selected }: NodeProps<FlowNode>) {
-  const { pulsing } = useNodeActivity(id)
-  const colors = useNodeColors(id)
   const ordinal = useOrdinal(id)
   const params = data.params as WarpParams
   const steps = Math.round(params.transpose ?? 0)
 
+  /*
+   * No depth colour, which is what an FX and a MOD also do without.
+   *
+   * The hue on a node is how far down the cascade it stands, and a warp does not stand in one — so it
+   * has no depth to paint, and asking for one got the colour reserved for a node nothing can reach.
+   * Against a black canvas that reads as a pale, washed-out box, which is how it was reported. Copied
+   * in from the delay, back when this was a node in the chain rather than something hanging off one.
+   */
   return (
-    <div
-      className={`node node-warp${pulsing ? ' pulsing' : ''}${selected ? ' selected' : ''}`}
-      style={depthStyle(colors)}
-    >
+    <div className={`node node-warp${selected ? ' selected' : ''}`}>
       {/* Side ports only, like a MOD: it attaches to what it moves rather than standing in the cascade,
           so nothing triggers it and nothing hangs below it. Standing in the cascade meant the cable
           between two nodes had to be broken to get one between them — and one wired beside that cable

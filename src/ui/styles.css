@@ -1614,6 +1614,14 @@ input[type='range'] {
   transition: border-color 120ms linear;
 }
 
+/* A warp is the other thing that hangs off a node rather than standing in the cascade, so it wears what
+   the modulator wears: a plain edge and no depth hue, because it has no depth. */
+.node-warp {
+  --accent: var(--text);
+  border-image: none;
+  border: 1px solid var(--border-strong);
+}
+
 .node-mod.idle {
   border-color: var(--border-strong);
 }

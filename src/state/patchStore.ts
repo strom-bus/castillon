@@ -35,7 +35,7 @@ export type FlowNode = Node<FlowNodeData>
 export type FlowEdge = Edge<{ kind: EdgeKind }>
 
 /** Which component draws each kind of cable. One map, so the two cannot drift apart. */
-const EDGE_COMPONENT: Record<EdgeKind, string> = {
+export const EDGE_COMPONENT: Record<EdgeKind, string> = {
   event: 'cascade',
   audio: 'signal',
   mod: 'modulation',

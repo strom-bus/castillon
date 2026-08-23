@@ -14,7 +14,7 @@ export const nodeTypes = {
   fx: FxNode,
   mod: ModNode,
   delay: DelayNode,
-  transform: WarpNode,
+  warp: WarpNode,
 }
 
 export const edgeTypes = {

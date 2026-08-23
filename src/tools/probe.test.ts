@@ -5,6 +5,7 @@
  * thread and a real dropout — but the reason it hung is arithmetic, and arithmetic can be pinned down.
  */
 
+import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { fires } from './probe'
 
@@ -58,5 +59,38 @@ describe('the note scheduler', () => {
     // whatever the horizon has already reached into the second after.
     expect(fired).toBeGreaterThanOrEqual(6)
     expect(fired).toBeLessThanOrEqual(8)
+  })
+})
+
+/**
+ * That a subject asking to sweep something actually builds a modulator.
+ *
+ * It used to build one only when the subject also carried an effect, because the code sat inside that
+ * branch. So `{ modulate: 'level' }` with no effect measured a plain voice load and reported it as a
+ * measurement of modulation — a wrong answer with nothing complaining, and it foreclosed the only subject
+ * that can price a modulator on its own. Read off a swept effect instead, `MOD_COST` needs the voice
+ * subtracted and then the effect, and the error compounds through both.
+ */
+describe('a subject that sweeps a parameter', () => {
+  const source = readFileSync('src/tools/probe.ts', 'utf8')
+
+  it('builds the modulator outside the branch that needs an effect', () => {
+    /*
+     * Checked by reading the source, because building a load needs a real `AudioContext` with underrun
+     * statistics and cannot be reached from a test at all. What can be checked is the nesting: the
+     * modulator block must not be inside `if (subject.effect)`.
+     */
+    const build = source.slice(source.indexOf('if (subject.effect) {'))
+    const effectBranch = build.slice(0, build.indexOf('\n    }') + 6)
+    expect(effectBranch).toContain('createEffect')
+    expect(effectBranch, 'the modulator is nested inside the effect branch again').not.toContain(
+      'createModulator',
+    )
+  })
+
+  it('points it at the effect where there is one and the voice where there is not', () => {
+    // Both destinations, chosen by whether the subject has an effect — which is what makes a
+    // voice-plus-modulator subject possible at all.
+    expect(source).toMatch(/subject\.effect \? `fx\$\{slot\}` : `slot\$\{slot\}`/)
   })
 })

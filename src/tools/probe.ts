@@ -472,11 +472,25 @@ async function attempt(
       const id = `fx${slot}`
       engine.createEffect(id, params, 120)
       engine.connectSend(`slot${slot}`, id)
+    }
 
-      if (subject.modulate) {
-        engine.createModulator(`mod${slot}`, { kind: 'lfo', wave: 'sine', rate: 1.5, depth: 0.6 })
-        engine.connectMod(`mod${slot}`, id, subject.modulate, 0.6)
-      }
+    /*
+     * The modulator, pointed at the effect where there is one and at the voice where there is not.
+     *
+     * It used to live *inside* the branch above, so a subject asking to sweep something with no effect to
+     * sweep built no modulator at all and reported a plain voice load as a measurement of modulation. A
+     * wrong answer with nothing complaining, and the only kind of subject that can price a modulator on
+     * its own: voice-plus-modulator against voice, which is one subtraction. Read off an effect it takes
+     * two — subtract the voice, then subtract the effect — and the error compounds through both.
+     */
+    if (subject.modulate) {
+      engine.createModulator(`mod${slot}`, { kind: 'lfo', wave: 'sine', rate: 1.5, depth: 0.6 })
+      engine.connectMod(
+        `mod${slot}`,
+        subject.effect ? `fx${slot}` : `slot${slot}`,
+        subject.modulate,
+        0.6,
+      )
     }
   }
 

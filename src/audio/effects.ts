@@ -426,7 +426,23 @@ const filter: EffectDescriptor = {
   // One biquad and the wet/dry pair, which is the cheapest an effect gets here. Offline said 2; realtime
   // says 4.5, averaged over the two readings a sweep takes of this one. A biquad's memory traffic is the
   // part a render does not charge for.
-  cost: () => 4.5,
+  /*
+   * One biquad and the mix gains, and it was priced at 4.5 for years on nothing but arithmetic.
+   *
+   * The sweep read the filter unit at 0.80x and 0.76x — the same subject measured twice in one run,
+   * agreeing to one per cent on points, with the run passing all three of its self-checks and the machine
+   * verified idle beforehand. Taking the voice half as correct (it is the unit, and the reading is
+   * corroborated below), that leaves the effect itself at about 1.8 rather than 4.5.
+   *
+   * Believed because a second, independent route says the same thing: this builds *one*
+   * `createBiquadFilter`, and the identical node costs `FILTER_COST` — 1.05 — when it sits on a voice.
+   * A bus filter is not four times a voice filter; it is the same node plus two gains. 1.8 fits that and
+   * 4.5 never did, which is the sort of thing arithmetic gets wrong and a measurement does not.
+   *
+   * The argument against a mistake in the voice half rather than here: bitcrusher read 1.04 and filter
+   * read 0.80 on units sharing the same voice, and a wrong voice cost would move both the same way.
+   */
+  cost: () => 1.8,
   label: 'Filter',
   params: ['filterType', 'cutoff', 'resonance'],
   // Here the cutoff is the point rather than a shaping stage.

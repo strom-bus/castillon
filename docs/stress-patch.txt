@@ -26,8 +26,8 @@ becomes a test of its history.
 The load, worked out from the note rate and the release rather than from the meter's estimate:
 
   voices     1946   48 oscillators, each holding about 20 at a time
-  effects     632   five reverbs at their longest, and five cheaper ones
-  total      2579   against a layering threshold of 2063 and a ceiling of 2750
+  effects     630   five reverbs at their longest, and five cheaper ones
+  total      2576   against a layering threshold of 2063 and a ceiling of 2750
 
 So it is meant to sit past the point where the engine starts degrading and short of where it
 breaks. That is the interesting place: a load test that always glitches tells you nothing, and one

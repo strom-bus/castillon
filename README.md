@@ -81,6 +81,12 @@ refused, since between an oscillator and an effect there is only one direction t
   that quarter of headroom is the margin for a machine slower than the one this was calibrated on.
   Effects are never disabled behind your back, since you put them there.
 
+  The filter effect was the fourth. It sat at 4.5 for years on arithmetic alone, and a clean sweep read
+  its unit at 0.80x and 0.76x — the same subject twice in one run, agreeing to one per cent — which puts
+  the effect itself near 1.8. Believed because a second route says so independently: it builds _one_
+  biquad, and the identical node costs 1.05 on a voice. A bus filter is not four times a voice filter; it
+  is the same node plus two gains.
+
   Every cost is measured twice, and the second time changed three of them. An offline render is a
   batch — the cache behaves and per-block overheads amortise — while live, every 128 samples is a fresh
   visit. The correction turns out to scale with how much _memory traffic_ a node drags with it: a

@@ -431,6 +431,20 @@ async function run(
   )
 
   if (wantSurcharges) {
+    /*
+     * A modulator on its own, before any of the pairs.
+     *
+     * `MOD_COST` has never been measured directly: it was only ever inferred by taking a swept effect and
+     * subtracting the effect and then the voice, and the error compounds through both subtractions. This
+     * is a voice with a modulator on its level against a voice without one — the reference, measured right
+     * beside it — which is one subtraction and prices the modulator itself.
+     *
+     * Level rather than a filter cutoff, because level is the target the model charges nothing extra for.
+     * Whatever this reads is the modulator alone with no surcharge mixed into it.
+     */
+    surcharges.push(
+      await between({ label: 'a modulator alone', filtered: true, modulate: 'level' }),
+    )
     surcharges.push(await between({ label: 'filter · unswept', effect: subject }))
     for (const target of wanted) {
       surcharges.push(

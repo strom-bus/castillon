@@ -2,6 +2,7 @@ import { CascadeEdge } from './CascadeEdge'
 import { ModEdge } from './ModEdge'
 import { DelayNode, FxNode, ModNode, OscNode, StartNode, WarpNode } from './nodes'
 import { SignalEdge } from './SignalEdge'
+import { WarpEdge } from './WarpEdge'
 
 /**
  * The maps React Flow uses to resolve `node.type` and `edge.type`.
@@ -21,4 +22,5 @@ export const edgeTypes = {
   cascade: CascadeEdge,
   signal: SignalEdge,
   modulation: ModEdge,
+  warp: WarpEdge,
 }

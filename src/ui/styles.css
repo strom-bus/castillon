@@ -1584,6 +1584,16 @@ input[type='range'] {
     opacity 90ms linear;
 }
 
+/* A warp cable holds an offset rather than carrying anything, so it has one state and no animation.
+   Dashed where modulation is dotted, which is what tells the two apart at a glance — colour cannot,
+   since colour already means how deep in the cascade a node sits. */
+.edge-warp {
+  stroke: var(--muted);
+  stroke-width: 2;
+  stroke-dasharray: 7 5;
+  opacity: 0.55;
+}
+
 /* Something is being shaped: brighter, and breathing unless the rate has outrun the eye. */
 .edge-mod.active {
   stroke: var(--text);

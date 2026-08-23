@@ -39,9 +39,9 @@ export const EDGE_COMPONENT: Record<EdgeKind, string> = {
   event: 'cascade',
   audio: 'signal',
   mod: 'modulation',
-  // Drawn as modulation is: to the side, quietly, as something attached rather than something passing
-  // through. What it carries is different; where it sits and what it means to the eye is the same.
-  warp: 'modulation',
+  // Its own, not modulation's: a modulation cable breathes because a modulator is moving, and a warp
+  // is a standing offset that does not. Dashed and still, where modulation is dotted and breathing.
+  warp: 'warp',
 }
 
 function newId(prefix: string): string {

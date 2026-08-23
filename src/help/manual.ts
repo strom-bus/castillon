@@ -713,8 +713,12 @@ export const MANUAL: Section[] = [
         es: 'El hermano del DELAY. Un DELAY retiene un disparo y lo pasa más tarde; un SIEVE lo retiene y lo pasa *a veces*. Todo lo que hay debajo ocurre solo en las pasadas que deja pasar, así que un nodo decide si una rama entera forma parte de esta vuelta.',
       },
       {
-        en: 'There is no bar in this instrument, so a pass is the only thing that recurs — which is what a SIEVE counts. It says its condition on the node itself, written the way a musician writes it: 1:2 is the first of every two.',
-        es: 'En este instrumento no hay compás, así que una pasada es lo único que se repite — y es lo que cuenta un SIEVE. Dice su condición en el propio nodo, escrita como la escribiría un músico: 1:2 es la primera de cada dos.',
+        en: 'There is no bar in this instrument, so a pass is the only thing that recurs — and by default that is what a SIEVE counts. It says its condition on the node itself, written the way a musician writes it: 1:2 is the first of every two.',
+        es: 'En este instrumento no hay compás, así que una pasada es lo único que se repite — y por defecto es lo que cuenta un SIEVE. Dice su condición en el propio nodo, escrita como la escribiría un músico: 1:2 es la primera de cada dos.',
+      },
+      {
+        en: 'It can count the triggers reaching it instead, and that is a different instrument. Under an OSC sending on every step, one trigger arrives per step, so a SIEVE at 1:4 fires its branch on every fourth note of the sequence above — a divider on the steps rather than on the passes.',
+        es: 'También puede contar los disparos que le llegan, y eso es otro instrumento. Bajo un OSC que envía en cada paso llega un disparo por paso, así que un SIEVE en 1:4 dispara su rama cada cuarta nota de la secuencia de arriba — un divisor sobre los pasos y no sobre las pasadas.',
       },
     ],
     detail: [
@@ -722,17 +726,24 @@ export const MANUAL: Section[] = [
         title: 'THE PANEL',
         terms: [
           {
+            term: { en: 'Counts', es: 'Counts' },
+            text: {
+              en: 'Whether the run is counted in passes of the cascade or in the triggers that arrive here. In a plain chain they are the same number — one trigger reaches a node once per pass — so this changes nothing until the SIEVE sits somewhere they come apart: under an OSC sending on every step, below more than one parent, or inside a loop, where *which pass is this* has stopped meaning anything and *how many have reached me* still does.',
+              es: 'Si la tanda se cuenta en pasadas de la cascada o en los disparos que llegan aquí. En una cadena simple son el mismo número — a un nodo le llega un disparo por pasada — así que esto no cambia nada hasta que el SIEVE está donde se separan: bajo un OSC que envía en cada paso, debajo de más de un padre, o dentro de un bucle, donde *qué pasada es esta* ya no significa nada y *cuántos me han llegado* sigue significándolo.',
+            },
+          },
+          {
             term: { en: 'Every', es: 'Every' },
             text: {
-              en: 'How long the run of passes is. At one it counts nothing and everything goes through, which is where a SIEVE starts — dropping one into a chain is not a change until you ask it to be. At two the branch below happens every other time round, at four every fourth, and past about eight it stops being a rhythm and becomes a surprise.',
-              es: 'Cuánto dura la tanda de pasadas. En uno no cuenta nada y pasa todo, que es donde empieza un SIEVE — meter uno en una cadena no es un cambio hasta que se lo pidas. En dos, la rama de abajo ocurre una vuelta sí y otra no; en cuatro, una de cada cuatro; y pasado ocho deja de ser un ritmo y se vuelve una sorpresa.',
+              en: 'How long the run is. At one it counts nothing and everything goes through, which is where a SIEVE starts — dropping one into a chain is not a change until you ask it to be. At two the branch below happens every other time round, at four every fourth, and past about eight it stops being a rhythm and becomes a surprise.',
+              es: 'Cuánto dura la tanda. En uno no cuenta nada y pasa todo, que es donde empieza un SIEVE — meter uno en una cadena no es un cambio hasta que se lo pidas. En dos, la rama de abajo ocurre una vuelta sí y otra no; en cuatro, una de cada cuatro; y pasado ocho deja de ser un ritmo y se vuelve una sorpresa.',
             },
           },
           {
             term: { en: 'On pass', es: 'On pass' },
             text: {
-              en: 'Which pass of that run is this one’s, counting from one. It only appears once there is a run to have a place in. And it is the whole of alternation: two SIEVEs over the same run, one on the first pass and one on the second, is two branches taking turns — no feature of its own, just two nodes disagreeing about which passes are theirs.',
-              es: 'Cuál de las pasadas de esa tanda es la suya, contando desde uno. Solo aparece cuando ya hay una tanda en la que tener sitio. Y es la alternancia entera: dos SIEVE sobre la misma tanda, uno en la primera pasada y otro en la segunda, son dos ramas turnándose — sin ninguna función propia, solo dos nodos discrepando sobre qué pasadas son suyas.',
+              en: 'Which of that run is this one’s, counting from one — it reads *On trigger* when that is what is being counted. It only appears once there is a run to have a place in. And it is the whole of alternation: two SIEVEs over the same run, one on the first pass and one on the second, is two branches taking turns — no feature of its own, just two nodes disagreeing about which passes are theirs.',
+              es: 'Cuál de esa tanda es la suya, contando desde uno — dice *On trigger* cuando eso es lo que se cuenta. Solo aparece cuando ya hay una tanda en la que tener sitio. Y es la alternancia entera: dos SIEVE sobre la misma tanda, uno en la primera pasada y otro en la segunda, son dos ramas turnándose — sin ninguna función propia, solo dos nodos discrepando sobre qué pasadas son suyas.',
             },
           },
           {
@@ -751,6 +762,20 @@ export const MANUAL: Section[] = [
             text: {
               en: 'A SIEVE holds nothing back in time — it ends where it begins. So a branch that does not happen this pass takes no length off the lap, and the shape of the cycle is the same whether or not it let anything through. It is the one node here that changes what happens without changing when.',
               es: 'Un SIEVE no retiene nada en el tiempo — termina donde empieza. Así que una rama que no ocurre en esta pasada no le quita duración a la vuelta, y la forma del ciclo es la misma deje pasar o no. Es el único nodo de aquí que cambia qué ocurre sin cambiar cuándo.',
+            },
+          },
+          {
+            term: { en: 'Two dividers off one line', es: 'Dos divisores de una sola línea' },
+            text: {
+              en: 'Put an OSC on *every step* above two SIEVEs counting triggers, one of every three and one of every five, and three rhythms come out of a sequence that has only one. The count carries on across the pass boundary rather than starting again, so where each lands moves every time round — sixteen steps against three and five takes fifteen passes to come back to the beginning. The preset called SIFT is exactly this.',
+              es: 'Pon un OSC en *cada paso* encima de dos SIEVE contando disparos, uno de cada tres y otro de cada cinco, y salen tres ritmos de una secuencia que solo tiene uno. La cuenta sigue de una pasada a la siguiente en vez de empezar de nuevo, así que dónde cae cada uno se mueve cada vuelta — dieciséis pasos contra tres y cinco tardan quince pasadas en volver al principio. El preset llamado SIFT es exactamente esto.',
+            },
+          },
+          {
+            term: { en: 'Why it counts and does not wait', es: 'Por qué cuenta y no espera' },
+            text: {
+              en: 'The obvious node for a loop is one that waits for all its parents before firing. It cannot exist here. A parent can hang below the node that waits for it, so it only fires after — and then the waiting never ends and neither does the pass. Counting is defined everywhere, cannot deadlock, and does not quietly put the bar back by making branches wait for one another.',
+              es: 'El nodo obvio para un bucle es uno que espera a todos sus padres antes de disparar. Aquí no puede existir. Un padre puede colgar por debajo del nodo que lo espera, así que solo dispara después — y entonces la espera no termina nunca y la pasada tampoco. Contar está definido en todas partes, no se puede bloquear, y no devuelve el compás a hurtadillas haciendo que unas ramas esperen a otras.',
             },
           },
           {

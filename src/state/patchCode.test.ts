@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { defaultFxParams, defaultOscParams } from '../nodes/registry'
+import { defaultFxParams, defaultOscParams, defaultSieveParams } from '../nodes/registry'
+import { MAX_EVERY } from '../types/patch'
 import type {
   WarpParams,
   ModParams,
+  SieveParams,
   Patch,
   PatchEdge,
   PatchNode,
@@ -707,6 +709,56 @@ describe('modulation in the code', () => {
       expect(out.velocity).toBeCloseTo(1, 5)
       expect(out.chance).toBeCloseTo(1, 5)
       expect(out.useSwing).toBe(false)
+    })
+  })
+
+  describe('a sieve, whose condition is the whole of it', () => {
+    /*
+     * A SIEVE has no sound of its own — its parameters *are* the node, so a field lost in the code is a
+     * shared patch that plays a different piece. The warp lost three of four that way, and the shape of
+     * the mistake was a field added to the panel and not to the codec.
+     */
+    const sieved = (params: SieveParams) =>
+      patchOf(
+        [
+          { id: 's', type: 'start', position: { x: 0, y: 0 }, params: {} },
+          { id: 'g', type: 'sieve', position: { x: 120, y: 40 }, params },
+          oscNode('a'),
+        ],
+        [
+          { id: 'e1', kind: 'event', source: 's', target: 'g' },
+          { id: 'e2', kind: 'event', source: 'g', target: 'a' },
+        ],
+      )
+
+    const through = (params: Partial<SieveParams>): SieveParams => {
+      const back = roundTrip(sieved({ ...defaultSieveParams(), ...params }))!
+      return back.nodes.find((node) => node.type === 'sieve')!.params as SieveParams
+    }
+
+    it('carries the run, the place in it and the odds', () => {
+      const out = through({ every: 5, offset: 3, chance: 0.35 })
+      expect(out.every).toBe(5)
+      expect(out.offset).toBe(3)
+      expect(out.chance).toBeCloseTo(0.35, 5)
+    })
+
+    it('carries what it counts, which changes the rhythm and nothing on screen', () => {
+      // The field most likely to be dropped and least likely to be noticed: the panel looks identical
+      // either way, and the patch only sounds wrong where the two readings differ.
+      expect(through({ counts: 'triggers', every: 4 }).counts).toBe('triggers')
+      expect(through({ counts: 'passes', every: 4 }).counts).toBe('passes')
+    })
+
+    it('leaves one at rest reading as one at rest', () => {
+      const out = through({})
+      expect(out).toEqual(defaultSieveParams())
+    })
+
+    it('keeps the whole range of runs, up to the longest it can hold', () => {
+      expect(through({ every: MAX_EVERY, offset: MAX_EVERY }).every).toBe(MAX_EVERY)
+      expect(through({ every: MAX_EVERY, offset: MAX_EVERY }).offset).toBe(MAX_EVERY)
+      expect(through({ every: 1, offset: 1 }).every).toBe(1)
     })
   })
 

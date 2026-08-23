@@ -123,6 +123,8 @@ const WARP_SLOP_BITS = 6
 const SIEVE_COUNT_BITS = 4
 /** And its odds, in hundredths. */
 const SIEVE_CHANCE_BITS = 7
+/** And what it counts: passes, or the triggers reaching it. */
+const SIEVE_COUNTS_BITS = 1
 
 const EDGE_KINDS = ['event', 'audio', 'mod', 'warp'] as const
 
@@ -757,10 +759,11 @@ export function encodePatch(patch: Patch): string {
     } else if (node.type === 'warp') {
       writeWarp(writer, { ...defaultWarpParams(), ...(node.params as WarpParams) })
     } else if (node.type === 'sieve') {
-      const { every, offset, chance } = {
+      const { every, offset, chance, counts } = {
         ...defaultSieveParams(),
         ...(node.params as SieveParams),
       }
+      writer.write(counts === 'triggers' ? 1 : 0, SIEVE_COUNTS_BITS)
       writer.write(quantise(every, 1, 1, MAX_EVERY) - 1, SIEVE_COUNT_BITS)
       writer.write(quantise(offset, 1, 1, MAX_EVERY) - 1, SIEVE_COUNT_BITS)
       writer.write(quantise(chance * 100, 1, 0, 100), SIEVE_CHANCE_BITS)
@@ -824,6 +827,7 @@ export function decodePatch(code: string): Patch | null {
         params = readWarp(reader)
       } else if (type === 'sieve') {
         params = {
+          counts: reader.read(SIEVE_COUNTS_BITS) === 1 ? 'triggers' : 'passes',
           every: reader.read(SIEVE_COUNT_BITS) + 1,
           offset: reader.read(SIEVE_COUNT_BITS) + 1,
           chance: reader.read(SIEVE_CHANCE_BITS) / 100,

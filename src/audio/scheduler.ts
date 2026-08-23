@@ -112,6 +112,14 @@ export class CascadeScheduler {
   /** Sorted by ascending `time`. */
   private queue: TriggerEvent[] = []
   private chains = new Map<number, Chain>()
+  /**
+   * Triggers that have reached each node since the transport started.
+   *
+   * Across passes rather than per chain, because a divider does not begin again every bar — and there is
+   * no bar here to begin again at. Cleared when the transport restarts, which is the only moment the
+   * count means anything different.
+   */
+  private arrivals = new Map<NodeId, number>()
   private nextChainId = 1
   private timer: ReturnType<typeof setInterval> | null = null
   /** Bound Ignites currently sounding. A press on one already in this set is auto-repeat, not a note. */
@@ -139,6 +147,9 @@ export class CascadeScheduler {
   start(): void {
     if (this.running) return
     this.activate()
+    // Counted from the transport, so pressing Play twice gives the same patch twice rather than
+    // continuing a count nobody can see.
+    this.arrivals.clear()
     const t0 = this.deps.engine.now() + START_OFFSET
     for (const node of this.deps.getPatch().nodes) {
       // A bound Ignite waits for its input and is not seeded by the transport, which is the point of
@@ -166,6 +177,7 @@ export class CascadeScheduler {
     if (!this.running) return
     this.queue.length = 0
     this.chains.clear()
+    this.arrivals.clear()
     const t0 = this.deps.engine.now() + START_OFFSET
     for (const node of this.deps.getPatch().nodes) {
       if (node.type === 'start' && !isBound(node)) this.beginChain(node.id, t0)
@@ -320,6 +332,19 @@ export class CascadeScheduler {
 
     const carried = warpsOn(patch.edges, node.id, event.shifts)
 
+    /*
+     * How many triggers have reached this node, counting from one.
+     *
+     * Kept per node and across passes rather than per chain, because that is what makes it useful: a
+     * divider does not start over every bar, and there is no bar here to start over at. It runs for as
+     * long as the transport does and is cleared when that restarts.
+     *
+     * Counted for every node whether or not it cares — one map write per trigger, against a branch that
+     * would have to know which node types read it, which is the sort of second place a rule goes to rot.
+     */
+    const arrival = (this.arrivals.get(node.id) ?? 0) + 1
+    this.arrivals.set(node.id, arrival)
+
     const result = definition.schedule({
       node,
       time: event.time,
@@ -327,6 +352,7 @@ export class CascadeScheduler {
       // Which pass this is. A node that only happens on some of them needs to know; every other node
       // ignores it, which is why it is handed down rather than asked for.
       lap: this.chains.get(event.chainId)?.lap ?? 1,
+      arrival,
       engine: this.deps.engine,
       activity: this.deps.activity,
       /*

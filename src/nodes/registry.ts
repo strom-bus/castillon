@@ -45,6 +45,14 @@ export interface ScheduleArgs {
   /** What every WARP reaching this node comes to. Neutral unless one of them is on the branch. */
   warping?: Warping
   /**
+   * How many triggers have reached this node since the transport started, counting from one.
+   *
+   * A different quantity from `lap` and equal to it only in a plain chain. A node inside a cycle is
+   * reached many times in one pass; a node under an oscillator propagating on every step is reached once
+   * per step. Counting arrivals is defined in both, which counting passes is not.
+   */
+  arrival?: number
+  /**
    * Which time round the cascade this is, counting from one.
    *
    * There is no bar here, so a pass is the only thing that recurs — and this is what lets a node happen
@@ -155,7 +163,7 @@ const delay: NodeDefinition = {
 export function defaultSieveParams(): SieveParams {
   // Neutral: counts nothing, tosses nothing, passes everything. A sieve dropped into a chain is not a
   // change until it is asked to be, the same promise a warp makes.
-  return { every: 1, offset: 1, chance: 1 }
+  return { counts: 'passes', every: 1, offset: 1, chance: 1 }
 }
 
 /**
@@ -178,9 +186,11 @@ const sieve: NodeDefinition = {
   place: 'cascade',
   ports: { trigger: 'both' },
   defaults: defaultSieveParams,
-  schedule({ node, time, activity, engine, lap = 1 }) {
+  schedule({ node, time, activity, engine, lap = 1, arrival = 1 }) {
     const params = node.params as SieveParams
-    const counted = sieveLetsThrough(params, lap)
+    // Passes of the cascade, or triggers arriving here. The same number in a plain chain, and different
+    // wherever it matters: under `onStep`, below several parents, or inside a cycle.
+    const counted = sieveLetsThrough(params, params.counts === 'triggers' ? arrival : lap)
     const odds = clamp(params.chance ?? 1, 0, 1)
     const passes = counted && (odds >= 1 || engine.chance() < odds)
 

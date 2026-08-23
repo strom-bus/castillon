@@ -1227,12 +1227,29 @@ export function Inspector() {
     const sieve = node.data.params as SieveParams
     const every = Math.min(MAX_EVERY, Math.max(1, Math.round(sieve.every ?? 1)))
     const offset = Math.min(every, Math.max(1, Math.round(sieve.offset ?? 1)))
+    const counts = sieve.counts ?? 'passes'
 
     return (
       <Panel>
         <h2 className="inspector-title">
           SIEVE <span className="node-ordinal">{ordinal}</span>
         </h2>
+
+        {/* What is being counted, before how many of them. The same number in a plain chain, so this
+            changes nothing until the sieve sits under an oscillator sending on every step, below
+            several parents, or inside a loop. */}
+        <label className="inspector-field">
+          <span className="inspector-label">Counts</span>
+          <select
+            value={counts}
+            onChange={(e) =>
+              updateParams(node.id, { counts: e.target.value as SieveParams['counts'] })
+            }
+          >
+            <option value="passes">Passes</option>
+            <option value="triggers">Triggers in</option>
+          </select>
+        </label>
 
         {/* The run first and the place in it second, which is the order the condition is read in:
             "of every two, the first". Both start at one, which counts nothing and passes everything. */}
@@ -1242,7 +1259,7 @@ export function Inspector() {
           min={1}
           max={MAX_EVERY}
           step={1}
-          suffix=" passes"
+          suffix={counts === 'triggers' ? ' triggers' : ' passes'}
           onChange={(value) =>
             // The place cannot outrun the run it is in: shortening one to two with the place at five
             // would leave a node whose condition can never be met, silent with nothing saying why.
@@ -1252,7 +1269,7 @@ export function Inspector() {
 
         {every > 1 && (
           <Slider
-            label="On pass"
+            label={counts === 'triggers' ? 'On trigger' : 'On pass'}
             value={offset}
             min={1}
             max={every}
@@ -1278,6 +1295,10 @@ export function Inspector() {
         <p className="inspector-empty">
           Two of these over the same run, on the first and the second of every two, is how two
           branches take turns.
+        </p>
+        <p className="inspector-empty">
+          Counting triggers instead divides whatever reaches it. Under an OSC sending on every step
+          that is one arrival per step, so 1 of every 4 fires the branch on every fourth note.
         </p>
       </Panel>
     )

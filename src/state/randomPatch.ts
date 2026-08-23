@@ -11,6 +11,7 @@ import type {
   Patch,
   PatchEdge,
   PatchNode,
+  SieveParams,
   Waveform,
   WarpParams,
 } from '../types/patch'
@@ -311,6 +312,25 @@ function randomOsc(
   }
 }
 
+/**
+ * A sieve's condition.
+ *
+ * Never the neutral one: a rolled sieve that lets everything through is a node on the canvas doing
+ * nothing, which reads as a bug in the die rather than as a choice. Runs stay short — past about four
+ * the branch stops being a rhythm and becomes a surprise you wait too long for — and the odds are left
+ * at certain most of the time, so what the node does is legible on the second pass rather than the
+ * eighth.
+ */
+function randomSieve(c: Chance): SieveParams {
+  const every = c.range(2, 4)
+  return {
+    counts: 'passes',
+    every,
+    offset: c.range(1, every),
+    chance: c.chance(0.25) ? c.range(50, 90, 5) / 100 : 1,
+  }
+}
+
 function randomFx(c: Chance): FxParams {
   const descriptor = c.pick(EFFECTS)
   return {
@@ -379,6 +399,16 @@ export function randomPatch(random: () => number = Math.random): Patch {
    */
   const triggeredBy = new Map<string, PatchNode>()
 
+  /*
+   * Sieves and whatever hangs above each one, kept so their counting can be settled later.
+   *
+   * Counting arrivals only differs from counting passes where more than one trigger reaches a node in
+   * one pass, and in a rolled patch that means an oscillator above sending on every step. Which mode
+   * that oscillator has is not decided until its params are rolled, further down, so the choice cannot
+   * be made here — and made here anyway it would be a setting that says nothing nine times in ten.
+   */
+  const sieves: { node: PatchNode; above: PatchNode }[] = []
+
   for (let cascade = 0; cascade < cascades; cascade++) {
     const originColumn = (cascade % perRow) * cascadeColumns
     const originRow = Math.floor(cascade / perRow) * cascadeRows
@@ -397,23 +427,44 @@ export function randomPatch(random: () => number = Math.random): Patch {
     for (let d = 0; d < depth; d++) {
       const width = d === 0 ? 1 : c.range(...size.width)
       const children: PatchNode[] = []
-      // A delay takes a row of its own, so siblings stay on one line whether or not one has one.
-      const hasDelay = d > 0 && c.chance(0.3)
-      const oscRow = row + (hasDelay ? 1 : 0)
+      /*
+       * What sits between two levels, if anything. A DELAY holds a trigger and passes it late; a SIEVE
+       * holds one and passes it sometimes — siblings, and the die had only ever rolled the first of
+       * them, so a whole node never turned up in a patch nobody wired by hand.
+       *
+       * Mostly neither: both are edits to a cascade that already works, and a patch where every level
+       * is interrupted has no through-line left to hear the interruptions against.
+       */
+      const between =
+        d > 0
+          ? c.weighted([
+              ['none', 7],
+              ['delay', 2],
+              ['sieve', 1],
+            ] as const)
+          : 'none'
+      // Whichever it is takes a row of its own, so siblings stay on one line whether or not one has it.
+      const oscRow = row + (between === 'none' ? 0 : 1)
 
       for (let i = 0; i < width; i++) {
         const parent = c.pick(parents)
         const column = originColumn + i
 
-        // A delay between levels is what pulls two branches out of step with each other.
-        const via = hasDelay
-          ? add({
-              type: 'delay',
-              position: { x: column * COLUMN, y: row * ROW },
-              params: { ...defaultDelayParams(), delayMs: c.range(120, 900, 10) },
-            })
-          : null
+        // A delay between levels is what pulls two branches out of step with each other; a sieve is
+        // what takes one of them out of some of the passes altogether.
+        const at = { x: column * COLUMN, y: row * ROW }
+        const via =
+          between === 'delay'
+            ? add({
+                type: 'delay',
+                position: at,
+                params: { ...defaultDelayParams(), delayMs: c.range(120, 900, 10) },
+              })
+            : between === 'sieve'
+              ? add({ type: 'sieve', position: at, params: randomSieve(c) })
+              : null
         if (via) wire(parent, via)
+        if (via?.type === 'sieve') sieves.push({ node: via, above: parent })
 
         const osc = add({
           type: 'osc',
@@ -437,6 +488,17 @@ export function randomPatch(random: () => number = Math.random): Patch {
     // Claimed again now that it has steps, and so a width. Everything placed with `beside` comes after
     // this, which is the only reason a late claim is enough.
     claim(osc)
+  }
+
+  for (const { node, above } of sieves) {
+    /*
+     * Now that the oscillators have their modes, a sieve under one that sends on every step can be asked
+     * to count what arrives rather than which pass it is — a divider on the steps, which is the one
+     * place the two readings differ. Under anything else it would be the same number by another name.
+     */
+    if (above.type !== 'osc') continue
+    if ((above.params as OscParams).propagateMode !== 'onStep') continue
+    if (c.chance(0.6)) (node.params as SieveParams).counts = 'triggers'
   }
 
   const wanted = Math.round(

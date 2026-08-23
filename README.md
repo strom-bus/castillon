@@ -79,6 +79,14 @@ refused, since between an oscillator and an effect there is only one direction t
   branches take turns; that is alternation with no feature of its own. It also carries odds, so a branch
   can happen most of the time rather than every other time, and the two compose because both are neutral
   at rest — a sieve dropped into a chain is not a change until it is asked to be.
+- **A sieve that counts the triggers reaching it** rather than the passes. The same number in a plain
+  chain — one trigger arrives per pass — so the setting is not a choice until it is somewhere the two
+  come apart: under an oscillator sending on every step, where one arrives per step and the sieve
+  becomes a divider on the steps, or inside a loop, where _which pass is this_ has stopped meaning
+  anything. That loop is why it counts rather than waits: the obvious node for one is a JOIN that holds
+  a trigger until all of its parents have fired, and it cannot exist in a graph that permits cycles,
+  because a parent hanging below the join only fires after it and the wait never ends. Counting is
+  defined everywhere and cannot deadlock, which is a weaker promise and a keepable one.
 - **A budget counted in work, not voices.** One point is one plain oscillator voice, and the ceiling is
   measured rather than chosen: Chrome reports how much of each 128-sample block the audio thread has
   used, so ramping load until that reaches a hundred per cent _is_ the ceiling rather than a proxy for
@@ -270,7 +278,7 @@ refused, since between an oscillator and an effect there is only one direction t
 - **A patch gallery**, a window over the canvas rather than a page — so choosing a patch loads it into
   the instrument already underneath. Cards draw their own cascade, and stars decay with age so the
   popular sort does not freeze on whatever was published first. Two tabs: the patches people have
-  shared, and **seven presets** that come with the machine.
+  shared, and **eight presets** that come with the machine.
 
   Six are built around one idea that is hard to arrive at by rolling and small enough to read at a
   glance — the plain cascade, why there is no clock, one phrase driving another note by note, a figure
@@ -315,7 +323,7 @@ refused, since between an oscillator and an effect there is only one direction t
   it longer without making it clearer. Both languages live adjacent in one file so a half-finished
   edit shows up in the diff rather than as a blank paragraph months later.
 
-  Fourteen chapters and a hundred and thirty-two entries, written for whoever is using the instrument
+  Fourteen chapters and a hundred and thirty-five entries, written for whoever is using the instrument
   rather than for whoever built it: no entry explains how something is implemented, and every one says
   what a control does to the sound and when you would reach for it. One chapter per module, each in
   the order its own panel is in and under the panel's own group headings, so reading the manual and

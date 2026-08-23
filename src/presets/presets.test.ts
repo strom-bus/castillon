@@ -22,6 +22,7 @@ import type {
   OscParams,
   Patch,
   PatchNode,
+  SieveParams,
   StartParams,
   WarpParams,
 } from '../types/patch'
@@ -270,6 +271,23 @@ describe('the presets', () => {
         (node) => node.type === 'mod' && ((node.params as ModParams).depth ?? 0) < 0,
       ),
       delay: nodes.some((node) => node.type === 'delay'),
+      /*
+       * The SIEVE, which this very test was written to catch and did not — the node shipped, the map
+       * never got an entry for it, and for its whole life no preset showed one. Split into what it can
+       * be asked to do, because a sieve at rest passes everything and demonstrates nothing.
+       */
+      sieve: nodes.some((node) => node.type === 'sieve'),
+      sieveRun: nodes.some(
+        (node) => node.type === 'sieve' && (node.params as SieveParams).every > 1,
+      ),
+      sieveOdds: nodes.some(
+        (node) => node.type === 'sieve' && ((node.params as SieveParams).chance ?? 1) < 1,
+      ),
+      // Counting arrivals rather than passes, which turns a sieve into a divider on the steps above it
+      // — six choices deep, invisible in the panel, and nothing but a preset will ever show it.
+      sieveTriggers: nodes.some(
+        (node) => node.type === 'sieve' && (node.params as SieveParams).counts === 'triggers',
+      ),
       // And each dimension a warp bends, which is four controls that all look alike and are not.
       warpPitch: nodes.some(
         (node) => node.type === 'warp' && (node.params as WarpParams).transpose !== 0,

@@ -1,5 +1,5 @@
 /**
- * Three patches that come with the machine.
+ * The patches that come with the machine.
  *
  * The dice is the only thing here that shows what a cascade can do, and a dice explains nothing: it
  * produces an example without saying what the example is of. These do the opposite — each is built around
@@ -19,6 +19,7 @@ import type {
   Patch,
   PatchEdge,
   PatchNode,
+  SieveParams,
   Step,
   WarpParams,
 } from '../types/patch'
@@ -108,6 +109,13 @@ const fx = (id: string, column: number, row: number, over: Partial<FxParams>): P
 const mod = (id: string, column: number, row: number, params: ModParams): PatchNode => ({
   id,
   type: 'mod',
+  position: at(column, row),
+  params,
+})
+
+const sieve = (id: string, column: number, row: number, params: SieveParams): PatchNode => ({
+  id,
+  type: 'sieve',
   position: at(column, row),
   params,
 })
@@ -668,4 +676,124 @@ const duck: Preset = {
   ),
 }
 
-export const PRESETS: Preset[] = [descent, drift, hive, chance, bend, duck, stress]
+/**
+ * One line, sifted three ways.
+ *
+ * A sixteen-step tick sends a trigger down on **every step**, and each branch takes a different share of
+ * them: one of every three, one of every five, and — counting passes rather than triggers — one pass in
+ * two, most of the time. So three rhythms come out of a sequence that has only one, and nothing here
+ * plays a note that was written.
+ *
+ * The two dividers are the point. Sixteen is not a multiple of three or of five and the count carries on
+ * across the pass boundary, so where each lands moves every time round: it takes fifteen passes to come
+ * back to where it started, out of one bar of sixteen. That is a phrase nobody wrote, and it is the one
+ * thing counting passes cannot do — every trigger in a pass carries the same pass number, so a sieve
+ * counting them takes all sixteen or none.
+ *
+ * The third branch is the older reading, kept beside them so the difference is audible rather than
+ * explained: a pad on alternate passes, with odds, entering where the arithmetic above has no say.
+ */
+const sift: Preset = {
+  id: 'sift',
+  name: 'SIFT',
+  about: 'One tick, three sieves: two dividing its steps and one counting its passes.',
+  patch: patchOf(
+    100,
+    [
+      ignite('i', 1, 0),
+      /*
+       * The tick. Every step the same note on purpose — it is a clock, and a clock that plays a tune
+       * gives the ear something to follow instead of the branches. The velocities alternate so it
+       * breathes rather than machine-guns.
+       */
+      osc('tick', 1, 1, {
+        ...IN_KEY,
+        waveform: 'square',
+        steps: steps(
+          Array.from({ length: 16 }, () => note(0, 1)),
+          Array.from({ length: 16 }, (_, i) => (i % 4 === 0 ? 0.5 : 0.26)),
+        ),
+        division: '1/16',
+        gain: 0.16,
+        attack: 1,
+        decay: 40,
+        release: 60,
+        gate: 0.3,
+        filterType: 'highpass',
+        cutoff: 900,
+        resonance: 2,
+        // The whole preset hangs off this: one trigger per step is what gives the sieves below
+        // something to divide.
+        propagateMode: 'onStep',
+      }),
+
+      // One of every three arrivals, and one of every five. Both counting triggers, which is the only
+      // reading under which they mean anything different from each other.
+      sieve('g3', 0, 2, { counts: 'triggers', every: 3, offset: 1, chance: 1 }),
+      sieve('g5', 2, 2, { counts: 'triggers', every: 5, offset: 1, chance: 1 }),
+      // And the older reading beside them: passes, not triggers, so this one ignores the steps entirely.
+      sieve('gp', 3, 2, { counts: 'passes', every: 2, offset: 1, chance: 0.75 }),
+
+      osc('chime', 0, 3, {
+        ...IN_KEY,
+        waveform: 'triangle',
+        steps: steps([note(4, 2)]),
+        division: '1/8',
+        gain: 0.3,
+        attack: 2,
+        decay: 260,
+        release: 340,
+        gate: 0.5,
+        filterType: 'lowpass',
+        cutoff: 4200,
+        resonance: 2,
+        keyTrack: 0.3,
+      }),
+      osc('bass', 2, 3, {
+        ...IN_KEY,
+        waveform: 'sawtooth',
+        steps: steps([note(0, -1)]),
+        division: '1/8',
+        gain: 0.34,
+        attack: 3,
+        decay: 180,
+        release: 220,
+        gate: 0.6,
+        filterType: 'lowpass',
+        cutoff: 620,
+        resonance: 4,
+      }),
+      osc('pad', 3, 3, {
+        ...IN_KEY,
+        waveform: 'sawtooth',
+        detune: -6,
+        steps: steps([note(2, 0)]),
+        division: '1/4',
+        gain: 0.2,
+        attack: 300,
+        decay: 0,
+        release: 900,
+        gate: 1,
+        filterType: 'lowpass',
+        cutoff: 1500,
+        resonance: 3,
+        keyTrack: 0.4,
+      }),
+
+      fx('rv', 4, 4, { effect: 'reverb', mix: 0.3, decay: 3.4, cutoff: 3200 }),
+    ],
+    [
+      wire('i', 'tick'),
+      wire('tick', 'g3'),
+      wire('tick', 'g5'),
+      wire('tick', 'gp'),
+      wire('g3', 'chime'),
+      wire('g5', 'bass'),
+      wire('gp', 'pad'),
+      wire('chime', 'rv', 'audio'),
+      wire('pad', 'rv', 'audio'),
+    ],
+  ),
+}
+
+export const PRESETS: Preset[] = [descent, drift, hive, chance, bend, sift, duck, stress]

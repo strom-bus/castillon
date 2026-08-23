@@ -3,7 +3,7 @@ import { EFFECTS } from '../audio/effects'
 import { estimatePeakLoad } from '../audio/load'
 import { silentBecause, targetOf } from '../audio/modulation'
 import { permits } from './connections'
-import type { FxParams, ModParams, OscParams, Patch, WarpParams } from '../types/patch'
+import type { FxParams, ModParams, OscParams, Patch, SieveParams, WarpParams } from '../types/patch'
 import { decodePatch, encodePatch } from './patchCode'
 import { warpDoingNothing } from './transpose'
 import { ROLL_BUDGET, cellsOf, randomPatch } from './randomPatch'
@@ -314,6 +314,53 @@ describe('randomPatch', () => {
     // modulated anything.
     const withMod = many(60).filter((patch) => patch.nodes.some((node) => node.type === 'mod'))
     expect(withMod.length).toBeGreaterThan(10)
+  })
+
+  it('rolls sieves, which the die had never heard of either', () => {
+    // The same gap the modulators had: the node existed, nothing rolled it, and the only patches with
+    // one in were the ones somebody wired by hand.
+    const withSieve = many(60).filter((patch) => patch.nodes.some((node) => node.type === 'sieve'))
+    expect(withSieve.length).toBeGreaterThan(5)
+  })
+
+  it('never rolls a sieve that lets everything through', () => {
+    // A neutral one is a node on the canvas doing nothing, which from a roll is indistinguishable from
+    // a die that forgot to set it.
+    for (const patch of many(60)) {
+      for (const node of patch.nodes.filter((n) => n.type === 'sieve')) {
+        const params = node.params as SieveParams
+        expect(params.every > 1 || (params.chance ?? 1) < 1).toBe(true)
+        expect(params.offset).toBeLessThanOrEqual(params.every)
+        expect(params.offset).toBeGreaterThanOrEqual(1)
+      }
+    }
+  })
+
+  it('only asks a sieve to count triggers where that is a different number', () => {
+    /*
+     * Counting arrivals is the same as counting passes unless more than one trigger reaches the node in
+     * a pass, which here means an oscillator above sending on every step. Set anywhere else it is a
+     * setting that changes nothing — visible in the panel, absent from the sound, which is the worst
+     * kind of thing for a die to produce.
+     */
+    let counting = 0
+    for (const patch of many(80)) {
+      for (const node of patch.nodes.filter((n) => n.type === 'sieve')) {
+        if ((node.params as SieveParams).counts !== 'triggers') continue
+        counting++
+        const above = patch.edges
+          .filter((edge) => edge.kind === 'event' && edge.target === node.id)
+          .map((edge) => patch.nodes.find((n) => n.id === edge.source)!)
+        expect(above.length).toBeGreaterThan(0)
+        for (const parent of above) {
+          expect(parent.type).toBe('osc')
+          expect((parent.params as OscParams).propagateMode).toBe('onStep')
+        }
+      }
+    }
+    // It has to have rolled some, or every assertion above was skipped and the test proved the die
+    // never sets the field rather than that it sets it where it means something.
+    expect(counting).toBeGreaterThan(0)
   })
 
   it('never points a modulator at something that would do nothing', () => {

@@ -364,7 +364,26 @@ export const MAX_EVERY = 16
  * not touched passes everything, so putting one in a chain is never a change until it is asked to be.
  */
 export interface SieveParams {
-  /** How long the run of passes is. 1 counts nothing and lets everything through. */
+  /**
+   * What the run is counted in: passes of the cascade, or triggers arriving at this node.
+   *
+   * Passes by default, which is what it has always done. They are the same thing in a plain chain — one
+   * trigger reaches a node once per pass — and they come apart in exactly the places worth having:
+   *
+   * - Under an oscillator propagating **on every step**, a trigger arrives once per step, so counting
+   *   them divides the step stream. Sixteen steps above and a sieve at 1:4 fires the branch on every
+   *   fourth one, which nothing else here can do.
+   * - Where a node has **several parents**, it is reached once per parent.
+   * - Inside a **cycle**, where a node is reached again and again and "which pass is this" has no useful
+   *   answer at all.
+   *
+   * That last one is why this exists rather than a JOIN. A node that waits for all of its parents cannot
+   * be defined in a graph that permits cycles — a parent below the join can only fire after it, so the
+   * join waits for something waiting for it and the pass never ends. Counting arrivals is well defined
+   * everywhere, cannot deadlock, and does not quietly reintroduce a bar by making branches wait.
+   */
+  counts?: 'passes' | 'triggers'
+  /** How long the run is. 1 counts nothing and lets everything through. */
   every: number
   /** Which pass of that run is this node's, counting from one. */
   offset: number

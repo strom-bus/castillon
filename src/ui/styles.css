@@ -879,6 +879,30 @@ input[type='range'] {
   letter-spacing: 0.06em;
 }
 
+/* A checkbox and its words, on one line and in that order.
+
+   The rest of the panel names a value on the left and shows it on the right, which is right for a slider
+   and wrong for a box: it sends the tick to the far margin with the label stranded away from it. Here the
+   two sit together and the whole row is the target, since a five-pixel box is a poor thing to aim at. */
+.inspector-check {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 14px;
+  color: var(--muted);
+  letter-spacing: 0.06em;
+  cursor: pointer;
+}
+
+.inspector-check input {
+  margin: 0;
+  cursor: pointer;
+}
+
+.inspector-check:hover {
+  color: var(--text);
+}
+
 .inspector-label em {
   font-style: normal;
   color: var(--text);

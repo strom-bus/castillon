@@ -703,14 +703,18 @@ export function Inspector() {
               </select>
             </label>
 
+            {/* The box first and the words after it, which is the order a checkbox is read in: the
+                control is the sentence's subject and the label says what ticking it means. Every other
+                field here names a value and then shows it, and borrowing that layout put the box out at
+                the right margin, a long way from the thing it belongs to. */}
             {fires === 'note' && (
-              <label className="inspector-field">
-                <span>Scale by velocity</span>
+              <label className="inspector-check">
                 <input
                   type="checkbox"
                   checked={mod.byVelocity === true}
                   onChange={(e) => updateParams(node.id, { byVelocity: e.target.checked })}
                 />
+                <span>Scale by velocity</span>
               </label>
             )}
 

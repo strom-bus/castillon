@@ -20,6 +20,7 @@ import {
   MAX_DELAY_MS,
   MAX_MOD_ATTACK,
   MAX_RATCHET,
+  MAX_SLOP,
   MAX_SWING,
   MAX_WARP,
   MIN_SWING,
@@ -190,9 +191,18 @@ export interface Warping {
   chance: number
   /** The long half of a step pair against the short. 1 is straight, and also multiplied. */
   swing: number
+  /** How far a note may fall from where it was written, as a share of the shortest gap. Added. */
+  slop: number
 }
 
-export const NO_WARPING: Warping = { pitch: 0, speed: 1, velocity: 1, chance: 1, swing: 1 }
+export const NO_WARPING: Warping = {
+  pitch: 0,
+  speed: 1,
+  velocity: 1,
+  chance: 1,
+  swing: 1,
+  slop: 0,
+}
 
 /**
  * What a list of warps comes to.
@@ -216,7 +226,11 @@ export function warpingOf(nodes: PatchNode[], applying: readonly NodeId[]): Warp
     // Only where the switch is on, which is what makes it a bypass rather than a second neutral point:
     // the ratio is remembered while off, so a groove can be listened to straight and put back.
     if (params.useSwing) total.swing *= clamp(params.swing ?? 1, MIN_SWING, MAX_SWING)
+    // Added rather than multiplied, following the pitch: two warps asking for looseness make a branch
+    // looser. Clamped after the sum, at the point where notes can meet and still not cross.
+    if (params.useSlop) total.slop += clamp(params.slop ?? 0, 0, MAX_SLOP)
   }
+  total.slop = clamp(total.slop, 0, MAX_SLOP)
   return total
 }
 
@@ -327,8 +341,30 @@ const osc: NodeDefinition = {
     const lengthOf = (index: number) => (index % 2 === 0 ? long : pair - long)
     const startOf = (index: number) => Math.floor(index / 2) * pair + (index % 2 === 1 ? long : 0)
 
+    /*
+     * How far a note may fall from where it was written: a share of the shortest gap in this sequence.
+     *
+     * The short half rather than the step, so the guarantee survives a swing. Two notes each free to move
+     * by this close on each other by twice it, and the share is capped at a half — so at the very worst
+     * two notes meet, and none can ever land before the one in front of it. A note out of order does not
+     * sound loose, it sounds broken.
+     *
+     * Measured against the sequence rather than in milliseconds because the same thirty milliseconds is
+     * five per cent of the gap in a slow straight bass and two hundred and forty per cent of it in a fast
+     * branch at heavy swing. One setting, two opposite results, in a machine whose branches run at
+     * different speeds on purpose.
+     */
+    const wobble = (pair - long) * warping.slop
+
     for (let i = 0; i < count; i++) {
-      const at = time + startOf(i)
+      /*
+       * Centred, so a branch is loose rather than late — always-late is a different feel and a different
+       * control. The floor is the trigger instant: a branch cannot start before the thing that started
+       * it, and the first note is the only one close enough to `now` for that to matter. Everything after
+       * it is far enough ahead to move either way.
+       */
+      const nudge = wobble > 0 ? (engine.chance() * 2 - 1) * wobble : 0
+      const at = Math.max(time, time + startOf(i) + nudge)
       const held = lengthOf(i)
       const s = params.steps[i]
       activity.push({ kind: 'step', id: node.id, step: i, time: at, duration: held })

@@ -306,6 +306,20 @@ export const SWINGS = [1, 1.2, 1.5, 1.75, 2, 2.5, 3] as const
 export const MIN_SWING = 1
 export const MAX_SWING = 4
 
+/**
+ * How far a note may fall from where it was written, as a share of the shortest gap in its sequence.
+ *
+ * A share and not milliseconds, which is the whole design. Thirty milliseconds is five per cent of the
+ * gap in a slow straight bass and two hundred and forty per cent of it in a fast branch with a heavy
+ * swing — inaudible in one and the groove destroyed in the other, from one setting. A fixed number cannot
+ * mean the same thing in two branches of a machine whose branches run at different speeds on purpose.
+ *
+ * Capped at a half because two notes each free to move by X close on each other by 2X, so at a half they
+ * can meet and never cross. A note landing before the one in front of it does not sound human, it sounds
+ * broken, and that is the line between loose and wrong.
+ */
+export const MAX_SLOP = 0.5
+
 export interface WarpParams {
   /**
    * Steps to move everything below this node, counted in whatever units each oscillator can offer.
@@ -348,6 +362,20 @@ export interface WarpParams {
    * and `useRatchet` are switches beside their values rather than inside them.
    */
   useSwing?: boolean
+  /**
+   * How loosely every note below is played, as a share of the shortest gap in its own sequence.
+   *
+   * Measured against the sequence rather than in milliseconds so that one setting means the same thing
+   * wherever it lands — see `MAX_SLOP`. Swing and this compose rather than replace: swing decides the
+   * shape of the bar and this decides how closely it is respected, which is a drummer with a shuffle who
+   * is not perfectly tight. They act on different things, so nothing about them conflicts.
+   *
+   * Added where the ratios multiply, following the pitch: two warps asking for looseness make a branch
+   * looser, and the total is capped where notes can still not cross.
+   */
+  slop?: number
+  /** Whether that looseness is applied at all. A bypass, for the same reason `useSwing` is one. */
+  useSlop?: boolean
   /**
    * What to multiply every note's velocity by below here. 1 leaves it alone.
    *

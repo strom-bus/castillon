@@ -14,6 +14,7 @@ import {
   MAX_BPM,
   MAX_DECAY,
   MAX_DELAY_MS,
+  MAX_SLOP,
   MAX_WARP,
   SWINGS,
   SPEEDS,
@@ -111,6 +112,8 @@ const WARP_SPEED_BITS = 4
 const WARP_SWING_BITS = 4
 /** Velocity and chance in fiftieths, which covers 0 to 4 in a byte. */
 const WARP_LEVEL_BITS = 8
+/** Slop in hundredths, which covers its whole range in six bits with room to spare. */
+const WARP_SLOP_BITS = 6
 
 const EDGE_KINDS = ['event', 'audio', 'mod', 'warp'] as const
 
@@ -617,6 +620,9 @@ function writeWarp(writer: BitWriter, raw: WarpParams): void {
   writer.write(indexOfNearest(SPEEDS, raw.speed ?? 1), WARP_SPEED_BITS)
   writer.write(indexOfNearest(SWINGS, raw.swing ?? 1), WARP_SWING_BITS)
   writer.write(raw.useSwing === true ? 1 : 0, 1)
+  // Slop in hundredths of its own range, which is a share and not a time — see MAX_SLOP.
+  writer.write(quantise((raw.slop ?? 0) * 100, 1, 0, MAX_SLOP * 100), WARP_SLOP_BITS)
+  writer.write(raw.useSlop === true ? 1 : 0, 1)
   // Free numbers, so hundredths of their range rather than an index.
   writer.write(quantise((raw.velocity ?? 1) * 50, 1, 0, 200), WARP_LEVEL_BITS)
   writer.write(quantise((raw.chance ?? 1) * 50, 1, 0, 200), WARP_LEVEL_BITS)
@@ -627,9 +633,11 @@ function readWarp(reader: BitReader): WarpParams {
   const speed = SPEEDS[reader.read(WARP_SPEED_BITS)] ?? 1
   const swing = SWINGS[reader.read(WARP_SWING_BITS)] ?? 1
   const useSwing = reader.read(1) === 1
+  const slop = reader.read(WARP_SLOP_BITS) / 100
+  const useSlop = reader.read(1) === 1
   const velocity = reader.read(WARP_LEVEL_BITS) / 50
   const chance = reader.read(WARP_LEVEL_BITS) / 50
-  return { transpose, speed, swing, useSwing, velocity, chance }
+  return { transpose, speed, swing, useSwing, slop, useSlop, velocity, chance }
 }
 
 /**

@@ -3,6 +3,7 @@ import { defaultOscParams } from '../nodes/registry'
 import {
   MAX_DELAY_MS,
   MAX_RATCHET,
+  MAX_SLOP,
   type NodeId,
   type OscParams,
   type Patch,
@@ -30,8 +31,20 @@ class FakeEngine implements Engine {
   }
   /** Fixed, so a test that leans on chance decides its own outcome rather than being surprised. */
   chanceValue = 0
+  /**
+   * Or a run of rolls, handed out in turn and repeating.
+   *
+   * A single fixed value is enough for anything that asks once per step, and useless for slop, which asks
+   * once per note and turns *differences* between rolls into displacement. Held fixed, every note moved
+   * by the same amount — so the check that two notes can never cross could not fail, and did not when the
+   * displacement was deliberately doubled. Alternating extremes is the worst case for crossing, which is
+   * the case worth testing.
+   */
+  chanceRolls: number[] | null = null
+  private rolled = 0
   chance() {
-    return this.chanceValue
+    if (!this.chanceRolls || this.chanceRolls.length === 0) return this.chanceValue
+    return this.chanceRolls[this.rolled++ % this.chanceRolls.length]!
   }
 
   playNote(req: NoteRequest) {
@@ -1214,5 +1227,269 @@ describe('a warp attached to a node', () => {
     const played = new Map(engine.notes.map((n) => [n.nodeId, semitonesFrom(n.freq)]))
     expect(played.get('under')).toBe(67)
     expect(played.get('beside')).toBe(60)
+  })
+})
+
+/**
+ * Slop: how loosely a branch is played.
+ *
+ * Measured as a share of the shortest gap in the sequence rather than in milliseconds, and that is the
+ * whole design rather than a detail. Thirty milliseconds is five per cent of the gap in a slow straight
+ * bass and two hundred and forty per cent of it in a fast branch at heavy swing — inaudible in one and
+ * the groove destroyed in the other, from one setting. A fixed time cannot mean the same thing in two
+ * branches of a machine whose branches run at different speeds on purpose.
+ */
+describe('a warp that plays a branch loosely', () => {
+  /** Four steps under one warp, with the dice held at a fixed roll so the wobble is repeatable. */
+  function loose(params: WarpParams, roll: number) {
+    const steps = Array.from({ length: 4 }, (_, i) => ({
+      note: 60 + i,
+      active: true,
+      velocity: 1,
+    }))
+    const nodes: PatchNode[] = [
+      { id: 's', type: 'start', position: { x: 0, y: 0 }, params: {} },
+      {
+        id: 'o',
+        type: 'osc',
+        position: { x: 0, y: 0 },
+        params: { ...defaultOscParams(), steps, gate: 1 },
+      },
+      { id: 'w', type: 'warp', position: { x: 0, y: 0 }, params },
+    ]
+    const scheduler = build(
+      patchOf(nodes, [edge('s', 'o'), { id: 'a', kind: 'warp', source: 'w', target: 's' }]),
+    )
+    engine.chanceValue = roll
+    scheduler.start()
+    scheduler.drain(20)
+    scheduler.stop()
+    return engine.notes.map((note) => note.time)
+  }
+
+  const straight = () => loose({ transpose: 0 }, 0.5)
+
+  it('does nothing until the switch is on', () => {
+    // The amount is remembered while unused, which is what a bypass is for.
+    expect(loose({ transpose: 0, slop: 0.4 }, 0)).toEqual(straight())
+  })
+
+  it('moves notes off the grid once it is', () => {
+    const moved = loose({ transpose: 0, slop: 0.4, useSlop: true }, 0)
+    const grid = straight()
+    // Roll 0 is the bottom of the range, so every note is pushed as early as it may go.
+    expect(moved.slice(1)).not.toEqual(grid.slice(1))
+  })
+
+  it('is centred, so a branch is loose rather than late', () => {
+    /*
+     * Always-late is a different feel and would be a different control. A roll at the bottom of the range
+     * pushes early and one at the top pushes late, by the same amount either way.
+     */
+    const grid = straight()
+    const early = loose({ transpose: 0, slop: 0.4, useSlop: true }, 0)
+    const late = loose({ transpose: 0, slop: 0.4, useSlop: true }, 0.999)
+    expect(early[2]!).toBeLessThan(grid[2]!)
+    expect(late[2]!).toBeGreaterThan(grid[2]!)
+    expect(grid[2]! - early[2]!).toBeCloseTo(late[2]! - grid[2]!, 3)
+  })
+
+  it('never starts a branch before the thing that triggered it', () => {
+    /*
+     * The one note close enough to the present for this to matter. Its nominal time *is* the trigger
+     * instant, and the scheduler floors everything at now — a note pushed earlier would pile up on that
+     * floor, which is the divergence that hung the first load sweeps. Everything after it is far enough
+     * ahead to move either way.
+     */
+    for (const roll of [0, 0.25, 0.5, 0.75, 0.999]) {
+      const times = loose({ transpose: 0, slop: MAX_SLOP, useSlop: true }, roll)
+      expect(times[0], `roll ${roll}`).toBeGreaterThanOrEqual(straight()[0]!)
+    }
+  })
+
+  it('scales with the sequence, so one setting means one thing everywhere', () => {
+    /*
+     * The reason it is a share and not a time. The same slop on a branch running at double speed has to
+     * displace by half as much, or a setting that is a groove in one branch is noise in another.
+     */
+    const spread = (params: WarpParams) => {
+      const grid = loose({ ...params, slop: 0, useSlop: false }, 0.5)
+      const wobbled = loose({ ...params, slop: 0.4, useSlop: true }, 0)
+      return Math.abs(wobbled[2]! - grid[2]!)
+    }
+    const atSpeed = spread({ transpose: 0, speed: 2 })
+    const plain = spread({ transpose: 0 })
+    expect(atSpeed).toBeCloseTo(plain / 2, 4)
+  })
+
+  /** The same, with the dice alternating between its extremes — the worst case for two notes meeting. */
+  function loosest(params: WarpParams, rolls: number[]) {
+    const nodes: PatchNode[] = [
+      { id: 's', type: 'start', position: { x: 0, y: 0 }, params: {} },
+      {
+        id: 'o',
+        type: 'osc',
+        position: { x: 0, y: 0 },
+        params: {
+          ...defaultOscParams(),
+          gate: 1,
+          steps: Array.from({ length: 8 }, (_, i) => ({
+            note: 60 + i,
+            active: true,
+            velocity: 1,
+          })),
+        },
+      },
+      { id: 'w', type: 'warp', position: { x: 0, y: 0 }, params },
+    ]
+    const scheduler = build(
+      patchOf(nodes, [edge('s', 'o'), { id: 'a', kind: 'warp', source: 'w', target: 's' }]),
+    )
+    engine.chanceRolls = rolls
+    scheduler.start()
+    scheduler.drain(20)
+    scheduler.stop()
+    return engine.notes.map((note) => note.time)
+  }
+
+  it('keeps notes from crossing even at its most, and under a heavy swing', () => {
+    /*
+     * The guarantee the cap exists for, tested the only way it can be: with the dice alternating between
+     * its extremes, so one note is thrown as late as it may go and the next as early. Held at a single
+     * value every note moves together and nothing can ever cross, which is how a doubled displacement
+     * passed this check on the first attempt.
+     *
+     * Two notes each free to move by X close on each other by 2X, so the share is capped at a half of the
+     * *short* half — which is why it is measured against the short half and not the step. Loose is a
+     * feel; out of order is a fault.
+     */
+    /*
+     * Both phases of the alternation, and that is not thoroughness for its own sake. With late-then-early
+     * the *long* gap closes and the short one opens; only early-then-late closes the short one, which is
+     * the gap the cap is sized against. Testing one phase let a displacement measured on the whole step
+     * instead of the short half pass — twice the size it should be, and invisible.
+     */
+    for (const swing of [1, 2, 3]) {
+      for (const rolls of [
+        [0.999, 0],
+        [0, 0.999],
+      ]) {
+        const times = loosest(
+          { transpose: 0, slop: MAX_SLOP, useSlop: true, swing, useSwing: swing > 1 },
+          rolls,
+        )
+        for (let i = 1; i < times.length; i++) {
+          expect(
+            times[i],
+            `swing ${swing}, rolls ${rolls.join()}, note ${i}`,
+          ).toBeGreaterThanOrEqual(times[i - 1]!)
+        }
+      }
+    }
+  })
+
+  it('caps the sum, so two warps cannot ask for more than notes can survive', () => {
+    // Each on its own is under the cap and together they are over it. Uncapped, the pair would displace
+    // by more than the gap allows and the sequence would come out shuffled rather than loose.
+    const both = { transpose: 0, slop: 0.4, useSlop: true }
+    const times = loosest(both, [0.999, 0])
+    const capped = loosest({ ...both, slop: MAX_SLOP }, [0.999, 0])
+    // Two of 0.4 is 0.8, which has to land on the cap and so match a single warp already at it.
+    const twice = loosestPair(0.4, [0.999, 0])
+    expect(twice).toEqual(capped)
+    expect(times.length).toBe(capped.length)
+  })
+
+  /** Two warps on one branch, each asking for the same looseness. */
+  function loosestPair(slop: number, rolls: number[]) {
+    const nodes: PatchNode[] = [
+      { id: 's', type: 'start', position: { x: 0, y: 0 }, params: {} },
+      {
+        id: 'o',
+        type: 'osc',
+        position: { x: 0, y: 0 },
+        params: {
+          ...defaultOscParams(),
+          gate: 1,
+          steps: Array.from({ length: 8 }, (_, i) => ({
+            note: 60 + i,
+            active: true,
+            velocity: 1,
+          })),
+        },
+      },
+      {
+        id: 'w1',
+        type: 'warp',
+        position: { x: 0, y: 0 },
+        params: { transpose: 0, slop, useSlop: true },
+      },
+      {
+        id: 'w2',
+        type: 'warp',
+        position: { x: 0, y: 0 },
+        params: { transpose: 0, slop, useSlop: true },
+      },
+    ]
+    const scheduler = build(
+      patchOf(nodes, [
+        edge('s', 'o'),
+        { id: 'a', kind: 'warp', source: 'w1', target: 's' },
+        { id: 'b', kind: 'warp', source: 'w2', target: 's' },
+      ]),
+    )
+    engine.chanceRolls = rolls
+    scheduler.start()
+    scheduler.drain(20)
+    scheduler.stop()
+    return engine.notes.map((note) => note.time)
+  }
+
+  it('adds when two warps ask for it, unlike the ratios', () => {
+    // Following the pitch rather than the ratios: two warps asking for looseness make a branch looser.
+    const grid = straight()
+    const one = Math.abs(loose({ transpose: 0, slop: 0.1, useSlop: true }, 0)[2]! - grid[2]!)
+    const nodes: PatchNode[] = [
+      { id: 's', type: 'start', position: { x: 0, y: 0 }, params: {} },
+      {
+        id: 'o',
+        type: 'osc',
+        position: { x: 0, y: 0 },
+        params: {
+          ...defaultOscParams(),
+          gate: 1,
+          steps: Array.from({ length: 4 }, (_, i) => ({
+            note: 60 + i,
+            active: true,
+            velocity: 1,
+          })),
+        },
+      },
+      {
+        id: 'w1',
+        type: 'warp',
+        position: { x: 0, y: 0 },
+        params: { transpose: 0, slop: 0.1, useSlop: true },
+      },
+      {
+        id: 'w2',
+        type: 'warp',
+        position: { x: 0, y: 0 },
+        params: { transpose: 0, slop: 0.1, useSlop: true },
+      },
+    ]
+    const scheduler = build(
+      patchOf(nodes, [
+        edge('s', 'o'),
+        { id: 'a', kind: 'warp', source: 'w1', target: 's' },
+        { id: 'b', kind: 'warp', source: 'w2', target: 's' },
+      ]),
+    )
+    engine.chanceValue = 0
+    scheduler.start()
+    scheduler.drain(20)
+    scheduler.stop()
+    const both = Math.abs(engine.notes.map((n) => n.time)[2]! - grid[2]!)
+    expect(both).toBeCloseTo(one * 2, 4)
   })
 })

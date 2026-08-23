@@ -974,6 +974,20 @@ export const MANUAL: Section[] = [
             },
           },
           {
+            term: { en: 'Slop', es: 'Slop' },
+            text: {
+              en: 'Plays every note below a little away from where it was written, differently each time. It sits beside Swing rather than instead of it, and the two compose: Swing decides the shape of the bar and this decides how closely it is respected — a drummer with a shuffle who is not perfectly tight. Off to begin with, and its own switch, so a groove can be heard tight and loose without losing the setting.',
+              es: 'Toca cada nota de debajo un poco fuera de donde estaba escrita, distinto cada vez. Va al lado de Swing y no en su lugar, y los dos se combinan: Swing decide la forma del compás y esto decide cuánto se respeta — un baterista con shuffle que no va perfectamente apretado. Empieza apagado, y con su propio interruptor, para poder oír un groove apretado y flojo sin perder el ajuste.',
+            },
+          },
+          {
+            term: { en: 'Looseness', es: 'Looseness' },
+            text: {
+              en: 'How far a note may fall from its place — measured against the shortest gap in that oscillator’s own sequence, not in milliseconds. Which is why one setting sounds the same everywhere: thirty milliseconds is nothing in a slow bass and total chaos in a fast line with a heavy swing, so a fixed time would have to be re-dialled on every branch. At its most, two notes can meet and never cross: a note landing before the one in front of it does not sound loose, it sounds broken.',
+              es: 'Cuánto puede caerse una nota de su sitio — medido contra el hueco más corto de la secuencia de ese oscilador, no en milisegundos. Por eso un mismo ajuste suena igual en todas partes: treinta milisegundos no son nada en un bajo lento y son un caos en una línea rápida con swing fuerte, así que un tiempo fijo habría que reajustarlo en cada rama. Al máximo, dos notas pueden juntarse y nunca cruzarse: una nota que cae antes que la anterior no suena floja, suena rota.',
+            },
+          },
+          {
             term: { en: 'Velocity', es: 'Velocity' },
             text: {
               en: 'Scales what every note below is worth. It is the way to duck a whole branch under another without touching either oscillator’s gain — and wherever an envelope takes its depth from velocity, a quieter branch also gets smaller sweeps.',

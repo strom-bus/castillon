@@ -143,13 +143,32 @@ refused, since between an oscillator and an effect there is only one direction t
   ports, which is a hole covered rather than closed; the second was to narrow the rule so no port
   has to be invented for a cable that means nothing.
 
-  Five dimensions, each named for what it bends rather than for the arithmetic that bends it.
+  Six dimensions, each named for what it bends rather than for the arithmetic that bends it.
   **Pitch** moves in degrees of each oscillator's own scale and in semitones where that oscillator is
   free, so a bass in pentatonic and a lead in minor both move a third and both stay in key. **Speed**
   divides the step, which is the one thing a DELAY cannot do — a delay sets two branches a fixed
   distance apart and holds them there, and a ratio makes them drift and keep drifting. **Velocity**
   scales what every note below is worth, and **Chance** thins the branch out whether or not the
   oscillators below use per-step chance.
+
+  **Slop** plays every note a little away from where it was written, differently each time, and it is
+  measured as a share of the shortest gap in each oscillator's own sequence rather than in milliseconds.
+  That is the design and not a detail: thirty milliseconds is five per cent of the gap in a slow straight
+  bass and two hundred and forty per cent of it in a fast branch at heavy swing — inaudible in one and the
+  groove destroyed in the other, from one setting. As a share it scales with tempo, division, Speed and
+  Swing on its own. Capped where two notes can meet and never cross, because a note landing before the
+  one in front of it does not sound loose, it sounds broken. It is centred rather than always-late, since
+  always-late is a different feel and would be a different control — and the only note that cannot move
+  early is the first, whose nominal time _is_ the trigger instant.
+
+  It composes with Swing rather than replacing it, and neither switches the other off: Swing decides the
+  shape of the bar and Slop decides how closely it is respected, which is a drummer with a shuffle who is
+  not perfectly tight. They act on different things — one moves the step boundaries, the other blurs how
+  precisely a note hits them — so nothing about them conflicts.
+
+  Called Slop rather than Humanize, which names an intention borrowed from grid-locked sequencers this
+  instrument is not, or Jitter, which in audio is already the name of a defect and would read as "your
+  clock is broken". Every other control here names the dimension it bends.
 
   **Swing** makes each pair of steps uneven, and it is the first of these whose effect depends on
   _where_ a step sits rather than scaling every step alike. Expressed as the ratio of the long half to
@@ -241,7 +260,7 @@ refused, since between an oscillator and an effect there is only one direction t
   it longer without making it clearer. Both languages live adjacent in one file so a half-finished
   edit shows up in the diff rather than as a blank paragraph months later.
 
-  Thirteen chapters and a hundred and seventeen entries, written for whoever is using the instrument
+  Thirteen chapters and a hundred and nineteen entries, written for whoever is using the instrument
   rather than for whoever built it: no entry explains how something is implemented, and every one says
   what a control does to the sound and when you would reach for it. One chapter per module, each in
   the order its own panel is in and under the panel's own group headings, so reading the manual and

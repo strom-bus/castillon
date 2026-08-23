@@ -45,6 +45,7 @@ import {
   MAX_WARP,
   SPEEDS,
   SWINGS,
+  MAX_SLOP,
   MIN_NOTE,
   DEFAULT_IGNITE,
   type Step,
@@ -1106,6 +1107,29 @@ export function Inspector() {
               ))}
             </select>
           </label>
+        )}
+
+        {/* Beside the swing rather than instead of it: the two act on different things, so they compose.
+            Swing decides the shape of the bar and this decides how closely it is respected, which is a
+            drummer with a shuffle who is not perfectly tight. */}
+        <label className="inspector-check">
+          <input
+            type="checkbox"
+            checked={warpParams.useSlop === true}
+            onChange={(e) => updateParams(node.id, { useSlop: e.target.checked })}
+          />
+          <span>Slop</span>
+        </label>
+
+        {warpParams.useSlop && (
+          <Slider
+            label="Looseness"
+            value={Math.round((warpParams.slop ?? 0) * 100) / 100}
+            min={0}
+            max={MAX_SLOP}
+            step={0.01}
+            onChange={(slop) => updateParams(node.id, { slop })}
+          />
         )}
 
         <Slider

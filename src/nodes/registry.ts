@@ -15,6 +15,7 @@ import type {
 import {
   MAX_DELAY_MS,
   MAX_MOD_ATTACK,
+  MAX_RATCHET,
   MAX_MOD_DECAY,
   MIN_DELAY_MS,
   MIN_MOD_ATTACK,
@@ -139,6 +140,9 @@ export function defaultOscParams(): OscParams {
     resonance: 1,
     // Off, so a node made today sounds as one made before tracking existed did.
     keyTrack: 0,
+    // Both off: a sequencer does what it always did until it is asked for more.
+    useChance: false,
+    useRatchet: false,
     propagateMode: 'onEnd',
   }
 }
@@ -169,24 +173,44 @@ const osc: NodeDefinition = {
       const s = params.steps[i]
       activity.push({ kind: 'step', id: node.id, step: i, time: at, duration: step })
       if (!s || !s.active) continue
-      engine.playNote({
-        nodeId: node.id,
-        time: at,
-        freq: midiToFreq(s.note) * detuneRatio(params.detune ?? 0),
-        // ?? keeps patches saved before waveforms existed playable.
-        waveform: params.waveform ?? 'square',
-        pulseWidth: params.pulseWidth ?? 0.5,
-        duration: step * params.gate,
-        gain: params.gain * s.velocity,
-        velocity: s.velocity,
-        attack: params.attack,
-        decay: params.decay ?? 0,
-        release: params.release,
-        glide: params.glide ?? 0,
-        filterType: params.filterType ?? 'off',
-        cutoff: trackedCutoff(params.cutoff ?? 2000, s.note, params.keyTrack ?? 0),
-        resonance: params.resonance ?? 1,
-      })
+
+      /*
+       * Rolled once for the whole step rather than once per hit.
+       *
+       * A step happens or it does not, and if it does, all of its hits do. Rolling for each hit of a
+       * four-hit roll turns it into a stutter — a fine sound to want and a poor thing to get by default,
+       * since it would make a plain sequence unpredictable in a way nobody asked it to be.
+       */
+      const chance = params.useChance ? (s.chance ?? 1) : 1
+      if (chance < 1 && engine.chance() >= chance) continue
+
+      // Hits share the slot, so a roll fits inside the step rather than running over the next one.
+      const asked = params.useRatchet ? (s.ratchet ?? 1) : 1
+      const hits = Math.min(MAX_RATCHET, Math.max(1, Math.round(asked)))
+      const slot = step / hits
+
+      for (let hit = 0; hit < hits; hit++) {
+        engine.playNote({
+          nodeId: node.id,
+          time: at + hit * slot,
+          freq: midiToFreq(s.note) * detuneRatio(params.detune ?? 0),
+          // ?? keeps patches saved before waveforms existed playable.
+          waveform: params.waveform ?? 'square',
+          pulseWidth: params.pulseWidth ?? 0.5,
+          duration: slot * params.gate,
+          gain: params.gain * s.velocity,
+          velocity: s.velocity,
+          attack: params.attack,
+          decay: params.decay ?? 0,
+          release: params.release,
+          // Only the note that was asked to slide, and only its first hit: the rest of a roll is the
+          // same pitch, so there is nothing for them to slide from.
+          glide: s.slide && hit === 0 ? (params.glide ?? 0) : 0,
+          filterType: params.filterType ?? 'off',
+          cutoff: trackedCutoff(params.cutoff ?? 2000, s.note, params.keyTrack ?? 0),
+          resonance: params.resonance ?? 1,
+        })
+      }
     }
 
     const endTime = time + count * step

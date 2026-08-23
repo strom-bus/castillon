@@ -43,11 +43,43 @@ export type Waveform =
  */
 export type FilterType = 'off' | 'lowpass' | 'highpass' | 'bandpass'
 
+/** Hits a step may fire inside its own slot. Four is a roll; past that it stops being one. */
+export const MAX_RATCHET = 4
+
 export interface Step {
   /** MIDI note. C1 = 24, C6 = 84. */
   note: number
   active: boolean
   velocity: number
+  /**
+   * How often this step actually sounds, 0–1. One is every time, which is what every step did before.
+   *
+   * Judged once for the whole step and not once per hit: a step happens or it does not, and if it does,
+   * all of its hits do. Rolling for each hit of a four-hit ratchet turns it into a stutter — a good sound,
+   * and a poor default, since it makes a plain sequence unpredictable in a way nobody asked for.
+   */
+  chance?: number
+  /**
+   * Hits inside the step's own slot. One is an ordinary note.
+   *
+   * Deliberately a count and not a count plus a mode. A roll is a rhythmic gesture and repeating the note
+   * is what nearly everyone means by it; a mode toggle would cost every reader attention to serve the few
+   * who leave it. If it ever wants to climb, that arrives as a signed number whose zero is "repeat" —
+   * a value with a neutral point rather than a second control that only ever says "not the usual thing".
+   */
+  ratchet?: number
+  /**
+   * Whether this note slides in from the one before it.
+   *
+   * Which note slides belongs to the note; how long the slide takes belongs to the oscillator, and stays
+   * there as `glide`. That split is how the machines this gesture comes from do it, and it is also the
+   * cheaper half: a flag is one bit a step where a time would be ten, and a sequence where every slide
+   * lasts a different length is not a thing anybody has asked for.
+   *
+   * One value for a whole sequence could only ever say that every note glides or none does. The line
+   * worth having is the one where some do.
+   */
+  slide?: boolean
 }
 
 export interface OscParams {
@@ -95,6 +127,19 @@ export interface OscParams {
   filterType: FilterType
   /** Hz. Edited on a log slider; see audio/filter.ts. */
   cutoff: number
+  /**
+   * Whether this sequencer uses per-step chance at all. Off by default.
+   *
+   * A switch and not just the values, because the square under a bar already means armed or muted — and
+   * once its fill can also mean a chance, a half-filled square has two readings. Knowing which the
+   * sequencer is in takes the ambiguity out of the symbol. It also keeps the step panel to what is being
+   * used: a control nobody has turned on is a question nobody asked.
+   *
+   * Switching it off keeps the values rather than clearing them, so it can be switched back on.
+   */
+  useChance?: boolean
+  /** Whether this sequencer uses per-step ratchets at all. Off by default, and kept when off. */
+  useRatchet?: boolean
   /** Biquad Q. */
   resonance: number
   /**

@@ -41,6 +41,8 @@ import {
   type PropagateMode,
   type StartParams,
   type Waveform,
+  MAX_RATCHET,
+  type Step,
 } from '../types/patch'
 import { MAX_BITS, MAX_REDUCTION, MIN_BITS, MIN_REDUCTION } from '../audio/dsp'
 import { BitReader, BitWriter } from './bits'
@@ -196,6 +198,16 @@ function field<P>(
   return { key, bits, pack, unpack }
 }
 
+/** A switch: one bit, and the mask above it means an untouched one costs nothing at all. */
+function flagField<P>(key: keyof P & string): Field<P> {
+  return field<P>(
+    key,
+    1,
+    (value) => (value ? 1 : 0),
+    (stored) => stored === 1,
+  )
+}
+
 /** An index into an append-only table, which is how every enumerated parameter travels. */
 function indexField<P, T>(key: keyof P & string, bits: number, table: T[]): Field<P> {
   return field<P>(
@@ -245,6 +257,8 @@ const OSC_FIELDS: Field<OscParams>[] = [
   // written before this existed simply stops early and the reference below supplies the rest.
   scaledField('decay', 11, 1, 0, 2000),
   scaledField('keyTrack', 7, 100, 0, 100),
+  flagField('useChance'),
+  flagField('useRatchet'),
   scaledField('glide', 10, 1, 0, 1000),
   // Stored shifted, since the field encoder works in non-negative steps and this one runs either way.
   scaledField('detune', 7, 1, -50, 50),
@@ -305,6 +319,8 @@ const OSC_REFERENCE: OscParams = {
   cutoff: 2000,
   resonance: 1,
   keyTrack: 0,
+  useChance: false,
+  useRatchet: false,
   propagateMode: 'onEnd',
 }
 
@@ -375,6 +391,58 @@ function readParams<P extends object>(
   return params as P
 }
 
+/**
+ * What a step carries besides its note, one column each.
+ *
+ * A column rather than a field per step, so a whole column can be left out when nothing in the sequence
+ * uses it — which is the usual case for all four of these.
+ */
+interface StepColumn {
+  bits: number
+  /** What the column reads when nothing has touched it, so an untouched column can be skipped. */
+  rest: number
+  pack(step: Step): number
+  unpack(step: Step, stored: number): void
+}
+
+const STEP_COLUMNS: StepColumn[] = [
+  // Sixteen levels of loudness, which is finer than anyone sets by hand and a quarter of the bits a
+  // continuous value would want.
+  {
+    bits: 4,
+    rest: 15,
+    pack: (step) => clamp(Math.round((step.velocity ?? 1) * 15), 0, 15),
+    unpack: (step, stored) => {
+      step.velocity = stored / 15
+    },
+  },
+  {
+    bits: 4,
+    rest: 15,
+    pack: (step) => clamp(Math.round((step.chance ?? 1) * 15), 0, 15),
+    unpack: (step, stored) => {
+      step.chance = stored / 15
+    },
+  },
+  // Stored as hits minus one, so an ordinary note is zero and an unused column is a run of them.
+  {
+    bits: 2,
+    rest: 0,
+    pack: (step) => clamp(Math.round(step.ratchet ?? 1), 1, MAX_RATCHET) - 1,
+    unpack: (step, stored) => {
+      step.ratchet = stored + 1
+    },
+  },
+  {
+    bits: 1,
+    rest: 0,
+    pack: (step) => (step.slide ? 1 : 0),
+    unpack: (step, stored) => {
+      step.slide = stored === 1
+    },
+  },
+]
+
 function writeOsc(writer: BitWriter, raw: OscParams): void {
   const params = { ...defaultOscParams(), ...raw }
   writeParams(writer, OSC_FIELDS, params, OSC_REFERENCE)
@@ -382,10 +450,28 @@ function writeOsc(writer: BitWriter, raw: OscParams): void {
   const count = normaliseStepCount(params.steps?.length ?? DEFAULT_STEP_COUNT)
   writer.write(STEP_COUNTS.indexOf(count), STEP_COUNT_BITS)
 
-  for (let i = 0; i < count; i++) {
-    const step = params.steps[i] ?? { note: 60, active: false, velocity: 1 }
+  const steps = Array.from(
+    { length: count },
+    (_, i) => params.steps[i] ?? { note: 60, active: false, velocity: 1 },
+  )
+  for (const step of steps) {
     writer.write(step.active ? 1 : 0, 1)
     writer.write(clamp(Math.round(step.note), MIN_NOTE, MAX_NOTE) - MIN_NOTE, 6)
+  }
+
+  /*
+   * The rest of a step, a column at a time, each behind a bit saying whether it is there at all.
+   *
+   * Written this way for the same reason the parameters are: almost nothing in a real patch is touched.
+   * A sixteen-step node that uses none of these pays four bits for the whole node; one that sets every
+   * velocity pays sixty-four for that column and still nothing for the other three. Written flat it
+   * would be eleven bits a step whether or not a single one differed from its default.
+   */
+  for (const column of STEP_COLUMNS) {
+    const used = steps.some((step) => column.pack(step) !== column.rest)
+    writer.write(used ? 1 : 0, 1)
+    if (!used) continue
+    for (const step of steps) writer.write(column.pack(step), column.bits)
   }
 }
 
@@ -393,13 +479,16 @@ function readOsc(reader: BitReader, declared: number): OscParams {
   const params = readParams(reader, OSC_FIELDS, OSC_REFERENCE, declared)
   const count = STEP_COUNTS[reader.read(STEP_COUNT_BITS)] ?? DEFAULT_STEP_COUNT
 
-  const steps = []
+  const steps: Step[] = []
   for (let i = 0; i < count; i++) {
     const active = reader.read(1) === 1
     const note = reader.read(6) + MIN_NOTE
-    // Velocity is not in the format. Nothing edits it yet, so four bits a step went on saying one
-    // over and over; it comes back the day per-step velocity does.
     steps.push({ note, active, velocity: 1 })
+  }
+
+  for (const column of STEP_COLUMNS) {
+    if (reader.read(1) !== 1) continue
+    for (const step of steps) column.unpack(step, reader.read(column.bits))
   }
 
   return { ...params, steps }

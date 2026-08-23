@@ -110,9 +110,13 @@ function makeNode(type: string, position: { x: number; y: number }, id = newId(t
  * oscillators across four waveforms and a delay, so Play does something interesting immediately.
  *
  * To change it, build the patch in the app, copy the PATCH CODE field and paste it here.
+ *
+ * It also has to be regenerated whenever the format changes, and nothing shouts when it is not: a code
+ * the reader cannot make sense of returns null, and the app boots to an empty canvas rather than to an
+ * error. The test beside this one is what notices.
  */
 export const INITIAL_PATCH_CODE =
-  'FGJaABAJBSMEAoUjiuuaDszNV6oJ5QAMfjd-slBjwdPLH11jpANAA0AGGZTmUSggKGAhkPEBdwFAw64ZsQNOALICMRkgIuicJqtoJ5sYL9gGAihZxK3A'
+  'FGKKIBAJBSMEAoUjgCuuaDszNV6oAnlAAx-AN36yUGPB08sfXWA6QDQANAABhmU5lECggKGAhkPEBdwFAwA64ZsQNOAAsgIxGSAi6JwAmq2gnmxgv2ABgIoWcStw'
 
 /** Types that have been renamed. A patch saved under the old name still loads. */
 const RENAMED_TYPES: Record<string, string> = {

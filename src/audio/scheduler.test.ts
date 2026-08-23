@@ -2,10 +2,13 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { defaultOscParams } from '../nodes/registry'
 import {
   MAX_DELAY_MS,
+  MAX_RATCHET,
   type NodeId,
+  type OscParams,
   type Patch,
   type PatchEdge,
   type PatchNode,
+  type Step,
 } from '../types/patch'
 import { ActivityBus, type ActivityEvent } from '../viz/activity'
 import type { Engine, NoteRequest } from './engine'
@@ -24,6 +27,12 @@ class FakeEngine implements Engine {
   now() {
     return 0
   }
+  /** Fixed, so a test that leans on chance decides its own outcome rather than being surprised. */
+  chanceValue = 0
+  chance() {
+    return this.chanceValue
+  }
+
   playNote(req: NoteRequest) {
     this.notes.push(req)
   }
@@ -629,5 +638,118 @@ describe('bound Ignites', () => {
     scheduler.fire('b')
     scheduler.stop()
     expect(scheduler.isFiring('b')).toBe(false)
+  })
+})
+
+/**
+ * What a step carries besides its note (PLAN §18.15).
+ *
+ * Three things that change when a step sounds, how often, and how many times — and each is switched off
+ * until asked for, so a sequencer does what it always did until somebody wants more.
+ */
+describe('a step that does more than play', () => {
+  function withSteps(steps: Step[], over: Partial<OscParams> = {}, roll = 0) {
+    const node: PatchNode = {
+      id: 'o',
+      type: 'osc',
+      position: { x: 0, y: 0 },
+      params: { ...defaultOscParams(), division: '1/4', gate: 1, steps, ...over },
+    }
+    const patch = patchOf(
+      [{ id: 's', type: 'start', position: { x: 0, y: 0 }, params: {} }, node],
+      [edge('s', 'o')],
+    )
+    const scheduler = build(patch)
+    // After building, because building makes a new engine and would drop anything set on the old one.
+    engine.chanceValue = roll
+    scheduler.start()
+    scheduler.drain(10)
+    scheduler.stop()
+    return engine.notes
+  }
+
+  const plain = (over: Partial<Step> = {}): Step[] => [
+    { note: 60, active: true, velocity: 1, ...over },
+  ]
+
+  describe('chance', () => {
+    it('is ignored until the sequencer is asked for it', () => {
+      // Off by default, so a step carrying a chance from somewhere else does not quietly start skipping.
+      expect(withSteps(plain({ chance: 0.1 }), {}, 0.99)).toHaveLength(1)
+    })
+
+    it('skips the step when the roll comes in above it', () => {
+      expect(withSteps(plain({ chance: 0.5 }), { useChance: true }, 0.9)).toHaveLength(0)
+    })
+
+    it('plays it when the roll comes in under', () => {
+      expect(withSteps(plain({ chance: 0.5 }), { useChance: true }, 0.1)).toHaveLength(1)
+    })
+
+    it('always plays a step with no chance set', () => {
+      expect(withSteps(plain(), { useChance: true }, 0.99)).toHaveLength(1)
+    })
+
+    it('is rolled once for the step, not once per hit', () => {
+      /*
+       * A step happens or it does not, and if it does, all of its hits do. Rolling per hit turns a
+       * four-hit roll into a stutter — a fine sound to want, and a poor one to get without asking.
+       */
+      const notes = withSteps(
+        plain({ chance: 0.5, ratchet: 4 }),
+        { useChance: true, useRatchet: true },
+        0.1,
+      )
+      expect(notes).toHaveLength(4)
+    })
+  })
+
+  describe('ratchets', () => {
+    it('are ignored until the sequencer is asked for them', () => {
+      expect(withSteps(plain({ ratchet: 4 }))).toHaveLength(1)
+    })
+
+    it('fire that many hits inside the step', () => {
+      expect(withSteps(plain({ ratchet: 3 }), { useRatchet: true })).toHaveLength(3)
+    })
+
+    it('share the step rather than running over the next one', () => {
+      // Otherwise a roll on one step would trample the step after it, which is not a roll but a mistake.
+      const [a, b, c] = withSteps(plain({ ratchet: 3 }), { useRatchet: true })
+      const gap = b!.time - a!.time
+      expect(c!.time - b!.time).toBeCloseTo(gap, 6)
+      expect(a!.duration).toBeCloseTo(gap, 6)
+    })
+
+    it('never exceed what a roll can be', () => {
+      // Past four it stops being a roll and starts being a faster sequence, which is what division is.
+      expect(withSteps(plain({ ratchet: 99 }), { useRatchet: true })).toHaveLength(MAX_RATCHET)
+    })
+  })
+
+  describe('slide', () => {
+    it('carries the oscillator glide only on the note that asked for it', () => {
+      /*
+       * Which note slides belongs to the note; how long the slide lasts belongs to the oscillator. One
+       * value for a whole sequence could only say that every note glides or none does, and the line
+       * worth having is the one where some do.
+       */
+      const notes = withSteps(
+        [
+          { note: 60, active: true, velocity: 1, slide: true },
+          { note: 64, active: true, velocity: 1 },
+        ],
+        { glide: 200 },
+      )
+      expect(notes.map((n) => n.glide)).toEqual([200, 0])
+    })
+
+    it('slides only the first hit of a roll, the rest being the same pitch', () => {
+      const notes = withSteps(plain({ slide: true, ratchet: 3 }), {
+        glide: 200,
+        useRatchet: true,
+      })
+      expect(notes.map((n) => n.glide)).toEqual([200, 0, 0])
+    })
   })
 })

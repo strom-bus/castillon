@@ -91,6 +91,18 @@ class Measurer implements Engine {
     // An envelope shapes what other nodes make and makes nothing of its own, so it cannot lengthen a
     // render. Measuring one would be measuring nothing.
   }
+
+  chance(): number {
+    /*
+     * Zero, so every step that could sound does.
+     *
+     * This is measuring how long a render has to be, and a step that sounds only sometimes has to fit
+     * whether or not it happens to sound this time. Erring long costs a fraction of a second of silence
+     * at the end; erring short cuts a note off the file. A step set to never sound is still skipped,
+     * since nothing is ever less likely than zero.
+     */
+    return 0
+  }
 }
 
 /** A bus that keeps what it is told instead of drawing it. */

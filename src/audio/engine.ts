@@ -251,6 +251,14 @@ export interface Engine {
   releaseNodeVoices(nodeId: NodeId, at: number): void
   /** Runs a modulation envelope once, from a trigger in the cascade. */
   fireEnvelope(nodeId: NodeId, at: number): void
+  /**
+   * A number between 0 and 1, for anything the scheduler decides by chance.
+   *
+   * Asked of the engine rather than taken from `Math.random`, because the engine's stream is seeded
+   * during a render. A step that sounds only sometimes must sound the same sometimes twice over, or the
+   * same patch stops exporting to the same file — which is the one promise a render makes.
+   */
+  chance(): number
 }
 
 /** Ramps a param to zero without clicking, respecting what is already scheduled. */
@@ -1426,6 +1434,10 @@ export class AudioEngine implements Engine {
     fillNoise(color, buffer.getChannelData(0), this.random)
     this.noiseBuffers.set(color, buffer)
     return buffer
+  }
+
+  chance(): number {
+    return this.random()
   }
 
   voiceLoadAt(time: number): number {

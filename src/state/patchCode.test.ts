@@ -102,18 +102,40 @@ describe('patch code', () => {
     expect(params.steps.map((s) => s.active)).toEqual([true, false, true, true])
   })
 
-  it('does not carry per-step velocity, which nothing edits yet', () => {
-    // Four bits a step went on storing the same one over and over. It comes back the day per-step
-    // velocity is editable; until then it is the largest thing in the format buying nothing.
+  it('carries what a step holds besides its note', () => {
+    /*
+     * Velocity spent a long time out of the format because nothing could edit it — four bits a step
+     * storing the same one over and over. It came back the day it became editable, and three others came
+     * with it. Each is a column with a bit in front saying whether the column is there at all, so a
+     * sequence using none of them still pays four bits for the whole node.
+     */
     const steps = [
-      { note: 60, active: true, velocity: 0.5 },
-      { note: 62, active: true, velocity: 0.2 },
-      { note: 64, active: true, velocity: 1 },
-      { note: 65, active: true, velocity: 0.8 },
+      { note: 60, active: true, velocity: 0.5, chance: 0.4, ratchet: 3, slide: true },
+      { note: 62, active: true, velocity: 0.2, chance: 1, ratchet: 1, slide: false },
+      { note: 64, active: true, velocity: 1, chance: 0.8, ratchet: 4, slide: true },
+      { note: 65, active: true, velocity: 0.8, chance: 0.2, ratchet: 2, slide: false },
     ]
     const decoded = decodePatch(encodePatch(patchOf([osc('a', { steps })])))!
     const params = decoded.nodes[0].params as ReturnType<typeof defaultOscParams>
-    expect(params.steps.map((s) => s.velocity)).toEqual([1, 1, 1, 1])
+
+    // Quantised, not exact: sixteen levels is finer than anybody sets by hand and a quarter of the bits.
+    for (const [i, step] of params.steps.entries()) {
+      expect(step.velocity, `velocity ${i}`).toBeCloseTo(steps[i]!.velocity, 1)
+      expect(step.chance, `chance ${i}`).toBeCloseTo(steps[i]!.chance, 1)
+      expect(step.ratchet, `ratchet ${i}`).toBe(steps[i]!.ratchet)
+      expect(step.slide, `slide ${i}`).toBe(steps[i]!.slide)
+    }
+  })
+
+  it('spends nothing on a column no step in the sequence uses', () => {
+    // The usual case for all four: a sequence of plain notes should cost what it cost before any of
+    // them existed, plus one bit each to say they are not there.
+    const plain = [1, 2, 3, 4].map((n) => ({ note: 60 + n, active: true, velocity: 1 }))
+    const loud = plain.map((step) => ({ ...step, velocity: 0.5 }))
+
+    const bare = encodePatch(patchOf([osc('a', { steps: plain })])).length
+    const withVelocity = encodePatch(patchOf([osc('a', { steps: loud })])).length
+    expect(withVelocity).toBeGreaterThan(bare)
   })
 
   it('charges almost nothing for a parameter left alone', () => {

@@ -35,6 +35,9 @@ jobs:
           # The sharing service. Not a secret — it is a public endpoint, and the app hides the
           # share button when this is unset.
           VITE_SHARE_URL: https://castillon-share.strombus.workers.dev
+      # The build's own output checked before it ships: the code splitting that keeps the first paint
+      # small is undone by a single static import, and nothing about such an import looks wrong.
+      - run: npm run size
       - uses: actions/upload-pages-artifact@v5
         with:
           path: dist

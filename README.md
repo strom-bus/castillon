@@ -273,8 +273,36 @@ npm test          # unit tests
 npm run lint      # oxlint
 npm run typecheck # tsc; neither the linter nor the build runs the compiler
 npm run build     # production build
+npm run size      # size budget for the build's output; runs in CI after the build
 npm run stress    # regenerates docs/stress-patch.txt from its generator
 ```
+
+## What a first visit downloads
+
+Three chunks, and the split is about **caching rather than total size** — the same bytes ship either
+way. Three quarters of the build is other people's code: `react-dom` is 38 % of it and React Flow
+with its d3 dependencies another 27 %. In one file, editing a sentence in the manual invalidates all
+of it. Split, a release of app code leaves the two vendor chunks in cache untouched.
+
+| Chunk     | gzipped | When                                            |
+| --------- | ------- | ----------------------------------------------- |
+| `react`   | ~54 kB  | First visit, then cached until React moves      |
+| `canvas`  | ~59 kB  | First visit, then cached until React Flow moves |
+| `index`   | ~40 kB  | Every release                                   |
+| `Manual`  | ~30 kB  | Only if the manual is opened                    |
+| `Gallery` | ~5 kB   | Only if the gallery is opened                   |
+
+Two vendor chunks rather than one because they change at different rates, and a chunk is only worth
+having if it can go stale independently. Everything else is left to Rollup: hand-naming chunks for our
+own modules would be guessing at an import graph the bundler already knows, and a wrong guess does not
+fail — it silently duplicates a module into two of them.
+
+`npm run size` is the part that keeps it true, and it runs in CI after the build. The splitting is
+undone by a single static import and nothing about such an import looks wrong: the build succeeds, the
+app works, and the only symptom is a slower load on a connection nobody testing it has. It budgets the
+gzipped bytes a first paint needs, and — separately — requires the deferred chunks to still exist,
+which is the check that actually caught it in testing. Re-importing the manual statically came to
+184 kB, comfortably inside a 200 kB byte budget, and the missing chunk is what failed.
 
 ## How it keeps time
 

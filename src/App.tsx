@@ -1,7 +1,7 @@
 import '@xyflow/react/dist/style.css'
 import './ui/styles.css'
 
-import { useEffect } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import { installTriggers, reconcile, restartCascade } from './audio/runtime'
 import { useGalleryWindow } from './gallery/window'
 import { useManualWindow } from './help/window'
@@ -12,14 +12,28 @@ import { resolveShortCode, sharingAvailable } from './state/shareService'
 import { looksLikeShortCode } from './state/shortCode'
 import { toPatch, usePatchStore } from './state/patchStore'
 import { Canvas } from './ui/Canvas'
-import { Gallery } from './ui/Gallery'
-import { Manual } from './ui/Manual'
 import { GalleryButton } from './ui/GalleryButton'
 import { Inspector } from './ui/Inspector'
 import { Logo } from './ui/Logo'
 import { Transport } from './ui/Transport'
 
 const AUTOSAVE_MS = 500
+
+/*
+ * The two windows, fetched when one is opened rather than at boot.
+ *
+ * Both are modals over the canvas: neither is on screen when the app starts, and between them they are
+ * a large share of our own code — the manual alone is ninety kilobytes of prose in two languages, and
+ * the gallery brings its client and its card rendering. Loading them up front makes the first paint
+ * wait on two things nobody has asked for yet.
+ *
+ * The fallback is `null` on purpose. These open on a click, the chunk is already cached after the first
+ * open, and a spinner that flashes for one frame is worse than a window that appears a frame late — the
+ * flash is the thing people notice. If the fetch is genuinely slow the modal simply arrives when it
+ * arrives, which is the honest behaviour for a window somebody has just asked for.
+ */
+const Gallery = lazy(() => import('./ui/Gallery').then((m) => ({ default: m.Gallery })))
+const Manual = lazy(() => import('./ui/Manual').then((m) => ({ default: m.Manual })))
 
 export default function App() {
   const manualOpen = useManualWindow((s) => s.open)
@@ -103,8 +117,10 @@ export default function App() {
         <GalleryButton onClick={showGallery} />
       </header>
       <Transport />
-      {galleryOpen && <Gallery onClose={hideGallery} />}
-      {manualOpen && <Manual onClose={hideManual} />}
+      <Suspense fallback={null}>
+        {galleryOpen && <Gallery onClose={hideGallery} />}
+        {manualOpen && <Manual onClose={hideManual} />}
+      </Suspense>
       <div className="workspace">
         <Canvas />
         <Inspector />

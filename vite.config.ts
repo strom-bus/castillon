@@ -49,12 +49,39 @@ function worklets(): Plugin {
   }
 }
 
+/**
+ * How the output is split, and why it is split at all.
+ *
+ * Not to reduce the total — the same bytes are shipped either way — but to decide **which of them a
+ * browser has to fetch again after a change.** Three quarters of this build is other people's code:
+ * react-dom is 38 % of it and React Flow with its d3 dependencies another 27 %. In one file, editing a
+ * sentence in the manual invalidates all of it. Split, a release of app code leaves those two chunks in
+ * cache untouched, which is the difference between a 190 kB download and a 30 kB one on every visit
+ * after the first.
+ *
+ * Two vendor chunks rather than one, because they change at different rates and for different reasons:
+ * React moves on its own schedule and the canvas library on another, and a chunk is only worth having
+ * if it can go stale independently.
+ *
+ * Everything else is left to Rollup. Hand-naming chunks for our own modules would be guessing at an
+ * import graph the bundler already knows, and a wrong guess here does not fail — it silently duplicates
+ * a module into two chunks.
+ */
+function vendorChunk(id: string): string | undefined {
+  if (!id.includes('node_modules')) return
+  if (/node_modules\/(react|react-dom|scheduler|use-sync-external-store)\//.test(id)) return 'react'
+  if (/node_modules\/(@xyflow|d3-|dagre)/.test(id)) return 'canvas'
+}
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), worklets()],
   // Relative paths: it serves the same from the root of its own domain as from a GitHub Pages
   // subpath (user.github.io/castillon/).
   base: './',
+  build: {
+    rollupOptions: { output: { manualChunks: vendorChunk } },
+  },
   test: {
     environment: 'jsdom',
     globals: true,

@@ -58,6 +58,14 @@ export interface Found {
   saturated: Trial | null
   /** Whether the search was abandoned because no trial could be trusted. A result, not a number. */
   unsettled: boolean
+  /**
+   * The trial that would not settle, kept rather than thrown away.
+   *
+   * It used to be discarded, which is why a run could report "never went quiet" and nothing else. The
+   * trial carries how long the wait was and how many underruns arrived during it, and those are the only
+   * evidence there is about why — so dropping it turned a diagnosable fault into a dead end.
+   */
+  stalled: Trial | null
 }
 
 export interface Sweep {
@@ -117,8 +125,10 @@ async function findBreak(
     )
     const trial = await confirmed(subject, units, pool, report, onStep)
     // A saturated main thread is not a reading. Stop rather than double into a tab that stops answering.
-    if (trial.saturated) return { subject, clean, broke: null, saturated: trial, unsettled: false }
-    if (!trial.settled) return { subject, clean, broke: null, saturated: null, unsettled: true }
+    if (trial.saturated)
+      return { subject, clean, broke: null, saturated: trial, unsettled: false, stalled: null }
+    if (!trial.settled)
+      return { subject, clean, broke: null, saturated: null, unsettled: true, stalled: trial }
     if (trial.underruns > 0) {
       /*
        * A break on the very first rung is not a break.
@@ -128,7 +138,15 @@ async function findBreak(
        * about the subject. Seven phasers were reported as the limit of a thread that had just carried four
        * hundred and forty-eight voices.
        */
-      if (!clean) return { subject, clean: null, broke: trial, saturated: null, unsettled: true }
+      if (!clean)
+        return {
+          subject,
+          clean: null,
+          broke: trial,
+          saturated: null,
+          unsettled: true,
+          stalled: null,
+        }
       broke = trial
       break
     }
@@ -138,7 +156,8 @@ async function findBreak(
     units *= 2
   }
 
-  if (!broke) return { subject, clean, broke: null, saturated: null, unsettled: false }
+  if (!broke)
+    return { subject, clean, broke: null, saturated: null, unsettled: false, stalled: null }
 
   // Bisect between the last load that held and the first that did not.
   let low = clean?.units ?? 0
@@ -147,8 +166,10 @@ async function findBreak(
     const middle = Math.round((low + high) / 2)
     onStep(`${subject.label} · ${middle} units · narrowing`)
     const trial = await confirmed(subject, middle, pool, report, onStep)
-    if (trial.saturated) return { subject, clean, broke, saturated: trial, unsettled: false }
-    if (!trial.settled) return { subject, clean, broke, saturated: null, unsettled: true }
+    if (trial.saturated)
+      return { subject, clean, broke, saturated: trial, unsettled: false, stalled: null }
+    if (!trial.settled)
+      return { subject, clean, broke, saturated: null, unsettled: true, stalled: trial }
     if (trial.underruns > 0) {
       broke = trial
       high = middle
@@ -158,7 +179,7 @@ async function findBreak(
     }
   }
 
-  return { subject, clean, broke, saturated: null, unsettled: false }
+  return { subject, clean, broke, saturated: null, unsettled: false, stalled: null }
 }
 
 /**
@@ -181,7 +202,7 @@ async function attempted(
     const why = error instanceof Error ? error.message : String(error)
     console.warn(`[sweep] ${subject.label} gave up: ${why}`)
     onStep(`${subject.label} gave up — carrying on`)
-    return { subject, clean: null, broke: null, saturated: null, unsettled: true }
+    return { subject, clean: null, broke: null, saturated: null, unsettled: true, stalled: null }
   }
 }
 
@@ -408,6 +429,31 @@ function agreement(result: Sweep): { share: number; trustworthy: boolean } | nul
   return { share, trustworthy: share <= AGREEMENT_LIMIT }
 }
 
+/**
+ * Why a subject could not be read, in the detail needed to tell three different faults apart.
+ *
+ * "The audio thread never went quiet" was all this said, and it was not enough to act on: the retry on a
+ * fresh context is already automatic, so a failure means it happened twice — the second time on a context
+ * carrying nothing. Whether underruns were still pouring in (the device is busy with a context that was
+ * closed, since they share one audio thread and `close()` resolving is not the thread going idle), or a
+ * handful arrived and the patience simply ran out, or none arrived at all (the counter is not moving and
+ * the check itself is broken) are three separate problems that looked identical in the report.
+ */
+function describeSettling(found: Found): string {
+  const settling = found.stalled?.settling
+  if (!settling) return ', and nothing recorded about the wait'
+
+  const rate = settling.waited > 0 ? settling.events / settling.waited : 0
+  const reading =
+    settling.events === 0
+      ? 'no underruns at all arrived, so the counter is not moving and this check is the fault'
+      : rate > 5
+        ? 'still glitching hard — the device is busy with something already closed'
+        : 'nearly settled, so the patience is too short'
+
+  return ` after ${settling.waited.toFixed(1)}s with ${settling.events} underruns during the wait: ${reading}`
+}
+
 /** What one subject's break point says the model is out by. */
 function factor(found: Found, referencePoints: number): number | null {
   const points = found.clean?.points ?? found.broke?.points
@@ -428,10 +474,7 @@ export function formatSweep(result: Sweep): string {
     const clean = found.clean?.points
     const units = found.clean?.units
     if (found.unsettled) {
-      return (
-        `  ${found.subject.label.padEnd(20)} no reading — the audio thread never went quiet, so ` +
-        `nothing here could be trusted`
-      )
+      return `  ${found.subject.label.padEnd(20)} no reading — never went quiet${describeSettling(found)}`
     }
     if (found.saturated) {
       const share = (found.saturated.schedulerShare * 100).toFixed(0)
@@ -545,6 +588,7 @@ export function formatSweep(result: Sweep): string {
           broke: null,
           saturated: null,
           unsettled: false,
+          stalled: null,
         } as Found),
     ),
     '',

@@ -87,11 +87,12 @@ refused, since between an oscillator and an effect there is only one direction t
   buffer read was exactly right, a biquad a shade light, a convolver light by half. The two methods now
   agree to within 1.3 % across five completely different kinds of work.
 
-  One entry is not held to that, and it says so on its own line: **pan** was measured the day before the
-  probe was fixed, and the fault that was fixed was specifically its own — it followed the heaviest
-  subject in the run, and the probe could not then tell an overloaded context from a spoiled one. So the
-  confirming pass that agreed to within 15 % across the other ten never covered it. `measure.html?only=pan`
-  sweeps that one subject against the reference, a minute rather than a quarter of an hour.
+  Pan took two runs to get there, and it is worth saying why. Its first figure was taken the day before
+  the probe stopped asking for silence _after_ building a load, and pan is the subject that fault bit —
+  it follows the heaviest one in the run, so both its attempts were overloaded loads being read as
+  spoiled contexts. A later sweep read it at 0.97x, three per cent from priced right. Two instruments,
+  two readings, agreeing far inside the thirty per cent this method resolves. `measure.html?only=pan`
+  re-reads one subject against the reference, a minute rather than a quarter of an hour.
 
 - **Whole-cascade loop.** When every branch has drained, the cascade fires again. Each pass lasts
   as long as its longest branch, so the cycle breathes rather than holding a fixed pulse.

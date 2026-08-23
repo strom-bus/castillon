@@ -734,19 +734,19 @@ const MAX_WIDTH_SECONDS = 0.02
 const pan: EffectDescriptor = {
   kind: 'pan',
   /*
-   * A panner, a delay for the width and the merge. Measured 4.15 — and the one figure in this table
-   * that has not been confirmed since the instrument was fixed.
+   * A panner, a delay for the width and the merge. Measured 4.15 on one instrument and confirmed on
+   * another: a sweep after the probe was fixed read it at 0.97x, which is three per cent from priced
+   * right, and it broke properly rather than holding to the cap — 240 units against a doubling that
+   * could have reached 256.
    *
-   * The probe used to ask for silence *after* building a load, which cannot tell a context still
-   * glitching from the last trial's teardown apart from a load that is genuinely failing. Pan followed
-   * the heaviest subject in the run and came back "no reading" twice for exactly that. The fix — asking
-   * on an empty context, where there is nothing to glitch — landed the day *after* this number was
-   * taken, and the confirming run that agreed to within 15 % on the other ten effects therefore never
-   * covered this one.
+   * Worth recording that it needed two runs. The first was taken the day before the probe stopped asking
+   * for silence *after* building a load, and pan was the subject that fault bit: it follows the heaviest
+   * one in the run, so both its attempts were overloaded loads read as spoiled contexts. So its original
+   * figure came from an instrument demonstrably wrong about this subject, and the pass that confirmed the
+   * other ten never covered it.
    *
-   * So it is a real reading from an instrument known to have been wrong about this subject specifically,
-   * which is a weaker claim than every other line here makes. To settle it: `npm run measure`, then
-   * `measure.html?only=pan` — one subject and the reference, a minute rather than a quarter of an hour.
+   * Two independent readings on two instruments, 4.15 and 0.97x of 4, is as much as this method offers —
+   * it resolves about thirty per cent, and they agree far inside that.
    */
   cost: () => 4,
   label: 'Pan',

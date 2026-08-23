@@ -140,6 +140,8 @@ export interface Trial {
    * is how seven phasers came to look like the limit of a thread that had just carried four hundred voices.
    */
   settled: boolean
+  /** How the wait for silence went, when there was one worth reporting on. */
+  settling?: Settling
 }
 
 /**
@@ -279,19 +281,45 @@ export async function openPool(): Promise<{ pool: Pool; supported: boolean }> {
  * A fixed pause cannot do this job. How long a context needs depends on what was torn down before it, and
  * the honest signal is the counter itself holding still — not a duration somebody picked.
  */
-async function quiet(ctx: AudioContext): Promise<boolean> {
+/**
+ * How the wait for silence went, rather than only whether it succeeded.
+ *
+ * A run reported the filter subject as "no reading — the audio thread never went quiet" and there was
+ * nothing else to go on. The obvious cause was already handled: a context that will not settle is retired
+ * and the load tried once on a fresh one, so the failure had happened *twice*, the second time on a
+ * context with nothing on it. Which rules out the previous trial's teardown as the story and leaves a
+ * question this returned no evidence about.
+ *
+ * So it now says how long it waited and how many underruns kept arriving while it did. Many, on an empty
+ * context, means the device is still busy with a context that was closed — they share one audio thread,
+ * and `close()` resolving is not the thread going idle. A handful means it was nearly there and PATIENCE
+ * is too short. None at all, with `settled` false, would mean the counter is not moving and the check
+ * itself is broken. Three different faults that looked identical.
+ */
+export interface Settling {
+  settled: boolean
+  /** Seconds spent waiting. */
+  waited: number
+  /** Underruns that arrived during the wait, on a context carrying nothing. */
+  events: number
+}
+
+async function quiet(ctx: AudioContext): Promise<Settling> {
   const started = performance.now()
-  let last = readPlayback(ctx)?.events ?? 0
+  const first = readPlayback(ctx)?.events ?? 0
+  let last = first
   let since = 0
 
-  while ((performance.now() - started) / 1000 < PATIENCE) {
+  const seconds = () => (performance.now() - started) / 1000
+
+  while (seconds() < PATIENCE) {
     await wait(0.1)
     const now = readPlayback(ctx)?.events ?? 0
     since = now === last ? since + 0.1 : 0
     last = now
-    if (since >= QUIET) return true
+    if (since >= QUIET) return { settled: true, waited: seconds(), events: last - first }
   }
-  return false
+  return { settled: false, waited: seconds(), events: last - first }
 }
 
 /**
@@ -359,7 +387,8 @@ async function attempt(
    * contexts. On an empty context there is nothing to glitch, so whatever glitches after this point
    * belongs to the load.
    */
-  if (!(await quiet(ctx))) {
+  const settling = await quiet(ctx)
+  if (!settling.settled) {
     return {
       units,
       points: 0,
@@ -368,6 +397,7 @@ async function attempt(
       schedulerShare: 0,
       settled: false,
       buildSeconds: 0,
+      settling,
     }
   }
 

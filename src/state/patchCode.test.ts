@@ -619,21 +619,31 @@ describe('modulation in the code', () => {
     expect(roundTrip(patch)!.edges[0].kind).toBe('mod')
   })
 
-  it('keeps three kinds of cable apart in one patch', () => {
+  it('keeps all four kinds of cable apart in one patch', () => {
+    // All four rather than the three that existed when this was written. Three of them share the side
+    // ports, so a code that confused two would produce a patch that looks wired and behaves differently
+    // — the sort of fault nobody finds by looking at the canvas.
     const patch = patchOf(
       [
         { id: 's', type: 'start', position: { x: 0, y: 0 }, params: {} },
         oscNode('a'),
         fxNode('f', 'reverb'),
         modNode(),
+        { id: 'w', type: 'warp', position: { x: 0, y: 0 }, params: { transpose: 3 } },
       ],
       [
         { id: 'e1', kind: 'event', source: 's', target: 'a' },
         { id: 'e2', kind: 'audio', source: 'a', target: 'f' },
         { id: 'e3', kind: 'mod', source: 'm', target: 'f' },
+        { id: 'e4', kind: 'warp', source: 'w', target: 'a' },
       ],
     )
-    expect(roundTrip(patch)!.edges.map((edge) => edge.kind)).toEqual(['event', 'audio', 'mod'])
+    expect(roundTrip(patch)!.edges.map((edge) => edge.kind)).toEqual([
+      'event',
+      'audio',
+      'mod',
+      'warp',
+    ])
   })
 
   it('costs nothing when there is no modulation', () => {

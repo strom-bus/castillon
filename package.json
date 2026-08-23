@@ -13,7 +13,8 @@
     "format": "prettier --write .",
     "typecheck": "tsc -b --noEmit",
     "measure": "vite --open /measure.html",
-    "og": "esbuild src/tools/ogImage.run.ts --bundle --platform=node --format=esm --packages=external --outfile=node_modules/.cache/og.mjs --log-level=warning && node node_modules/.cache/og.mjs"
+    "og": "esbuild src/tools/ogImage.run.ts --bundle --platform=node --format=esm --packages=external --outfile=node_modules/.cache/og.mjs --log-level=warning && node node_modules/.cache/og.mjs",
+    "stress": "npx vite-node src/tools/writeStressPatch.ts"
   },
   "dependencies": {
     "@xyflow/react": "^12.11.3",

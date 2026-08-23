@@ -1162,7 +1162,7 @@ input[type='range'] {
 }
 
 /* Dimmer than the name: it identifies the node without competing with what the node is. */
-/* What a TRANSFORM above is doing to this node, worn by the node it happens to. Set apart from the
+/* What a WARP is doing to this node, worn by the node it happens to. Set apart from the
    title so it reads as something arriving from elsewhere rather than as part of the name. */
 .node-moved {
   margin-left: 8px;

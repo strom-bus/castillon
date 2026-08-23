@@ -4,15 +4,19 @@ import { describe, expect, it } from 'vitest'
 import stressPatchFile from '../../docs/stress-patch.txt?raw'
 import { FILTER_TYPES } from '../audio/filter'
 import { WAVEFORMS } from '../audio/waveforms'
-import type { OscParams } from '../types/patch'
-import { decodePatch } from './patchCode'
+import type { OscParams, WarpParams } from '../types/patch'
+import { LAYER_THRESHOLD, MAX_LOAD } from '../audio/load'
+import { stressLoad, stressPatch } from '../tools/stressPatch'
+import { decodePatch, encodePatch } from './patchCode'
 
 /**
  * The load-test patch lives as a code in a text file, which means a change to the patch-code
  * format can quietly rot it — it did once, when the tempo field grew a bit. This decodes the
  * real file so that failure surfaces here instead of the next time someone pastes it in.
  *
- * To regenerate: build the patch in the app, copy the PATCH CODE field into the file.
+ * To regenerate: `npm run stress`. It was a hand operation — build it in the app, copy the field — and
+ * that is why this file also checks the code against the generator: a wrong paste produces a code that
+ * decodes to a slightly different patch, and nothing about the file would look wrong.
  */
 const code = stressPatchFile
   .trim()
@@ -22,6 +26,55 @@ const code = stressPatchFile
   .at(-1)
 
 describe('the load-test patch', () => {
+  it('is the patch the generator makes, not a paste that drifted from it', () => {
+    // The strongest form this check can take: the file and the generator either agree exactly or the
+    // file is stale. `npm run stress` is the fix, and the test says so by failing rather than by
+    // silently testing whatever was pasted in last.
+    expect(code, 'docs/stress-patch.txt is stale — run `npm run stress`').toBe(
+      encodePatch(stressPatch()),
+    )
+  })
+
+  it('still exercises everything a step can carry', () => {
+    /*
+     * The failure this has already had once in a different form: a load test written against the
+     * parameters that existed when it was written stops being a test of the engine and becomes a test
+     * of its history. Rolls put four voices where one was and warp speed multiplies every oscillator's
+     * note rate, so these are load and not only format.
+     */
+    const patch = decodePatch(code as string)!
+    const oscillators = patch.nodes
+      .filter((n) => n.type === 'osc')
+      .map((n) => n.params as OscParams)
+    const steps = oscillators.flatMap((params) => params.steps)
+
+    expect(oscillators.some((params) => params.useChance)).toBe(true)
+    expect(oscillators.some((params) => params.useRatchet)).toBe(true)
+    expect(steps.some((step) => (step.ratchet ?? 1) > 1)).toBe(true)
+    expect(steps.some((step) => (step.ratchetRamp ?? 0) !== 0)).toBe(true)
+    expect(steps.some((step) => step.velocity < 1)).toBe(true)
+    expect(steps.some((step) => step.slide === true)).toBe(true)
+    expect(oscillators.some((params) => (params.scale ?? 'free') !== 'free')).toBe(true)
+    expect(oscillators.some((params) => (params.detune ?? 0) !== 0)).toBe(true)
+    expect(oscillators.some((params) => (params.keyTrack ?? 0) > 0)).toBe(true)
+    // The one control that multiplies the note rate of everything below it.
+    const warps = patch.nodes.filter((node) => node.type === 'warp')
+    expect(warps).toHaveLength(1)
+    expect((warps[0]!.params as WarpParams).speed).not.toBe(1)
+  })
+
+  it('sits between degrading and breaking, which is the only useful place', () => {
+    /*
+     * Past the layering threshold, so the designed degradation is what you are listening to, and short
+     * of the ceiling, so it is not certain to glitch. A test that always breaks says nothing about
+     * where breaking begins, and one that never does says less.
+     */
+    const { voices, effects } = stressLoad(stressPatch())
+    const total = voices + effects
+    expect(total, `${total.toFixed(0)} points`).toBeGreaterThan(MAX_LOAD * LAYER_THRESHOLD)
+    expect(total, `${total.toFixed(0)} points`).toBeLessThan(MAX_LOAD)
+  })
+
   it('has a code in the file at all', () => {
     expect(code).toBeDefined()
   })

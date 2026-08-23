@@ -5,21 +5,22 @@ import type { ScaleName } from '../audio/scales'
 export type NodeId = string
 
 /**
- * The two overlaid graphs. Event cables carry timestamped triggers down the cascade; audio cables
- * carry signal sideways from an oscillator into an effect.
- */
-/**
- * The three kinds of cable.
+ * The four kinds of cable, which are the four overlaid graphs.
  *
- * `event` is the cascade and it flows. `audio` is signal and it glows. `mod` looks like audio — white
- * and grey — and pulses at its own rate, which is what tells the two apart (PLAN §18): the difference
- * is a behaviour rather than a colour, because colour already means cascade depth.
- */
-/**
- * `shift` is what a WARP hangs on, and it is a fourth kind rather than a reuse of `mod` for the
- * same reason `mod` was not a reuse of `audio`: it neither carries sound nor sweeps a value, it changes
- * what a branch plays. Drawn to the side like modulation because that is what it has in common with it —
- * it attaches to a node instead of standing in the cascade.
+ * Told apart by **behaviour** rather than by colour, because colour already means cascade depth
+ * (PLAN §18) — so each of these moves differently and a reader never has to remember a palette:
+ *
+ * - `event` is the cascade, and it flows downward. Timestamped triggers, carrying no sound.
+ * - `audio` is signal, and it glows. Sideways from an oscillator into an effect, because audio does
+ *   not cascade: everything sounding plays at once into the master bus and an effect is a send off it.
+ * - `mod` sweeps a parameter of whatever it points at, and pulses at its own rate.
+ * - `warp` changes what a branch *plays*, and is drawn still. It is a fourth kind rather than a reuse
+ *   of `mod` for the same reason `mod` was not a reuse of `audio`: it neither carries sound nor sweeps
+ *   a value. Still because everything it changes lands on the next pass — an oscillator commits its
+ *   whole sequence when triggered — so a cable that pulsed would promise something live.
+ *
+ * `mod` and `warp` share the side ports with `audio`, and which of the three a cable becomes comes
+ * from what is at its two ends rather than from a setting.
  */
 export type EdgeKind = 'event' | 'audio' | 'mod' | 'warp'
 

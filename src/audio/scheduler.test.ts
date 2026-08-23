@@ -1493,3 +1493,114 @@ describe('a warp that plays a branch loosely', () => {
     expect(both).toBeCloseTo(one * 2, 4)
   })
 })
+
+/**
+ * The same two controls on the oscillator, and how the two halves meet.
+ *
+ * They could not live only on a WARP, and the reason is not convenience: a warp reaches the node it is
+ * attached to *and everything the cascade reaches from it*, so swinging one oscillator that has anything
+ * hanging off it is not tedious from there, it is impossible. An impossible case is worse than a
+ * repetitive one.
+ *
+ * So they sit where `division` and `gate` sit — this sequence's own time — and a warp scales them from
+ * outside, exactly as its `speed` scales `division`. Absolute on the node, relative on the warp, which is
+ * a line this instrument had already drawn one expression earlier in the same function.
+ */
+describe('swing and slop on the oscillator', () => {
+  /** One oscillator with children, optionally under a warp: the case a warp alone cannot express. */
+  function chain(osc: Partial<OscParams>, warp?: WarpParams) {
+    const steps = Array.from({ length: 4 }, (_, i) => ({
+      note: 60 + i,
+      active: true,
+      velocity: 1,
+    }))
+    const nodes: PatchNode[] = [
+      { id: 's', type: 'start', position: { x: 0, y: 0 }, params: {} },
+      {
+        id: 'top',
+        type: 'osc',
+        position: { x: 0, y: 0 },
+        params: { ...defaultOscParams(), gate: 1, steps, ...osc },
+      },
+      {
+        id: 'below',
+        type: 'osc',
+        position: { x: 0, y: 0 },
+        params: { ...defaultOscParams(), gate: 1, steps },
+      },
+    ]
+    const links = [edge('s', 'top'), edge('top', 'below')]
+    if (warp) {
+      nodes.push({ id: 'w', type: 'warp', position: { x: 0, y: 0 }, params: warp })
+      links.push({ id: 'a', kind: 'warp', source: 'w', target: 'top' })
+    }
+    const scheduler = build(patchOf(nodes, links))
+    // Held at the bottom of the range rather than the middle: a roll of a half *is* the centre, so slop
+    // would displace by nothing and every test about it would pass while measuring the grid.
+    engine.chanceValue = 0
+    scheduler.start()
+    scheduler.drain(40)
+    scheduler.stop()
+    return engine.notes
+  }
+
+  /** The gap between the first two notes a node plays, which is where a swing shows. */
+  const firstGap = (notes: NoteRequest[], nodeId: string) => {
+    const mine = notes.filter((note) => note.nodeId === nodeId)
+    return mine[1]!.time - mine[0]!.time
+  }
+
+  it('swings one oscillator and leaves the one below it straight', () => {
+    // The case that could not be expressed at all while this lived only on a warp.
+    const notes = chain({ swing: 2, useSwing: true })
+    const straight = chain({})
+    expect(firstGap(notes, 'top')).toBeGreaterThan(firstGap(straight, 'top'))
+    expect(firstGap(notes, 'below')).toBeCloseTo(firstGap(straight, 'below'), 6)
+  })
+
+  it('does nothing until its switch is on', () => {
+    expect(firstGap(chain({ swing: 2 }), 'top')).toBeCloseTo(firstGap(chain({}), 'top'), 6)
+  })
+
+  it('is scaled by a warp above, the way division is scaled by speed', () => {
+    /*
+     * The relation that makes both placements coherent rather than duplicated. A warp on a straight
+     * oscillator swings it; a warp on an already swung one swings it harder; and neither replaces the
+     * other, because one is what this sequence is and the other is what is being done to the branch.
+     */
+    const plain = firstGap(chain({}), 'top')
+    const ownOnly = firstGap(chain({ swing: 1.5, useSwing: true }), 'top')
+    const warpOnly = firstGap(chain({}, { transpose: 0, swing: 1.5, useSwing: true }), 'top')
+    const both = firstGap(
+      chain({ swing: 1.5, useSwing: true }, { transpose: 0, swing: 1.5, useSwing: true }),
+      'top',
+    )
+
+    expect(ownOnly).toBeGreaterThan(plain)
+    expect(warpOnly).toBeCloseTo(ownOnly, 6)
+    expect(both).toBeGreaterThan(ownOnly)
+  })
+
+  it('loosens one oscillator without loosening the one below it', () => {
+    const notes = chain({ slop: 0.4, useSlop: true })
+    const tight = chain({})
+    const mine = (from: NoteRequest[], id: string) =>
+      from.filter((note) => note.nodeId === id).map((note) => note.time)
+
+    expect(mine(notes, 'top')).not.toEqual(mine(tight, 'top'))
+    expect(mine(notes, 'below')).toEqual(mine(tight, 'below'))
+  })
+
+  it("adds its slop to a warp's rather than either winning", () => {
+    const at = (osc: Partial<OscParams>, warp?: WarpParams) => {
+      const mine = chain(osc, warp).filter((note) => note.nodeId === 'top')
+      return mine[2]!.time
+    }
+    const grid = at({})
+    const own = Math.abs(at({ slop: 0.1, useSlop: true }) - grid)
+    const both = Math.abs(
+      at({ slop: 0.1, useSlop: true }, { transpose: 0, slop: 0.1, useSlop: true }) - grid,
+    )
+    expect(both).toBeCloseTo(own * 2, 4)
+  })
+})

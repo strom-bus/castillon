@@ -336,8 +336,19 @@ const osc: NodeDefinition = {
      * Every selectable step count is even, so the pattern always closes: no sequence ends on a long half
      * with another long half following it round the loop.
      */
+    /*
+     * This sequence's own feel, scaled by whatever a warp above asks for.
+     *
+     * The same relation `division` has to a warp's `speed`, one line above: absolute on the node,
+     * relative on the warp. Which is what lets both cases exist — one oscillator swung on its own, and a
+     * whole branch swung from one control — where the warp alone could only ever do the second, since it
+     * reaches everything below whatever it is attached to.
+     */
+    const own = params.useSwing ? clamp(params.swing ?? 1, MIN_SWING, MAX_SWING) : 1
+    const swing = clamp(own * warping.swing, MIN_SWING, MAX_SWING * MAX_SWING)
+
     const pair = step * 2
-    const long = (pair * warping.swing) / (warping.swing + 1)
+    const long = (pair * swing) / (swing + 1)
     const lengthOf = (index: number) => (index % 2 === 0 ? long : pair - long)
     const startOf = (index: number) => Math.floor(index / 2) * pair + (index % 2 === 1 ? long : 0)
 
@@ -354,7 +365,8 @@ const osc: NodeDefinition = {
      * branch at heavy swing. One setting, two opposite results, in a machine whose branches run at
      * different speeds on purpose.
      */
-    const wobble = (pair - long) * warping.slop
+    const ownSlop = params.useSlop ? clamp(params.slop ?? 0, 0, MAX_SLOP) : 0
+    const wobble = (pair - long) * clamp(ownSlop + warping.slop, 0, MAX_SLOP)
 
     for (let i = 0; i < count; i++) {
       /*

@@ -1313,6 +1313,55 @@ export function Inspector() {
           </>
         )}
 
+        {/* Beside Division and Gate, which is where they belong: those three are what this sequence's own
+            time is. A warp scales them from outside, the way its Speed scales Division — and it has to be
+            both places, because a warp reaches everything below whatever it is attached to, so swinging
+            one oscillator that has anything hanging off it would be impossible from there. */}
+        <label className="inspector-check">
+          <input
+            type="checkbox"
+            checked={params.useSwing === true}
+            onChange={(e) => set({ useSwing: e.target.checked })}
+          />
+          <span>Swing</span>
+        </label>
+
+        {params.useSwing && (
+          <label className="inspector-field">
+            <span className="inspector-label">Feel</span>
+            <select
+              value={String(params.swing ?? 1)}
+              onChange={(e) => set({ swing: Number(e.target.value) })}
+            >
+              {SWINGS.map((ratio) => (
+                <option key={ratio} value={String(ratio)}>
+                  {swingLabel(ratio)}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+
+        <label className="inspector-check">
+          <input
+            type="checkbox"
+            checked={params.useSlop === true}
+            onChange={(e) => set({ useSlop: e.target.checked })}
+          />
+          <span>Slop</span>
+        </label>
+
+        {params.useSlop && (
+          <Slider
+            label="Looseness"
+            value={Math.round((params.slop ?? 0) * 100) / 100}
+            min={0}
+            max={MAX_SLOP}
+            step={0.01}
+            onChange={(slop) => set({ slop })}
+          />
+        )}
+
         {/* Both off until asked for, and both are switches rather than just values because the square
             under a bar already means armed or muted — once its fill can also mean a chance, a half-filled
             square has two readings. Turning one off keeps what the steps hold, so it can be turned back

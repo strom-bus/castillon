@@ -361,6 +361,20 @@ export const MANUAL: Section[] = [
             },
           },
           {
+            term: { en: 'Swing and Feel', es: 'Swing y Feel' },
+            text: {
+              en: "Makes each pair of this sequence's steps uneven — the first long, the second late and short. Feel is how uneven: Shuffle is what most machines call swing, Triplet is the long half lasting twice the short. A pair keeps its total, so the sequence takes exactly as long swung as straight and hands the cascade on at the same moment. A WARP has this too, and scales what is set here — the same relation Division has to a warp's Speed. It is on both because a warp reaches everything below whatever it is attached to, so swinging one oscillator that has anything hanging off it can only be done from here.",
+              es: 'Vuelve desigual cada par de pasos de esta secuencia — el primero largo, el segundo tarde y corto. Feel es cuánto: Shuffle es lo que casi todas las máquinas llaman swing, Triplet es la mitad larga durando el doble que la corta. Un par conserva su total, así que la secuencia dura lo mismo con swing que recta y pasa la cascada en el mismo momento. Un WARP también lo tiene, y escala lo que pongas aquí — la misma relación que tiene Division con el Speed de un warp. Está en los dos porque un warp alcanza todo lo que hay debajo de donde se engancha, así que dar swing a un solo oscilador que tenga algo colgando solo se puede desde aquí.',
+            },
+          },
+          {
+            term: { en: 'Slop and Looseness', es: 'Slop y Looseness' },
+            text: {
+              en: "Plays every note of this sequence a little away from where it was written, differently each time. Looseness is how far, measured against this sequence's own shortest gap rather than in milliseconds — so one setting means the same thing however fast the line runs. At its most, two notes can meet and never cross: a note landing before the one in front of it does not sound loose, it sounds broken. A WARP adds its own on top, and again the reason it is here as well is that a warp cannot loosen one oscillator without loosening everything under it.",
+              es: 'Toca cada nota de esta secuencia un poco fuera de donde estaba escrita, distinto cada vez. Looseness es cuánto, medido contra el hueco más corto de esta secuencia y no en milisegundos — así un mismo ajuste significa lo mismo por rápido que corra la línea. Al máximo, dos notas pueden juntarse y nunca cruzarse: una nota que cae antes que la anterior no suena floja, suena rota. Un WARP suma el suyo encima, y otra vez la razón de que esté aquí también es que un warp no puede aflojar un oscilador sin aflojar todo lo que hay debajo.',
+            },
+          },
+          {
             term: { en: 'Scale', es: 'Scale' },
             text: {
               en: 'Which notes the bars are allowed to land on. Free lets any note through; choose a scale and dragging a bar can only stop on a note of that scale, so you can drag carelessly and stay in key. It belongs to this oscillator alone, so a bass in Minor pentatonic against a lead in Dorian is perfectly ordinary.',

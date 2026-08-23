@@ -280,6 +280,12 @@ const OSC_FIELDS: Field<OscParams>[] = [
   scaledField('glide', 10, 1, 0, 1000),
   // Stored shifted, since the field encoder works in non-negative steps and this one runs either way.
   scaledField('detune', 7, 1, -50, 50),
+  // Appended, so every code written before these existed still reads: a field absent from a code is a
+  // field at its default, and these default to off.
+  indexField('swing', 4, SWINGS as unknown as number[]),
+  flagField('useSwing'),
+  scaledField('slop', 6, 100, 0, MAX_SLOP * 100),
+  flagField('useSlop'),
 ]
 
 const FX_FIELDS: Field<FxParams>[] = [

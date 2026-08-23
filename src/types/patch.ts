@@ -159,6 +159,29 @@ export interface OscParams {
    * Switching it off keeps the values rather than clearing them, so it can be switched back on.
    */
   useChance?: boolean
+  /**
+   * How lopsided each pair of this sequence's steps is, as the long half against the short.
+   *
+   * Here as well as on a WARP, and the division between them is the one the instrument already draws:
+   * `division` sets this sequence's step and a warp's `speed` scales it, so `swing` sets this sequence's
+   * feel and a warp's `swing` scales that. Absolute on the node, relative on the warp.
+   *
+   * It cannot only be on the warp, and the reason is not convenience. A warp reaches the node it is
+   * attached to *and everything below it*, so swinging one oscillator that has anything hanging off it is
+   * not tedious, it is impossible. An impossible case is worse than a repetitive one.
+   */
+  swing?: number
+  /** Whether that swing is applied. A bypass, so a groove can be heard straight and put back. */
+  useSwing?: boolean
+  /**
+   * How loosely this sequence is played, as a share of its own shortest gap.
+   *
+   * The same division as `swing`: set here, added to by a warp. And the same reason for being here at
+   * all — a warp cannot loosen one oscillator without loosening everything under it.
+   */
+  slop?: number
+  /** Whether that looseness is applied. */
+  useSlop?: boolean
   /** Whether this sequencer uses per-step ratchets at all. Off by default, and kept when off. */
   useRatchet?: boolean
   /**

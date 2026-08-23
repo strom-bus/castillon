@@ -170,6 +170,14 @@ refused, since between an oscillator and an effect there is only one direction t
   instrument is not, or Jitter, which in audio is already the name of a defect and would read as "your
   clock is broken". Every other control here names the dimension it bends.
 
+  **Both also live on the oscillator**, and that is not duplication. A warp reaches the node it is
+  attached to _and everything the cascade reaches from it_, so swinging one oscillator that has anything
+  hanging off it is not tedious from there, it is impossible — and an impossible case is worse than a
+  repetitive one. So they sit beside Division and Gate, which is what a sequence's own time is, and a warp
+  scales them from outside. Exactly the relation Division already has to a warp's Speed: absolute on the
+  node, relative on the warp. Which means one edit still swings a whole branch when that is what you want,
+  and one oscillator can be swung alone when that is.
+
   **Swing** makes each pair of steps uneven, and it is the first of these whose effect depends on
   _where_ a step sits rather than scaling every step alike. Expressed as the ratio of the long half to
   the short, which is what lets it join the others: a displacement would have to be clamped when two
@@ -260,7 +268,7 @@ refused, since between an oscillator and an effect there is only one direction t
   it longer without making it clearer. Both languages live adjacent in one file so a half-finished
   edit shows up in the diff rather than as a blank paragraph months later.
 
-  Thirteen chapters and a hundred and nineteen entries, written for whoever is using the instrument
+  Thirteen chapters and a hundred and twenty-one entries, written for whoever is using the instrument
   rather than for whoever built it: no entry explains how something is implemented, and every one says
   what a control does to the sound and when you would reach for it. One chapter per module, each in
   the order its own panel is in and under the panel's own group headings, so reading the manual and
@@ -277,7 +285,7 @@ refused, since between an oscillator and an effect there is only one direction t
   patch changes it. **Generate** publishes and puts the code in the field; the field is empty until
   it does, because a code shown before it exists is a code somebody writes down. Copy copies what is
   there and nothing else. The field takes either kind of code.
-  The eight nodes it starts with come to 127 characters, against 3243 as JSON.
+  The eight nodes it starts with come to 130 characters, against 3243 as JSON.
 
 ## Sharing
 

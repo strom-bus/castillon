@@ -669,10 +669,17 @@ input[type='range'] {
  */
 /* Pushed to the right with the close button, so the header reads title on one side, controls on the
    other — the same shape the gallery's header already has. */
-.language-toggle {
+/* Two buttons in one bordered box: one decision with two answers, which two full-sized buttons would
+   have given the weight of a section heading. The tab strip in the gallery is the same control doing the
+   same job, so it is the same control — it only sits where a title would rather than out to the right. */
+.language-toggle,
+.tab-toggle {
   display: flex;
-  margin-left: auto;
   border: 1px solid var(--border);
+}
+
+.language-toggle {
+  margin-left: auto;
 }
 
 /* The close button, matched to the toggle beside it: same border, same padding, same lettering. Two
@@ -723,7 +730,8 @@ input[type='range'] {
   margin: 4px 0 0 auto;
 }
 
-.language-toggle button {
+.language-toggle button,
+.tab-toggle button {
   padding: 3px 9px;
   border: 0;
   background: transparent;
@@ -734,15 +742,18 @@ input[type='range'] {
   cursor: pointer;
 }
 
-.language-toggle button + button {
+.language-toggle button + button,
+.tab-toggle button + button {
   border-left: 1px solid var(--border);
 }
 
-.language-toggle button:hover {
+.language-toggle button:hover,
+.tab-toggle button:hover {
   color: var(--text);
 }
 
-.language-toggle button.on {
+.language-toggle button.on,
+.tab-toggle button.on {
   background: var(--surface-raised);
   color: var(--text);
 }
@@ -1493,4 +1504,11 @@ input[type='range'] {
   font-size: 9px;
   letter-spacing: 0.18em;
   color: var(--muted);
+}
+
+/* A preset card says what the patch is for; a gallery card says who made it and when. Same grid, same
+   thumbnail, different second line — so the line itself gets room to be a sentence rather than a byline. */
+.card-about {
+  color: var(--muted);
+  line-height: 1.45;
 }

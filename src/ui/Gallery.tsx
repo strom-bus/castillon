@@ -5,6 +5,7 @@ import type { GalleryEntry, GallerySort } from '../gallery/types'
 import { decodePatch } from '../state/patchCode'
 import { usePatchStore } from '../state/patchStore'
 import { shortCodeFor } from '../state/shortCode'
+import { PRESETS } from '../presets/presets'
 import { CascadeThumb } from './CascadeThumb'
 import { StarIcon } from './StarIcon'
 
@@ -19,7 +20,21 @@ import { StarIcon } from './StarIcon'
  * ossifies: whatever went up first collects the stars and nothing new is ever seen (§12.7).
  */
 
+/** The two things this window holds: what came with the machine, and what people made with it. */
+const VIEWS = ['presets', 'gallery'] as const
+type View = (typeof VIEWS)[number]
+
+const VIEW_LABELS: Record<View, string> = { presets: 'PRESETS', gallery: 'GALLERY' }
+
 export function Gallery({ onClose }: { onClose: () => void }) {
+  /**
+   * Presets first, and open on them.
+   *
+   * The gallery is a network request that may be empty, slow, or unreachable; the presets are three
+   * patches that are always there. Opening on the half that can fail — and, on a fresh browser, fails by
+   * being empty — is the wrong first impression of a window whose job is to show what the machine does.
+   */
+  const [view, setView] = useState<View>('presets')
   const [sort, setSort] = useState<GallerySort>('recent')
   const [page, setPage] = useState(0)
   /*
@@ -133,8 +148,25 @@ export function Gallery({ onClose }: { onClose: () => void }) {
         onClick={(event) => event.stopPropagation()}
       >
         <header className="gallery-head">
-          <h2>GALLERY</h2>
-          <div className="gallery-sort">
+          {/* The tabs stand where the title was, since with two of them a fixed title would name only
+              half the window. The same control as the manual's language toggle, doing the same job: one
+              decision with two answers, in one bordered box rather than as two competing buttons. */}
+          <div className="tab-toggle" role="group" aria-label="What to show">
+            {VIEWS.map((option) => (
+              <button
+                key={option}
+                type="button"
+                className={view === option ? 'on' : ''}
+                onClick={() => setView(option)}
+                aria-pressed={view === option}
+              >
+                {VIEW_LABELS[option]}
+              </button>
+            ))}
+          </div>
+          {/* Ordering is a question about a list that arrives from somewhere. The presets are three and
+              they are in the order they should be read in, so there is nothing here to sort. */}
+          <div className="gallery-sort" hidden={view === 'presets'}>
             {(['recent', 'popular'] as const).map((option) => (
               <button
                 key={option}
@@ -154,88 +186,116 @@ export function Gallery({ onClose }: { onClose: () => void }) {
           </button>
         </header>
 
-        {!galleryIsShared && (
-          <p className="gallery-note">
-            Nothing is shared yet: these are the patches you have published from this browser.
-          </p>
-        )}
-        {error && (
-          <p className="gallery-note" role="status">
-            {error}
-          </p>
-        )}
-
-        {loaded === null ? (
-          <p className="gallery-note">Loading…</p>
-        ) : loaded.entries.length === 0 ? (
-          <p className="gallery-note">
-            No patches here yet. Publish one with SHARE, beside the patch code.
-          </p>
-        ) : (
+        {view === 'presets' ? (
           <ul className="gallery-grid">
-            {loaded.entries.map((entry) => (
-              <li key={entry.id} className="card">
+            {PRESETS.map((preset) => (
+              <li key={preset.id} className="card">
                 <button
                   type="button"
                   className="card-open"
-                  onClick={() => open(entry)}
+                  onClick={() => {
+                    loadPatch(preset.patch)
+                    onClose()
+                  }}
                   title="Load this patch"
                 >
-                  <CascadeThumb
-                    patch={
-                      decodePatch(entry.code) ?? {
-                        version: 1,
-                        bpm: 120,
-                        loop: true,
-                        nodes: [],
-                        edges: [],
-                      }
-                    }
-                  />
+                  <CascadeThumb patch={preset.patch} />
                 </button>
                 <div className="card-body">
-                  <span className="card-name">{entry.name}</span>
-                  <span className="card-meta">
-                    {entry.author}
-                    {countryOf(entry.country) && ` · ${countryOf(entry.country)}`} ·{' '}
-                    {relativeAge(entry.createdAt, loaded.at)}
-                  </span>
-                  <span className="card-code">{shortCodeFor(entry.code)}</span>
-                </div>
-                <div className="card-actions">
-                  <button
-                    type="button"
-                    className={`btn btn-icon star${entry.starred ? ' on' : ''}`}
-                    onClick={() => void toggleStar(entry)}
-                    aria-label={entry.starred ? 'Remove star' : 'Give a star'}
-                    aria-pressed={entry.starred}
-                  >
-                    <StarIcon filled={entry.starred} />
-                  </button>
-                  <span className="card-stars">{entry.stars}</span>
-                  {entry.mine && (
-                    <button
-                      type="button"
-                      className="btn btn-icon"
-                      onClick={() => void withdraw(entry)}
-                      aria-label="Withdraw this patch"
-                      title="Withdraw this patch"
-                    >
-                      <TrashIcon />
-                    </button>
-                  )}
+                  <span className="card-name">{preset.name}</span>
+                  {/* What the patch is for, where a gallery card carries who made it. A preset with a
+                      name and nothing else is a patch you have to load to find out about. */}
+                  <span className="card-meta card-about">{preset.about}</span>
                 </div>
               </li>
             ))}
           </ul>
-        )}
+        ) : (
+          <>
+            {!galleryIsShared && (
+              <p className="gallery-note">
+                Nothing is shared yet: these are the patches you have published from this browser.
+              </p>
+            )}
+            {error && (
+              <p className="gallery-note" role="status">
+                {error}
+              </p>
+            )}
 
-        {loaded?.hasMore && (
-          <div className="gallery-more">
-            <button type="button" className="btn" onClick={() => void more(sort, page)}>
-              MORE
-            </button>
-          </div>
+            {loaded === null ? (
+              <p className="gallery-note">Loading…</p>
+            ) : loaded.entries.length === 0 ? (
+              <p className="gallery-note">
+                No patches here yet. Publish one with SHARE, beside the patch code.
+              </p>
+            ) : (
+              <ul className="gallery-grid">
+                {loaded.entries.map((entry) => (
+                  <li key={entry.id} className="card">
+                    <button
+                      type="button"
+                      className="card-open"
+                      onClick={() => open(entry)}
+                      title="Load this patch"
+                    >
+                      <CascadeThumb
+                        patch={
+                          decodePatch(entry.code) ?? {
+                            version: 1,
+                            bpm: 120,
+                            loop: true,
+                            nodes: [],
+                            edges: [],
+                          }
+                        }
+                      />
+                    </button>
+                    <div className="card-body">
+                      <span className="card-name">{entry.name}</span>
+                      <span className="card-meta">
+                        {entry.author}
+                        {countryOf(entry.country) && ` · ${countryOf(entry.country)}`} ·{' '}
+                        {relativeAge(entry.createdAt, loaded.at)}
+                      </span>
+                      <span className="card-code">{shortCodeFor(entry.code)}</span>
+                    </div>
+                    <div className="card-actions">
+                      <button
+                        type="button"
+                        className={`btn btn-icon star${entry.starred ? ' on' : ''}`}
+                        onClick={() => void toggleStar(entry)}
+                        aria-label={entry.starred ? 'Remove star' : 'Give a star'}
+                        aria-pressed={entry.starred}
+                      >
+                        <StarIcon filled={entry.starred} />
+                      </button>
+                      <span className="card-stars">{entry.stars}</span>
+                      {entry.mine && (
+                        <button
+                          type="button"
+                          className="btn btn-icon"
+                          onClick={() => void withdraw(entry)}
+                          aria-label="Withdraw this patch"
+                          title="Withdraw this patch"
+                        >
+                          <TrashIcon />
+                        </button>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {loaded?.hasMore && (
+              <div className="gallery-more">
+                <button type="button" className="btn" onClick={() => void more(sort, page)}>
+                  MORE
+                </button>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

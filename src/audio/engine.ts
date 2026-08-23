@@ -8,6 +8,7 @@ import {
   type ModTargetKey,
   type ModFires,
   type ModKind,
+  rateOf,
 } from './modulation'
 import {
   MAX_MOD_ATTACK,
@@ -259,6 +260,19 @@ export interface Engine {
   releaseNodeVoices(nodeId: NodeId, at: number): void
   /** Runs a modulation envelope once, from a trigger in the cascade. */
   fireEnvelope(nodeId: NodeId, at: number): void
+  /**
+   * Starts an LFO's cycle again from the top.
+   *
+   * The trigger port on a MOD did nothing at all for an LFO — the code said so, in as many words: "an
+   * LFO has its own clock and the trigger means nothing to it". That is a whole input going to waste on
+   * the one node where a phase is worth controlling, and it gives the port one meaning across both
+   * kinds: **a trigger means start now.** For an envelope that is fire; for an LFO it is begin again.
+   *
+   * Wired, the wobble lines up with the cascade; unwired, it free-runs exactly as before. So there is no
+   * control to find and nothing to switch on — the cable is the setting.
+   */
+  restartLfo(nodeId: NodeId, at: number): void
+
   /**
    * A number between 0 and 1, for anything the scheduler decides by chance.
    *
@@ -800,7 +814,7 @@ export class AudioEngine implements Engine {
    * between `value ± d`. Kept at or below one so a level modulated to its floor lands on silence
    * rather than passing through it into inversion.
    */
-  createModulator(nodeId: NodeId, params: ModParams): void {
+  createModulator(nodeId: NodeId, params: ModParams, bpm = 120): void {
     if (!this.ctx) return
     this.disposeModulator(nodeId)
 
@@ -833,7 +847,9 @@ export class AudioEngine implements Engine {
       source = shape
       runner = constant
     } else {
-      const built = this.buildLfoSource(params, clamp(params.rate ?? 2, MIN_RATE, MAX_RATE))
+      // In hertz or in beats, resolved here so nothing downstream has to know which it was.
+      const hz = rateOf(params.rate ?? 2, params.beats, params.sync === true, bpm)
+      const built = this.buildLfoSource(params, clamp(hz, MIN_RATE, MAX_RATE))
       source = built.source
       runner = built.runner
       osc = built.osc
@@ -886,7 +902,7 @@ export class AudioEngine implements Engine {
    * whatever the modulator is pointed at, so the router re-connects rather than updating, and this
    * leaves the gain alone.
    */
-  updateModulator(nodeId: NodeId, params: ModParams): void {
+  updateModulator(nodeId: NodeId, params: ModParams, bpm = 120): void {
     const instance = this.modulators.get(nodeId)
     if (!instance || !this.ctx) return
 
@@ -899,7 +915,13 @@ export class AudioEngine implements Engine {
 
     if (instance.kind !== 'lfo') return
     const at = this.ctx.currentTime
-    const rate = clamp(params.rate ?? 2, MIN_RATE, MAX_RATE)
+    // Resolved the same way it was at creation, so a tempo change reaches a synced LFO by the same
+    // route an ordinary rate change does.
+    const rate = clamp(
+      rateOf(params.rate ?? 2, params.beats, params.sync === true, bpm),
+      MIN_RATE,
+      MAX_RATE,
+    )
 
     /*
      * Crossing between a stepped random and a periodic shape swaps the source and nothing else.
@@ -1015,6 +1037,35 @@ export class AudioEngine implements Engine {
     instance.shape?.disconnect()
     instance.depth.disconnect()
     this.modulators.delete(nodeId)
+  }
+
+  /**
+   * Rebuilds an LFO's source so its cycle starts here.
+   *
+   * A `PeriodicWave` oscillator has no phase to write, so beginning again means a new one — cheap, and
+   * the only fan-out is `source → depth`, so nothing downstream has to be touched. A stepped random
+   * source is a looping buffer and the same rebuild puts it back at its first held value.
+   */
+  restartLfo(nodeId: NodeId, at: number): void {
+    const instance = this.modulators.get(nodeId)
+    if (!this.ctx || !instance || instance.kind !== 'lfo') return
+
+    instance.source.disconnect(instance.depth)
+    try {
+      instance.runner.stop()
+    } catch {
+      // Already stopped, which is not a problem: the point is that it is not running.
+    }
+    const rebuilt = this.buildLfoSource(
+      { kind: 'lfo', wave: instance.wave, rate: instance.rate },
+      instance.rate,
+    )
+    instance.source = rebuilt.source
+    instance.osc = rebuilt.osc
+    instance.stepper = rebuilt.stepper
+    instance.runner = rebuilt.runner
+    instance.source.connect(instance.depth)
+    instance.startedAt = at
   }
 
   /**
@@ -1616,10 +1667,10 @@ export function applyOps(target: AudioEngine, ops: RouterOp[], bpm: number): voi
         target.setDirect(op.id, op.value)
         break
       case 'createMod':
-        target.createModulator(op.id, op.params)
+        target.createModulator(op.id, op.params, bpm)
         break
       case 'updateMod':
-        target.updateModulator(op.id, op.params)
+        target.updateModulator(op.id, op.params, bpm)
         break
       case 'disposeMod':
         target.disposeModulator(op.id)

@@ -66,6 +66,7 @@ class FakeEngine implements Engine {
   }
 
   /** Recorded rather than ignored: which envelope fired when is exactly what a MOD in a chain does. */
+  restartLfo() {}
   fireEnvelope(nodeId: NodeId, at: number) {
     this.envelopes.push({ nodeId, at })
   }

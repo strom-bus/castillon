@@ -197,7 +197,9 @@ export function diff(previous: AudioGraph, next: AudioGraph): RouterOp[] {
   for (const [id, params] of next.modulators) {
     const before = previous.modulators.get(id)
     if (!before) additions.push({ op: 'createMod', id, params })
-    else if (!sameMod(before, params)) updates.push({ op: 'updateMod', id, params })
+    // `retimed` for the same reason an effect needs it: an LFO set in beats derives its rate from the
+    // tempo, and nothing else would tell it the tempo had moved.
+    else if (retimed || !sameMod(before, params)) updates.push({ op: 'updateMod', id, params })
   }
 
   for (const key of next.sends) {

@@ -512,6 +512,16 @@ export const MAX_MOD_DECAY = 8000
 
 export interface ModParams {
   /**
+   * Whether an LFO's rate is counted in beats rather than in hertz.
+   *
+   * Off, so every patch made before this keeps the rate it was given. The echo has synced to the tempo
+   * since it existed; this is the same idea reaching the one control most likely to want it.
+   */
+  sync?: boolean
+  /** Beats per cycle when it is. See `MOD_BEATS`. */
+  beats?: number
+
+  /**
    * What it modulates on whatever it is wired to.
    *
    * `level` and `mix` belong to the engine; anything else is a parameter key of the effect the cable

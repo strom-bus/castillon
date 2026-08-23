@@ -974,6 +974,20 @@ export const MANUAL: Section[] = [
             },
           },
           {
+            term: { en: 'Sync to tempo', es: 'Sync to tempo' },
+            text: {
+              en: 'Counts an LFO’s cycle in beats instead of in seconds, so a wobble that is in time at one tempo stays in time at another. The echo has always worked this way; this is the same idea reaching the control most likely to want it. It is a switch beside the rate rather than a replacement for it, so the hertz are remembered and a wobble can be put on the grid and taken off again without losing what it was.',
+              es: 'Cuenta el ciclo de un LFO en pulsos en vez de en segundos, así que un temblor que va a tiempo a un tempo sigue a tiempo a otro. El eco siempre ha funcionado así; esto es la misma idea llegando al control que más la quiere. Es un interruptor al lado de la velocidad y no un reemplazo, así que los hercios se recuerdan y un temblor se puede poner en la rejilla y quitarlo sin perder lo que era.',
+            },
+          },
+          {
+            term: { en: 'Every', es: 'Every' },
+            text: {
+              en: 'How many beats one cycle takes, once it is synced. Counted in beats and not in bars, because this instrument has no time signature and therefore no bar of its own — four beats is what most people would call one, and it says so, but the beat is the fact and the bar is your own frame. Long cycles are where this earns its keep: something that comes round every eight beats is a shape the music moves through rather than a texture in it.',
+              es: 'Cuántos pulsos dura un ciclo, una vez sincronizado. Contado en pulsos y no en compases, porque este instrumento no tiene compás propio ni indicación de compás — cuatro pulsos es lo que casi todo el mundo llamaría uno, y lo dice, pero el pulso es el hecho y el compás es tu propio marco. Los ciclos largos son donde esto se gana el sueldo: algo que vuelve cada ocho pulsos es una forma por la que atraviesa la música, no una textura dentro de ella.',
+            },
+          },
+          {
             term: { en: 'Rate', es: 'Rate' },
             text: {
               en: 'How fast an LFO runs, in cycles a second. Under about one it is a shape you follow; over about five it is a texture you hear as part of the tone. The cable pulses at the rate so you can see it, up to the speed where a flickering cable would read as broken.',
@@ -983,8 +997,8 @@ export const MANUAL: Section[] = [
           {
             term: { en: 'Depth', es: 'Depth' },
             text: {
-              en: 'How much of the parameter’s range the sweep covers, so one control means the same thing wherever it is pointed. At zero the MOD is running and doing nothing, which is worth remembering when a cable is drawn and lit and you cannot hear it.',
-              es: 'Cuánto del rango del parámetro cubre el barrido, así que un solo control significa lo mismo apunte donde apunte. En cero el MOD está corriendo y no hace nada, que conviene recordar cuando un cable está dibujado y encendido y no lo oyes.',
+              en: 'How much of the parameter’s range the sweep covers, so one control means the same thing wherever it is pointed. It goes below zero as well, which reads the modulation the other way round — an envelope that closes a filter rather than opening one, or two LFOs set against each other. At zero the MOD is running and doing nothing, which is worth remembering when a cable is drawn and lit and you cannot hear it.',
+              es: 'Cuánto del rango del parámetro cubre el barrido, así que un solo control significa lo mismo apunte donde apunte. Baja de cero también, lo que lee la modulación al revés — una envolvente que cierra un filtro en vez de abrirlo, o dos LFO puestos en contra. En cero el MOD está corriendo y no hace nada, que conviene recordar cuando un cable está dibujado y encendido y no lo oyes.',
             },
           },
         ],
@@ -994,8 +1008,8 @@ export const MANUAL: Section[] = [
           {
             term: { en: 'The port on top', es: 'El puerto de arriba' },
             text: {
-              en: 'An envelope firing on a trigger needs something to fire it, and that arrives at the port on the top of the node — an IGNITE for once a pass, or a node further down for once when that branch lights up. An LFO has no such port, because nothing has to start it.',
-              es: 'Una envolvente que dispara con un trigger necesita algo que la dispare, y eso llega al puerto de arriba del nodo — un IGNITE para una vez por pasada, o un nodo más abajo para una vez cuando esa rama se enciende. Un LFO no tiene ese puerto, porque nada tiene que arrancarlo.',
+              en: 'A trigger means *start now*, and it means that for both kinds. An envelope fires: one sweep, from an IGNITE for once a pass or from a node further down for once when that branch lights up. An LFO begins its cycle again, so the wobble lines up with the cascade instead of drifting against it. Leave the port unwired and an LFO free-runs exactly as it always did — the cable is the setting, and there is nothing to switch on.',
+              es: 'Un disparo significa *empieza ahora*, y significa eso para los dos tipos. Una envolvente dispara: un barrido, desde un IGNITE para una vez por pasada o desde un nodo más abajo para una vez cuando esa rama se enciende. Un LFO vuelve a empezar su ciclo, así que el temblor se alinea con la cascada en vez de irse por su lado. Deja el puerto sin cablear y un LFO corre libre exactamente como siempre — el cable es el ajuste, y no hay nada que encender.',
             },
           },
           {

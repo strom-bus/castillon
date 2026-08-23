@@ -113,6 +113,31 @@ export const LFO_SHAPE_LABELS: Record<LfoShape, string> = {
   sawtooth: 'Saw',
 }
 
+/**
+ * Cycles measured in beats rather than in hertz, for an LFO that should sit with the music.
+ *
+ * The echo has synced to the tempo since it existed, and an LFO could only be set in hertz — so a
+ * wobble that was in time at 120 was out of it at 128, and the one control most likely to want the grid
+ * was the one that could not have it.
+ *
+ * Beats and not bars, because there is no bar here: a bar needs a time signature and this instrument has
+ * never had one. Four beats is what most people would call a bar and it is on the list; so is three, for
+ * the people who would not.
+ */
+export const MOD_BEATS = [0.25, 0.5, 1, 1.5, 2, 3, 4, 6, 8, 12, 16, 24, 32] as const
+
+/** What an LFO's rate comes to in hertz, whether it was set in hertz or in beats. */
+export function rateOf(
+  rate: number,
+  beats: number | undefined,
+  synced: boolean,
+  bpm: number,
+): number {
+  if (!synced || !beats || beats <= 0 || bpm <= 0) return rate
+  // One cycle every `beats` beats, and a beat is sixty over the tempo.
+  return bpm / 60 / beats
+}
+
 /** Slow enough to be a shape, fast enough to be a texture. */
 export const MIN_RATE = 0.05
 export const MAX_RATE = 20
@@ -461,9 +486,16 @@ export function resolveTarget(
   return (level ?? offered[0]).key
 }
 
-/** Depth as a share of the target's own span, so one control means the same thing everywhere. */
+/**
+ * Depth as a share of the target's own span, so one control means the same thing everywhere.
+ *
+ * Signed, which it was not. A modulation could only ever be added to what it pointed at — so an envelope
+ * could open a filter and never close one, and two LFOs could not be set against each other. Inverting
+ * is not a second kind of modulation, it is the same one read the other way round, so it belongs inside
+ * the number rather than beside it as a switch.
+ */
 export function amountFor(target: ModTarget, depth: number): number {
-  return Math.max(0, Math.min(1, depth)) * (target.max - target.min) * 0.5
+  return Math.max(-1, Math.min(1, depth)) * (target.max - target.min) * 0.5
 }
 
 /**

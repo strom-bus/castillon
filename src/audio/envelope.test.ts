@@ -28,8 +28,10 @@ function modNode(params: ModParams): PatchNode {
 /** A scheduler-shaped call into the node definition, recording what it asked the engine for. */
 function scheduleMod(params: ModParams) {
   const fired: Array<{ nodeId: string; at: number }> = []
+  const restarted: Array<{ nodeId: string; at: number }> = []
   const engine = {
     fireEnvelope: (nodeId: string, at: number) => fired.push({ nodeId, at }),
+    restartLfo: (nodeId: string, at: number) => restarted.push({ nodeId, at }),
   } as never
   const activity = new ActivityBus(() => 0)
   const result = getDefinition('mod')!.schedule!({
@@ -39,7 +41,7 @@ function scheduleMod(params: ModParams) {
     engine,
     activity,
   })
-  return { fired, result }
+  return { fired, restarted, result }
 }
 
 describe('a MOD in the cascade', () => {
@@ -49,8 +51,23 @@ describe('a MOD in the cascade', () => {
     expect(fired).toEqual([{ nodeId: 'm', at: 4 }])
   })
 
-  it('ignores the trigger when it is an LFO, which keeps its own clock', () => {
-    expect(scheduleMod(LFO).fired).toEqual([])
+  it('begins an LFO again instead, rather than wasting the port', () => {
+    /*
+     * The trigger port meant nothing to an LFO — the code said so in as many words — which is a whole
+     * input going to waste on the one node where a phase is worth controlling. It now means the same
+     * thing for both kinds: **a trigger means start now**. For an envelope that is fire; for an LFO it
+     * is begin again.
+     *
+     * Wired, the wobble lines up with the cascade; unwired, it free-runs exactly as before. So the cable
+     * is the setting and there is no control to find.
+     */
+    const { fired, restarted } = scheduleMod(LFO)
+    expect(fired).toEqual([])
+    expect(restarted).toEqual([{ nodeId: 'm', at: 4 }])
+  })
+
+  it('does not begin an envelope again, which would be two things at once', () => {
+    expect(scheduleMod(ENV).restarted).toEqual([])
   })
 
   it('passes the trigger on, whichever kind it is', () => {
@@ -332,7 +349,7 @@ describe('an envelope that fires on every note', () => {
     // Checked through the definition rather than the canvas: a per-note envelope forwards a trigger
     // like anything else, but does not run on one.
     const fired: string[] = []
-    const engine = { fireEnvelope: (id: string) => fired.push(id) } as never
+    const engine = { fireEnvelope: (id: string) => fired.push(id), restartLfo: () => {} } as never
     const result = getDefinition('mod')!.schedule!({
       node: { id: 'm', type: 'mod', position: { x: 0, y: 0 }, params: PER_NOTE },
       time: 1,

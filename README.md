@@ -133,7 +133,20 @@ refused, since between an oscillator and an effect there is only one direction t
   own thread for nothing; the few that rebuild something — an impulse response, a shaper curve —
   are driven by recomputation instead, quantised so a sweep does not regenerate a buffer per frame.
   Depth is a share of the target's own range, so one control means the same thing on a mix as on a
-  cutoff in hertz. Its cable breathes, and only once what it is pointed at is making a sound.
+  cutoff in hertz, and it goes **below zero** — an envelope that closes a filter rather than opening one,
+  or two LFOs set against each other. Its cable breathes, and only once what it is pointed at is making a
+  sound.
+
+  An LFO can be counted in **beats instead of hertz**, so a wobble that is in time at one tempo stays in
+  time at another — the echo has always worked this way, and this is the same idea reaching the control
+  most likely to want it. Beats and not bars, since there is no time signature here; four beats is what
+  most people would call a bar and the list says so.
+
+  And a trigger arriving at a MOD means _start now_ for **both** kinds. An envelope fires; an LFO begins
+  its cycle again, so the wobble lines up with the cascade instead of drifting against it. The port used
+  to mean nothing at all to an LFO — a whole input wasted on the one node where a phase is worth having.
+  Unwired it free-runs exactly as before, so the cable is the setting and there is nothing to switch on.
+
 - **A MOD can be an envelope instead of an LFO**, and the difference is not the shape but the clock: an
   LFO keeps its own rate whatever the music does, an envelope runs once each time the cascade triggers
   it. So a MOD carries event ports as well, and where you wire the trigger is what decides the
@@ -283,7 +296,7 @@ refused, since between an oscillator and an effect there is only one direction t
   it longer without making it clearer. Both languages live adjacent in one file so a half-finished
   edit shows up in the diff rather than as a blank paragraph months later.
 
-  Fourteen chapters and a hundred and twenty-eight entries, written for whoever is using the instrument
+  Fourteen chapters and a hundred and thirty entries, written for whoever is using the instrument
   rather than for whoever built it: no entry explains how something is implemented, and every one says
   what a control does to the sound and when you would reach for it. One chapter per module, each in
   the order its own panel is in and under the panel's own group headings, so reading the manual and

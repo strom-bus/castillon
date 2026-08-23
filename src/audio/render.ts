@@ -101,6 +101,8 @@ class Measurer implements Engine {
     // Nothing is sounding, so nothing needs cutting.
   }
 
+  // Measuring a render: an LFO's phase changes no note time, so there is nothing to measure here.
+  restartLfo(): void {}
   fireEnvelope(): void {
     // An envelope shapes what other nodes make and makes nothing of its own, so it cannot lengthen a
     // render. Measuring one would be measuring nothing.

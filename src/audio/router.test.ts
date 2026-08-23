@@ -282,3 +282,53 @@ describe('modulation in the graph', () => {
     expect(graph.sends.has('m>a')).toBe(false)
   })
 })
+
+describe('a tempo change and the nodes that derive from it', () => {
+  /**
+   * An echo's delay time comes from the tempo and so, now, does a synced LFO's rate. Neither is told by
+   * anything else that the tempo has moved — there is no signal for it — so the diff has to notice and
+   * push an update, and it noticed only for effects.
+   *
+   * Which meant sync was doing nothing the moment somebody changed the BPM: the wobble stayed at
+   * whatever hertz it had been resolved to when it was built, which is the one thing sync exists to
+   * prevent.
+   */
+  const withMod = (bpm: number, params: Partial<ModParams> = {}): Patch => ({
+    version: 1,
+    bpm,
+    loop: true,
+    nodes: [
+      osc('a'),
+      {
+        id: 'm',
+        type: 'mod',
+        position: { x: 0, y: 0 },
+        params: { kind: 'lfo', wave: 'sine', rate: 2, depth: 0.5, target: 'cutoff', ...params },
+      },
+    ],
+    edges: [{ id: 'mm', kind: 'mod', source: 'm', target: 'a' }],
+  })
+
+  const opsFor = (from: Patch, to: Patch) => diff(graphOf(from), graphOf(to)).map((op) => op.op)
+
+  it('reaches a modulator, the way it already reached an effect', () => {
+    const ops = opsFor(
+      withMod(120, { sync: true, beats: 4 }),
+      withMod(150, { sync: true, beats: 4 }),
+    )
+    expect(ops).toContain('updateMod')
+  })
+
+  it('reaches one that is not synced too, which costs a rebuild of nothing', () => {
+    /*
+     * Told anyway rather than worked out here. Whether the rate is derived is the modulator's own
+     * business, and a diff that had to know would be a second place holding the same rule — the shape of
+     * mistake that had `connectMod` naming the filter targets by hand.
+     */
+    expect(opsFor(withMod(120), withMod(150))).toContain('updateMod')
+  })
+
+  it('says nothing when the tempo has not moved', () => {
+    expect(opsFor(withMod(120, { sync: true }), withMod(120, { sync: true }))).toEqual([])
+  })
+})

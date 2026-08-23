@@ -21,6 +21,7 @@ import {
   MOD_FIRES_HINTS,
   MOD_FIRES_LABELS,
   MOD_KIND_HINTS,
+  MOD_BEATS,
   MOD_KIND_LABELS,
   MOD_KINDS,
   noNotesBecause,
@@ -611,6 +612,23 @@ function swingLabel(ratio: number): string {
   return ratio === 1 ? 'Straight' : `${names[String(ratio)] ?? 'Swung'}  (${ratio}:1)`
 }
 
+/**
+ * A cycle length in beats, said the way it would be counted.
+ *
+ * Four beats is what most people would call a bar, and it is named as one — but only as an aside, since
+ * this instrument has no time signature and therefore no bar of its own. The number of beats is the fact;
+ * the bar is the reader's own frame.
+ */
+function beatsLabel(beats: number): string {
+  if (beats < 1) return `${beats === 0.25 ? 'quarter' : 'half'} a beat`
+  const named: Record<string, string> = {
+    '4': ' (a bar)',
+    '8': ' (two bars)',
+    '16': ' (four bars)',
+  }
+  return `${beats} beat${beats === 1 ? '' : 's'}${named[String(beats)] ?? ''}`
+}
+
 function ratioLabel(ratio: number): string {
   if (ratio === 1) return 'x1  (as written)'
   const fractions: Record<string, string> = {
@@ -981,22 +999,53 @@ export function Inspector() {
               </select>
             </label>
 
-            <TypedSlider
-              label="Rate"
-              value={mod.rate ?? 2}
-              min={MIN_MOD_RATE}
-              max={MAX_MOD_RATE}
-              step={0.05}
-              suffix="Hz"
-              onChange={(rate) => updateParams(node.id, { rate })}
-            />
+            {/* Beside the rate rather than replacing it, and a bypass in the same sense the swing's is:
+                the hertz are remembered while it is synced, so a wobble can be put on the grid and taken
+                off it again without losing the setting it had. */}
+            <label className="inspector-check">
+              <input
+                type="checkbox"
+                checked={mod.sync === true}
+                onChange={(e) => updateParams(node.id, { sync: e.target.checked })}
+              />
+              <span>Sync to tempo</span>
+            </label>
+
+            {mod.sync ? (
+              <label className="inspector-field">
+                <span className="inspector-label">Every</span>
+                <select
+                  value={String(mod.beats ?? 4)}
+                  onChange={(e) => updateParams(node.id, { beats: Number(e.target.value) })}
+                >
+                  {MOD_BEATS.map((beats) => (
+                    <option key={beats} value={String(beats)}>
+                      {beatsLabel(beats)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : (
+              <TypedSlider
+                label="Rate"
+                value={mod.rate ?? 2}
+                min={MIN_MOD_RATE}
+                max={MAX_MOD_RATE}
+                step={0.05}
+                suffix="Hz"
+                onChange={(rate) => updateParams(node.id, { rate })}
+              />
+            )}
           </>
         )}
 
+        {/* Signed, so a modulation can be read the other way round: an envelope that closes a filter
+            rather than opening one, or two LFOs set against each other. Inverting is not a second kind of
+            modulation, so it lives inside the number rather than beside it as a switch. */}
         <TypedSlider
           label="Depth"
           value={mod.depth ?? 0.6}
-          min={0}
+          min={-1}
           max={1}
           step={0.01}
           onChange={(depth) => updateParams(node.id, { depth })}

@@ -668,8 +668,16 @@ const mod: NodeDefinition = {
       const decay = clamp(params.decay ?? 600, MIN_MOD_DECAY, MAX_MOD_DECAY)
       activity.push({ kind: 'node', id: node.id, time, duration: (attack + decay) / 1000 })
     } else {
-      // An LFO has its own clock and the trigger means nothing to it. It still flashes, so that a
-      // cable running through it does not look dead.
+      /*
+       * An LFO begins again here.
+       *
+       * The trigger port meant nothing to an LFO, which is a whole input wasted on the one node where a
+       * phase is worth controlling. Now it gives the port one meaning across both kinds — **a trigger
+       * means start now**: for an envelope that is fire, for an LFO it is begin again. Wired, the wobble
+       * lines up with the cascade; unwired, it free-runs as before, so the cable is the setting and
+       * there is no control to find.
+       */
+      engine.restartLfo(node.id, time)
       activity.push({ kind: 'node', id: node.id, time, duration: FLASH })
     }
     return { endTime: time, outgoing: [time] }

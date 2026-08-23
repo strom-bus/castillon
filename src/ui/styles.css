@@ -654,11 +654,14 @@ input[type='range'] {
  * first minute, and the manual is for the hour after.
  */
 .manual-open {
-  /* Centred and set apart: it is not one more line of the advice above it, it is the way out of it.
+  /* Centred and set well apart: it is not one more line of the advice above it, it is the way out of
+     it. Eighteen pixels was the gap between two paragraphs and read as a fourth one; at twice that the
+     eye stops before it, which is the whole job of the space.
+
      `display: block` with auto margins rather than `align-self`, which asked the wrong parent — the
      button sits inside the panel's body and not in the column that lays the panel out. */
   display: block;
-  margin: 18px auto 0;
+  margin: 34px auto 0;
 }
 
 /*

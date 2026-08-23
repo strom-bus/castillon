@@ -1621,6 +1621,17 @@ input[type='range'] {
 .node-mod {
   --accent: var(--text);
   min-width: 96px;
+  /*
+   * The gradient off, or the two states below never appear.
+   *
+   * Every node paints its edge with a `border-image` built from its depth in the cascade, and a
+   * `border-image` covers a `border-color` — so a modulator, which has no depth, declared an idle and a
+   * wired tone that nothing could ever show. It looked the same attached and unattached for as long as
+   * it has existed. The effect and the warp both switch the gradient off for the same reason; this one
+   * was simply missed.
+   */
+  border-image: none;
+  border: 1px solid var(--border-strong);
   transition: border-color 120ms linear;
 }
 

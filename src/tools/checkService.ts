@@ -37,6 +37,24 @@ if (!patch) {
 // *this* build writes rather than what was committed — which is the whole thing being tested.
 const code = encodePatch(patch)
 
+/**
+ * How long to allow for a deploy to reach every edge before calling a disagreement a failure.
+ *
+ * A worker is deployed to many places and not to all of them at once. The first CI run after the deploy
+ * job existed failed on exactly that: the same patch published as one short code and then, seconds later,
+ * came back "not a patch code" — one request served by the new version and the next by an edge still
+ * running the old one. The worker was fine and read the same code correctly a minute later.
+ *
+ * So one disagreement is not an answer, and neither is retrying for ever. A bounded window, with the
+ * report saying how long it took: persistent breakage still fails, and a deploy that took its time is
+ * visible rather than papered over. That last part is why this retries rather than simply sleeping first —
+ * a sleep hides the difference between "slow" and "fine".
+ */
+const PROPAGATION_TRIES = 6
+const PROPAGATION_WAIT = 10
+
+const wait = (seconds: number) => new Promise((done) => setTimeout(done, seconds * 1000))
+
 async function main() {
   const health = await fetch(SERVICE)
   if (!health.ok) {
@@ -44,11 +62,43 @@ async function main() {
     process.exit(1)
   }
 
-  const published = await fetch(SERVICE, { method: 'POST', body: code })
-  const short = (await published.text()).trim()
+  /** One whole attempt: publish, resolve, publish again. Returns why it failed, or null. */
+  async function attempt(): Promise<{ why: string } | null> {
+    const published = await fetch(SERVICE, { method: 'POST', body: code })
+    const short = (await published.text()).trim()
+    if (!published.ok) return { why: `refused a patch this build produced: "${short}"` }
 
-  if (!published.ok) {
-    console.error(`The service refused a patch this build produced: "${short}".`)
+    const resolved = await fetch(`${SERVICE}/${short}`)
+    const back = (await resolved.text()).trim()
+    if (back !== code) return { why: `took ${short} and gave back something different` }
+
+    // The other half of the promise a short code makes: the same patch always gets the same code.
+    const again = await fetch(SERVICE, { method: 'POST', body: code })
+    const twice = (await again.text()).trim()
+    if (twice !== short) return { why: `published as ${short} and then as ${twice}` }
+
+    lastShort = short
+    return null
+  }
+
+  let lastShort = ''
+  let failure: { why: string } | null = null
+  let waited = 0
+
+  for (let tries = 0; tries < PROPAGATION_TRIES; tries++) {
+    failure = await attempt()
+    if (!failure) break
+    if (tries < PROPAGATION_TRIES - 1) {
+      console.log(
+        `  not agreeing yet (${failure.why}) — waiting for the deploy to reach every edge`,
+      )
+      await wait(PROPAGATION_WAIT)
+      waited += PROPAGATION_WAIT
+    }
+  }
+
+  if (failure) {
+    console.error(`After ${waited}s the service still ${failure.why}.`)
     console.error('')
     console.error(
       'Almost certainly the Worker is older than the app: they share one patchCode.ts and',
@@ -60,30 +110,11 @@ async function main() {
     process.exit(1)
   }
 
-  const resolved = await fetch(`${SERVICE}/${short}`)
-  const back = (await resolved.text()).trim()
-
-  if (back !== code) {
-    console.error(
-      `Published as ${short}, and it came back different. The store is not round-tripping.`,
-    )
-    process.exit(1)
-  }
-
-  // The other half of the promise the short code makes: the same patch always gets the same code.
-  const again = await fetch(SERVICE, { method: 'POST', body: code })
-  const twice = (await again.text()).trim()
-  if (twice !== short) {
-    console.error(
-      `The same patch published as ${short} and then as ${twice}. Codes are not stable.`,
-    )
-    process.exit(1)
-  }
-
   console.log(`${SERVICE} reads what this build writes.`)
   console.log(`  long code   ${code.length} chars`)
-  console.log(`  short code  ${short}, stable across two publishes`)
+  console.log(`  short code  ${lastShort}, stable across two publishes`)
   console.log(`  round trip  identical`)
+  if (waited > 0) console.log(`  agreed after ${waited}s, which is a deploy still propagating`)
 }
 
 await main()

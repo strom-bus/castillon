@@ -361,6 +361,15 @@ input[type='range'] {
   font-size: 11px;
 }
 
+/* The one rule in the palette, between what stands in a cascade and what hangs off one. Thin and dim:
+   it is a pause in a row of buttons, not a heading over two lists. */
+.palette-rule {
+  align-self: stretch;
+  width: 1px;
+  margin: 2px 4px;
+  background: var(--border);
+}
+
 .react-flow__controls button {
   background: var(--surface-raised);
   border-bottom: 1px solid var(--border);

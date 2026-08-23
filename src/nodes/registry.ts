@@ -51,6 +51,15 @@ export interface NodeDefinition {
   type: string
   /** What the palette button says. */
   label: string
+  /**
+   * Where the node stands, which is the one division worth drawing in the palette.
+   *
+   * A cascade node is wired top to bottom and is part of what fires what. A side node hangs off one and
+   * changes it without being in the order at all. That is the difference a person has to hold to use any
+   * of this, and it happens to be the difference between the two directions cables run in — so the
+   * palette says it once instead of leaving it to be worked out six times.
+   */
+  place: 'cascade' | 'side'
   defaults(): NodeParams
   /**
    * Absent for nodes that are not in the event graph. An FX node has no event ports, so nothing
@@ -67,6 +76,7 @@ const start: NodeDefinition = {
   // trace or a serialised patch, and the two do not have to match.
   type: 'start',
   label: 'IGNITE',
+  place: 'cascade',
   defaults: () => ({}),
   schedule({ node, time, activity }) {
     activity.push({ kind: 'node', id: node.id, time, duration: FLASH })
@@ -88,6 +98,7 @@ export function defaultDelayParams(): DelayParams {
 const delay: NodeDefinition = {
   type: 'delay',
   label: 'DELAY',
+  place: 'cascade',
   defaults: defaultDelayParams,
   schedule({ node, time, activity }) {
     const params = node.params as DelayParams
@@ -119,6 +130,7 @@ export function defaultTransformParams(): TransformParams {
 const transform: NodeDefinition = {
   type: 'transform',
   label: 'TRANSFORM',
+  place: 'side',
   defaults: defaultTransformParams,
 }
 
@@ -218,6 +230,7 @@ export function defaultOscParams(): OscParams {
 const osc: NodeDefinition = {
   type: 'osc',
   label: 'OSC',
+  place: 'cascade',
   defaults: defaultOscParams,
   schedule({ node, time, bpm, engine, activity, transpose = 0 }) {
     const params = node.params as OscParams
@@ -335,6 +348,7 @@ export function defaultFxParams(): FxParams {
 const fx: NodeDefinition = {
   type: 'fx',
   label: 'FX',
+  place: 'side',
   defaults: defaultFxParams,
 }
 
@@ -371,6 +385,7 @@ export function defaultModParams(): ModParams {
 const mod: NodeDefinition = {
   type: 'mod',
   label: 'MOD',
+  place: 'side',
   defaults: defaultModParams,
   schedule({ node, time, engine, activity }) {
     const params = node.params as ModParams
@@ -394,8 +409,13 @@ const mod: NodeDefinition = {
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
 
-/** This order is the palette's order: what a cascade needs, in the order you need it. */
-export const NODE_DEFINITIONS: NodeDefinition[] = [start, osc, fx, mod, delay, transform]
+/**
+ * The palette's order, and its grouping: what stands in a cascade first, then what hangs off one.
+ *
+ * Within each, the order a patch is built in — a cascade starts, then sounds, then waits; and a sound is
+ * shaped, then swept, then moved.
+ */
+export const NODE_DEFINITIONS: NodeDefinition[] = [start, osc, delay, fx, mod, transform]
 
 const byType = new Map(NODE_DEFINITIONS.map((d) => [d.type, d]))
 

@@ -18,7 +18,7 @@ import type {
   StartParams,
 } from '../types/patch'
 import { useNodeColors, type NodeColors } from '../viz/depth'
-import { useNodeActivity } from '../viz/useActivity'
+import { useAnyNodeActivity, useNodeActivity } from '../viz/useActivity'
 import { bindingLabel } from './keys'
 import { StepBars } from './StepBars'
 import { useTransposedBy } from './useTransposedBy'
@@ -291,6 +291,24 @@ export function WarpNode({ id, data, selected }: NodeProps<FlowNode>) {
   const steps = Math.round(params.transpose ?? 0)
 
   /*
+   * Three tones, the same three an FX has and for the same reason.
+   *
+   * A warp is never triggered, so it has no activity of its own to show — what it can say is whether it
+   * is attached to anything, and whether the thing it is moving is playing right now. Without that it
+   * looked identical whether it was doing everything or nothing at all, which for a node whose only
+   * failure is being attached to nothing is the one thing it ought to be able to say.
+   */
+  const attached = usePatchStore((s) =>
+    s.edges
+      .filter((edge) => edge.source === id && (edge.data?.kind ?? 'event') === 'warp')
+      .map((edge) => edge.target)
+      .join('|'),
+  )
+  const targets = attached ? attached.split('|') : []
+  const live = useAnyNodeActivity(targets)
+  const state = live ? ' active' : targets.length > 0 ? ' wired' : ' idle'
+
+  /*
    * No depth colour, which is what an FX and a MOD also do without.
    *
    * The hue on a node is how far down the cascade it stands, and a warp does not stand in one — so it
@@ -299,7 +317,7 @@ export function WarpNode({ id, data, selected }: NodeProps<FlowNode>) {
    * in from the delay, back when this was a node in the chain rather than something hanging off one.
    */
   return (
-    <div className={`node node-warp${selected ? ' selected' : ''}`}>
+    <div className={`node node-warp${state}${selected ? ' selected' : ''}`}>
       {/* Side ports only, like a MOD: it attaches to what it moves rather than standing in the cascade,
           so nothing triggers it and nothing hangs below it. Standing in the cascade meant the cable
           between two nodes had to be broken to get one between them — and one wired beside that cable

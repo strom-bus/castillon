@@ -65,3 +65,56 @@ export function useEdgeActivity(id: string): boolean {
 
   return active
 }
+
+/**
+ * Whether any of several nodes is currently sounding.
+ *
+ * For a node whose state is a fact about somewhere else. A warp never lights up on its own — nothing
+ * triggers it — so what it has to show is whether the thing it is moving is playing, and it may be
+ * attached to more than one. Hooks cannot be called in a loop, so the subscriptions live in one effect
+ * keyed by the joined ids.
+ */
+export function useAnyNodeActivity(ids: readonly string[]): boolean {
+  /*
+   * Which set of nodes is currently sounding, rather than whether one is.
+   *
+   * Storing the key instead of a boolean does two things at once. It keeps the effect from having to
+   * reset anything on the way in — a synchronous setState there starts a second render for nothing —
+   * and it makes a stale reading impossible: if what this is attached to changes, the key changes with
+   * it and last set of nodes stops matching, so the answer goes false without anybody clearing it.
+   */
+  const [liveFor, setLiveFor] = useState<string | null>(null)
+  // Joined, because the array is rebuilt on every render and would restart the effect each time.
+  const key = ids.join('|')
+
+  useEffect(() => {
+    const watching = key ? key.split('|') : []
+    if (watching.length === 0) return
+
+    const sounding = new Set<string>()
+    const timers = new Map<string, number>()
+
+    const unsubscribes = watching.map((id) =>
+      activity.subscribe(nodeKey(id), (event) => {
+        if (event.kind !== 'node') return
+        sounding.add(id)
+        setLiveFor(key)
+        window.clearTimeout(timers.get(id))
+        timers.set(
+          id,
+          window.setTimeout(() => {
+            sounding.delete(id)
+            if (sounding.size === 0) setLiveFor(null)
+          }, event.duration * 1000),
+        )
+      }),
+    )
+
+    return () => {
+      for (const stop of unsubscribes) stop()
+      for (const timer of timers.values()) window.clearTimeout(timer)
+    }
+  }, [key])
+
+  return key !== '' && liveFor === key
+}

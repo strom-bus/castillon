@@ -1626,10 +1626,34 @@ input[type='range'] {
 
 /* A warp is the other thing that hangs off a node rather than standing in the cascade, so it wears what
    the modulator wears: a plain edge and no depth hue, because it has no depth. */
+/* Three tones, the same three an FX has and brightening the same way: the neutral edge every resting
+   node wears, then a lighter grey once it is attached to something, then white while what it is moving
+   is playing. A warp is never triggered itself, so all it can say is what it is doing to somewhere
+   else — and without that it looked identical whether it was doing everything or nothing. */
 .node-warp {
   --accent: var(--text);
   border-image: none;
+  transition:
+    border-color 120ms linear,
+    color 120ms linear;
+}
+
+.node-warp.idle {
   border: 1px solid var(--border-strong);
+}
+
+.node-warp.idle .node-title,
+.node-warp.idle .node-meta,
+.node-warp.idle .delay-value {
+  color: var(--muted);
+}
+
+.node-warp.wired {
+  border: 1px solid var(--muted);
+}
+
+.node-warp.active {
+  border: 1px solid var(--text);
 }
 
 .node-mod.idle {

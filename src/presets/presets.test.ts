@@ -31,12 +31,41 @@ const nodeOf = (patch: Patch, id: string): PatchNode | undefined =>
   patch.nodes.find((node) => node.id === id)
 
 describe('the presets', () => {
-  it('are three, each with a name and a line saying what it is for', () => {
-    expect(PRESETS).toHaveLength(3)
+  it('each have a name and a line saying what it is for', () => {
+    expect(PRESETS.length).toBeGreaterThan(2)
     for (const preset of PRESETS) {
       expect(preset.name.trim().length).toBeGreaterThan(0)
       expect(preset.about.trim().length).toBeGreaterThan(20)
     }
+  })
+
+  it.each(PRESETS)('$name gives every bound Ignite something to be bound to', ({ patch }) => {
+    /*
+     * An Ignite set to wait for a press with nothing recorded to wait for can never fire at all: it sits
+     * on the canvas looking like a start and is one branch of the patch permanently dark. Nothing else
+     * about the patch would look wrong, which is what makes it worth a test.
+     */
+    for (const node of patch.nodes.filter((one) => one.type === 'start')) {
+      const params = node.params as {
+        trigger?: string
+        binding?: { source?: string; code?: string } | null
+      }
+      if (params.trigger !== 'bound') continue
+      expect(params.binding?.source, `${node.id}: bound to nothing`).toBeTruthy()
+      expect(params.binding?.code, `${node.id}: bound to nothing`).toBeTruthy()
+    }
+  })
+
+  it('leaves at least one that starts on its own', () => {
+    // Between them, not within each: a set where every patch waits for a key means pressing Play does
+    // nothing on any of them, and Play is what somebody presses first.
+    const opens = PRESETS.filter(({ patch }) =>
+      patch.nodes.some(
+        (node) =>
+          node.type === 'start' && (node.params as { trigger?: string }).trigger !== 'bound',
+      ),
+    )
+    expect(opens.length).toBe(PRESETS.length)
   })
 
   it('have ids that differ, since they key the rendered list', () => {

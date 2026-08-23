@@ -1138,6 +1138,20 @@ input[type='range'] {
   margin-left: auto;
 }
 
+/*
+ * One size for everything in a window header.
+ *
+ * The tabs were set to the toggle's measure and the buttons beside them to the canvas's, so two controls
+ * doing the same job at the same distance from the eye came out different heights. The header is chrome
+ * over a document, not the instrument — it takes the smaller lettering, and the tabs are what the rest
+ * now matches.
+ */
+.gallery-head .btn {
+  padding: 3px 9px;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+}
+
 /* The chosen ordering, marked by inversion rather than by a tint. */
 .gallery-sort .btn.on {
   background: var(--text);

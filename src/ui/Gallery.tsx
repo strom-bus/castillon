@@ -164,23 +164,30 @@ export function Gallery({ onClose }: { onClose: () => void }) {
               </button>
             ))}
           </div>
-          {/* Ordering is a question about a list that arrives from somewhere. The presets are three and
-              they are in the order they should be read in, so there is nothing here to sort. */}
-          <div className="gallery-sort" hidden={view === 'presets'}>
-            {(['recent', 'popular'] as const).map((option) => (
-              <button
-                key={option}
-                type="button"
-                className={`btn${sort === option ? ' on' : ''}`}
-                onClick={() => {
-                  setPage(0)
-                  setSort(option)
-                }}
-              >
-                {option === 'recent' ? 'RECENT' : 'POPULAR'}
-              </button>
-            ))}
-          </div>
+          {/* Ordering is a question about a list that arrives from somewhere. The presets are four and
+              they are in the order they should be read in, so there is nothing here to sort.
+
+              Left out of the tree rather than marked hidden. `hidden` is a rule the browser applies as
+              `display: none`, and `.gallery-sort` sets `display: flex` on a class — which wins. So the
+              buttons vanished from the accessibility tree, where the test was looking, and stayed in
+              plain sight, where a person was. Not rendering it cannot be overruled by a stylesheet. */}
+          {view === 'gallery' && (
+            <div className="gallery-sort">
+              {(['recent', 'popular'] as const).map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  className={`btn${sort === option ? ' on' : ''}`}
+                  onClick={() => {
+                    setPage(0)
+                    setSort(option)
+                  }}
+                >
+                  {option === 'recent' ? 'RECENT' : 'POPULAR'}
+                </button>
+              ))}
+            </div>
+          )}
           <button ref={closer} type="button" className="btn" onClick={onClose}>
             CLOSE
           </button>

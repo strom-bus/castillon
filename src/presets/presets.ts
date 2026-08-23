@@ -350,4 +350,140 @@ const hive: Preset = {
   ),
 }
 
-export const PRESETS: Preset[] = [descent, drift, hive]
+/**
+ * The one that uses the whole machine, and the reason a fourth exists.
+ *
+ * The other three each hold a single idea still enough to see it. This one is what happens when they are
+ * put together, and it carries the three things none of them had room for: a second Ignite you play by
+ * hand, a branch that runs *beside* its parent rather than after it, and a modulator that never repeats.
+ *
+ * The bound Ignite is the point worth pressing. A patch that only starts when you press Play is a
+ * recording; one with a key under your finger is an instrument, and nothing else in here says so.
+ */
+const canopy: Preset = {
+  id: 'canopy',
+  name: 'CANOPY',
+  about: 'Branches beside branches, a random sweep that never repeats, and a key you play it with.',
+  patch: patchOf(
+    88,
+    [
+      ignite('i', 1, 0),
+      // Bound to a key rather than fired by the transport: press A to bring the upper voice in over the
+      // top of whatever the rest is already doing. Held, so it lasts exactly as long as you hold it.
+      {
+        id: 'k',
+        type: 'start',
+        position: at(3, 0),
+        params: { trigger: 'bound', binding: { source: 'key', code: 'KeyA' }, behaviour: 'hold' },
+      },
+      osc('root', 1, 1, {
+        waveform: 'sawtooth',
+        detune: -6,
+        steps: steps([
+          note(0, 0),
+          null,
+          note(0, 0),
+          note(4, -1),
+          null,
+          note(2, 0),
+          null,
+          note(6, -1),
+        ]),
+        division: '1/8',
+        gain: 0.2,
+        attack: 4,
+        decay: 180,
+        release: 260,
+        gate: 0.62,
+        glide: 45,
+        filterType: 'lowpass',
+        cutoff: 1100,
+        resonance: 7,
+        keyTrack: 0.75,
+        // Both branches below start with it rather than after it, so the patch runs wide as well as deep.
+        propagateMode: 'onStart',
+      }),
+      delay('d', 2, 2, 420),
+      osc('upper', 2, 3, {
+        waveform: 'pulse',
+        pulseWidth: 0.3,
+        detune: 6,
+        steps: steps(
+          [note(4, 1), note(6, 1), note(4, 1), note(2, 1), null, note(6, 1)],
+          [1, 0.5, 0.75],
+        ),
+        division: '1/16',
+        gain: 0.15,
+        attack: 2,
+        decay: 130,
+        release: 140,
+        gate: 0.5,
+        filterType: 'lowpass',
+        cutoff: 1500,
+        resonance: 8,
+        keyTrack: 0.9,
+      }),
+      osc('under', 0, 2, {
+        waveform: 'triangle',
+        steps: steps([note(0, -1), note(0, -1), note(3, -1)]),
+        division: '1/4',
+        gain: 0.26,
+        attack: 90,
+        decay: 0,
+        release: 800,
+        gate: 1,
+        glide: 260,
+        filterType: 'lowpass',
+        cutoff: 620,
+        resonance: 2,
+      }),
+      osc('air', 3, 1, {
+        waveform: 'blue',
+        steps: steps([note(0, 2), null, null, note(4, 1), null, null, null, null]),
+        division: '1/16',
+        gain: 0.09,
+        attack: 1,
+        decay: 40,
+        release: 90,
+        gate: 0.3,
+        filterType: 'highpass',
+        cutoff: 3600,
+        resonance: 3,
+      }),
+      // The shape that does not repeat, on the widest thing it can move: where the upper voice sits.
+      mod('r', 3, 3, { kind: 'lfo', wave: 'random', rate: 0.9, depth: 0.55, target: 'cutoff' }),
+      // And a per-note envelope on the root, so the accents in its phrase are heard as well as counted.
+      mod('e', 0, 1, {
+        kind: 'env',
+        fires: 'note',
+        byVelocity: true,
+        target: 'cutoff',
+        depth: 0.7,
+        attack: 8,
+        decay: 260,
+      }),
+      fx('ch', 3, 2, {
+        effect: 'chorus',
+        mix: 0.26,
+        sweep: 0.4,
+        rate: 0.35,
+        depth: 0.5,
+        cutoff: 3000,
+      }),
+      fx('rv', 0, 3, { effect: 'reverb', mix: 0.3, decay: 4, cutoff: 2600 }),
+    ],
+    [
+      wire('i', 'root'),
+      wire('root', 'd'),
+      wire('d', 'upper'),
+      wire('root', 'under'),
+      wire('k', 'air'),
+      wire('upper', 'ch', 'audio'),
+      wire('under', 'rv', 'audio'),
+      wire('r', 'upper', 'mod'),
+      wire('e', 'root', 'mod'),
+    ],
+  ),
+}
+
+export const PRESETS: Preset[] = [descent, drift, hive, canopy]

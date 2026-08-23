@@ -733,7 +733,21 @@ const MAX_WIDTH_SECONDS = 0.02
  */
 const pan: EffectDescriptor = {
   kind: 'pan',
-  // A panner, a delay for the width and the merge. Measured 4.15.
+  /*
+   * A panner, a delay for the width and the merge. Measured 4.15 — and the one figure in this table
+   * that has not been confirmed since the instrument was fixed.
+   *
+   * The probe used to ask for silence *after* building a load, which cannot tell a context still
+   * glitching from the last trial's teardown apart from a load that is genuinely failing. Pan followed
+   * the heaviest subject in the run and came back "no reading" twice for exactly that. The fix — asking
+   * on an empty context, where there is nothing to glitch — landed the day *after* this number was
+   * taken, and the confirming run that agreed to within 15 % on the other ten effects therefore never
+   * covered this one.
+   *
+   * So it is a real reading from an instrument known to have been wrong about this subject specifically,
+   * which is a weaker claim than every other line here makes. To settle it: `npm run measure`, then
+   * `measure.html?only=pan` — one subject and the reference, a minute rather than a quarter of an hour.
+   */
   cost: () => 4,
   label: 'Pan',
   params: ['pan', 'width'],

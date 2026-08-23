@@ -7,7 +7,7 @@
 
 import { formatReport, measureLoad, type Measured } from './measureLoad'
 import { findCeiling, formatCeiling } from './findCeiling'
-import { formatSweep, sweep } from './sweep'
+import { formatSweep, selectedSubjects, sweep } from './sweep'
 import {
   CEILING,
   LOAD_KINDS,
@@ -161,6 +161,35 @@ async function measureCeilingWith(
  */
 const sweepButton = document.getElementById('sweep') as HTMLButtonElement
 
+/**
+ * Which effects this page will sweep, taken from `?only=` in the address.
+ *
+ * A URL rather than a control, because the reason to want a subset is that one figure in the table is in
+ * doubt — and then the useful thing is a link somebody can be *given*, which carries the answer to
+ * "which one" along with it. `measure.html?only=pan` is a whole instruction.
+ *
+ * The button says what it will do, since a sweep that quietly covered one effect when somebody expected
+ * eleven would read as a sweep that failed most of the way through.
+ */
+const only = (new URLSearchParams(location.search).get('only') ?? '')
+  .split(',')
+  .map((name) => name.trim())
+  .filter(Boolean)
+
+const covering = selectedSubjects({ only })
+
+if (only.length > 0) {
+  sweepButton.textContent =
+    covering.length > 0
+      ? `SWEEP ${covering.join(', ').toUpperCase()}`
+      : 'SWEEP — no effect by that name'
+  sweepButton.disabled = covering.length === 0
+  status.textContent =
+    covering.length > 0
+      ? `${covering.length} of ${selectedSubjects().length} effects, and the reference either way.`
+      : `No effect called "${only.join(', ')}". Known: ${selectedSubjects().join(', ')}.`
+}
+
 sweepButton.addEventListener('click', async () => {
   sweepButton.disabled = true
   ceiling.disabled = true
@@ -168,9 +197,12 @@ sweepButton.addEventListener('click', async () => {
   run.disabled = true
   out.textContent = ''
   try {
-    const result = await sweep((label) => {
-      status.textContent = `trying ${label}…`
-    })
+    const result = await sweep(
+      (label) => {
+        status.textContent = `trying ${label}…`
+      },
+      { only },
+    )
     status.textContent = 'done'
     out.textContent = formatSweep(result)
     await navigator.clipboard.writeText(out.textContent).catch(() => {})

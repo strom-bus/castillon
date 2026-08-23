@@ -229,7 +229,39 @@ async function confirmed(
  * which are pairs: the same effect with and without a modulator on one target, since a surcharge of two
  * points is 0.06 % of the ceiling and invisible on its own — ramped across hundreds of units it is not.
  */
-export async function sweep(onStep: (label: string) => void): Promise<Sweep> {
+/**
+ * Which subjects a run covers, when only some of them are in question.
+ *
+ * A whole sweep is a quarter of an hour and sixteen subjects, and that is the right shape for
+ * establishing the table — and the wrong shape for re-reading one figure. Pan is why this exists: its
+ * cost was measured the day before the probe was fixed, and the fault that was fixed was specifically
+ * *its* — so it is the one effect in the table whose figure comes from an instrument known to have been
+ * wrong about it. Re-reading it should not cost fifteen minutes and ten numbers nobody doubts.
+ *
+ * The reference is never optional. Every figure here is a ratio against a plain voice measured on the
+ * same machine in the same minute, so a run without it produces points rather than costs — a number that
+ * cannot be compared to the table it is meant to correct.
+ */
+export interface SweepOptions {
+  /** Effect labels to cover, matched case-insensitively. Absent or empty means all of them. */
+  only?: string[]
+  /** Whether to measure the modulation surcharges, which are the slowest half of a full run. */
+  surcharges?: boolean
+}
+
+/** The subjects a set of options selects, for showing before a run rather than discovering during it. */
+export function selectedSubjects(options: SweepOptions = {}): string[] {
+  const wanted = (options.only ?? []).map((name) => name.trim().toLowerCase()).filter(Boolean)
+  const labels = EFFECTS.map((descriptor) => descriptor.label)
+  return wanted.length === 0
+    ? labels
+    : labels.filter((label) => wanted.includes(label.toLowerCase()))
+}
+
+export async function sweep(
+  onStep: (label: string) => void,
+  options: SweepOptions = {},
+): Promise<Sweep> {
   const { pool, supported } = await openPool()
   if (!supported) {
     await pool.close()
@@ -245,7 +277,7 @@ export async function sweep(onStep: (label: string) => void): Promise<Sweep> {
      * reading and then never begins the next. Twice now a diagnosis has cost a rerun for want of that
      * distinction.
      */
-    return await run(pool, (label) => {
+    return await run(pool, options, (label) => {
       // Progress within a trial goes to the page and not to the console. It is there so that a slow build
       // can be told from a stuck one, which wants a number that moves in front of somebody — a thousand
       // extra lines in the console would bury the trail that localises a stall, and slow the console down
@@ -279,7 +311,11 @@ function report(subject: Subject, trial: Trial): void {
   )
 }
 
-async function run(pool: Pool, onStep: (label: string) => void): Promise<Sweep> {
+async function run(
+  pool: Pool,
+  options: SweepOptions,
+  onStep: (label: string) => void,
+): Promise<Sweep> {
   // Discarded on purpose: the point is to have run this code, not to know what it said.
   for (const [subject, units] of WARM_UP) {
     onStep(`warming up · ${subject.label} · ${units} units`)
@@ -288,8 +324,10 @@ async function run(pool: Pool, onStep: (label: string) => void): Promise<Sweep> 
 
   const reference = await attempted({ label: 'voices', filtered: true }, pool, onStep)
 
+  const wantedEffects = new Set(selectedSubjects(options))
   const effects: Found[] = []
   for (const descriptor of EFFECTS) {
+    if (!wantedEffects.has(descriptor.label)) continue
     effects.push(
       await attempted({ label: descriptor.label, effect: descriptor.kind }, pool, onStep),
     )
@@ -305,20 +343,25 @@ async function run(pool: Pool, onStep: (label: string) => void): Promise<Sweep> 
    * already absorbs.
    */
   const surcharges: Found[] = []
+  // Skipped when a run is asking about one effect: they are the slowest half of a sweep and they answer
+  // a different question, so paying for them to re-read one cost is paying for the wrong thing.
+  const wantSurcharges = options.surcharges ?? (options.only ?? []).length === 0
   const subject: EffectKind = 'filter'
   const wanted = ['cutoff', 'resonance', 'level'].filter((target) =>
     audioTargets(subject).includes(target),
   )
 
-  surcharges.push(await attempted({ label: 'filter · unswept', effect: subject }, pool, onStep))
-  for (const target of wanted) {
-    surcharges.push(
-      await attempted(
-        { label: `filter · ${target}`, effect: subject, modulate: target },
-        pool,
-        onStep,
-      ),
-    )
+  if (wantSurcharges) {
+    surcharges.push(await attempted({ label: 'filter · unswept', effect: subject }, pool, onStep))
+    for (const target of wanted) {
+      surcharges.push(
+        await attempted(
+          { label: `filter · ${target}`, effect: subject, modulate: target },
+          pool,
+          onStep,
+        ),
+      )
+    }
   }
 
   const again = await attempted({ label: 'voices again', filtered: true }, pool, onStep)

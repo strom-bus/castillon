@@ -76,7 +76,12 @@ refused, since between an oscillator and an effect there is only one direction t
   that quarter of headroom is the margin for a machine slower than the one this was calibrated on.
   Effects are never disabled behind your back, since you put them there.
 
-  Every cost is measured twice, and the second time changed three of them. An offline render is a
+  Every cost is measured twice, and the second time changed three of them.
+  One exception, and it is written on the line it belongs to: **pan** was measured the day before the
+  probe was fixed, and the fault that was fixed was specifically its own — it followed the heaviest
+  subject in the run and the probe could not tell an overloaded context from a spoiled one. So the
+  confirming pass that agreed to within 15 % on the other ten never covered it. `measure.html?only=pan`
+  sweeps that one subject against the reference, which is a minute rather than a quarter of an hour. An offline render is a
   batch — the cache behaves and per-block overheads amortise — while live, every 128 samples is a fresh
   visit. The correction turns out to scale with how much _memory traffic_ a node drags with it: a
   buffer read was exactly right, a biquad a shade light, a convolver light by half. The two methods now

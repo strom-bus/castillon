@@ -495,13 +495,16 @@ function StepPanel({
           onChange={(velocity) => set({ velocity })}
         />
 
+        {/* Named for the thing you do rather than for the state it leaves behind. "Armed" was a second
+            word for what the square under the bar already calls muting, and jargon besides — one state
+            with two names is one name too many. */}
         <label className="inspector-check">
           <input
             type="checkbox"
-            checked={step.active}
-            onChange={(e) => set({ active: e.target.checked })}
+            checked={!step.active}
+            onChange={(e) => set({ active: !e.target.checked })}
           />
-          <span>Armed</span>
+          <span>Mute</span>
         </label>
 
         {/* Only where the oscillator is using it. A control for something switched off is a question
@@ -535,9 +538,10 @@ function StepPanel({
             checked={step.slide === true}
             onChange={(e) => set({ slide: e.target.checked })}
           />
-          {/* Named for what it does here rather than for the parameter it uses: how long the slide takes
-              is the oscillator's Glide, and saying so is more useful than repeating the word. */}
-          <span>Slide in {(params.glide ?? 0) === 0 && '(set Glide on the OSC first)'}</span>
+          {/* The same name as the oscillator's, because it is the same gesture split in two: this says
+              which notes glide and the oscillator says how long a glide lasts. Different scopes, one
+              idea — and the title above says which scope you are in. */}
+          <span>Glide {(params.glide ?? 0) === 0 && '(set the time on the OSC first)'}</span>
         </label>
       </Group>
     </Panel>

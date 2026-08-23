@@ -341,6 +341,22 @@ describe('the step panel', () => {
     expect(steps[2]!.velocity).toBeCloseTo(0.4, 5)
   })
 
+  it('mutes a step by the checkbox that says so', () => {
+    /*
+     * Inverted, which is where this kind of bug lives: the box is ticked when the step is silent, so the
+     * word on it and the state behind it run opposite ways. Worth pinning for that reason alone.
+     */
+    const id = openStep()
+    const box = screen.getByLabelText('Mute') as HTMLInputElement
+    expect(box.checked).toBe(false)
+
+    fireEvent.click(box)
+    const steps = (
+      usePatchStore.getState().nodes.find((n) => n.id === id)!.data.params as OscParams
+    ).steps
+    expect(steps[2]!.active).toBe(false)
+  })
+
   it('hides chance and ratchets until the sequencer asks for them', () => {
     // A control for something switched off is a question about a thing that is not happening.
     openStep()

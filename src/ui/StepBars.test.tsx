@@ -101,3 +101,41 @@ describe('dragging a bar', () => {
     expect(paramsOf(id).steps[0]!.note).toBe(start + 1)
   })
 })
+
+describe('the step stays open', () => {
+  it('survives the click that ends the drag', () => {
+    /*
+     * The canvas selects a node when one is clicked, and selecting a node drops the step — which is
+     * right, since a step of another node is not a thing to be looking at. The pointer coming up off a
+     * bar is a click on the node as far as the canvas is concerned, so the panel opened while the bar
+     * was held and closed the moment it was let go.
+     *
+     * Stood in for by a React handler on an ancestor rather than a native listener, because that is what
+     * the canvas actually uses — and a synthetic `stopPropagation` stops one and not the other. The first
+     * attempt at this test watched the wrong kind of event and failed against correct code.
+     */
+    const id = oscId()
+    const params = paramsOf(id)
+    let selectedByCanvas = false
+
+    render(
+      <div onClick={() => (selectedByCanvas = true)}>
+        <StepBars nodeId={id} steps={params.steps} currentStep={-1} />
+      </div>,
+    )
+
+    const track = screen.getAllByTitle(/^Step /)[1]!
+    Object.assign(track, {
+      setPointerCapture: () => {},
+      hasPointerCapture: () => false,
+      releasePointerCapture: () => {},
+    })
+
+    fireEvent.pointerDown(track, { pointerId: 1, clientY: 100 })
+    fireEvent.pointerUp(track, { pointerId: 1 })
+    fireEvent.click(track)
+
+    expect(selectedByCanvas).toBe(false)
+    expect(usePatchStore.getState().selectedStep).toBe(1)
+  })
+})

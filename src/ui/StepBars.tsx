@@ -103,6 +103,10 @@ export function StepBars({
                 step.active ? '' : ' muted'
               }`}
               onPointerDown={(e) => onPointerDown(e, step, index)}
+              // A click on a bar is not a click on the node. Without this the canvas selects the node
+              // when the pointer comes up, and selecting a node drops the step — so the panel opened
+              // while the bar was held and closed the instant it was let go.
+              onClick={(e) => e.stopPropagation()}
               onPointerMove={(e) => onPointerMove(e, index)}
               onPointerUp={endDrag}
               onPointerCancel={endDrag}
@@ -110,7 +114,7 @@ export function StepBars({
                 `Step ${index + 1} · ${noteName(step.note)} · drag to tune` +
                 (chance < 1 ? ` · ${Math.round(chance * 100)}% of the time` : '') +
                 (hits > 1 ? ` · ${hits} hits` : '') +
-                (step.slide ? ' · slides in' : '')
+                (step.slide ? ' · glides in' : '')
               }
             >
               {/* A roll draws as that many stacked pieces, which is what a roll is: the step divided.
@@ -141,7 +145,9 @@ export function StepBars({
                 e.stopPropagation()
                 updateStep(nodeId, index, { active: !step.active })
               }}
-              title={step.active ? 'Mute step' : 'Arm step'}
+              // One pair of words for one state, matching the panel: "arm" was a second name for the
+              // same thing and the rarer of the two.
+              title={step.active ? 'Mute step' : 'Unmute step'}
             />
             <span className="step-note">{noteName(step.note)}</span>
           </div>

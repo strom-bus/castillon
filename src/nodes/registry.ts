@@ -5,6 +5,7 @@ import type { Engine } from '../audio/engine'
 import { MIN_REDUCTION } from '../audio/dsp'
 import { LAYER_THRESHOLD, MAX_LOAD } from '../audio/load'
 import type {
+  SieveParams,
   DelayParams,
   FxParams,
   ModParams,
@@ -21,6 +22,7 @@ import {
   MAX_MOD_ATTACK,
   MAX_RATCHET,
   MAX_SLOP,
+  MAX_EVERY,
   MAX_SWING,
   MAX_WARP,
   MIN_SWING,
@@ -42,6 +44,14 @@ export interface ScheduleArgs {
   activity: ActivityBus
   /** What every WARP reaching this node comes to. Neutral unless one of them is on the branch. */
   warping?: Warping
+  /**
+   * Which time round the cascade this is, counting from one.
+   *
+   * There is no bar here, so a pass is the only thing that recurs — and this is what lets a node happen
+   * on some passes and not others. Defaulted, because every node that does not care about it should not
+   * have to say so.
+   */
+  lap?: number
 }
 
 export interface ScheduleResult {
@@ -129,6 +139,54 @@ const delay: NodeDefinition = {
     // The flash lasts the whole wait, which is what drives the progress bar in the UI.
     activity.push({ kind: 'node', id: node.id, time, duration: wait })
     return { endTime: time + wait, outgoing: [time + wait] }
+  },
+}
+
+export function defaultSieveParams(): SieveParams {
+  // Neutral: counts nothing, tosses nothing, passes everything. A sieve dropped into a chain is not a
+  // change until it is asked to be, the same promise a warp makes.
+  return { every: 1, offset: 1, chance: 1 }
+}
+
+/**
+ * Whether this pass belongs to a sieve set to `offset` of every `every`.
+ *
+ * Counting from one, so 1:2 is the first of every pair and 2:2 is the second — which is how alternation
+ * is written: two sieves over the same run, disagreeing about which passes are theirs. The modulo is
+ * taken twice because the first passes can put `lap - offset` below zero, and JavaScript's remainder
+ * keeps the sign.
+ */
+export function sieveLetsThrough(params: SieveParams, lap: number): boolean {
+  const every = Math.min(MAX_EVERY, Math.max(1, Math.round(params.every ?? 1)))
+  const offset = Math.min(every, Math.max(1, Math.round(params.offset ?? 1)))
+  return (((lap - offset) % every) + every) % every === 0
+}
+
+const sieve: NodeDefinition = {
+  type: 'sieve',
+  label: 'SIEVE',
+  place: 'cascade',
+  ports: { trigger: 'both' },
+  defaults: defaultSieveParams,
+  schedule({ node, time, activity, engine, lap = 1 }) {
+    const params = node.params as SieveParams
+    const counted = sieveLetsThrough(params, lap)
+    const odds = clamp(params.chance ?? 1, 0, 1)
+    const passes = counted && (odds >= 1 || engine.chance() < odds)
+
+    /*
+     * Lit only on the passes that are its own.
+     *
+     * A node that flashed whether or not it let anything through would say "a trigger reached me", which
+     * is true of every pass and therefore says nothing. Lighting on the ones it passes makes the pattern
+     * visible on the canvas — two sieves alternating are two nodes taking turns, which is the thing you
+     * are trying to see.
+     */
+    if (passes) activity.push({ kind: 'node', id: node.id, time, duration: FLASH })
+
+    // Ends where it began either way: it holds nothing back in time, only sometimes in fact. So a branch
+    // that does not happen this pass costs the cascade no length, and the lap keeps its shape.
+    return { endTime: time, outgoing: passes ? [time] : [] }
   },
 }
 
@@ -574,7 +632,7 @@ const clamp = (value: number, min: number, max: number) => Math.min(max, Math.ma
  * Within each, the order a patch is built in — a cascade starts, then sounds, then waits; and a sound is
  * shaped, then swept, then moved.
  */
-export const NODE_DEFINITIONS: NodeDefinition[] = [start, osc, delay, fx, mod, warp]
+export const NODE_DEFINITIONS: NodeDefinition[] = [start, osc, delay, sieve, fx, mod, warp]
 
 const byType = new Map(NODE_DEFINITIONS.map((d) => [d.type, d]))
 

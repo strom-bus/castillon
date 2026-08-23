@@ -343,6 +343,35 @@ export const MAX_SWING = 4
  */
 export const MAX_SLOP = 0.5
 
+/**
+ * The longest run of passes a SIEVE can count over.
+ *
+ * Sixteen because past that nobody can hear the pattern as a pattern — a branch that happens once every
+ * twenty passes is not a rhythm, it is a surprise. And two sieves counting over the same run is how
+ * alternation is written, so the useful values are small ones.
+ */
+export const MAX_EVERY = 16
+
+/**
+ * A node that lets a trigger through on some passes and not others.
+ *
+ * The sibling of a DELAY, which is the shape of the idea: a DELAY holds a trigger and passes it on late,
+ * and this holds a trigger and passes it on *sometimes*. Both leave the branch below untouched and change
+ * only whether and when it happens, which is why neither needed a new kind of cable.
+ *
+ * Two conditions, and they compose because both are neutral at rest. `every` and `offset` are the
+ * counted one — "the first of every two", written 1:2 — and `chance` is the tossed one. A sieve added and
+ * not touched passes everything, so putting one in a chain is never a change until it is asked to be.
+ */
+export interface SieveParams {
+  /** How long the run of passes is. 1 counts nothing and lets everything through. */
+  every: number
+  /** Which pass of that run is this node's, counting from one. */
+  offset: number
+  /** And how often it lets one through when the count says it may. 1 is always. */
+  chance: number
+}
+
 export interface WarpParams {
   /**
    * Steps to move everything below this node, counted in whatever units each oscillator can offer.
@@ -527,7 +556,8 @@ export interface ModParams {
   decay?: number
 }
 
-export type NodeParams = OscParams | FxParams | DelayParams | StartParams | ModParams | WarpParams
+export type NodeParams =
+  OscParams | FxParams | DelayParams | StartParams | ModParams | WarpParams | SieveParams
 
 export const MIN_DELAY_MS = 10
 export const MAX_DELAY_MS = 4000

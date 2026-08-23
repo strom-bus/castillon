@@ -69,6 +69,13 @@ refused, since between an oscillator and an effect there is only one direction t
   belongs to the oscillator. One value for a whole sequence could only say that every note glides or
   none does, and the line worth having is the one where some do.
 - **Delay node** that holds a trigger and passes it on later, so branches drift out of step.
+- **A SIEVE node**, its sibling: it holds a trigger and passes it on _sometimes_. There is no bar here,
+  so a pass is the only thing that recurs — and a sieve set to the first of every two lets its branch
+  happen on alternate passes. Written `1:2` the way a musician writes it, and read on the node without
+  selecting it. Two sieves over the same run, disagreeing about which passes are theirs, is how two
+  branches take turns; that is alternation with no feature of its own. It also carries odds, so a branch
+  can happen most of the time rather than every other time, and the two compose because both are neutral
+  at rest — a sieve dropped into a chain is not a change until it is asked to be.
 - **A budget counted in work, not voices.** One point is one plain oscillator voice, and the ceiling is
   measured rather than chosen: Chrome reports how much of each 128-sample block the audio thread has
   used, so ramping load until that reaches a hundred per cent _is_ the ceiling rather than a proxy for
@@ -273,7 +280,7 @@ refused, since between an oscillator and an effect there is only one direction t
   it longer without making it clearer. Both languages live adjacent in one file so a half-finished
   edit shows up in the diff rather than as a blank paragraph months later.
 
-  Thirteen chapters and a hundred and twenty-two entries, written for whoever is using the instrument
+  Fourteen chapters and a hundred and twenty-seven entries, written for whoever is using the instrument
   rather than for whoever built it: no entry explains how something is implemented, and every one says
   what a control does to the sound and when you would reach for it. One chapter per module, each in
   the order its own panel is in and under the panel's own group headings, so reading the manual and

@@ -1,6 +1,7 @@
 import { SCALES, type ScaleName } from '../audio/scales'
 import {
   defaultDelayParams,
+  defaultSieveParams,
   defaultWarpParams,
   defaultFxParams,
   defaultOscParams,
@@ -14,6 +15,7 @@ import {
   MAX_BPM,
   MAX_DECAY,
   MAX_DELAY_MS,
+  MAX_EVERY,
   MAX_SLOP,
   MAX_WARP,
   SWINGS,
@@ -50,6 +52,7 @@ import {
   type Waveform,
   MAX_RATCHET,
   type Step,
+  type SieveParams,
 } from '../types/patch'
 import { MAX_BITS, MAX_REDUCTION, MIN_BITS, MIN_REDUCTION } from '../audio/dsp'
 import { BitReader, BitWriter } from './bits'
@@ -114,6 +117,10 @@ const WARP_SWING_BITS = 4
 const WARP_LEVEL_BITS = 8
 /** Slop in hundredths, which covers its whole range in six bits with room to spare. */
 const WARP_SLOP_BITS = 6
+/** A sieve's run and its place in it, stored from zero so the whole range fits. */
+const SIEVE_COUNT_BITS = 4
+/** And its odds, in hundredths. */
+const SIEVE_CHANCE_BITS = 7
 
 const EDGE_KINDS = ['event', 'audio', 'mod', 'warp'] as const
 
@@ -139,7 +146,9 @@ const MOD_WAVES = ['sine', 'triangle', 'square', 'sawtooth', 'random'] as const
 // Appended, never reordered: a code stores the index, so moving an entry would rewrite history. Four
 // bits leave room for sixteen, of which five are used.
 // Append-only, and there is room: four bits hold sixteen and six are used.
-const NODE_TYPES = ['start', 'osc', 'delay', 'fx', 'mod', 'warp'] as const
+// Append-only: the index is what travels, so a new type goes on the end and every older code
+// still reads.
+const NODE_TYPES = ['start', 'osc', 'delay', 'fx', 'mod', 'warp', 'sieve'] as const
 
 const EFFECT_CODES: EffectKind[] = [
   'reverb',
@@ -743,6 +752,14 @@ export function encodePatch(patch: Patch): string {
       writer.write(quantise(delayMs / 10, 1, MIN_DELAY_MS / 10, MAX_DELAY_MS / 10), 9)
     } else if (node.type === 'warp') {
       writeWarp(writer, { ...defaultWarpParams(), ...(node.params as WarpParams) })
+    } else if (node.type === 'sieve') {
+      const { every, offset, chance } = {
+        ...defaultSieveParams(),
+        ...(node.params as SieveParams),
+      }
+      writer.write(quantise(every, 1, 1, MAX_EVERY) - 1, SIEVE_COUNT_BITS)
+      writer.write(quantise(offset, 1, 1, MAX_EVERY) - 1, SIEVE_COUNT_BITS)
+      writer.write(quantise(chance * 100, 1, 0, 100), SIEVE_CHANCE_BITS)
     } else if (node.type === 'start' && anyBound) {
       writeStart(writer, node.params as StartParams)
     } else if (node.type === 'mod') {
@@ -801,6 +818,12 @@ export function decodePatch(code: string): Patch | null {
         params = { delayMs: reader.read(9) * 10 }
       } else if (type === 'warp') {
         params = readWarp(reader)
+      } else if (type === 'sieve') {
+        params = {
+          every: reader.read(SIEVE_COUNT_BITS) + 1,
+          offset: reader.read(SIEVE_COUNT_BITS) + 1,
+          chance: reader.read(SIEVE_CHANCE_BITS) / 100,
+        }
       } else if (type === 'start' && ignitesCarryTrigger) {
         params = readStart(reader)
       } else if (type === 'mod') {

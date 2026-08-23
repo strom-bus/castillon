@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { defaultOscParams } from '../nodes/registry'
+import { defaultSieveParams, defaultOscParams } from '../nodes/registry'
 import {
   MAX_DELAY_MS,
   MAX_RATCHET,
@@ -8,6 +8,7 @@ import {
   type OscParams,
   type Patch,
   type PatchEdge,
+  type SieveParams,
   type WarpParams,
   type PatchNode,
   type Step,
@@ -1602,5 +1603,130 @@ describe('swing and slop on the oscillator', () => {
       at({ slop: 0.1, useSlop: true }, { transpose: 0, slop: 0.1, useSlop: true }) - grid,
     )
     expect(both).toBeCloseTo(own * 2, 4)
+  })
+})
+
+/**
+ * A SIEVE in a running cascade, which is the lap counter earning its keep.
+ *
+ * The arithmetic is tested on its own in `sieve.test.ts`; what is checked here is that a pass is counted
+ * at all — each one gets a fresh chain id, so the count has to be handed on when a chain settles rather
+ * than kept against its id, and getting that wrong would leave every pass believing it were the first.
+ */
+describe('a sieve deciding which passes happen', () => {
+  /** Notes played over several laps, with a sieve between the Ignite and the oscillator. */
+  function overLaps(params: Partial<SieveParams>, seconds: number) {
+    const nodes: PatchNode[] = [
+      { id: 's', type: 'start', position: { x: 0, y: 0 }, params: {} },
+      {
+        id: 'g',
+        type: 'sieve',
+        position: { x: 0, y: 0 },
+        params: { ...defaultSieveParams(), ...params },
+      },
+      {
+        id: 'o',
+        type: 'osc',
+        position: { x: 0, y: 0 },
+        params: {
+          ...defaultOscParams(),
+          steps: [{ note: 60, active: true, velocity: 1 }],
+        },
+      },
+    ]
+    const patch = patchOf(nodes, [edge('s', 'g'), edge('g', 'o')])
+    const scheduler = build({ ...patch, loop: true })
+    scheduler.start()
+    scheduler.drain(seconds)
+    scheduler.stop()
+    return engine.notes.length
+  }
+
+  it('passes every lap when it is counting nothing', () => {
+    expect(overLaps({}, 4)).toBeGreaterThan(3)
+  })
+
+  it('halves them at every other pass', () => {
+    /*
+     * The check the whole lap counter exists for. Each pass builds a new chain with a new id, so if the
+     * count were kept against the id rather than handed on at `settle`, every pass would believe it were
+     * the first — and a sieve at 1:2 would pass all of them.
+     */
+    const all = overLaps({}, 8)
+    const half = overLaps({ every: 2, offset: 1 }, 8)
+    expect(half).toBeLessThan(all)
+    expect(half).toBeGreaterThan(0)
+    expect(half).toBeCloseTo(Math.ceil(all / 2), 0)
+  })
+
+  it('lets nothing through on the passes that are not its own', () => {
+    // Two sieves over the same run take opposite passes, so between them they take all of them and
+    // neither takes any twice.
+    const first = overLaps({ every: 2, offset: 1 }, 8)
+    const second = overLaps({ every: 2, offset: 2 }, 8)
+    const all = overLaps({}, 8)
+    expect(first + second).toBe(all)
+  })
+
+  it('stops the branch entirely at no chance at all', () => {
+    expect(overLaps({ chance: 0 }, 6)).toBe(0)
+  })
+
+  it('keeps the passes evenly spaced when a branch sits one out', () => {
+    /*
+     * The rule that makes any of this musical, and it was not there when the node was written: **a pass
+     * must not get shorter because part of it did not happen.**
+     *
+     * A blocked sieve costs its branch nothing, so a cascade whose only branch is sieved out has nothing
+     * left to wait for — the pass ended at once and came round again immediately, and a branch set to
+     * every other pass fired at irregular intervals rather than alternating. The floor is the previous
+     * pass's length, so a skipped one takes as long as the one before it.
+     */
+    const times = (params: Partial<SieveParams>) => {
+      const nodes: PatchNode[] = [
+        { id: 's', type: 'start', position: { x: 0, y: 0 }, params: {} },
+        {
+          id: 'g',
+          type: 'sieve',
+          position: { x: 0, y: 0 },
+          params: { ...defaultSieveParams(), ...params },
+        },
+        {
+          id: 'o',
+          type: 'osc',
+          position: { x: 0, y: 0 },
+          params: { ...defaultOscParams(), steps: [{ note: 60, active: true, velocity: 1 }] },
+        },
+      ]
+      const scheduler = build(patchOf(nodes, [edge('s', 'g'), edge('g', 'o')], true))
+      scheduler.start()
+      scheduler.drain(8)
+      scheduler.stop()
+      return engine.notes.map((note) => note.time)
+    }
+
+    const every = times({})
+    const alternate = times({ every: 2, offset: 1 })
+    const lap = every[1]! - every[0]!
+
+    // Every gap between the notes that *do* sound is two laps, not one lap and a scrap.
+    for (let i = 1; i < alternate.length; i++) {
+      expect(alternate[i]! - alternate[i - 1]!, `gap ${i}`).toBeCloseTo(lap * 2, 6)
+    }
+    expect(alternate.length).toBeGreaterThan(2)
+  })
+
+  it('costs the cascade no length, so the laps keep their shape', () => {
+    /*
+     * A sieve ends where it begins — it holds nothing back in time, only sometimes in fact. If it took
+     * any length, a branch that did not happen would shorten the pass and the cycle would breathe
+     * differently depending on a coin toss, which is the one thing it must not do.
+     */
+    const straight = overLaps({}, 8)
+    const blocked = overLaps({ chance: 0 }, 8)
+    expect(blocked).toBe(0)
+    // With the branch silent the cascade still comes round at the same rate, so the run that *does*
+    // sound is unchanged in count.
+    expect(overLaps({ every: 2, offset: 1 }, 8)).toBeCloseTo(Math.ceil(straight / 2), 0)
   })
 })

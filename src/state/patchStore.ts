@@ -25,6 +25,7 @@ import type {
   StartParams,
   Step,
   WarpParams,
+  SieveParams,
 } from '../types/patch'
 import { connectionFor, EVENT_IN, EVENT_OUT, SIGNAL_LEFT, SIGNAL_RIGHT } from './connections'
 import { decodePatch } from './patchCode'
@@ -103,7 +104,9 @@ interface PatchState {
   spliceIntoCable(id: string): boolean
   updateParams(
     id: string,
-    partial: Partial<OscParams & FxParams & DelayParams & StartParams & ModParams & WarpParams>,
+    partial: Partial<
+      OscParams & FxParams & DelayParams & StartParams & ModParams & WarpParams & SieveParams
+    >,
   ): void
   setEffect(id: string, effect: EffectKind): void
   updateStep(id: string, index: number, partial: Partial<Step>): void

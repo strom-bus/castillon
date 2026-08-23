@@ -55,6 +55,30 @@ interface Chain {
   lastEnd: number
   startNodeId: NodeId
   startTime: number
+  /**
+   * Which time round this is, counting from one.
+   *
+   * The cascade has no bar, so this is the only sense in which anything here recurs: a pass is one run of
+   * a chain, and the next pass is the same chain begun again. Counting it is what lets a node decide to
+   * happen on some passes and not others — which is the whole of trig conditions, and alternation falls
+   * out of two nodes disagreeing about which passes are theirs.
+   *
+   * Each pass gets a fresh `chainId`, so the count has to be handed on at `settle` rather than kept
+   * against the id.
+   */
+  lap: number
+  /**
+   * How long the pass before this one lasted, and the floor under this one.
+   *
+   * **A pass must not get shorter because part of it did not happen.** A SIEVE that blocks costs its
+   * branch nothing, so a cascade whose only branch is sieved out has nothing left to wait for: the pass
+   * ends at once and comes round again immediately, and a branch set to every other pass fires at
+   * irregular intervals instead of alternating. Which is the opposite of what was asked for.
+   *
+   * The previous lap rather than the longest ever seen, so a patch that is genuinely shortened settles
+   * within two passes instead of holding an old period for ever.
+   */
+  previousLength: number
 }
 
 /** Whether this node waits for an input rather than for the transport. */
@@ -293,6 +317,9 @@ export class CascadeScheduler {
       node,
       time: event.time,
       bpm: patch.bpm,
+      // Which pass this is. A node that only happens on some of them needs to know; every other node
+      // ignores it, which is why it is handed down rather than asked for.
+      lap: this.chains.get(event.chainId)?.lap ?? 1,
       engine: this.deps.engine,
       activity: this.deps.activity,
       /*
@@ -353,14 +380,29 @@ export class CascadeScheduler {
     const node = patch.nodes.find((n) => n.id === chain.startNodeId)
     if (node && isBound(node) && !this.holding.has(chain.startNodeId)) return
 
-    const next =
-      chain.lastEnd > chain.startTime ? chain.lastEnd : chain.startTime + EMPTY_CHAIN_DELAY
-    this.beginChain(chain.startNodeId, next)
+    /*
+     * Never shorter than the pass before it.
+     *
+     * With nothing conditional in a patch this changes nothing: every pass is the same length, so the
+     * floor is the length. It matters only where a branch decided not to happen, which is exactly where
+     * the cascade would otherwise race — and a cycle that speeds up whenever something is skipped is not
+     * a cycle anybody can play against.
+     */
+    const own = chain.lastEnd - chain.startTime
+    const length = Math.max(own, chain.previousLength, own > 0 ? 0 : EMPTY_CHAIN_DELAY)
+    this.beginChain(chain.startNodeId, chain.startTime + length, chain.lap + 1, length)
   }
 
-  private beginChain(startNodeId: NodeId, time: number): void {
+  private beginChain(startNodeId: NodeId, time: number, lap = 1, previousLength = 0): void {
     const chainId = this.nextChainId++
-    this.chains.set(chainId, { pending: 0, lastEnd: time, startNodeId, startTime: time })
+    this.chains.set(chainId, {
+      pending: 0,
+      lastEnd: time,
+      startNodeId,
+      startTime: time,
+      lap,
+      previousLength,
+    })
     // A cascade begins in the key it was written in; only a WARP in the branch moves it.
     this.enqueue({ nodeId: startNodeId, time, depth: 0, chainId, shifts: [] })
   }

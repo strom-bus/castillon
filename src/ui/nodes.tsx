@@ -16,6 +16,7 @@ import type {
   ModParams,
   OscParams,
   StartParams,
+  SieveParams,
 } from '../types/patch'
 import { useNodeColors, type NodeColors } from '../viz/depth'
 import { useAnyNodeActivity, useNodeActivity } from '../viz/useActivity'
@@ -356,6 +357,41 @@ export function WarpNode({ id, data, selected }: NodeProps<FlowNode>) {
             glance and only one of them says which way. */}
         <span className="delay-value">{steps > 0 ? `+${steps}` : steps}</span>
       </div>
+    </div>
+  )
+}
+
+export function SieveNode({ id, data, selected }: NodeProps<FlowNode>) {
+  const { pulsing } = useNodeActivity(id)
+  const colors = useNodeColors(id)
+  const ordinal = useOrdinal(id)
+  const params = data.params as SieveParams
+  const every = Math.max(1, Math.round(params.every ?? 1))
+  const offset = Math.min(every, Math.max(1, Math.round(params.offset ?? 1)))
+  const odds = Math.round((params.chance ?? 1) * 100)
+
+  return (
+    <div
+      className={`node node-sieve${pulsing ? ' pulsing' : ''}${selected ? ' selected' : ''}`}
+      style={depthStyle(colors)}
+    >
+      <Handle type="target" id={EVENT_IN} position={Position.Top} className="port port-in" />
+      <div className="node-header">
+        <span className="node-title">
+          SIEVE <span className="node-ordinal">{ordinal}</span>
+        </span>
+        {/* The odds beside the count, and only where they are not certain: a node reading "1:2" is
+            saying everything about itself, and "· 100%" beside it would only be noise. */}
+        {odds < 100 && <span className="node-meta">{odds}%</span>}
+      </div>
+      <div className="sieve-body">
+        {/* The condition as a musician writes it — the first of every two is 1:2 — and read at rest,
+            without selecting the node, since which passes are whose is the whole of what it does. */}
+        <span className="sieve-value">
+          {offset}:{every}
+        </span>
+      </div>
+      <Handle type="source" id={EVENT_OUT} position={Position.Bottom} className="port port-out" />
     </div>
   )
 }

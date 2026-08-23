@@ -108,10 +108,10 @@ export const MANUAL: Section[] = [
             },
           },
           {
-            term: { en: 'Six kinds of node', es: 'Seis tipos de nodo' },
+            term: { en: 'Seven kinds of node', es: 'Siete tipos de nodo' },
             text: {
-              en: 'IGNITE starts a cascade. OSC is the only one that makes a sound. DELAY holds a trigger and passes it on late. FX processes what it is fed. MOD moves a parameter while you listen. WARP bends everything below where it is attached. Each has its own chapter here, in that order of how often you will touch it.',
-              es: 'IGNITE arranca una cascada. OSC es el único que produce sonido. DELAY retiene un disparo y lo pasa más tarde. FX procesa lo que se le alimenta. MOD mueve un parámetro mientras escuchas. WARP dobla todo lo que hay por debajo de donde está enganchado. Cada uno tiene aquí su capítulo, en ese orden de cuánto lo vas a tocar.',
+              en: 'IGNITE starts a cascade. OSC is the only one that makes a sound. DELAY holds a trigger and passes it on late, and SIEVE holds one and passes it on only sometimes. FX processes what it is fed. MOD moves a parameter while you listen. WARP bends everything below where it is attached. Each has its own chapter here, in that order of how often you will touch it.',
+              es: 'IGNITE arranca una cascada. OSC es el único que produce sonido. DELAY retiene un disparo y lo pasa más tarde, y SIEVE lo retiene y lo pasa solo a veces. FX procesa lo que se le alimenta. MOD mueve un parámetro mientras escuchas. WARP dobla todo lo que hay por debajo de donde está enganchado. Cada uno tiene aquí su capítulo, en ese orden de cuánto lo vas a tocar.',
             },
           },
           {
@@ -691,6 +691,66 @@ export const MANUAL: Section[] = [
             text: {
               en: 'A DELAY sets two branches apart and holds them there. If you want them to keep moving away from each other, that is a WARP with its Speed changed, or two oscillators of different lengths — both of those drift, and drift is a different musical thing from a delay.',
               es: 'Un DELAY separa dos ramas y las mantiene ahí. Si quieres que se sigan alejando la una de la otra, eso es un WARP con el Speed cambiado, o dos osciladores de distinta duración — esos dos se desfasan, y desfasarse es musicalmente otra cosa que un retardo.',
+            },
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'sieve',
+    title: { en: 'SIEVE — passing a trigger sometimes', es: 'SIEVE — dejar pasar a veces' },
+    body: [
+      {
+        en: 'The DELAY’s sibling. A DELAY holds a trigger and passes it on late; a SIEVE holds one and passes it on *sometimes*. Everything below it happens only on the passes it lets through, so one node decides whether a whole branch is part of this time round.',
+        es: 'El hermano del DELAY. Un DELAY retiene un disparo y lo pasa más tarde; un SIEVE lo retiene y lo pasa *a veces*. Todo lo que hay debajo ocurre solo en las pasadas que deja pasar, así que un nodo decide si una rama entera forma parte de esta vuelta.',
+      },
+      {
+        en: 'There is no bar in this instrument, so a pass is the only thing that recurs — which is what a SIEVE counts. It says its condition on the node itself, written the way a musician writes it: 1:2 is the first of every two.',
+        es: 'En este instrumento no hay compás, así que una pasada es lo único que se repite — y es lo que cuenta un SIEVE. Dice su condición en el propio nodo, escrita como la escribiría un músico: 1:2 es la primera de cada dos.',
+      },
+    ],
+    detail: [
+      {
+        title: 'THE PANEL',
+        terms: [
+          {
+            term: { en: 'Every', es: 'Every' },
+            text: {
+              en: 'How long the run of passes is. At one it counts nothing and everything goes through, which is where a SIEVE starts — dropping one into a chain is not a change until you ask it to be. At two the branch below happens every other time round, at four every fourth, and past about eight it stops being a rhythm and becomes a surprise.',
+              es: 'Cuánto dura la tanda de pasadas. En uno no cuenta nada y pasa todo, que es donde empieza un SIEVE — meter uno en una cadena no es un cambio hasta que se lo pidas. En dos, la rama de abajo ocurre una vuelta sí y otra no; en cuatro, una de cada cuatro; y pasado ocho deja de ser un ritmo y se vuelve una sorpresa.',
+            },
+          },
+          {
+            term: { en: 'On pass', es: 'On pass' },
+            text: {
+              en: 'Which pass of that run is this one’s, counting from one. It only appears once there is a run to have a place in. And it is the whole of alternation: two SIEVEs over the same run, one on the first pass and one on the second, is two branches taking turns — no feature of its own, just two nodes disagreeing about which passes are theirs.',
+              es: 'Cuál de las pasadas de esa tanda es la suya, contando desde uno. Solo aparece cuando ya hay una tanda en la que tener sitio. Y es la alternancia entera: dos SIEVE sobre la misma tanda, uno en la primera pasada y otro en la segunda, son dos ramas turnándose — sin ninguna función propia, solo dos nodos discrepando sobre qué pasadas son suyas.',
+            },
+          },
+          {
+            term: { en: 'Chance', es: 'Chance' },
+            text: {
+              en: 'And how often it lets one through when the count says it may. A hundred per cent is always, which is where it starts. The two conditions compose: a branch can happen on every other pass *and* only most of the time, which is a thing that repeats without being predictable.',
+              es: 'Y cada cuánto deja pasar cuando la cuenta lo permite. Cien por cien es siempre, que es donde empieza. Las dos condiciones se combinan: una rama puede ocurrir una vuelta sí y otra no *y además* solo casi siempre, que es algo que se repite sin ser previsible.',
+            },
+          },
+        ],
+      },
+      {
+        terms: [
+          {
+            term: { en: 'It costs the cascade nothing', es: 'No le cuesta nada a la cascada' },
+            text: {
+              en: 'A SIEVE holds nothing back in time — it ends where it begins. So a branch that does not happen this pass takes no length off the lap, and the shape of the cycle is the same whether or not it let anything through. It is the one node here that changes what happens without changing when.',
+              es: 'Un SIEVE no retiene nada en el tiempo — termina donde empieza. Así que una rama que no ocurre en esta pasada no le quita duración a la vuelta, y la forma del ciclo es la misma deje pasar o no. Es el único nodo de aquí que cambia qué ocurre sin cambiar cuándo.',
+            },
+          },
+          {
+            term: { en: 'It lights only on its own passes', es: 'Se enciende solo en sus pasadas' },
+            text: {
+              en: 'A node that flashed every time a trigger reached it would be saying something true of every pass and therefore saying nothing. Lighting on the ones it passes makes the pattern visible: two SIEVEs alternating are two nodes taking turns on the canvas, which is the thing you are trying to see.',
+              es: 'Un nodo que parpadeara cada vez que le llega un disparo estaría diciendo algo cierto en todas las pasadas y por tanto no diría nada. Encenderse en las que deja pasar hace visible el patrón: dos SIEVE alternando son dos nodos turnándose en el lienzo, que es justo lo que intentas ver.',
             },
           },
         ],

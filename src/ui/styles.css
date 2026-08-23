@@ -1045,6 +1045,24 @@ input[type='range'] {
   width: 100%;
 }
 
+/* ---------- SIEVE ---------- */
+
+/* The condition, read at rest: which passes are this node's is the whole of what it does, so it is on
+   the node rather than only in the panel. Sized like a delay's number, which is its sibling. */
+.sieve-body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 10px 10px;
+}
+
+.sieve-value {
+  font-family: var(--display);
+  font-size: 18px;
+  letter-spacing: 0.04em;
+  color: var(--text);
+}
+
 /* ---------- FX ---------- */
 
 /* White, black and grey, and not for want of a colour: the fluorescent ramp means cascade depth,

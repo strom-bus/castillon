@@ -46,12 +46,14 @@ import {
   SPEEDS,
   SWINGS,
   MAX_SLOP,
+  MAX_EVERY,
   MIN_NOTE,
   DEFAULT_IGNITE,
   type Step,
   type IgniteBehaviour,
   type IgniteTrigger,
   type ModParams,
+  type SieveParams,
   type WarpParams,
   type StartParams,
 } from '../types/patch'
@@ -1167,6 +1169,66 @@ export function Inspector() {
           same note combine. A step is a degree of the scale on each oscillator it reaches, or a
           semitone where that oscillator is free — so a bass in pentatonic and a lead in minor both
           move a third and both stay in key.
+        </p>
+      </Panel>
+    )
+  }
+
+  if (node.type === 'sieve') {
+    const sieve = node.data.params as SieveParams
+    const every = Math.min(MAX_EVERY, Math.max(1, Math.round(sieve.every ?? 1)))
+    const offset = Math.min(every, Math.max(1, Math.round(sieve.offset ?? 1)))
+
+    return (
+      <Panel>
+        <h2 className="inspector-title">
+          SIEVE <span className="node-ordinal">{ordinal}</span>
+        </h2>
+
+        {/* The run first and the place in it second, which is the order the condition is read in:
+            "of every two, the first". Both start at one, which counts nothing and passes everything. */}
+        <Slider
+          label="Every"
+          value={every}
+          min={1}
+          max={MAX_EVERY}
+          step={1}
+          suffix=" passes"
+          onChange={(value) =>
+            // The place cannot outrun the run it is in: shortening one to two with the place at five
+            // would leave a node whose condition can never be met, silent with nothing saying why.
+            updateParams(node.id, { every: value, offset: Math.min(offset, value) })
+          }
+        />
+
+        {every > 1 && (
+          <Slider
+            label="On pass"
+            value={offset}
+            min={1}
+            max={every}
+            step={1}
+            onChange={(value) => updateParams(node.id, { offset: value })}
+          />
+        )}
+
+        <Slider
+          label="Chance"
+          value={Math.round((sieve.chance ?? 1) * 100)}
+          min={0}
+          max={100}
+          step={5}
+          suffix="%"
+          onChange={(value) => updateParams(node.id, { chance: value / 100 })}
+        />
+
+        <p className="inspector-empty">
+          Holds a trigger and passes it on sometimes, the way a DELAY holds one and passes it on
+          late. Everything below it happens only on the passes this lets through.
+        </p>
+        <p className="inspector-empty">
+          Two of these over the same run, on the first and the second of every two, is how two
+          branches take turns.
         </p>
       </Panel>
     )

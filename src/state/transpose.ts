@@ -60,3 +60,66 @@ export function transposeByNode(nodes: PatchNode[], edges: PatchEdge[]): Map<str
 export function transposeIn(patch: Patch): Map<string, number> {
   return transposeByNode(patch.nodes, patch.edges)
 }
+
+/**
+ * Why a transform may be doing nothing, or null if it is doing something.
+ *
+ * It has two ways of failing in silence, and one of them is worse than useless. Left with nothing below
+ * it, it simply does not apply — that much is at least quiet in an honest way. But wired *beside* the
+ * cable it was meant to replace, the node underneath is triggered twice: once through the transform and
+ * once around it, and the untransposed one masks the other. The patch sounds exactly as it did, and
+ * everything on screen says the transform is working.
+ *
+ * A delay has the same failure and gets away with it, because a doubled delay is heard as an echo. A
+ * doubled transposition is heard as nothing at all, which is why this exists — the same habit the MOD
+ * panel already has of saying why a cable is not doing what its owner expects.
+ */
+export function transformDoingNothing(
+  nodes: PatchNode[],
+  edges: PatchEdge[],
+  id: string,
+): string | null {
+  const children = new Map<string, string[]>()
+  for (const edge of edges) {
+    if (edge.kind !== 'event') continue
+    const list = children.get(edge.source)
+    if (list) list.push(edge.target)
+    else children.set(edge.source, [edge.target])
+  }
+
+  if (!children.get(id)?.length) return 'nothing is wired below it'
+
+  /** Everything the transform reaches, which is what it is meant to be moving. */
+  const below = new Set<string>()
+  let frontier = children.get(id) ?? []
+  for (let depth = 0; depth < 64 && frontier.length > 0; depth++) {
+    const next: string[] = []
+    for (const at of frontier) {
+      if (below.has(at)) continue
+      below.add(at)
+      next.push(...(children.get(at) ?? []))
+    }
+    frontier = next
+  }
+
+  /** And everything a trigger can reach without going through it, which is what it is not. */
+  const around = new Set<string>()
+  frontier = nodes.filter((node) => node.type === 'start').map((node) => node.id)
+  for (let depth = 0; depth < 64 && frontier.length > 0; depth++) {
+    const next: string[] = []
+    for (const at of frontier) {
+      if (around.has(at) || at === id) continue
+      around.add(at)
+      next.push(...(children.get(at) ?? []))
+    }
+    frontier = next
+  }
+
+  const byId = new Map(nodes.map((node) => [node.id, node]))
+  const doubled = [...below].filter((one) => around.has(one) && byId.get(one)?.type === 'osc')
+  if (doubled.length > 0) {
+    return 'an oscillator below it is also triggered without passing through it, so it plays twice — once moved and once not'
+  }
+
+  return null
+}

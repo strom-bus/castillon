@@ -448,3 +448,37 @@ describe('a sequencer scale', () => {
     expect(screen.queryByRole('button', { name: /FIT TO SCALE/ })).toBeNull()
   })
 })
+
+describe('a scale reaches every way a note can be changed', () => {
+  /*
+   * There are two: the bar on the canvas and the slider in the step panel. A scale that only one of
+   * them consults is not a scale, it is a scale you can walk around — and the way around it would be
+   * the panel, which is the place that looks most authoritative.
+   */
+  it('snaps the note slider in the step panel', () => {
+    const id = usePatchStore.getState().nodes.find((n) => n.type === 'osc')!.id
+    usePatchStore.getState().updateParams(id, { scale: 'minorPentatonic', scaleRoot: 0 })
+    usePatchStore.getState().selectStep(id, 1)
+    render(<Inspector />)
+
+    const allowed = pitchesOf('minorPentatonic', 0)!
+    for (const asked of [61, 62, 66, 68, 71]) {
+      fireEvent.change(screen.getByLabelText(/^Note/), { target: { value: String(asked) } })
+      const note = (
+        usePatchStore.getState().nodes.find((n) => n.id === id)!.data.params as OscParams
+      ).steps[1]!.note
+      expect(allowed.has(((note % 12) + 12) % 12), `${asked} → ${note}`).toBe(true)
+    }
+  })
+
+  it('leaves it free to land anywhere when the sequencer is', () => {
+    const id = usePatchStore.getState().nodes.find((n) => n.type === 'osc')!.id
+    usePatchStore.getState().selectStep(id, 1)
+    render(<Inspector />)
+
+    fireEvent.change(screen.getByLabelText(/^Note/), { target: { value: '61' } })
+    const note = (usePatchStore.getState().nodes.find((n) => n.id === id)!.data.params as OscParams)
+      .steps[1]!.note
+    expect(note).toBe(61)
+  })
+})

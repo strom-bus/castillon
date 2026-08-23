@@ -1,4 +1,4 @@
-import { ROOT_NAMES, SCALES, SCALE_NAMES, type ScaleName } from '../audio/scales'
+import { ROOT_NAMES, SCALES, SCALE_NAMES, snapToScale, type ScaleName } from '../audio/scales'
 import type { ReactNode } from 'react'
 import { DIVISIONS } from '../audio/clock'
 import { MAX_BITS, MAX_REDUCTION, MIN_BITS, MIN_REDUCTION } from '../audio/dsp'
@@ -55,6 +55,7 @@ import {
 import { noteName } from '../audio/clock'
 import { BindingCapture } from './BindingCapture'
 import { formatOrdinal, nodeOrdinal } from '../state/ordinals'
+import { transformDoingNothing } from '../state/transpose'
 import { useManualWindow } from '../help/window'
 import { usePatchStore } from '../state/patchStore'
 import { NumberInput } from './NumberInput'
@@ -482,7 +483,17 @@ function StepPanel({
             max={MAX_NOTE}
             step={1}
             value={step.note}
-            onChange={(e) => set({ note: Number(e.target.value) })}
+            // Snapped here as well as on the bar. There are two ways to change a note and a scale that
+            // only one of them consults is not a scale — it is a scale you can walk around.
+            onChange={(e) =>
+              set({
+                note: snapToScale(
+                  Number(e.target.value),
+                  params.scale ?? 'free',
+                  params.scaleRoot ?? 0,
+                ),
+              })
+            }
           />
         </label>
 
@@ -576,6 +587,9 @@ function Panel({ children }: { children: ReactNode }) {
 export function Inspector() {
   const showManual = useManualWindow((s) => s.show)
   const node = usePatchStore((s) => s.nodes.find((n) => n.id === s.selectedId))
+  // The whole graph, because a transform is a fact about a branch rather than about itself.
+  const nodes = usePatchStore((s) => s.nodes)
+  const edges = usePatchStore((s) => s.edges)
   // The same number the node shows on the canvas, so the panel and the node agree on which one
   // you are looking at.
   const ordinal = usePatchStore((s) =>
@@ -953,6 +967,21 @@ export function Inspector() {
 
   if (node.type === 'transform') {
     const transformParams = node.data.params as TransformParams
+    const doingNothing = transformDoingNothing(
+      nodes.map((n) => ({
+        id: n.id,
+        type: n.type ?? '',
+        position: n.position,
+        params: n.data.params,
+      })),
+      edges.map((e) => ({
+        id: e.id,
+        kind: e.data?.kind ?? 'event',
+        source: e.source,
+        target: e.target,
+      })),
+      node.id,
+    )
     return (
       <Panel>
         <h2 className="inspector-title">
@@ -968,6 +997,13 @@ export function Inspector() {
           suffix=" steps"
           onChange={(transpose) => updateParams(node.id, { transpose })}
         />
+
+        {/* The same habit the MOD panel has of saying why a cable is not doing what its owner expects.
+            This one has two ways of failing in silence, and the second is worse than useless: wired
+            beside the cable it was meant to replace, the node below fires twice — once through it and
+            once around it — and the untransposed one masks the other, so the patch sounds untouched
+            while everything on screen says the transform is working. */}
+        {doingNothing && <p className="inspector-warn">Doing nothing: {doingNothing}.</p>}
 
         {/* Said here because a control that acts at a distance has to say how far it reaches, and
             because what a step means depends on the oscillator it lands on rather than on this node. */}

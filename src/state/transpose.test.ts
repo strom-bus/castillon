@@ -8,7 +8,7 @@
  */
 
 import { describe, expect, it } from 'vitest'
-import { transposeByNode } from './transpose'
+import { transformDoingNothing, transposeByNode } from './transpose'
 import type { PatchEdge, PatchNode } from '../types/patch'
 
 const node = (id: string, type: string, transpose?: number): PatchNode => ({
@@ -86,5 +86,63 @@ describe('what each node is being moved by', () => {
       [edge('s', 't'), edge('t', 'a'), edge('a', 't')],
     )
     expect(table.get('a')).toBeGreaterThan(0)
+  })
+})
+
+/**
+ * The two ways a transform fails without saying so.
+ *
+ * One is merely quiet: with nothing below it, it does not apply. The other is worse than useless —
+ * wired beside the cable it was meant to replace, the node under it fires twice, once through it and
+ * once around it, and the untransposed pass masks the moved one. The patch sounds exactly as it did
+ * while everything on screen says the transform is working, which is how this came to be reported as
+ * "it only works at the start of a chain".
+ */
+describe('why a transform may be doing nothing', () => {
+  it('says so when nothing hangs below it', () => {
+    const why = transformDoingNothing(
+      [node('s', 'start'), node('a', 'osc'), node('t', 'transform', 5)],
+      [edge('s', 'a'), edge('a', 't')],
+      't',
+    )
+    expect(why).toMatch(/nothing is wired below/)
+  })
+
+  it('says so when what is below it is also reached around it', () => {
+    const why = transformDoingNothing(
+      [node('s', 'start'), node('a', 'osc'), node('t', 'transform', 5), node('b', 'osc')],
+      [edge('s', 'a'), edge('a', 'b'), edge('a', 't'), edge('t', 'b')],
+      't',
+    )
+    expect(why).toMatch(/plays twice/)
+  })
+
+  it('is quiet when it is wired in properly', () => {
+    const why = transformDoingNothing(
+      [node('s', 'start'), node('a', 'osc'), node('t', 'transform', 5), node('b', 'osc')],
+      [edge('s', 'a'), edge('a', 't'), edge('t', 'b')],
+      't',
+    )
+    expect(why).toBeNull()
+  })
+
+  it('is quiet at the head of a chain, which is where it was first tried', () => {
+    const why = transformDoingNothing(
+      [node('s', 'start'), node('t', 'transform', 5), node('a', 'osc')],
+      [edge('s', 't'), edge('t', 'a')],
+      't',
+    )
+    expect(why).toBeNull()
+  })
+
+  it('does not complain about a second branch that has no oscillator in it', () => {
+    // An effect reached around it is not a note played twice, and warning about it would train people
+    // to ignore the warning that matters.
+    const why = transformDoingNothing(
+      [node('s', 'start'), node('t', 'transform', 5), node('a', 'osc'), node('f', 'fx')],
+      [edge('s', 't'), edge('t', 'a'), edge('a', 'f', 'audio')],
+      't',
+    )
+    expect(why).toBeNull()
   })
 })

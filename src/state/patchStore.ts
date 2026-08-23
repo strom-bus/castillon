@@ -92,6 +92,12 @@ interface PatchState {
   selectStep(id: string, index: number | null): void
   /** Moves every note of a sequence onto the nearest one its scale allows. */
   fitToScale(id: string, scale: ScaleName, root: number): void
+  /**
+   * Puts an unwired node into the middle of a cable, if it was dropped on one.
+   *
+   * Returns whether it did, so the caller can tell a splice from an ordinary move.
+   */
+  spliceIntoCable(id: string): boolean
   updateParams(
     id: string,
     partial: Partial<
@@ -201,6 +207,44 @@ function fromPatch(patch: Patch): {
   }
 }
 
+/** A trigger cable in the shape the canvas wants it. */
+function flowEdge(id: string, source: string, target: string): FlowEdge {
+  return {
+    id,
+    source,
+    target,
+    sourceHandle: EVENT_OUT,
+    targetHandle: EVENT_IN,
+    type: EDGE_COMPONENT.event,
+    data: { kind: 'event' },
+  } as FlowEdge
+}
+
+/** Roughly a node, for deciding whether one was dropped on a cable. */
+const NODE_WIDTH = 200
+const NODE_HEIGHT = 120
+/** How near a cable a node has to land to be taken as being put into it. */
+const SPLICE_REACH = 90
+
+/** How far a point is from a line between two others, which is what "dropped on that cable" means. */
+function distanceToSegment(
+  point: { x: number; y: number },
+  from: { x: number; y: number },
+  to: { x: number; y: number },
+): number {
+  const dx = to.x - from.x
+  const dy = to.y - from.y
+  const length = dx * dx + dy * dy
+  if (length === 0) return Math.hypot(point.x - from.x, point.y - from.y)
+
+  // Clamped, so a node far past either end of a short cable is not counted as being on it.
+  const along = Math.max(
+    0,
+    Math.min(1, ((point.x - from.x) * dx + (point.y - from.y) * dy) / length),
+  )
+  return Math.hypot(point.x - (from.x + along * dx), point.y - (from.y + along * dy))
+}
+
 function initialPatch(): ReturnType<typeof fromPatch> {
   const patch = decodePatch(INITIAL_PATCH_CODE)
   // An empty canvas is a poor default, but a broken constant must not stop the app booting.
@@ -257,6 +301,61 @@ export const usePatchStore = create<PatchState>((set, get) => ({
 
   selectStep(id, index) {
     set({ selectedId: id, selectedStep: index })
+  },
+
+  spliceIntoCable(id) {
+    /*
+     * The gesture that was missing, and what its absence cost.
+     *
+     * To put a TRANSFORM between two nodes you had to delete the cable joining them first, and nothing
+     * said so — so it got wired *beside* that cable instead, and then the node underneath fired twice,
+     * once through the transform and once around it. A doubled delay is heard as an echo and a doubled
+     * transposition is heard as nothing, so it looked like a node that did not work. It was reported as
+     * exactly that.
+     *
+     * Only a node with nothing wired to it at all, which is the rule that makes this safe: dragging a
+     * node that is already part of the cascade never rearranges the patch under your hand, and a node
+     * you have just added is the only kind that can land in a cable.
+     */
+    const { nodes, edges } = get()
+    const node = nodes.find((n) => n.id === id)
+    if (!node) return false
+
+    const wired = edges.some((e) => e.source === id || e.target === id)
+    if (wired) return false
+
+    const definition = getDefinition(node.type ?? '')
+    // Something with no way in and no way out of the cascade cannot stand in the middle of one.
+    if (!definition?.schedule || node.type === 'start') return false
+
+    const centre = (one: FlowNode) => ({
+      x: one.position.x + (one.measured?.width ?? NODE_WIDTH) / 2,
+      y: one.position.y + (one.measured?.height ?? NODE_HEIGHT) / 2,
+    })
+    const here = centre(node)
+
+    let best: { id: string; source: string; target: string; away: number } | null = null
+    for (const edge of edges) {
+      if ((edge.data?.kind ?? 'event') !== 'event') continue
+      const from = nodes.find((n) => n.id === edge.source)
+      const to = nodes.find((n) => n.id === edge.target)
+      if (!from || !to) continue
+
+      const away = distanceToSegment(here, centre(from), centre(to))
+      if (away > SPLICE_REACH) continue
+      if (!best || away < best.away)
+        best = { id: edge.id, source: edge.source, target: edge.target, away }
+    }
+    if (!best) return false
+
+    set({
+      edges: [
+        ...edges.filter((e) => e.id !== best.id),
+        flowEdge(`${best.source}->${id}`, best.source, id),
+        flowEdge(`${id}->${best.target}`, id, best.target),
+      ],
+    })
+    return true
   },
 
   fitToScale(id, scale, root) {

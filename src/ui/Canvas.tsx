@@ -26,6 +26,7 @@ function CanvasInner() {
   const nodes = usePatchStore((s) => s.nodes)
   const edges = usePatchStore((s) => s.edges)
   const onNodesChange = usePatchStore((s) => s.onNodesChange)
+  const spliceIntoCable = usePatchStore((s) => s.spliceIntoCable)
   const onEdgesChange = usePatchStore((s) => s.onEdgesChange)
   const onConnect = usePatchStore((s) => s.onConnect)
   const addNode = usePatchStore((s) => s.addNode)
@@ -102,6 +103,10 @@ function CanvasInner() {
           onConnect={onConnect}
           isValidConnection={isValidConnection}
           onNodeClick={(_, node) => select(node.id)}
+          // A node let go of on a cable goes into it. Only one with nothing wired to it, so dragging
+          // a node that is already in the cascade never rearranges the patch under your hand — and a
+          // node you have just added is the only kind that can land in a cable.
+          onNodeDragStop={(_, node) => spliceIntoCable(node.id)}
           // Clicking a cable removes it. The wide transparent hit path in CascadeEdge is what
           // makes a 2 px bezier clickable at all.
           onEdgeClick={(_, edge) => removeEdge(edge.id)}

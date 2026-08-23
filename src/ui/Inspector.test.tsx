@@ -222,3 +222,68 @@ describe('the oscillator panel', () => {
     expect(order.indexOf('FILTER')).toBe(order.indexOf('NEXT') - 1)
   })
 })
+
+/**
+ * How a modulator's panel reads, which is the principle the oscillator's now follows.
+ *
+ * Nothing tested the order of any panel until the oscillator was regrouped, so every one of them could
+ * have been arranged wrongly and silently. This is the only other one with enough controls to get wrong.
+ */
+describe('the modulator panel', () => {
+  function selectMod() {
+    const store = usePatchStore.getState()
+    const osc = store.nodes.find((n) => n.type === 'osc')!
+    store.addNode('mod', { x: 0, y: 0 })
+    const mod = usePatchStore.getState().nodes.at(-1)!
+    usePatchStore.getState().onConnect({
+      source: mod.id,
+      target: osc.id,
+      sourceHandle: SIGNAL_RIGHT,
+      targetHandle: SIGNAL_LEFT,
+    })
+    usePatchStore.getState().select(mod.id)
+    render(<Inspector />)
+  }
+
+  /**
+   * Where each named control sits, top to bottom.
+   *
+   * Matched on the start of the label rather than the whole of it: a control's span carries its current
+   * value, and some carry a unit outside the element the value sits in — so Rate reads as "RateHz" and
+   * an exact comparison finds nothing.
+   */
+  function positionOf(name: string): number {
+    return Array.from(document.querySelectorAll('.inspector-field, .inspector-check')).findIndex(
+      (el) => {
+        const span = el.querySelector('span')?.cloneNode(true) as HTMLElement | undefined
+        span?.querySelector('em')?.remove()
+        return span?.textContent?.trim().startsWith(name) ?? false
+      },
+    )
+  }
+
+  it('says what it is before what it points at', () => {
+    // The panel should read as a sentence — an envelope, on the cutoff, fired on every note. It named
+    // the destination first and left what kind of thing it was until second.
+    selectMod()
+    expect(positionOf('Kind')).toBe(0)
+    expect(positionOf('Kind')).toBeLessThan(positionOf('Target'))
+  })
+
+  it('puts the control that reshapes the panel above everything it reshapes', () => {
+    /*
+     * Kind swaps a shape and a rate for a trigger and two times, so it sits above both sets: below them,
+     * changing it would move whatever had just been set. Checked in both states, since a modulator
+     * arrives as an LFO and the other half of the panel exists only once it is an envelope.
+     */
+    selectMod()
+    for (const below of ['Shape', 'Rate', 'Depth']) {
+      expect(positionOf(below), below).toBeGreaterThan(positionOf('Kind'))
+    }
+
+    fireEvent.change(screen.getByLabelText('Kind'), { target: { value: 'env' } })
+    for (const below of ['Fires on', 'Attack', 'Depth']) {
+      expect(positionOf(below), below).toBeGreaterThan(positionOf('Kind'))
+    }
+  })
+})

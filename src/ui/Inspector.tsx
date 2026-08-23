@@ -607,6 +607,9 @@ export function Inspector() {
           </select>
         </label>
 
+        {/* Mix sits directly under the effect and above its own controls, not below them. Every effect
+            offers a different number of parameters, so from underneath it would slide up and down the
+            panel each time the effect changed — and it is the control reached for most. */}
         <TypedSlider
           label="Mix"
           value={fxParams.mix ?? 0.8}
@@ -670,6 +673,26 @@ export function Inspector() {
           MOD <span className="node-ordinal">{ordinal}</span>
         </h2>
 
+        {/* What it is before what it points at, which is the sentence the panel should read as: an
+            envelope, fired on every note, sweeping the cutoff. It named the destination first and left
+            what kind of thing it was until second.
+
+            Kind also decides which controls exist below it — a clock and a rate for an LFO, a trigger
+            and two times for an envelope — so it goes above them, where changing it disturbs nothing
+            that was already set. */}
+        <label className="inspector-field">
+          <span>Kind</span>
+          <select
+            value={kind}
+            onChange={(e) => updateParams(node.id, { kind: e.target.value as ModKind })}
+          >
+            {MOD_KINDS.map((option) => (
+              <option key={option} value={option}>
+                {MOD_KIND_LABELS[option]}
+              </option>
+            ))}
+          </select>
+        </label>
         <label className="inspector-field">
           <span>Target</span>
           <select
@@ -688,20 +711,6 @@ export function Inspector() {
                 </option>
               )
             })}
-          </select>
-        </label>
-
-        <label className="inspector-field">
-          <span>Kind</span>
-          <select
-            value={kind}
-            onChange={(e) => updateParams(node.id, { kind: e.target.value as ModKind })}
-          >
-            {MOD_KINDS.map((option) => (
-              <option key={option} value={option}>
-                {MOD_KIND_LABELS[option]}
-              </option>
-            ))}
           </select>
         </label>
 

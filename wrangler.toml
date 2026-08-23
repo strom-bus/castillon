@@ -12,6 +12,22 @@
 #
 #   npx wrangler secret put GALLERY_ADMIN_KEY             paste a long random string
 #
+# It lives only here, on the service. It is not in this repository, the app never holds it, and no build
+# embeds it — so rotating it is that one command and nothing else: no code change, no deploy, no push.
+# It takes effect on the next request. Generate one with `openssl rand -base64 32` rather than choosing
+# a word, and check afterwards that the old one is refused:
+#
+#   curl -s -o /dev/null -w '%{http_code}\n' -X DELETE \
+#     https://castillon-share.strombus.workers.dev/gallery/00000000-0000-0000-0000-000000000000 \
+#     -H 'authorization: Bearer <the old key>' -H 'content-type: application/json' -d '{}'
+#
+# 403 means it is refused, which is the answer wanted. 204 means it still works.
+#
+# Deploying from CI needs a token instead of a browser login: Cloudflare dashboard, My Profile, API
+# Tokens, Create Token, the "Edit Cloudflare Workers" template, adding D1 · Edit if the template does
+# not list it. Then `gh secret set CLOUDFLARE_API_TOKEN` in a terminal — which prompts, so the token is
+# never in a shell history or a file.
+#
 # Then, to remove anything at all:
 #
 #   curl -X DELETE https://castillon-share.strombus.workers.dev/gallery/<id> \
@@ -22,6 +38,15 @@
 name = "castillon-share"
 main = "src/share/worker.ts"
 compatibility_date = "2026-08-19"
+
+# Named here rather than left to be inferred, and not a secret — it identifies an account, it does not
+# open one.
+#
+# Not required today, which is worth writing down rather than implying otherwise: a token scoped to a
+# single account lets wrangler work the account out on its own, and the CI deploy ran green without this
+# line. It matters for a token that can see more than one, where wrangler cannot choose and fails asking
+# for an environment variable nobody knew to set. One line, and that failure cannot arrive later.
+account_id = "dc4ee830024b072d08f87f77c5dd46dd"
 
 # Created by the command above; the id is not a secret.
 [[kv_namespaces]]

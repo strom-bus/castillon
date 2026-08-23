@@ -251,7 +251,15 @@ export function ModNode({ id, data, selected }: NodeProps<FlowNode>) {
         <span className="node-title">
           MOD <span className="node-ordinal">{ordinal}</span>
         </span>
-        <span className="node-meta">{target?.label ?? '—'}</span>
+        {/* An envelope says how it fires, because that is the whole difference between two of them and
+            the node showed neither. One waits for a trigger and has ports to take one; the other runs
+            on every note and has none — so the ports differ while the setting behind them was invisible,
+            and two modulators that read identically had visibly different shapes. An LFO has no firing
+            mode to report: its clock is its own. */}
+        <span className="node-meta">
+          {target?.label ?? '—'}
+          {envelope && ` · ${params.fires === 'note' ? 'note' : 'trig'}`}
+        </span>
       </div>
       <div className="mod-body">
         {envelope ? (

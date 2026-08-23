@@ -1,3 +1,4 @@
+import { ModNode } from './nodes'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { beforeEach, describe, expect, it } from 'vitest'
@@ -183,5 +184,60 @@ describe('the event ports', () => {
       </ReactFlowProvider>,
     )
     expect(portsOn(id)).toEqual({ top: true, bottom: true })
+  })
+})
+
+/**
+ * That a modulator says which kind it is, and not only shows the consequence.
+ *
+ * Two envelopes with the same target read identically on the canvas while having visibly different
+ * shapes: one waits for a trigger and carries ports to take one, the other runs on every note and has
+ * none. The ports were the only clue, and they are downstream of a setting the node never mentioned —
+ * which is how it came to look like the dice was producing two different things at random.
+ */
+describe('what a modulator says about itself', () => {
+  function showMod(params: ModParams): string {
+    const store = usePatchStore.getState()
+    store.addNode('mod', { x: 0, y: 0 })
+    const mod = usePatchStore.getState().nodes.at(-1)!
+    usePatchStore.getState().updateParams(mod.id, params)
+
+    const { container } = render(
+      <ReactFlowProvider>
+        <ModNode
+          id={mod.id}
+          data={{
+            params: usePatchStore.getState().nodes.find((n) => n.id === mod.id)!.data.params,
+          }}
+          selected={false}
+          type="mod"
+          dragging={false}
+          zIndex={0}
+          isConnectable
+          draggable
+          selectable
+          deletable
+          positionAbsoluteX={0}
+          positionAbsoluteY={0}
+        />
+      </ReactFlowProvider>,
+    )
+    return container.querySelector('.node-meta')?.textContent ?? ''
+  }
+
+  it('tells an envelope waiting for a trigger from one running on every note', () => {
+    const onTrigger = showMod({ kind: 'env', fires: 'trigger', target: 'level' })
+    const onNote = showMod({ kind: 'env', fires: 'note', target: 'level' })
+
+    expect(onTrigger).not.toBe(onNote)
+    expect(onNote).toMatch(/note/)
+    expect(onTrigger).toMatch(/trig/)
+  })
+
+  it('says nothing about firing on an LFO, which has no firing to report', () => {
+    // Its clock is its own, so the question does not arise — and answering it anyway would put a word
+    // on the node that means nothing there.
+    const lfo = showMod({ kind: 'lfo', rate: 2, target: 'level' })
+    expect(lfo).not.toMatch(/note|trig/)
   })
 })

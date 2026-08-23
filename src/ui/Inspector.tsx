@@ -44,6 +44,7 @@ import {
   MAX_RATCHET,
   MAX_WARP,
   SPEEDS,
+  SWINGS,
   MIN_NOTE,
   DEFAULT_IGNITE,
   type Step,
@@ -587,6 +588,26 @@ function StepPanel({
  * Halves and thirds as fractions rather than as decimals, because "1/3" is a musical thought and
  * "0.333" is an arithmetic one — and a third is exactly the ratio somebody reaches for.
  */
+/**
+ * A swing ratio as a feel rather than as a number.
+ *
+ * "2" is the arithmetic — the long half is twice the short — and "Triplet" is what it sounds like, which
+ * is what somebody is choosing between. The number stays beside the word because the two together are how
+ * you learn what the words mean.
+ */
+function swingLabel(ratio: number): string {
+  const names: Record<string, string> = {
+    '1': 'Straight',
+    '1.2': 'A hair',
+    '1.5': 'Shuffle',
+    '1.75': 'Heavy shuffle',
+    '2': 'Triplet',
+    '2.5': 'Dragging',
+    '3': 'Nearly a gap',
+  }
+  return ratio === 1 ? 'Straight' : `${names[String(ratio)] ?? 'Swung'}  (${ratio}:1)`
+}
+
 function ratioLabel(ratio: number): string {
   if (ratio === 1) return 'x1  (as written)'
   const fractions: Record<string, string> = {
@@ -1057,6 +1078,35 @@ export function Inspector() {
             ))}
           </select>
         </label>
+
+        {/* Beside its ratio rather than inside it, and that is not a second way of saying straight — 1 is
+            already straight. It is a bypass: what you do with a groove is listen straight, then swung,
+            then straight again, and a control walked back to 1 loses the setting every time. Off to begin
+            with, so a warp added and untouched still does nothing at all. */}
+        <label className="inspector-check">
+          <input
+            type="checkbox"
+            checked={warpParams.useSwing === true}
+            onChange={(e) => updateParams(node.id, { useSwing: e.target.checked })}
+          />
+          <span>Swing</span>
+        </label>
+
+        {warpParams.useSwing && (
+          <label className="inspector-field">
+            <span className="inspector-label">Feel</span>
+            <select
+              value={String(warpParams.swing ?? 1)}
+              onChange={(e) => updateParams(node.id, { swing: Number(e.target.value) })}
+            >
+              {SWINGS.map((ratio) => (
+                <option key={ratio} value={String(ratio)}>
+                  {swingLabel(ratio)}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
 
         <Slider
           label="Velocity"

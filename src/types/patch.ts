@@ -288,6 +288,24 @@ export const MAX_WARP_RATIO = 4
 /** Ratios a WARP offers for speed, all musical rather than arbitrary. Neutral is 1. */
 export const SPEEDS = [0.25, 1 / 3, 0.5, 2 / 3, 1, 1.5, 2, 3, 4] as const
 
+/**
+ * How lopsided a pair of steps is, as the ratio of the long half to the short.
+ *
+ * A ratio and not a displacement, which is what lets it join the other three. Two warps of half a step
+ * would come to a whole step of delay, which is nonsense, so a displacement has to be clamped — and
+ * clamping is the one thing that breaks the rule making any number of warps stack without deciding which
+ * wins. As a ratio it multiplies like Speed does: straight is 1, and two light swings come to a heavy one.
+ *
+ * Named for what a musician would recognise. 1.5 is the light shuffle most drum machines call "swing";
+ * 2 is the triplet feel, where the long half is twice the short; past 3 it stops being a groove and
+ * becomes a pair of hits with a gap.
+ */
+export const SWINGS = [1, 1.2, 1.5, 1.75, 2, 2.5, 3] as const
+
+/** Bounds for a swing arriving from a patch code, which need not have come from the list above. */
+export const MIN_SWING = 1
+export const MAX_SWING = 4
+
 export interface WarpParams {
   /**
    * Steps to move everything below this node, counted in whatever units each oscillator can offer.
@@ -309,6 +327,27 @@ export interface WarpParams {
    * is not — against a grid an arbitrary ratio is only out of time.
    */
   speed?: number
+  /**
+   * How lopsided each pair of steps is below here, as the ratio of the long half to the short.
+   *
+   * The first of these whose effect depends on *where* a step sits rather than scaling every step alike,
+   * which is a real step up in what the scheduler has to know. What it buys is a groove applied to a
+   * whole branch: swinging four oscillators by hand is four edits, which is the argument WARP exists on.
+   *
+   * A pair keeps its total length, so a sequence takes exactly as long swung as straight and hands the
+   * cascade on at the same moment. Swing changes how a branch *feels*, never when it ends — which is
+   * what keeps it from being a Speed with extra steps.
+   */
+  swing?: number
+  /**
+   * Whether that swing is applied at all, kept separate from the ratio.
+   *
+   * A ratio of 1 is already straight, so this is not a second way of saying off — it is a bypass. What
+   * you do with a groove is listen straight, then swung, then straight again, and a control that had to
+   * be walked back to 1 and then found again loses the setting every time. The same reason `useChance`
+   * and `useRatchet` are switches beside their values rather than inside them.
+   */
+  useSwing?: boolean
   /**
    * What to multiply every note's velocity by below here. 1 leaves it alone.
    *

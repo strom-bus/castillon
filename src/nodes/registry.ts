@@ -20,7 +20,9 @@ import {
   MAX_DELAY_MS,
   MAX_MOD_ATTACK,
   MAX_RATCHET,
+  MAX_SWING,
   MAX_WARP,
+  MIN_SWING,
   MAX_WARP_RATIO,
   MIN_WARP_RATIO,
   MAX_MOD_DECAY,
@@ -186,9 +188,11 @@ export interface Warping {
   speed: number
   velocity: number
   chance: number
+  /** The long half of a step pair against the short. 1 is straight, and also multiplied. */
+  swing: number
 }
 
-export const NO_WARPING: Warping = { pitch: 0, speed: 1, velocity: 1, chance: 1 }
+export const NO_WARPING: Warping = { pitch: 0, speed: 1, velocity: 1, chance: 1, swing: 1 }
 
 /**
  * What a list of warps comes to.
@@ -209,6 +213,9 @@ export function warpingOf(nodes: PatchNode[], applying: readonly NodeId[]): Warp
     total.speed *= clamp(params.speed ?? 1, MIN_WARP_RATIO, MAX_WARP_RATIO)
     total.velocity *= clamp(params.velocity ?? 1, 0, MAX_WARP_RATIO)
     total.chance *= clamp(params.chance ?? 1, 0, MAX_WARP_RATIO)
+    // Only where the switch is on, which is what makes it a bypass rather than a second neutral point:
+    // the ratio is remembered while off, so a groove can be listened to straight and put back.
+    if (params.useSwing) total.swing *= clamp(params.swing ?? 1, MIN_SWING, MAX_SWING)
   }
   return total
 }
@@ -302,10 +309,29 @@ const osc: NodeDefinition = {
     const count = normaliseStepCount(params.steps?.length ?? DEFAULT_STEP_COUNT)
     activity.push({ kind: 'node', id: node.id, time, duration: step * count })
 
+    /*
+     * Swing, as a pair of steps sharing their two step-lengths unevenly.
+     *
+     * The long half gets `swing / (swing + 1)` of the pair and the short half the rest, so **a pair keeps
+     * its total** — a sequence takes exactly as long swung as straight, and hands the cascade on at the
+     * same moment. That is what stops this being a Speed in disguise: it changes how a branch feels and
+     * never when it ends, so swinging one branch cannot pull the patch apart.
+     *
+     * At a swing of 1 both halves are one step and every line below reduces to what it was.
+     *
+     * Every selectable step count is even, so the pattern always closes: no sequence ends on a long half
+     * with another long half following it round the loop.
+     */
+    const pair = step * 2
+    const long = (pair * warping.swing) / (warping.swing + 1)
+    const lengthOf = (index: number) => (index % 2 === 0 ? long : pair - long)
+    const startOf = (index: number) => Math.floor(index / 2) * pair + (index % 2 === 1 ? long : 0)
+
     for (let i = 0; i < count; i++) {
-      const at = time + i * step
+      const at = time + startOf(i)
+      const held = lengthOf(i)
       const s = params.steps[i]
-      activity.push({ kind: 'step', id: node.id, step: i, time: at, duration: step })
+      activity.push({ kind: 'step', id: node.id, step: i, time: at, duration: held })
       if (!s || !s.active) continue
 
       /*
@@ -335,10 +361,12 @@ const osc: NodeDefinition = {
        */
       const velocity = clamp(s.velocity * warping.velocity, 0, 1)
 
-      // Hits share the slot, so a roll fits inside the step rather than running over the next one.
+      // Hits share the slot, so a roll fits inside the step rather than running over the next one. The
+      // step being swung, a roll on the long half is slower than the same roll on the short one — which
+      // is what a roll played with a groove does.
       const asked = params.useRatchet ? (s.ratchet ?? 1) : 1
       const hits = Math.min(MAX_RATCHET, Math.max(1, Math.round(asked)))
-      const slot = step / hits
+      const slot = held / hits
 
       for (let hit = 0; hit < hits; hit++) {
         /*

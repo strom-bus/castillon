@@ -937,8 +937,8 @@ export const MANUAL: Section[] = [
         es: 'Un WARP se engancha al costado de un oscilador y dobla ese oscilador y todo lo que la cascada alcanza desde él. Engánchalo al de arriba de una rama y se lleva la rama; engánchalo al último y se lleva solo ese. Un oscilador, porque un oscilador es lo que toca notas — en un disparo o en una espera no hay nada que un warp pueda doblar.',
       },
       {
-        en: 'It is not part of the chain, which is the whole point of it: nothing gets rewired and nothing fires twice. Four controls, each at a neutral point, so a WARP you have just added leaves the patch exactly as it was until you move something.',
-        es: 'No forma parte de la cadena, y en eso está su gracia: no se recablea nada y nada dispara dos veces. Cuatro controles, cada uno en un punto neutro, así que un WARP recién añadido deja el patch tal como estaba hasta que muevas algo.',
+        en: 'It is not part of the chain, which is the whole point of it: nothing gets rewired and nothing fires twice. Every control starts at a neutral point, so a WARP you have just added leaves the patch exactly as it was until you move something.',
+        es: 'No forma parte de la cadena, y en eso está su gracia: no se recablea nada y nada dispara dos veces. Cada control arranca en un punto neutro, así que un WARP recién añadido deja el patch tal como estaba hasta que muevas algo.',
       },
     ],
     detail: [
@@ -957,6 +957,20 @@ export const MANUAL: Section[] = [
             text: {
               en: 'Stretches or squeezes every step below it. This is the thing a DELAY cannot do: a delay sets two branches a fixed distance apart, and a ratio makes them drift and keep drifting. A list of musical ratios rather than a slider, because against a grid a half and a third are worth having and 0.87 is only out of time.',
               es: 'Estira o comprime todos los pasos de debajo. Esto es lo que un DELAY no puede hacer: un retardo separa dos ramas a una distancia fija, y una razón las hace desfasarse y seguir desfasándose. Es una lista de razones musicales y no un slider, porque contra una rejilla un medio y un tercio valen la pena y 0.87 solo está a contratiempo.',
+            },
+          },
+          {
+            term: { en: 'Swing', es: 'Swing' },
+            text: {
+              en: 'Makes each pair of steps below it uneven: the first long, the second late and short. It is a switch beside its own value rather than a value with an off end, because what you do with a groove is listen straight, then swung, then straight again — and a control you had to walk back to straight would lose the setting every time. Off to begin with, so a WARP you have just added still does nothing.',
+              es: 'Vuelve desigual cada par de pasos de debajo: el primero largo, el segundo tarde y corto. Es un interruptor al lado de su valor y no un valor con un extremo apagado, porque lo que haces con un groove es escucharlo recto, luego con swing, luego recto otra vez — y un control que hubiera que devolver a recto perdería el ajuste cada vez. Empieza apagado, así que un WARP recién puesto sigue sin hacer nada.',
+            },
+          },
+          {
+            term: { en: 'Feel', es: 'Feel' },
+            text: {
+              en: 'How uneven, as the long half against the short. Shuffle is the one most machines call swing; Triplet is the long half lasting twice the short, which is the jazz feel; past that it stops being a groove and becomes two hits with a gap. Whatever you choose, a pair keeps its total — so a sequence takes exactly as long swung as straight, and hands the cascade on at the same moment. Swing changes how a branch feels, never when it ends.',
+              es: 'Cuánto de desigual, como la mitad larga contra la corta. Shuffle es el que casi todas las máquinas llaman swing; Triplet es la mitad larga durando el doble que la corta, el aire del jazz; más allá deja de ser un groove y son dos golpes con un hueco. Elijas lo que elijas, un par conserva su total — así que una secuencia dura exactamente lo mismo con swing que recta, y pasa la cascada en el mismo momento. El swing cambia cómo se siente una rama, nunca cuándo termina.',
             },
           },
           {

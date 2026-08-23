@@ -15,6 +15,8 @@ import {
   MAX_DECAY,
   MAX_DELAY_MS,
   MAX_WARP,
+  SWINGS,
+  SPEEDS,
   MAX_FEEDBACK,
   MAX_NOTE,
   MAX_RATE,
@@ -104,6 +106,12 @@ const FLAG_IGNITE_TRIGGER = 1
 const FLAG_MODULATION = 2
 
 /** Cable kinds, in the order their index is written. Appended to, never reordered. */
+/** Widths for a warp's fields. Wide enough that each table can grow without a format change. */
+const WARP_SPEED_BITS = 4
+const WARP_SWING_BITS = 4
+/** Velocity and chance in fiftieths, which covers 0 to 4 in a byte. */
+const WARP_LEVEL_BITS = 8
+
 const EDGE_KINDS = ['event', 'audio', 'mod', 'warp'] as const
 
 /** How a short string is written: a length and then its characters. */
@@ -589,6 +597,56 @@ function readText(reader: BitReader): string {
  * of whatever effect the cable landed on, so the set is open and a table of names would fail the
  * moment an effect gained a parameter.
  */
+/**
+ * A warp's five dimensions.
+ *
+ * Only `transpose` used to travel. The other three were added to the node and never to the code, so a
+ * warp set to two-thirds speed came back at 1 — the preset built around exactly that shared as a
+ * different patch, silently, in the version that shipped. What hid it is that the round-trip check
+ * compared `encode(decode(code))` with `code`, which is stability and not fidelity: both encodes dropped
+ * the same fields, so the two strings matched perfectly while the patch between them changed.
+ *
+ * Written unconditionally rather than behind a presence bitmask. A warp is one node, the five fields come
+ * to twenty-four bits, and a conditional layout is a second thing both ends have to agree about — which
+ * is the class of mistake being fixed here, not one to introduce while fixing it.
+ */
+function writeWarp(writer: BitWriter, raw: WarpParams): void {
+  // Shifted so the sign travels without a bit of its own: five bits carry the whole range twice over.
+  writer.write(quantise(raw.transpose ?? 0, 1, -MAX_WARP, MAX_WARP) + MAX_WARP, 5)
+  // Ratios by index into their tables, which are append-only, so a new ratio never moves an old one.
+  writer.write(indexOfNearest(SPEEDS, raw.speed ?? 1), WARP_SPEED_BITS)
+  writer.write(indexOfNearest(SWINGS, raw.swing ?? 1), WARP_SWING_BITS)
+  writer.write(raw.useSwing === true ? 1 : 0, 1)
+  // Free numbers, so hundredths of their range rather than an index.
+  writer.write(quantise((raw.velocity ?? 1) * 50, 1, 0, 200), WARP_LEVEL_BITS)
+  writer.write(quantise((raw.chance ?? 1) * 50, 1, 0, 200), WARP_LEVEL_BITS)
+}
+
+function readWarp(reader: BitReader): WarpParams {
+  const transpose = reader.read(5) - MAX_WARP
+  const speed = SPEEDS[reader.read(WARP_SPEED_BITS)] ?? 1
+  const swing = SWINGS[reader.read(WARP_SWING_BITS)] ?? 1
+  const useSwing = reader.read(1) === 1
+  const velocity = reader.read(WARP_LEVEL_BITS) / 50
+  const chance = reader.read(WARP_LEVEL_BITS) / 50
+  return { transpose, speed, swing, useSwing, velocity, chance }
+}
+
+/**
+ * Where in an append-only table a value belongs, by nearness rather than by equality.
+ *
+ * A code can carry a ratio the table does not hold — an older code, or a hand-built patch — and
+ * `indexOf` answers -1 for those, which would silently store the first entry. Nearest stores the closest
+ * thing the format can say, which is the honest lossy answer a code is allowed to give.
+ */
+function indexOfNearest(table: readonly number[], value: number): number {
+  let best = 0
+  for (let i = 1; i < table.length; i++) {
+    if (Math.abs(table[i]! - value) < Math.abs(table[best]! - value)) best = i
+  }
+  return best
+}
+
 function writeMod(writer: BitWriter, raw: ModParams): void {
   // One bit for the kind, and both kinds' parameters written either way. A MOD is one node in a patch
   // and the few spare bits are not worth a conditional layout that both ends have to agree on.
@@ -670,9 +728,7 @@ export function encodePatch(patch: Patch): string {
       const { delayMs } = { ...defaultDelayParams(), ...(node.params as DelayParams) }
       writer.write(quantise(delayMs / 10, 1, MIN_DELAY_MS / 10, MAX_DELAY_MS / 10), 9)
     } else if (node.type === 'warp') {
-      // Shifted so the sign travels without a bit of its own: five bits carry the whole range twice over.
-      const { transpose } = { ...defaultWarpParams(), ...(node.params as WarpParams) }
-      writer.write(quantise(transpose, 1, -MAX_WARP, MAX_WARP) + MAX_WARP, 5)
+      writeWarp(writer, { ...defaultWarpParams(), ...(node.params as WarpParams) })
     } else if (node.type === 'start' && anyBound) {
       writeStart(writer, node.params as StartParams)
     } else if (node.type === 'mod') {
@@ -730,7 +786,7 @@ export function decodePatch(code: string): Patch | null {
       } else if (type === 'delay') {
         params = { delayMs: reader.read(9) * 10 }
       } else if (type === 'warp') {
-        params = { transpose: reader.read(5) - MAX_WARP }
+        params = readWarp(reader)
       } else if (type === 'start' && ignitesCarryTrigger) {
         params = readStart(reader)
       } else if (type === 'mod') {

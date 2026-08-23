@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { defaultFxParams, defaultOscParams } from '../nodes/registry'
-import type { ModParams, Patch, PatchEdge, PatchNode, StartParams } from '../types/patch'
+import type {
+  WarpParams,
+  ModParams,
+  Patch,
+  PatchEdge,
+  PatchNode,
+  StartParams,
+} from '../types/patch'
 import { BitWriter } from './bits'
 import { INITIAL_PATCH_CODE } from './patchStore'
 import {
@@ -618,6 +625,87 @@ describe('modulation in the code', () => {
       [{ id: 'e', kind: 'mod', source: 'm', target: 'a' }],
     )
     expect(roundTrip(patch)!.edges[0].kind).toBe('mod')
+  })
+
+  describe('a warp, whose every dimension has to travel', () => {
+    /*
+     * Only `transpose` did. The other three were added to the node and never to the code, so a warp set
+     * to two-thirds speed decoded at 1 — and the preset built around exactly that shared as a different
+     * patch, silently, in the version that shipped.
+     *
+     * What hid it is the shape of the check I had written. It compared `encode(decode(code))` with `code`
+     * and called that a round trip, but that is **stability**, not fidelity: both encodes dropped the same
+     * fields, so the strings matched perfectly while the patch between them changed. So this compares the
+     * parameters, which is the only thing that could have caught it.
+     */
+    const warped = (params: WarpParams) =>
+      patchOf(
+        [
+          { id: 's', type: 'start', position: { x: 0, y: 0 }, params: {} },
+          oscNode('a'),
+          { id: 'w', type: 'warp', position: { x: -500, y: 200 }, params },
+        ],
+        [
+          { id: 'e1', kind: 'event', source: 's', target: 'a' },
+          { id: 'e2', kind: 'warp', source: 'w', target: 'a' },
+        ],
+      )
+
+    const through = (params: WarpParams): WarpParams => {
+      const back = roundTrip(warped(params))!
+      return back.nodes.find((node) => node.type === 'warp')!.params as WarpParams
+    }
+
+    it('keeps all five, not just the one it started with', () => {
+      const out = through({
+        transpose: 3,
+        speed: 0.5,
+        velocity: 0.6,
+        chance: 0.7,
+        swing: 1.5,
+        useSwing: true,
+      })
+      expect(out.transpose).toBe(3)
+      expect(out.speed).toBeCloseTo(0.5, 5)
+      expect(out.velocity).toBeCloseTo(0.6, 5)
+      expect(out.chance).toBeCloseTo(0.7, 5)
+      expect(out.swing).toBeCloseTo(1.5, 5)
+      expect(out.useSwing).toBe(true)
+    })
+
+    it('keeps the swing switch off when it is off, ratio and all', () => {
+      // The switch is a bypass, so the ratio has to survive being unused — that is the whole point of it
+      // being separate from the value.
+      const out = through({ transpose: 0, swing: 2, useSwing: false })
+      expect(out.useSwing).toBe(false)
+      expect(out.swing).toBeCloseTo(2, 5)
+    })
+
+    it('carries a negative transpose with its sign', () => {
+      expect(through({ transpose: -4 }).transpose).toBe(-4)
+    })
+
+    it('stores the nearest ratio it can say for one not in the table', () => {
+      /*
+       * A ratio can arrive from an older code or a hand-built patch. `indexOf` answers -1 for those, and
+       * writing -1 clamped to 0 would store the *first* entry — a quarter speed for something asked to be
+       * nearly straight. Nearest is the honest lossy answer.
+       */
+      expect(through({ transpose: 0, speed: 0.49 }).speed).toBeCloseTo(0.5, 5)
+      expect(through({ transpose: 0, speed: 0.97 }).speed).toBeCloseTo(1, 5)
+      expect(through({ transpose: 0, swing: 1.51, useSwing: true }).swing).toBeCloseTo(1.5, 5)
+    })
+
+    it('leaves a warp at rest reading as one at rest', () => {
+      // Every dimension neutral in and neutral out, so a warp added and not touched cannot come back
+      // doing something.
+      const out = through({ transpose: 0 })
+      expect(out.transpose).toBe(0)
+      expect(out.speed).toBeCloseTo(1, 5)
+      expect(out.velocity).toBeCloseTo(1, 5)
+      expect(out.chance).toBeCloseTo(1, 5)
+      expect(out.useSwing).toBe(false)
+    })
   })
 
   describe('a code that travelled', () => {

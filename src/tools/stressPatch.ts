@@ -175,6 +175,50 @@ export function stressPatch(): Patch {
     })
 
   /*
+   * A modulator whose shape does not repeat, on a filter that is built per note.
+   *
+   * The dearest kind of modulation there is — one cable, and as many biquads swept as there are voices in
+   * the air — so it belongs in a load test on those grounds alone. `random` rather than a sine because a
+   * stepped random is the one shape that cannot be optimised into predictability by anything, and because
+   * a load test that never exercises it is a load test of the shapes that happened to exist first.
+   */
+  nodes.push({
+    id: 'rnd',
+    type: 'mod',
+    position: { x: -COLUMN, y: 2 * ROW },
+    params: {
+      kind: 'lfo',
+      wave: 'random',
+      rate: 6,
+      depth: 0.8,
+      target: 'cutoff',
+    },
+  })
+  wire('rnd', 'o1', 'mod')
+
+  /*
+   * And one oscillator played by hand rather than by the transport.
+   *
+   * A bound Ignite is a path through the engine like any other — key or MIDI note in, trigger out — and
+   * nothing else here exercises it. Its own branch is one small oscillator, so what Play measures is
+   * unchanged but for a forty-eighth: the load test still says what it says, and the trigger layer is no
+   * longer the one part of the instrument this patch never touches.
+   */
+  nodes.push({
+    id: 'key',
+    type: 'start',
+    position: { x: -COLUMN, y: 3 * ROW },
+    params: { trigger: 'bound', binding: { source: 'key', code: 'KeyS' }, behaviour: 'hold' },
+  })
+  nodes.push({
+    id: 'played',
+    type: 'osc',
+    position: { x: -COLUMN, y: 4 * ROW },
+    params: { ...oscFor(3), propagateMode: 'onEnd' },
+  })
+  wire('key', 'played')
+
+  /*
    * And a warp on the head oscillator, which reaches every one below it.
    *
    * Speed is the only control in the instrument that changes the load rather than only the sound: all

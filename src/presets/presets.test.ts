@@ -11,6 +11,7 @@
 import { describe, expect, it } from 'vitest'
 import { PRESETS } from './presets'
 import { estimatePeakLoad } from '../audio/load'
+import { stressLoad } from '../tools/stressPatch'
 import { LAYER_THRESHOLD, MAX_LOAD } from '../audio/load'
 import { silentBecause, targetsFor } from '../audio/modulation'
 import { permits } from '../state/connections'
@@ -151,15 +152,44 @@ describe('the presets', () => {
     expect(sounding.length).toBeGreaterThan(0)
   })
 
-  it.each(PRESETS)('$name stays well inside the budget', ({ patch }) => {
-    /*
-     * Under the threshold where the engine starts stealing voices rather than layering them, not merely
-     * under the ceiling: a preset is the reference for what a healthy patch looks like, and one that
-     * arrives already degrading teaches the wrong thing. Slower machines than this one will open it too.
-     */
-    const load = estimatePeakLoad(patch)
-    expect(load).toBeGreaterThan(0)
-    expect(load, `${load.toFixed(0)} points`).toBeLessThan(MAX_LOAD * LAYER_THRESHOLD)
+  it.each(PRESETS.filter((one) => !one.loadTest))(
+    '$name stays well inside the budget',
+    ({ patch }) => {
+      /*
+       * Under the threshold where the engine starts stealing voices rather than layering them, not merely
+       * under the ceiling: a preset is the reference for what a healthy patch looks like, and one that
+       * arrives already degrading teaches the wrong thing. Slower machines than this one will open it too.
+       */
+      const load = estimatePeakLoad(patch)
+      expect(load).toBeGreaterThan(0)
+      expect(load, `${load.toFixed(0)} points`).toBeLessThan(MAX_LOAD * LAYER_THRESHOLD)
+    },
+  )
+
+  it.each(PRESETS.filter((one) => one.loadTest))(
+    '$name is past the threshold, which is the whole point of it',
+    ({ patch }) => {
+      /*
+       * The opposite assertion, for the one preset that is not music. A load test under the threshold is
+       * not a load test, and it would have passed the rule above by accident rather than by being light:
+       * `estimatePeakLoad` caps how many voices an oscillator is assumed to hold at four, and these hold
+       * about twenty, so it reads well under half of what this costs. Asked the honest way instead.
+       */
+      const { voices, effects } = stressLoad(patch)
+      const total = voices + effects
+      expect(total, `${total.toFixed(0)} points`).toBeGreaterThan(MAX_LOAD * LAYER_THRESHOLD)
+      // And short of the ceiling, or it would be certain to glitch and say nothing about where glitching
+      // begins.
+      expect(total, `${total.toFixed(0)} points`).toBeLessThan(MAX_LOAD)
+    },
+  )
+
+  it('ships exactly one load test, and says so on its face', () => {
+    // A patch that arrives already degrading teaches the wrong thing *unless it says it is meant to*.
+    // The flag is what makes that exemption a declaration rather than a hole in the rule.
+    const tests = PRESETS.filter((one) => one.loadTest)
+    expect(tests).toHaveLength(1)
+    expect(tests[0]!.about.toLowerCase()).toContain('not music')
   })
 
   it.each(PRESETS)('$name wires only cables the instrument has', ({ patch }) => {

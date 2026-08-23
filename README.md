@@ -143,13 +143,23 @@ refused, since between an oscillator and an effect there is only one direction t
   ports, which is a hole covered rather than closed; the second was to narrow the rule so no port
   has to be invented for a cable that means nothing.
 
-  Four dimensions, each named for what it bends rather than for the arithmetic that bends it.
+  Five dimensions, each named for what it bends rather than for the arithmetic that bends it.
   **Pitch** moves in degrees of each oscillator's own scale and in semitones where that oscillator is
   free, so a bass in pentatonic and a lead in minor both move a third and both stay in key. **Speed**
   divides the step, which is the one thing a DELAY cannot do — a delay sets two branches a fixed
   distance apart and holds them there, and a ratio makes them drift and keep drifting. **Velocity**
   scales what every note below is worth, and **Chance** thins the branch out whether or not the
   oscillators below use per-step chance.
+
+  **Swing** makes each pair of steps uneven, and it is the first of these whose effect depends on
+  _where_ a step sits rather than scaling every step alike. Expressed as the ratio of the long half to
+  the short, which is what lets it join the others: a displacement would have to be clamped when two
+  stacked, and clamping is the one thing that breaks stacking. A pair keeps its total, so a sequence
+  takes exactly as long swung as straight and hands the cascade on at the same moment — swing changes
+  how a branch feels, never when it ends. Every selectable step count is even, so the pattern always
+  closes. It sits behind a switch beside its own value rather than at one end of it, because listening
+  straight, then swung, then straight again is what you actually do with a groove, and a control walked
+  back to 1 loses the setting.
 
   Pitch adds where the three ratios multiply, which is what lets any number of them stack without
   deciding which one wins: two thirds up come to a sixth, two halves come to a quarter. What travels
@@ -189,9 +199,12 @@ refused, since between an oscillator and an effect there is only one direction t
   popular sort does not freeze on whatever was published first. Two tabs: the patches people have
   shared, and **six presets** that come with the machine.
 
-  Each preset is built around one idea that is hard to arrive at by rolling, and small enough to read
-  at a glance — the plain cascade, why there is no clock, one phrase driving another note by note,
-  branches beside branches, a figure that never repeats itself, and a branch bent from the side. They
+  Five are built around one idea that is hard to arrive at by rolling and small enough to read at a
+  glance — the plain cascade, why there is no clock, one phrase driving another note by note, a figure
+  that never repeats itself, and a branch bent from the side. The sixth is not music at all: the load
+  test, which used to live only as a two-thousand-character code in a text file, and is far more useful
+  where it can be opened. It is the one preset exempt from arriving under the layering threshold, and it
+  says "not music" on its own card so the exemption cannot mislead. They
   are built from the same defaults every node gets rather than written out field by field, so a preset
   cannot fall behind a parameter added after it was written. A test requires that between them they
   demonstrate every part of the machine, for the same reason the dice does: a preset is the one place
@@ -228,7 +241,7 @@ refused, since between an oscillator and an effect there is only one direction t
   it longer without making it clearer. Both languages live adjacent in one file so a half-finished
   edit shows up in the diff rather than as a blank paragraph months later.
 
-  Thirteen chapters and a hundred and fifteen entries, written for whoever is using the instrument
+  Thirteen chapters and a hundred and seventeen entries, written for whoever is using the instrument
   rather than for whoever built it: no entry explains how something is implemented, and every one says
   what a control does to the sound and when you would reach for it. One chapter per module, each in
   the order its own panel is in and under the panel's own group headings, so reading the manual and

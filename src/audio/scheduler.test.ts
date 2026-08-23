@@ -848,7 +848,12 @@ describe('a warp attached to a node', () => {
   }
 
   /** Two steps rather than one, so a change of pace is visible as the gap between them. */
-  function attachedWith(first: WarpParams, second?: WarpParams, roll = 0) {
+  function attachedWith(
+    first: WarpParams,
+    second?: WarpParams,
+    roll = 0,
+    over: Partial<OscParams> = {},
+  ) {
     const nodes: PatchNode[] = [
       { id: 's', type: 'start', position: { x: 0, y: 0 }, params: {} },
       {
@@ -861,6 +866,7 @@ describe('a warp attached to a node', () => {
             { note: 60, active: true, velocity: 1 },
             { note: 60, active: true, velocity: 1 },
           ],
+          ...over,
         },
       },
       { id: 'w1', type: 'warp', position: { x: 0, y: 0 }, params: first },
@@ -988,6 +994,117 @@ describe('a warp attached to a node', () => {
      */
     expect(attachedWith({ transpose: 0, chance: 0.5 }, undefined, 0.9)).toHaveLength(0)
     expect(attachedWith({ transpose: 0, chance: 0.5 }, undefined, 0.1)).not.toHaveLength(0)
+  })
+
+  describe('swing', () => {
+    /*
+     * A pair of steps sharing their two step-lengths unevenly, and the property that matters most is the
+     * one about what does *not* change: a pair keeps its total, so a sequence takes exactly as long swung
+     * as straight and hands the cascade on at the same moment. Without that, swinging one branch would
+     * pull the whole patch out of shape and it would be a Speed with extra rules.
+     */
+    const starts = (params: WarpParams) => attachedWith(params).map((note) => note.time)
+    const gaps = (params: WarpParams) => {
+      const times = starts(params)
+      return times.slice(1).map((time, i) => time - times[i]!)
+    }
+
+    it('does nothing at all until the switch is on', () => {
+      // The ratio is remembered while unused, which is the whole reason it is a switch and not a value.
+      expect(gaps({ transpose: 0, swing: 2 })).toEqual(gaps({ transpose: 0 }))
+    })
+
+    it('lengthens the first of a pair and shortens the second', () => {
+      const swung = attachedWith({ transpose: 0, swing: 2, useSwing: true })
+      const plain = attachedWith({ transpose: 0 })
+      // Two steps, so the first note's own slot is the long half and it starts where it always did.
+      expect(swung[0]!.time).toBeCloseTo(plain[0]!.time, 6)
+      expect(swung[1]!.time).toBeGreaterThan(plain[1]!.time)
+    })
+
+    it('leaves every pair boundary exactly where it was, however hard it swings', () => {
+      /*
+       * The invariant that matters most, and the cleanest way to state it: only the *inside* of a pair
+       * moves. With four steps, the third starts at two step-lengths whatever the swing, because the pair
+       * before it kept its total. That is what makes a sequence take exactly as long swung as straight,
+       * and therefore hand the cascade on at the same moment — without it, swinging one branch would pull
+       * everything below it out of place and this would be a Speed with extra rules.
+       */
+      const four = [
+        { note: 60, active: true, velocity: 1 },
+        { note: 62, active: true, velocity: 1 },
+        { note: 64, active: true, velocity: 1 },
+        { note: 65, active: true, velocity: 1 },
+      ]
+      const at = (params: WarpParams) =>
+        attachedWith(params, undefined, 0, { steps: four }).map((note) => note.time)
+
+      const straight = at({ transpose: 0 })
+      for (const ratio of [1.5, 2, 3]) {
+        const swung = at({ transpose: 0, swing: ratio, useSwing: true })
+        expect(swung[0], `${ratio}:1`).toBeCloseTo(straight[0]!, 6)
+        expect(swung[2], `${ratio}:1`).toBeCloseTo(straight[2]!, 6)
+        // And the inside of each pair really did move, or the check above proves nothing.
+        expect(swung[1]!).toBeGreaterThan(straight[1]!)
+        expect(swung[3]!).toBeGreaterThan(straight[3]!)
+      }
+    })
+
+    it('makes the long half exactly that many times the short', () => {
+      /*
+       * The assertion that pins the split, and the reason it is this one: my first attempt checked that
+       * the short half *ends* on the pair boundary, which is a tautology of the arithmetic — `long` plus
+       * `pair − long` is `pair` whatever `long` is, so it passed with `long` set to three times the pair
+       * and a step of negative length. A test that cannot fail for the thing it names is worse than none.
+       *
+       * The ratio is what the control claims to be, and it fixes the split uniquely. Gate at one so a
+       * note's duration is its whole slot.
+       */
+      const four = Array.from({ length: 4 }, () => ({ note: 60, active: true, velocity: 1 }))
+      for (const ratio of [1.5, 2, 3]) {
+        const notes = attachedWith({ transpose: 0, swing: ratio, useSwing: true }, undefined, 0, {
+          steps: four,
+          gate: 1,
+        })
+        expect(notes[0]!.duration / notes[1]!.duration, `${ratio}:1`).toBeCloseTo(ratio, 5)
+        // Both halves real, and in order — which is what the tautology above could not see.
+        for (const note of notes) expect(note.duration, `${ratio}:1`).toBeGreaterThan(0)
+        for (let i = 1; i < notes.length; i++) {
+          expect(notes[i]!.time, `${ratio}:1`).toBeGreaterThan(notes[i - 1]!.time)
+        }
+      }
+    })
+
+    it('is straight at a ratio of one, even with the switch on', () => {
+      expect(gaps({ transpose: 0, swing: 1, useSwing: true })).toEqual(gaps({ transpose: 0 }))
+    })
+
+    it('multiplies when two of them reach the same notes', () => {
+      // Which is the property that lets any number stack without deciding which wins — the same reason
+      // the other ratios multiply and the pitch adds.
+      const once = gaps({ transpose: 0, swing: 1.5, useSwing: true })[0]!
+      const twice = attachedWith(
+        { transpose: 0, swing: 1.5, useSwing: true },
+        { transpose: 0, swing: 1.5, useSwing: true },
+      )
+      const harder = twice[1]!.time - twice[0]!.time
+      expect(harder).toBeGreaterThan(once)
+    })
+
+    it('makes a roll on the long half slower than the same roll on the short', () => {
+      // A roll divides the step it is in, and the step is now uneven — which is what a roll played with a
+      // groove does rather than something that needed a rule of its own.
+      const notes = attachedWith({ transpose: 0, swing: 2, useSwing: true }, undefined, 0, {
+        useRatchet: true,
+        steps: [
+          { note: 60, active: true, velocity: 1, ratchet: 2 },
+          { note: 60, active: true, velocity: 1, ratchet: 2 },
+        ],
+      })
+      const longRoll = notes[1]!.time - notes[0]!.time
+      const shortRoll = notes[3]!.time - notes[2]!.time
+      expect(longRoll).toBeGreaterThan(shortRoll)
+    })
   })
 
   it('does not let a loud branch flatten a roll that swells', () => {

@@ -297,7 +297,22 @@ export function TransformNode({ id, data, selected }: NodeProps<FlowNode>) {
       className={`node node-transform${pulsing ? ' pulsing' : ''}${selected ? ' selected' : ''}`}
       style={depthStyle(colors)}
     >
-      <Handle type="target" id={EVENT_IN} position={Position.Top} className="port port-in" />
+      {/* Side ports only, like a MOD: it attaches to what it moves rather than standing in the cascade,
+          so nothing triggers it and nothing hangs below it. Standing in the cascade meant the cable
+          between two nodes had to be broken to get one between them — and one wired beside that cable
+          instead of in place of it does nothing you can hear. */}
+      <Handle
+        type="source"
+        id={SIGNAL_LEFT}
+        position={Position.Left}
+        className="port port-signal"
+      />
+      <Handle
+        type="source"
+        id={SIGNAL_RIGHT}
+        position={Position.Right}
+        className="port port-signal"
+      />
       <div className="node-header">
         <span className="node-title">
           TRANSFORM <span className="node-ordinal">{ordinal}</span>
@@ -309,7 +324,6 @@ export function TransformNode({ id, data, selected }: NodeProps<FlowNode>) {
             glance and only one of them says which way. */}
         <span className="delay-value">{steps > 0 ? `+${steps}` : steps}</span>
       </div>
-      <Handle type="source" id={EVENT_OUT} position={Position.Bottom} className="port port-out" />
     </div>
   )
 }

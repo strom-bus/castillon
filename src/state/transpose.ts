@@ -15,44 +15,64 @@ import type { Patch, PatchEdge, PatchNode, TransformParams } from '../types/patc
 
 /** How many steps each node is being moved by, for every node a trigger can reach. */
 export function transposeByNode(nodes: PatchNode[], edges: PatchEdge[]): Map<string, number> {
-  const byId = new Map(nodes.map((node) => [node.id, node]))
   const children = new Map<string, string[]>()
+  const attached = new Map<string, string[]>()
   for (const edge of edges) {
-    if (edge.kind !== 'event') continue
-    const list = children.get(edge.source)
-    if (list) list.push(edge.target)
-    else children.set(edge.source, [edge.target])
+    if (edge.kind === 'event') {
+      const list = children.get(edge.source)
+      if (list) list.push(edge.target)
+      else children.set(edge.source, [edge.target])
+    } else if (edge.kind === 'shift') {
+      const list = attached.get(edge.target)
+      if (list) list.push(edge.source)
+      else attached.set(edge.target, [edge.source])
+    }
   }
 
-  const carried = new Map<string, number>()
-  let frontier = nodes
-    .filter((node) => node.type === 'start')
-    .map((node) => ({ id: node.id, at: 0 }))
-  for (const one of frontier) carried.set(one.id, 0)
-
   /*
-   * Walked breadth-first with a depth cap rather than recursively, for the same reason the scheduler
-   * does it: a patch may contain a cycle, and a reader of a cycle should get a drawing rather than a
-   * hung tab. Where two branches meet at different offsets the larger wins, which is the honest thing to
-   * show — it says the note may be moved that far without claiming to know which pass you are hearing.
+   * Which transforms reach each node, rather than what they come to.
+   *
+   * A set and not a running total, because a patch may loop back on itself and a total would add the
+   * same transform again on every lap — a two-node cycle read as thirty-two steps of a transform set to
+   * one. What is being asked is which transforms apply, and a transform applies to a node or it does
+   * not; going round twice does not make it apply twice.
    */
+  const reaching = new Map<string, Set<string>>()
+  const spread = (id: string, from: Set<string>): boolean => {
+    const here = reaching.get(id) ?? new Set<string>()
+    const before = here.size
+    for (const one of from) here.add(one)
+    for (const one of attached.get(id) ?? []) here.add(one)
+    reaching.set(id, here)
+    return here.size !== before
+  }
+
+  let frontier = nodes.filter((node) => node.type === 'start').map((node) => node.id)
+  for (const id of frontier) spread(id, new Set())
+
   for (let depth = 0; depth < 64 && frontier.length > 0; depth++) {
-    const next: Array<{ id: string; at: number }> = []
-    for (const { id, at } of frontier) {
-      const node = byId.get(id)
-      const adds =
-        node?.type === 'transform' ? Math.round((node.params as TransformParams).transpose ?? 0) : 0
+    const next: string[] = []
+    for (const id of frontier) {
+      const here = reaching.get(id) ?? new Set<string>()
       for (const child of children.get(id) ?? []) {
-        const total = at + adds
-        const known = carried.get(child)
-        if (known !== undefined && Math.abs(known) >= Math.abs(total)) continue
-        carried.set(child, total)
-        next.push({ id: child, at: total })
+        if (spread(child, here)) next.push(child)
       }
     }
     frontier = next
   }
 
+  const steps = new Map(
+    nodes
+      .filter((node) => node.type === 'transform')
+      .map((node) => [node.id, Math.round((node.params as TransformParams).transpose ?? 0)]),
+  )
+
+  const carried = new Map<string, number>()
+  for (const [id, applies] of reaching) {
+    let total = 0
+    for (const one of applies) total += steps.get(one) ?? 0
+    carried.set(id, total)
+  }
   return carried
 }
 
@@ -64,21 +84,22 @@ export function transposeIn(patch: Patch): Map<string, number> {
 /**
  * Why a transform may be doing nothing, or null if it is doing something.
  *
- * It has two ways of failing in silence, and one of them is worse than useless. Left with nothing below
- * it, it simply does not apply — that much is at least quiet in an honest way. But wired *beside* the
- * cable it was meant to replace, the node underneath is triggered twice: once through the transform and
- * once around it, and the untransposed one masks the other. The patch sounds exactly as it did, and
- * everything on screen says the transform is working.
+ * A much shorter question than it used to be. Standing in the cascade, a transform could be wired beside
+ * the cable it was meant to replace instead of in place of it, and then the node below fired twice —
+ * once through it and once around it — with the untransposed pass masking the moved one. Attached to a
+ * node instead, that failure cannot be built: there is no cable to go around.
  *
- * A delay has the same failure and gets away with it, because a doubled delay is heard as an echo. A
- * doubled transposition is heard as nothing at all, which is why this exists — the same habit the MOD
- * panel already has of saying why a cable is not doing what its owner expects.
+ * What is left is the honest kind of nothing. It is attached to nothing, or what it is attached to has
+ * no oscillator at or below it, so there are no notes for it to move.
  */
 export function transformDoingNothing(
   nodes: PatchNode[],
   edges: PatchEdge[],
   id: string,
 ): string | null {
+  const attached = edges.filter((edge) => edge.kind === 'shift' && edge.source === id)
+  if (attached.length === 0) return 'it is not attached to anything'
+
   const children = new Map<string, string[]>()
   for (const edge of edges) {
     if (edge.kind !== 'event') continue
@@ -87,39 +108,19 @@ export function transformDoingNothing(
     else children.set(edge.source, [edge.target])
   }
 
-  if (!children.get(id)?.length) return 'nothing is wired below it'
-
-  /** Everything the transform reaches, which is what it is meant to be moving. */
-  const below = new Set<string>()
-  let frontier = children.get(id) ?? []
-  for (let depth = 0; depth < 64 && frontier.length > 0; depth++) {
-    const next: string[] = []
-    for (const at of frontier) {
-      if (below.has(at)) continue
-      below.add(at)
-      next.push(...(children.get(at) ?? []))
-    }
-    frontier = next
-  }
-
-  /** And everything a trigger can reach without going through it, which is what it is not. */
-  const around = new Set<string>()
-  frontier = nodes.filter((node) => node.type === 'start').map((node) => node.id)
-  for (let depth = 0; depth < 64 && frontier.length > 0; depth++) {
-    const next: string[] = []
-    for (const at of frontier) {
-      if (around.has(at) || at === id) continue
-      around.add(at)
-      next.push(...(children.get(at) ?? []))
-    }
-    frontier = next
-  }
-
   const byId = new Map(nodes.map((node) => [node.id, node]))
-  const doubled = [...below].filter((one) => around.has(one) && byId.get(one)?.type === 'osc')
-  if (doubled.length > 0) {
-    return 'an oscillator below it is also triggered without passing through it, so it plays twice — once moved and once not'
+  const reached = new Set<string>()
+  let frontier = attached.map((edge) => edge.target)
+  for (let depth = 0; depth < 64 && frontier.length > 0; depth++) {
+    const next: string[] = []
+    for (const at of frontier) {
+      if (reached.has(at)) continue
+      reached.add(at)
+      next.push(...(children.get(at) ?? []))
+    }
+    frontier = next
   }
 
-  return null
+  const sounds = [...reached].some((one) => byId.get(one)?.type === 'osc')
+  return sounds ? null : 'nothing below what it is attached to makes a note'
 }

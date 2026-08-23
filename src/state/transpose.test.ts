@@ -25,17 +25,24 @@ const edge = (source: string, target: string, kind: PatchEdge['kind'] = 'event')
   target,
 })
 
+const shift = (source: string, target: string): PatchEdge => ({
+  id: `${source}~${target}`,
+  kind: 'shift',
+  source,
+  target,
+})
+
 describe('what each node is being moved by', () => {
   it('is nothing at all in a patch with no transform in it', () => {
     const table = transposeByNode([node('s', 'start'), node('a', 'osc')], [edge('s', 'a')])
     expect(table.get('a') ?? 0).toBe(0)
   })
 
-  it('reaches everything below the transform', () => {
-    // Below, and all the way down: a branch is what hangs off it rather than the next node.
+  it('reaches what it is attached to, and everything below that', () => {
+    // From where it is wired, downward — and that includes where it is wired.
     const table = transposeByNode(
       [node('s', 'start'), node('t', 'transform', 3), node('a', 'osc'), node('b', 'osc')],
-      [edge('s', 't'), edge('t', 'a'), edge('a', 'b')],
+      [edge('s', 'a'), edge('a', 'b'), shift('t', 'a')],
     )
     expect(table.get('a')).toBe(3)
     expect(table.get('b')).toBe(3)
@@ -44,103 +51,95 @@ describe('what each node is being moved by', () => {
   it('leaves what is beside it alone', () => {
     const table = transposeByNode(
       [node('s', 'start'), node('t', 'transform', 3), node('a', 'osc'), node('b', 'osc')],
-      [edge('s', 't'), edge('t', 'a'), edge('s', 'b')],
+      [edge('s', 'a'), edge('s', 'b'), shift('t', 'a')],
     )
     expect(table.get('a')).toBe(3)
     expect(table.get('b') ?? 0).toBe(0)
   })
 
-  it('adds two together rather than letting one win', () => {
+  it('takes a whole cascade when it is on the Ignite', () => {
+    // The thing that was impossible before without standing directly under one.
+    const table = transposeByNode(
+      [node('s', 'start'), node('t', 'transform', 5), node('a', 'osc'), node('b', 'osc')],
+      [edge('s', 'a'), edge('a', 'b'), shift('t', 's')],
+    )
+    expect(table.get('a')).toBe(5)
+    expect(table.get('b')).toBe(5)
+  })
+
+  it('adds two on the same node together rather than letting one win', () => {
     const table = transposeByNode(
       [node('s', 'start'), node('t', 'transform', 2), node('u', 'transform', 5), node('a', 'osc')],
-      [edge('s', 't'), edge('t', 'u'), edge('u', 'a')],
+      [edge('s', 'a'), shift('t', 'a'), shift('u', 'a')],
     )
     expect(table.get('a')).toBe(7)
   })
 
-  it('shows the larger where two branches meet at different offsets', () => {
-    /*
-     * Which is the honest thing to say: it means the note may be moved that far, without claiming to
-     * know which pass you are listening to. Showing the smaller would understate what can happen.
-     */
+  it('adds one up the branch to one further down it', () => {
     const table = transposeByNode(
-      [node('s', 'start'), node('t', 'transform', 2), node('u', 'transform', 9), node('a', 'osc')],
-      [edge('s', 't'), edge('s', 'u'), edge('t', 'a'), edge('u', 'a')],
+      [
+        node('s', 'start'),
+        node('t', 'transform', 2),
+        node('u', 'transform', 5),
+        node('a', 'osc'),
+        node('b', 'osc'),
+      ],
+      [edge('s', 'a'), edge('a', 'b'), shift('t', 'a'), shift('u', 'b')],
     )
-    expect(table.get('a')).toBe(9)
-  })
-
-  it('follows only trigger cables, since that is what carries a transform', () => {
-    // An audio cable to an effect is not a branch of the cascade, and a modulator points backwards.
-    const table = transposeByNode(
-      [node('s', 'start'), node('t', 'transform', 4), node('f', 'fx')],
-      [edge('s', 't'), edge('t', 'f', 'audio')],
-    )
-    expect(table.get('f') ?? 0).toBe(0)
+    expect(table.get('a')).toBe(2)
+    expect(table.get('b')).toBe(7)
   })
 
   it('returns rather than hanging on a patch that loops back on itself', () => {
     // A reader of a cycle should get a drawing, not a frozen tab.
     const table = transposeByNode(
-      [node('s', 'start'), node('t', 'transform', 1), node('a', 'osc')],
-      [edge('s', 't'), edge('t', 'a'), edge('a', 't')],
+      [node('s', 'start'), node('t', 'transform', 1), node('a', 'osc'), node('b', 'osc')],
+      [edge('s', 'a'), edge('a', 'b'), edge('b', 'a'), shift('t', 'a')],
     )
-    expect(table.get('a')).toBeGreaterThan(0)
+    expect(table.get('a')).toBe(1)
   })
 })
 
 /**
- * The two ways a transform fails without saying so.
+ * Why a transform may be doing nothing.
  *
- * One is merely quiet: with nothing below it, it does not apply. The other is worse than useless —
- * wired beside the cable it was meant to replace, the node under it fires twice, once through it and
- * once around it, and the untransposed pass masks the moved one. The patch sounds exactly as it did
- * while everything on screen says the transform is working, which is how this came to be reported as
- * "it only works at the start of a chain".
+ * A much shorter question than it used to be. Standing in the cascade, one could be wired beside the
+ * cable it was meant to replace instead of in place of it, and then the node below fired twice with the
+ * untransposed pass masking the moved one. Attached to a node, that failure cannot be built: there is no
+ * cable to go around.
  */
 describe('why a transform may be doing nothing', () => {
-  it('says so when nothing hangs below it', () => {
+  it('says so when it is attached to nothing', () => {
     const why = transformDoingNothing(
       [node('s', 'start'), node('a', 'osc'), node('t', 'transform', 5)],
-      [edge('s', 'a'), edge('a', 't')],
+      [edge('s', 'a')],
       't',
     )
-    expect(why).toMatch(/nothing is wired below/)
+    expect(why).toMatch(/not attached/)
   })
 
-  it('says so when what is below it is also reached around it', () => {
+  it('says so when there is no note below what it is on', () => {
     const why = transformDoingNothing(
-      [node('s', 'start'), node('a', 'osc'), node('t', 'transform', 5), node('b', 'osc')],
-      [edge('s', 'a'), edge('a', 'b'), edge('a', 't'), edge('t', 'b')],
+      [node('s', 'start'), node('d', 'delay'), node('t', 'transform', 5)],
+      [edge('s', 'd'), shift('t', 'd')],
       't',
     )
-    expect(why).toMatch(/plays twice/)
+    expect(why).toMatch(/makes a note/)
   })
 
-  it('is quiet when it is wired in properly', () => {
+  it('is quiet on an oscillator', () => {
     const why = transformDoingNothing(
-      [node('s', 'start'), node('a', 'osc'), node('t', 'transform', 5), node('b', 'osc')],
-      [edge('s', 'a'), edge('a', 't'), edge('t', 'b')],
-      't',
-    )
-    expect(why).toBeNull()
-  })
-
-  it('is quiet at the head of a chain, which is where it was first tried', () => {
-    const why = transformDoingNothing(
-      [node('s', 'start'), node('t', 'transform', 5), node('a', 'osc')],
-      [edge('s', 't'), edge('t', 'a')],
+      [node('s', 'start'), node('a', 'osc'), node('t', 'transform', 5)],
+      [edge('s', 'a'), shift('t', 'a')],
       't',
     )
     expect(why).toBeNull()
   })
 
-  it('does not complain about a second branch that has no oscillator in it', () => {
-    // An effect reached around it is not a note played twice, and warning about it would train people
-    // to ignore the warning that matters.
+  it('is quiet on an Ignite with a cascade under it', () => {
     const why = transformDoingNothing(
-      [node('s', 'start'), node('t', 'transform', 5), node('a', 'osc'), node('f', 'fx')],
-      [edge('s', 't'), edge('t', 'a'), edge('a', 'f', 'audio')],
+      [node('s', 'start'), node('a', 'osc'), node('t', 'transform', 5)],
+      [edge('s', 'a'), shift('t', 's')],
       't',
     )
     expect(why).toBeNull()

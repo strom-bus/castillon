@@ -39,6 +39,9 @@ const EDGE_COMPONENT: Record<EdgeKind, string> = {
   event: 'cascade',
   audio: 'signal',
   mod: 'modulation',
+  // Drawn as modulation is: to the side, quietly, as something attached rather than something passing
+  // through. What it carries is different; where it sits and what it means to the eye is the same.
+  shift: 'modulation',
 }
 
 function newId(prefix: string): string {

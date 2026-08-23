@@ -1008,9 +1008,11 @@ export function Inspector() {
         {/* Said here because a control that acts at a distance has to say how far it reaches, and
             because what a step means depends on the oscillator it lands on rather than on this node. */}
         <p className="inspector-empty">
-          Moves everything below it, and stacks with any other TRANSFORM in the branch. A step is a
-          degree of the scale on each oscillator it reaches, or a semitone where that oscillator is
-          free — so a bass in pentatonic and a lead in minor both move a third and both stay in key.
+          Wire it to a node from the side. It moves that node and everything the cascade reaches
+          from it, so on an IGNITE it takes the whole cascade and on an oscillator just that branch.
+          Any two that reach the same note add up. A step is a degree of the scale on each
+          oscillator it reaches, or a semitone where that oscillator is free — so a bass in
+          pentatonic and a lead in minor both move a third and both stay in key.
         </p>
       </Panel>
     )

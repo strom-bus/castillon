@@ -104,7 +104,7 @@ const FLAG_IGNITE_TRIGGER = 1
 const FLAG_MODULATION = 2
 
 /** Cable kinds, in the order their index is written. Appended to, never reordered. */
-const EDGE_KINDS = ['event', 'audio', 'mod'] as const
+const EDGE_KINDS = ['event', 'audio', 'mod', 'shift'] as const
 
 /** How a short string is written: a length and then its characters. */
 const BINDING_SOURCE_BITS = 1
@@ -624,8 +624,11 @@ export function encodePatch(patch: Patch): string {
   const anyBound = patch.nodes.some(
     (node) => node.type === 'start' && (node.params as StartParams).trigger === 'bound',
   )
+  // Two bits are needed by anything past the first two kinds, so the flag covers all of them: there
+  // were three when it was named and there are four now, and the question it answers is the same one.
   const anyModulation =
-    patch.nodes.some((node) => node.type === 'mod') || patch.edges.some((e) => e.kind === 'mod')
+    patch.nodes.some((node) => node.type === 'mod' || node.type === 'transform') ||
+    patch.edges.some((e) => e.kind === 'mod' || e.kind === 'shift')
   writer.write(
     (anyBound ? FLAG_IGNITE_TRIGGER : 0) | (anyModulation ? FLAG_MODULATION : 0),
     HEADER_FLAG_BITS,

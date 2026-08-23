@@ -15,7 +15,13 @@ export type NodeId = string
  * and grey — and pulses at its own rate, which is what tells the two apart (PLAN §18): the difference
  * is a behaviour rather than a colour, because colour already means cascade depth.
  */
-export type EdgeKind = 'event' | 'audio' | 'mod'
+/**
+ * `shift` is what a TRANSFORM hangs on, and it is a fourth kind rather than a reuse of `mod` for the
+ * same reason `mod` was not a reuse of `audio`: it neither carries sound nor sweeps a value, it changes
+ * what a branch plays. Drawn to the side like modulation because that is what it has in common with it —
+ * it attaches to a node instead of standing in the cascade.
+ */
+export type EdgeKind = 'event' | 'audio' | 'mod' | 'shift'
 
 export type Division = '1/4' | '1/8' | '1/16'
 

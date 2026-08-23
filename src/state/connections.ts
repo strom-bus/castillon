@@ -51,6 +51,9 @@ export interface ConnectionRules {
   edges: EdgeLike[]
 }
 
+/** What a transform can be attached to: everything a trigger travels through. */
+const SHIFTABLE = new Set(['start', 'osc', 'delay'])
+
 /** A connection as it will be stored: which way round it goes, and what kind of cable it is. */
 export interface Connected {
   source: string
@@ -65,6 +68,16 @@ function orient(from: string | undefined, to: string | undefined): EdgeKind | 'r
   // Modulation runs out of a MOD and into something that makes or shapes sound, and only that way.
   if (from === 'mod' && (to === 'osc' || to === 'fx')) return 'mod'
   if (to === 'mod' && (from === 'osc' || from === 'fx')) return 'reversed'
+
+  /*
+   * A transform attaches to whatever it is meant to move, and moves that thing and everything the
+   * cascade reaches from it. Onto an Ignite it takes the whole cascade, onto an oscillator just that
+   * branch — which is the point of attaching rather than standing in the chain. Standing in it meant
+   * the cable joining two nodes had to be broken to get between them, and a transform wired beside
+   * that cable instead of in place of it does nothing you can hear.
+   */
+  if (from === 'transform' && SHIFTABLE.has(to ?? '')) return 'shift'
+  if (to === 'transform' && SHIFTABLE.has(from ?? '')) return 'reversed'
 
   // Audio only ever runs from an oscillator to an effect. That single restriction is what makes the
   // audio graph bipartite and one hop deep, which is why there is no cycle check to write.

@@ -761,28 +761,38 @@ describe('a step that does more than play', () => {
  * time and the other in pitch. On an oscillator it would not be per-branch — ten oscillators down a
  * branch would be ten edits — and two stacked would mean nothing.
  */
-describe('a transform in the branch', () => {
-  function chain(transforms: number[], oscOver: Partial<OscParams> = {}) {
-    const nodes: PatchNode[] = [{ id: 's', type: 'start', position: { x: 0, y: 0 }, params: {} }]
-    const links: PatchEdge[] = []
-    let from = 's'
-    transforms.forEach((transpose, i) => {
+describe('a transform attached to a node', () => {
+  /**
+   * Wired to the side of a node, moving that node and everything the cascade reaches from it.
+   *
+   * It stood *in* the cascade first, between two nodes like a delay, and that was the mistake: getting
+   * one between two nodes meant breaking the cable that joined them, which nothing said. Attached, it
+   * needs no rewiring — onto an Ignite it takes the cascade, onto an oscillator just that branch.
+   */
+  function attached(
+    steps: number[],
+    to: 'start' | 'osc' = 'start',
+    oscOver: Partial<OscParams> = {},
+  ) {
+    const nodes: PatchNode[] = [
+      { id: 's', type: 'start', position: { x: 0, y: 0 }, params: {} },
+      {
+        id: 'o',
+        type: 'osc',
+        position: { x: 0, y: 0 },
+        params: {
+          ...defaultOscParams(),
+          steps: [{ note: 60, active: true, velocity: 1 }],
+          ...oscOver,
+        },
+      },
+    ]
+    const links: PatchEdge[] = [edge('s', 'o')]
+    steps.forEach((transpose, i) => {
       const id = `t${i}`
       nodes.push({ id, type: 'transform', position: { x: 0, y: 0 }, params: { transpose } })
-      links.push(edge(from, id))
-      from = id
+      links.push({ id: `${id}~`, kind: 'shift', source: id, target: to === 'start' ? 's' : 'o' })
     })
-    nodes.push({
-      id: 'o',
-      type: 'osc',
-      position: { x: 0, y: 0 },
-      params: {
-        ...defaultOscParams(),
-        steps: [{ note: 60, active: true, velocity: 1 }],
-        ...oscOver,
-      },
-    })
-    links.push(edge(from, 'o'))
 
     const scheduler = build(patchOf(nodes, links))
     scheduler.start()
@@ -794,36 +804,107 @@ describe('a transform in the branch', () => {
   const semitonesFrom = (freq: number) => Math.round(12 * Math.log2(freq / 440) + 69)
 
   it('leaves the branch alone when it is set to nothing', () => {
-    expect(semitonesFrom(chain([0])[0]!.freq)).toBe(60)
+    expect(semitonesFrom(attached([0])[0]!.freq)).toBe(60)
   })
 
-  it('moves what hangs below it', () => {
+  it('moves everything below what it is attached to', () => {
     // Semitones, because this oscillator is free and there are no degrees to count.
-    expect(semitonesFrom(chain([4])[0]!.freq)).toBe(64)
-    expect(semitonesFrom(chain([-5])[0]!.freq)).toBe(55)
+    expect(semitonesFrom(attached([4])[0]!.freq)).toBe(64)
+    expect(semitonesFrom(attached([-5])[0]!.freq)).toBe(55)
   })
 
-  it('adds up when two are stacked, rather than one winning', () => {
+  it('moves the node it is attached to as well', () => {
+    // From where it is wired, downward — and that includes where it is wired.
+    expect(semitonesFrom(attached([4], 'osc')[0]!.freq)).toBe(64)
+  })
+
+  it('adds up when two are on the same node, rather than one winning', () => {
     /*
-     * The property that makes it worth being a node. Anything that replaced instead of adding would
-     * raise the question of which of the two applies, and there is no good answer to that.
+     * Anything that replaced instead of adding would raise the question of which of the two applies,
+     * and there is no good answer to that.
      */
-    expect(semitonesFrom(chain([2, 3])[0]!.freq)).toBe(65)
-    expect(semitonesFrom(chain([5, -5])[0]!.freq)).toBe(60)
+    expect(semitonesFrom(attached([2, 3])[0]!.freq)).toBe(65)
+    expect(semitonesFrom(attached([5, -5])[0]!.freq)).toBe(60)
+  })
+
+  it('adds one up the branch to one further down it', () => {
+    const nodes: PatchNode[] = [
+      { id: 's', type: 'start', position: { x: 0, y: 0 }, params: {} },
+      {
+        id: 'o',
+        type: 'osc',
+        position: { x: 0, y: 0 },
+        params: { ...defaultOscParams(), steps: [{ note: 60, active: true, velocity: 1 }] },
+      },
+      { id: 'up', type: 'transform', position: { x: 0, y: 0 }, params: { transpose: 2 } },
+      { id: 'down', type: 'transform', position: { x: 0, y: 0 }, params: { transpose: 3 } },
+    ]
+    const scheduler = build(
+      patchOf(nodes, [
+        edge('s', 'o'),
+        { id: 'a', kind: 'shift', source: 'up', target: 's' },
+        { id: 'b', kind: 'shift', source: 'down', target: 'o' },
+      ]),
+    )
+    scheduler.start()
+    scheduler.drain(10)
+    scheduler.stop()
+    expect(semitonesFrom(engine.notes[0]!.freq)).toBe(65)
   })
 
   it('counts degrees where the oscillator has a scale', () => {
     // "A third up" is two steps. In minor that is three semitones and in major four, and the same
     // transform serves both — which is what lets one sit above oscillators in different keys.
-    expect(semitonesFrom(chain([2], { scale: 'minor', scaleRoot: 0 })[0]!.freq)).toBe(63)
-    expect(semitonesFrom(chain([2], { scale: 'major', scaleRoot: 0 })[0]!.freq)).toBe(64)
+    expect(semitonesFrom(attached([2], 'start', { scale: 'minor', scaleRoot: 0 })[0]!.freq)).toBe(
+      63,
+    )
+    expect(semitonesFrom(attached([2], 'start', { scale: 'major', scaleRoot: 0 })[0]!.freq)).toBe(
+      64,
+    )
   })
 
-  it('does not reach what is not below it', () => {
-    // A branch is what hangs off it, not the patch. Two cascades under two Ignites are two pieces.
+  it('applies once to a branch that loops back on itself', () => {
+    /*
+     * A transform applies to a node or it does not, and going round twice does not make it apply twice.
+     * Carried as a running total it did: a two-node cycle under a transform set to one step climbed a
+     * semitone a lap until the depth cap stopped it, thirty-two of them. So what travels with a trigger
+     * is which transforms are applying rather than what they come to.
+     */
     const nodes: PatchNode[] = [
       { id: 's', type: 'start', position: { x: 0, y: 0 }, params: {} },
-      { id: 't', type: 'transform', position: { x: 0, y: 0 }, params: { transpose: 7 } },
+      {
+        id: 'a',
+        type: 'osc',
+        position: { x: 0, y: 0 },
+        params: { ...defaultOscParams(), steps: [{ note: 60, active: true, velocity: 1 }] },
+      },
+      {
+        id: 'b',
+        type: 'osc',
+        position: { x: 0, y: 0 },
+        params: { ...defaultOscParams(), steps: [{ note: 60, active: true, velocity: 1 }] },
+      },
+      { id: 't', type: 'transform', position: { x: 0, y: 0 }, params: { transpose: 1 } },
+    ]
+    const scheduler = build(
+      patchOf(nodes, [
+        edge('s', 'a'),
+        edge('a', 'b'),
+        edge('b', 'a'),
+        { id: 'x', kind: 'shift', source: 't', target: 'a' },
+      ]),
+    )
+    scheduler.start()
+    scheduler.drain(10)
+    scheduler.stop()
+
+    for (const note of engine.notes) expect(semitonesFrom(note.freq)).toBe(61)
+  })
+
+  it('does not reach what is not below what it is attached to', () => {
+    // A branch is what hangs off the node it is on, not the patch.
+    const nodes: PatchNode[] = [
+      { id: 's', type: 'start', position: { x: 0, y: 0 }, params: {} },
       {
         id: 'under',
         type: 'osc',
@@ -836,9 +917,14 @@ describe('a transform in the branch', () => {
         position: { x: 0, y: 0 },
         params: { ...defaultOscParams(), steps: [{ note: 60, active: true, velocity: 1 }] },
       },
+      { id: 't', type: 'transform', position: { x: 0, y: 0 }, params: { transpose: 7 } },
     ]
     const scheduler = build(
-      patchOf(nodes, [edge('s', 't'), edge('t', 'under'), edge('s', 'beside')]),
+      patchOf(nodes, [
+        edge('s', 'under'),
+        edge('s', 'beside'),
+        { id: 'a', kind: 'shift', source: 't', target: 'under' },
+      ]),
     )
     scheduler.start()
     scheduler.drain(10)

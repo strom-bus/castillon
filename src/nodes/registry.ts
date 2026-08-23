@@ -9,7 +9,9 @@ import type {
   FxParams,
   ModParams,
   NodeParams,
+  NodeId,
   OscParams,
+  PatchEdge,
   PatchNode,
   Step,
   TransformParams,
@@ -42,14 +44,6 @@ export interface ScheduleResult {
   endTime: number
   /** Times at which this node fires its children. */
   outgoing: number[]
-  /**
-   * Steps this node adds to what everything below it plays, if any.
-   *
-   * Added to what arrived rather than replacing it, so two of them stacked come to the sum of the two —
-   * which is the property that makes it worth being a node. Anything that replaced instead would raise
-   * the question of which one wins, and there is no good answer to that.
-   */
-  transpose?: number
 }
 
 export interface NodeDefinition {
@@ -110,28 +104,57 @@ export function defaultTransformParams(): TransformParams {
 }
 
 /**
- * A node that changes what happens below it and makes no sound of its own.
+ * A modifier attached to a node, moving that node and everything the cascade reaches from it.
  *
- * The same shape as a DELAY, which is the argument for it being a node at all: a delay moves a branch in
- * time and this moves one in pitch. Put it on an oscillator instead and it stops being per-branch — ten
- * oscillators down a branch would be ten edits — and stacking two would mean nothing.
+ * It stood *in* the cascade first, between two nodes like a delay, and that was the mistake. Getting one
+ * between two nodes meant breaking the cable that joined them, which nothing said and nobody did — so it
+ * went beside that cable instead, the node below fired twice, and the untransposed pass masked the moved
+ * one. It read as a node that only worked at the head of a chain, and moving a whole cascade meant
+ * putting it directly under the Ignite because there was nowhere else it did anything.
  *
- * It passes the trigger straight through. Everything it does happens to the notes underneath, and the
- * scheduler is what carries it there.
+ * Attached, it needs no rewiring at all: onto an Ignite it takes the cascade, onto an oscillator just
+ * that branch. It has no schedule, because nothing triggers it — the scheduler reads what is hanging on
+ * a node as the trigger arrives.
  */
 const transform: NodeDefinition = {
   type: 'transform',
   label: 'TRANSFORM',
   defaults: defaultTransformParams,
-  schedule({ node, time, activity }) {
+}
+
+/**
+ * The transforms hanging on a node, added to whichever are already applying.
+ *
+ * A list of which ones rather than a total of how much, because a patch may loop back on itself: a
+ * total would add the same transform again on every lap, so a two-node cycle under a transform set to
+ * one step would climb without limit until the depth cap stopped it. A transform applies to a node or
+ * it does not, and going round twice does not make it apply twice.
+ */
+export function shiftsOn(
+  edges: PatchEdge[],
+  nodeId: NodeId,
+  already: readonly NodeId[],
+): readonly NodeId[] {
+  let grown: NodeId[] | null = null
+  for (const edge of edges) {
+    if (edge.kind !== 'shift' || edge.target !== nodeId) continue
+    if (already.includes(edge.source)) continue
+    grown ??= [...already]
+    grown.push(edge.source)
+  }
+  return grown ?? already
+}
+
+/** What a list of transforms comes to in steps. */
+export function stepsOf(nodes: PatchNode[], applying: readonly NodeId[]): number {
+  let total = 0
+  for (const id of applying) {
+    const node = nodes.find((one) => one.id === id)
+    if (node?.type !== 'transform') continue
     const params = node.params as TransformParams
-    activity.push({ kind: 'node', id: node.id, time, duration: FLASH })
-    return {
-      endTime: time,
-      outgoing: [time],
-      transpose: clamp(Math.round(params.transpose ?? 0), -MAX_TRANSPOSE, MAX_TRANSPOSE),
-    }
-  },
+    total += clamp(Math.round(params.transpose ?? 0), -MAX_TRANSPOSE, MAX_TRANSPOSE)
+  }
+  return total
 }
 
 /** Selectable sequence lengths. Append-only: the patch code stores the index into this. */

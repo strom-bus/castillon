@@ -1,4 +1,4 @@
-import { getDefinition } from '../nodes/registry'
+import { getDefinition, shiftsOn, stepsOf } from '../nodes/registry'
 import type { NodeId, Patch, PatchNode, StartParams } from '../types/patch'
 import type { ActivityBus } from '../viz/activity'
 import type { Engine } from './engine'
@@ -42,10 +42,10 @@ export interface TriggerEvent {
    * What every TRANSFORM above this point adds up to, carried down the branch.
    *
    * Alongside the depth and for the same reason: it is a fact about the path taken to get here rather
-   * than about the node that arrived, so it travels with the trigger. Summed rather than replaced, which
-   * is what lets two of them stack without raising the question of which one wins.
+   * than about the node that arrived, so it travels with the trigger. Which ones rather than how much,
+   * since a patch may loop back on itself and a total would add the same transform on every lap.
    */
-  transpose: number
+  shifts: readonly NodeId[]
 }
 
 interface Chain {
@@ -287,13 +287,22 @@ export class CascadeScheduler {
       return
     }
 
+    const carried = shiftsOn(patch.edges, node.id, event.shifts)
+
     const result = definition.schedule({
       node,
       time: event.time,
       bpm: patch.bpm,
       engine: this.deps.engine,
       activity: this.deps.activity,
-      transpose: event.transpose,
+      /*
+       * What arrived, plus whatever is hanging on this node.
+       *
+       * Read here rather than carried out of a node's own schedule, because a transform is attached to a
+       * node instead of standing between two — so there is no moment at which it runs, only a node that
+       * has one on it. Added, so two on the same node stack and so do one up the branch and one down it.
+       */
+      transpose: stepsOf(patch.nodes, carried),
     })
 
     if (chain && result.endTime > chain.lastEnd) chain.lastEnd = result.endTime
@@ -321,7 +330,7 @@ export class CascadeScheduler {
               time: at,
               depth: event.depth + 1,
               chainId: event.chainId,
-              transpose: event.transpose + (result.transpose ?? 0),
+              shifts: carried,
             })
           }
         }
@@ -353,7 +362,7 @@ export class CascadeScheduler {
     const chainId = this.nextChainId++
     this.chains.set(chainId, { pending: 0, lastEnd: time, startNodeId, startTime: time })
     // A cascade begins in the key it was written in; only a TRANSFORM in the branch moves it.
-    this.enqueue({ nodeId: startNodeId, time, depth: 0, chainId, transpose: 0 })
+    this.enqueue({ nodeId: startNodeId, time, depth: 0, chainId, shifts: [] })
   }
 
   private enqueue(event: TriggerEvent): void {

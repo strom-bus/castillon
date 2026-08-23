@@ -171,8 +171,8 @@ export const MANUAL: Section[] = [
       {
         term: { en: 'TRANSFORM', es: 'TRANSFORM' },
         text: {
-          en: 'Moves everything below it in pitch, and makes no sound of its own. The same shape as a DELAY and for the same reason: one shifts a branch in time, the other in key. Two of them stacked add up. A step is a degree of the scale on each oscillator it reaches, or a semitone where that oscillator is free — so a bass in pentatonic and a lead in minor both move a third and both stay in key. Anything it is moving says so, next to its name.',
-          es: 'Mueve en altura todo lo que cuelga debajo, y no suena por sí mismo. La misma forma que un DELAY y por la misma razón: uno desplaza una rama en el tiempo y el otro en la tonalidad. Dos apilados se suman. Un paso es un grado de la escala en cada oscilador al que llega, o un semitono donde ese oscilador está libre — así que un bajo en pentatónica y un lead en menor se mueven los dos una tercera y los dos siguen en tono. Lo que esté moviendo lo dice, junto a su nombre.',
+          en: 'Wired to the side of a node, like a MOD, and it makes no sound of its own. It moves that node and everything the cascade reaches from it: on an IGNITE the whole cascade, on an oscillator just that branch. Any two reaching the same note add up. A step is a degree of the scale on each oscillator it reaches, or a semitone where that oscillator is free — so a bass in pentatonic and a lead in minor both move a third and both stay in key. Anything it is moving says so, next to its name.',
+          es: 'Se cablea al costado de un nodo, como un MOD, y no suena por sí mismo. Mueve ese nodo y todo lo que la cascada alcanza desde él: en un IGNITE la cascada entera, en un oscilador solo esa rama. Dos que lleguen a la misma nota se suman. Un paso es un grado de la escala en cada oscilador al que llega, o un semitono donde ese oscilador está libre — así que un bajo en pentatónica y un lead en menor se mueven los dos una tercera y los dos siguen en tono. Lo que esté moviendo lo dice, junto a su nombre.',
         },
       },
       {

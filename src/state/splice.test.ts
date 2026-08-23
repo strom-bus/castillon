@@ -1,15 +1,16 @@
 /**
  * Dropping a node onto a cable to put it into the cable (PLAN §18.19).
  *
- * The gesture that was missing, and what its absence cost: to place a TRANSFORM between two nodes you
- * had to delete the cable joining them first, and nothing said so. So it got wired *beside* that cable,
- * and then the node underneath fired twice — once through the transform and once around it. A doubled
- * delay is heard as an echo; a doubled transposition is heard as nothing at all, so it read as a node
- * that did not work, and was reported as exactly that.
+ * Written for the transform, which no longer needs it: a transform attaches to a node from the side now,
+ * because standing between two nodes meant breaking the cable that joined them and nothing said so — it
+ * got wired beside that cable instead, and then the node under it fired twice with the untransposed pass
+ * masking the moved one.
+ *
+ * The gesture stayed for the delay, which has the same problem and always did. A doubled delay is heard
+ * as an echo, so it got away with it for a long time.
  */
 
 import { beforeEach, describe, expect, it } from 'vitest'
-import { transformDoingNothing } from './transpose'
 import { usePatchStore } from './patchStore'
 
 const store = () => usePatchStore.getState()
@@ -38,7 +39,7 @@ describe('a node dropped on a cable', () => {
   it('takes the place of it, joined to both ends', () => {
     const cable = eventEdges()[1]!
     const { source, target } = cable
-    const id = dropOn('transform', cable.id)
+    const id = dropOn('delay', cable.id)
 
     const now = eventEdges()
     expect(now.some((e) => e.id === cable.id)).toBe(false)
@@ -46,29 +47,22 @@ describe('a node dropped on a cable', () => {
     expect(now.some((e) => e.source === id && e.target === target)).toBe(true)
   })
 
-  it('leaves the transform with nothing to complain about', () => {
-    /*
-     * Which is the whole point. Wired beside the cable instead, every position in the starting patch
-     * reports that the oscillator under it plays twice — and that report was correct every time.
-     */
-    const id = dropOn('transform', eventEdges()[1]!.id)
-    const s = store()
-    const why = transformDoingNothing(
-      s.nodes.map((n) => ({
-        id: n.id,
-        type: n.type ?? '',
-        position: n.position,
-        params: n.data.params,
-      })),
-      s.edges.map((e) => ({
-        id: e.id,
-        kind: e.data?.kind ?? 'event',
-        source: e.source,
-        target: e.target,
-      })),
-      id,
-    )
-    expect(why).toBeNull()
+  it('joins it to both ends wherever in the cascade the cable is', () => {
+    for (const cable of [...eventEdges()]) {
+      store().resetPatch()
+      const here = store().edges.find((e) => e.source === cable.source && e.target === cable.target)
+      if (!here) continue
+      const id = dropOn('delay', here.id)
+      const now = eventEdges()
+      expect(
+        now.some((e) => e.target === id),
+        `${cable.source}->${cable.target}`,
+      ).toBe(true)
+      expect(
+        now.some((e) => e.source === id),
+        `${cable.source}->${cable.target}`,
+      ).toBe(true)
+    }
   })
 
   it('works wherever in the cascade the cable is', () => {
@@ -78,7 +72,7 @@ describe('a node dropped on a cable', () => {
       store().resetPatch()
       const here = store().edges.find((e) => e.source === cable.source && e.target === cable.target)
       if (!here) continue
-      const id = dropOn('transform', here.id)
+      const id = dropOn('delay', here.id)
       expect(
         eventEdges().some((e) => e.source === id),
         `${cable.source}->${cable.target}`,

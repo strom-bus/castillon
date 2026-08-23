@@ -269,13 +269,31 @@ Then click Play — the first click is also what unblocks audio, since browsers 
 `AudioContext` without a user gesture.
 
 ```bash
-npm test          # unit tests
-npm run lint      # oxlint
-npm run typecheck # tsc; neither the linter nor the build runs the compiler
-npm run build     # production build
-npm run size      # size budget for the build's output; runs in CI after the build
-npm run stress    # regenerates docs/stress-patch.txt from its generator
+npm test               # unit tests
+npm run lint           # oxlint
+npm run typecheck      # tsc; neither the linter nor the build runs the compiler
+npm run build          # production build
+npm run size           # size budget for the build's output; runs in CI after the build
+npm run stress         # regenerates docs/stress-patch.txt from its generator
+npm run deploy:worker  # the sharing service; CI does this too, given a Cloudflare token
+npm run check:service  # asks the live service whether it can read what this build writes
 ```
+
+### The two halves ship together
+
+The app is static files and the sharing service is a Worker, and they are deployed to different
+places. They share one `patchCode.ts`, so they cannot disagree in the repository — but they could
+disagree in production, and did: for several commits after the patch format grew a per-step column,
+the deployed Worker could not decode a single code the app produced. It answered `not a patch code`
+to everything, so nothing could be published and the gallery stayed empty. Nothing in the repository
+was wrong, no test could see it, and the app's own error message — a service it cannot reach — pointed
+somewhere else.
+
+So CI deploys the Worker as well, before the app, and then runs `npm run check:service`, which asks the
+live service to store and return a code this build produced. The check runs whether or not that run
+deployed anything: what matters is that the two halves agree right now, not who shipped last. It needs
+`CLOUDFLARE_API_TOKEN` as a repository secret; without it the deploy step skips and the check still
+runs, which is the right shape for a fork.
 
 ## What a first visit downloads
 

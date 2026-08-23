@@ -229,6 +229,10 @@ export function PatchCode() {
 
       {sharing && <SharePatch code={code} onClose={() => setSharing(false)} />}
 
+      {/* The one status that had no words. It coloured the field and said nothing, so a code that had
+          been wrapped in transit — or written by an older build — looked like a feature that does not
+          work rather than like a code that does not read. */}
+      {status === 'invalid' && <span className="patch-code-note">not a patch code</span>}
       {status === 'looking' && <span className="patch-code-note">looking up…</span>}
       {status === 'missing' && <span className="patch-code-note">no such code</span>}
       {status === 'failed' && <span className="patch-code-note">share service unreachable</span>}

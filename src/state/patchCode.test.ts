@@ -10,6 +10,7 @@ import {
   OSC_FIELD_TOTAL,
   STEP_COLUMN_TOTAL,
   toBase64Url,
+  normalisePatchCode,
 } from './patchCode'
 
 function osc(id: string, overrides: Partial<ReturnType<typeof defaultOscParams>> = {}): PatchNode {
@@ -617,6 +618,71 @@ describe('modulation in the code', () => {
       [{ id: 'e', kind: 'mod', source: 'm', target: 'a' }],
     )
     expect(roundTrip(patch)!.edges[0].kind).toBe('mod')
+  })
+
+  describe('a code that travelled', () => {
+    /*
+     * A long code is a hundred to three hundred characters of base64url, and it goes wherever somebody
+     * can put text: a chat window, a note, a text file, an email. Every one of those wraps, and a
+     * wrapped code used to fail — silently, because the field coloured itself and said nothing, so the
+     * symptom read as "long codes do not work".
+     *
+     * Whitespace is never part of a code, so accepting it anywhere is free. What is not free is failing
+     * for a reason nobody can see.
+     */
+    const wrapped = (code: string, at: string) => code.slice(0, 60) + at + code.slice(60)
+
+    it.each([
+      ['a trailing newline', (code: string) => `${code}\n`],
+      ['spaces around it', (code: string) => `  ${code}  `],
+      ['a newline where it wrapped', (code: string) => wrapped(code, '\n')],
+      ['a space where it wrapped', (code: string) => wrapped(code, ' ')],
+      ['a run of spaces', (code: string) => wrapped(code, '   ')],
+      ['a tab', (code: string) => wrapped(code, '\t')],
+      ['a windows line ending', (code: string) => wrapped(code, '\r\n')],
+    ])('survives %s', (_name, mangle) => {
+      const patch = patchOf(
+        [
+          { id: 's', type: 'start', position: { x: 0, y: 0 }, params: {} },
+          oscNode('a'),
+          fxNode('f', 'reverb'),
+        ],
+        [
+          { id: 'e1', kind: 'event', source: 's', target: 'a' },
+          { id: 'e2', kind: 'audio', source: 'a', target: 'f' },
+        ],
+      )
+      const code = encodePatch(patch)
+      const back = decodePatch(mangle(code))
+
+      // The whole patch, not merely a non-null answer: bpm is at the front of the code and would
+      // survive almost any decoding fault, so reading it back proves very little on its own.
+      expect(back).not.toBeNull()
+      expect(back!.nodes.map((node) => node.type)).toEqual(['start', 'osc', 'fx'])
+      expect(back!.edges.map((edge) => edge.kind)).toEqual(['event', 'audio'])
+    })
+
+    it('still refuses something that is not a code at all', () => {
+      // The generosity has a limit: stripping spaces must not turn nonsense into a patch.
+      expect(decodePatch('hello there')).toBeNull()
+      expect(decodePatch('   ')).toBeNull()
+      expect(decodePatch('')).toBeNull()
+    })
+
+    it('takes the spaces out before anything measures the length', () => {
+      /*
+       * Asserted on the normaliser rather than through a decode, and that is the point of it existing.
+       * `atob` ignores ASCII whitespace by itself, so what actually broke was the padding — computed
+       * from a length that the spaces had inflated, padding to the wrong multiple of four. And jsdom's
+       * `atob` is more forgiving about padding than a browser's, so a test that only decodes a wrapped
+       * code passes whether the stripping is there or not. It did.
+       */
+      expect(normalisePatchCode('abc def')).toBe('abcdef')
+      expect(normalisePatchCode(' ab\n cd\t ef\r\n ')).toBe('abcdef')
+      expect(normalisePatchCode('abcdef')).toBe('abcdef')
+      // Length is the thing that mattered, so it is the thing asserted.
+      expect(normalisePatchCode('ab cd').length).toBe(4)
+    })
   })
 
   it('keeps all four kinds of cable apart in one patch', () => {

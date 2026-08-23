@@ -701,7 +701,7 @@ export function encodePatch(patch: Patch): string {
 /** Never throws: a malformed or truncated code is simply not a patch. */
 export function decodePatch(code: string): Patch | null {
   try {
-    const reader = new BitReader(fromBase64Url(code.trim()))
+    const reader = new BitReader(fromBase64Url(normalisePatchCode(code)))
 
     if (reader.read(4) !== CODE_VERSION) return null
     const bpm = reader.read(10) + MIN_BPM
@@ -768,6 +768,28 @@ export function toBase64Url(bytes: Uint8Array): string {
   let binary = ''
   for (const byte of bytes) binary += String.fromCharCode(byte)
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+}
+
+/**
+ * A code as it will be read, with every space taken out — not only the ends.
+ *
+ * A long code is a hundred to three hundred characters of base64url and it travels through whatever
+ * somebody has to hand: a chat window, a note, a text file, an email. All of those wrap, so a code
+ * arrives with a newline or a run of spaces somewhere in the middle of it, and it used to fail.
+ * Silently, because the field coloured itself and said nothing — so the symptom read as "long codes do
+ * not work", which is exactly how it was reported.
+ *
+ * Note where the failure actually was, because it is not where it looks. `atob` ignores ASCII
+ * whitespace on its own; what broke is the padding **computed from the length before stripping** — a
+ * length inflated by two spaces pads to the wrong multiple of four and the decode throws. Which is why
+ * this is its own exported function rather than a `replace` at the call site: it can then be tested for
+ * what it returns, and a test on the decode alone proves nothing. `atob` in jsdom is more forgiving
+ * about padding than a browser's, so removing the stripping leaves every such test passing.
+ *
+ * Whitespace is never part of a code, so accepting it anywhere is free.
+ */
+export function normalisePatchCode(code: string): string {
+  return code.replace(/\s+/g, '')
 }
 
 function fromBase64Url(code: string): Uint8Array {

@@ -42,8 +42,42 @@ jobs:
         with:
           path: dist
 
+  # The sharing service, deployed with the app rather than by hand.
+  #
+  # The two share one `patchCode.ts` and cannot disagree in the repository — but they were deployed
+  # separately, and a format change that shipped on only one side left the service unable to read a
+  # single code the app produced. Sharing was broken online for several commits that way, with nothing
+  # wrong in the repository and an empty gallery as the only symptom.
+  #
+  # It runs before the app: a service that can read what the app has not started writing yet is
+  # harmless, and an app writing what the service cannot read is the fault above.
+  worker:
+    runs-on: ubuntu-latest
+    # Set on the job rather than on the step, which is what makes it readable from a step's `if`:
+    # the `secrets` context is not, so a step cannot ask whether its own secret is present.
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # Skipped rather than failed where the token is not set, so a fork can build the app without
+      # holding credentials for somebody else's account.
+      - name: Deploy the share worker
+        if: ${{ env.CLOUDFLARE_API_TOKEN != '' }}
+        run: npm run deploy:worker
+      # Whether or not this run deployed it, the live service must be able to read what this commit
+      # writes. That is the check whose absence let the two drift.
+      - name: Check the live service reads this build
+        run: npm run check:service
+        env:
+          VITE_SHARE_URL: https://castillon-share.strombus.workers.dev
+
   deploy:
-    needs: build
+    needs: [build, worker]
     runs-on: ubuntu-latest
     environment:
       name: github-pages

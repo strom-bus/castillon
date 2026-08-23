@@ -19,6 +19,7 @@ import type {
   PatchEdge,
   PatchNode,
   Step,
+  WarpParams,
 } from '../types/patch'
 
 export interface Preset {
@@ -47,6 +48,15 @@ const MINOR = [0, 2, 3, 5, 7, 8, 10]
 const note = (degree: number, octave: number, root = 45) =>
   root + MINOR[((degree % 7) + 7) % 7]! + 12 * octave
 
+/**
+ * The same scale, declared on every oscillator rather than left implicit.
+ *
+ * The notes were always chosen from it; saying so costs nothing and changes what happens when somebody
+ * opens a preset and drags a bar — which is the first thing anybody does with a preset. Without it the
+ * first edit to a patch built in A minor lands wherever the pointer was.
+ */
+const IN_KEY = { scale: 'minor' as const, scaleRoot: 9 }
+
 /** `null` is a rest: a step that is there and silent, which is what makes a phrase out of a run. */
 const steps = (notes: Array<number | null>, velocities?: number[]): Step[] =>
   notes.map((value, i) => ({
@@ -66,7 +76,8 @@ const osc = (id: string, column: number, row: number, over: Partial<OscParams>):
   id,
   type: 'osc',
   position: at(column, row),
-  params: { ...defaultOscParams(), ...over },
+  // Spread before the overrides, so a preset that wants to be out of key can still say so.
+  params: { ...defaultOscParams(), ...IN_KEY, ...over },
 })
 
 const delay = (id: string, column: number, row: number, delayMs: number): PatchNode => ({
@@ -86,6 +97,13 @@ const fx = (id: string, column: number, row: number, over: Partial<FxParams>): P
 const mod = (id: string, column: number, row: number, params: ModParams): PatchNode => ({
   id,
   type: 'mod',
+  position: at(column, row),
+  params,
+})
+
+const warp = (id: string, column: number, row: number, params: WarpParams): PatchNode => ({
+  id,
+  type: 'warp',
   position: at(column, row),
   params,
 })
@@ -486,4 +504,186 @@ const canopy: Preset = {
   ),
 }
 
-export const PRESETS: Preset[] = [descent, drift, hive, canopy]
+/**
+ * The sequence that will not repeat itself, which is the step scope in one patch.
+ *
+ * A cascade already varies from pass to pass because its branches are different lengths. What it could
+ * not do was vary *inside* a phrase: sixteen steps played sixteen times sounded like sixteen steps
+ * played sixteen times. Three things fix that here and none of them is a random-note generator —
+ * the notes are fixed and in key, and what moves is whether each one happens and how it is struck.
+ *
+ * Chance is the first: a step at sixty per cent is usually there and sometimes not, which is enough to
+ * keep a repeating figure from settling. Rolls are the second, and they are what makes it sound played:
+ * four hits inside one step with the level falling across them is a drum roll, where four even hits are
+ * four notes stuck together. And a bass line under it with no chance at all, so there is something
+ * steady for the top to be unsteady against — variation you cannot hear against something fixed is
+ * just mud.
+ */
+const chance: Preset = {
+  id: 'chance',
+  name: 'CHANCE',
+  about: 'A figure that never plays the same way twice, over a bass line that never changes.',
+  patch: patchOf(
+    120,
+    [
+      ignite('i', 0, 0),
+      osc('lead', 0, 1, {
+        waveform: 'pulse',
+        pulseWidth: 0.28,
+        useChance: true,
+        useRatchet: true,
+        steps: [
+          // Written out rather than through the helper: the whole point of this patch is what a step
+          // carries besides its pitch, and the helper only knows about pitch and level.
+          { note: note(0, 1), active: true, velocity: 1, ratchet: 1 },
+          { note: note(2, 1), active: true, velocity: 0.55, chance: 0.5 },
+          // The roll, fading across itself. Four even hits would read as four notes; the ramp is what
+          // turns them into one gesture.
+          { note: note(4, 1), active: true, velocity: 0.9, ratchet: 4, ratchetRamp: 0.8 },
+          { note: note(2, 1), active: true, velocity: 0.5, chance: 0.35 },
+          { note: note(6, 0), active: true, velocity: 0.85, ratchet: 2, ratchetRamp: 0.4 },
+          { note: note(4, 1), active: true, velocity: 0.6, chance: 0.6 },
+          // Swelling instead of fading, into the step after it — the same control the other way round.
+          { note: note(0, 1), active: true, velocity: 0.8, ratchet: 3, ratchetRamp: -0.6 },
+          { note: note(5, 0), active: true, velocity: 0.45, chance: 0.4, slide: true },
+        ],
+        division: '1/16',
+        gain: 0.19,
+        attack: 2,
+        decay: 110,
+        release: 130,
+        gate: 0.55,
+        glide: 60,
+        filterType: 'lowpass',
+        cutoff: 1500,
+        resonance: 8,
+        keyTrack: 0.8,
+      }),
+      // No chance and no rolls: the fixed thing the top is heard against.
+      osc('bass', 0, 2, {
+        waveform: 'square',
+        steps: steps([note(0, -1), null, note(0, -1), note(3, -1)]),
+        division: '1/8',
+        gain: 0.24,
+        attack: 3,
+        decay: 150,
+        release: 200,
+        gate: 0.6,
+        filterType: 'lowpass',
+        cutoff: 800,
+        resonance: 5,
+        keyTrack: 0.5,
+      }),
+      // Per note and scaled by velocity, which is what makes a quiet step in a roll quieter *and*
+      // darker — the accents of the sequence heard rather than only counted.
+      mod('e', 1, 1, {
+        kind: 'env',
+        fires: 'note',
+        byVelocity: true,
+        target: 'cutoff',
+        depth: 0.8,
+        attack: 4,
+        decay: 180,
+      }),
+      fx('r', 1, 2, { effect: 'reverb', mix: 0.26, decay: 2.2, cutoff: 3000 }),
+    ],
+    [wire('i', 'lead'), wire('lead', 'bass'), wire('bass', 'r', 'audio'), wire('e', 'lead', 'mod')],
+  ),
+}
+
+/**
+ * A branch bent from the side, which is the one thing no cable in the cascade can do.
+ *
+ * Two identical oscillators, and everything that separates them comes from the two WARPs attached
+ * beside them. One is moved up a third — in degrees of the scale, so it is a third and not four
+ * semitones — and the other is set to two-thirds speed. That second one is the interesting half: a
+ * DELAY sets two branches a fixed distance apart and holds them there for ever, and a ratio makes them
+ * come apart and keep coming apart, so the patch never arrives at the same alignment twice.
+ *
+ * A third WARP sits on the Ignite with nothing but Chance on it, which reaches everything below and
+ * thins the whole cascade out — a control over a whole patch, which is the argument for the node.
+ */
+const bend: Preset = {
+  id: 'bend',
+  name: 'BEND',
+  about: 'One phrase, twice, bent by two warps: one moved in pitch, one running at another speed.',
+  patch: patchOf(
+    100,
+    [
+      ignite('i', 1, 0),
+      // Everything below it, thinned. Nothing else in the patch could say this in one control.
+      warp('all', 2, 0, { transpose: 0, chance: 0.85 }),
+      osc('one', 0, 1, {
+        waveform: 'triangle',
+        steps: steps([note(0, 1), note(4, 0), note(2, 1), null, note(6, 0), note(4, 0)]),
+        division: '1/8',
+        gain: 0.2,
+        attack: 5,
+        decay: 200,
+        release: 240,
+        gate: 0.65,
+        filterType: 'lowpass',
+        cutoff: 2200,
+        resonance: 4,
+        keyTrack: 0.6,
+      }),
+      // A third up, counted in the scale: the same interval whatever key the oscillator is in.
+      warp('up', 0, 0, { transpose: 2 }),
+      osc('two', 2, 1, {
+        waveform: 'triangle',
+        detune: 7,
+        // The same phrase as its twin. What separates them is beside them, not in them.
+        steps: steps([note(0, 1), note(4, 0), note(2, 1), null, note(6, 0), note(4, 0)]),
+        division: '1/8',
+        gain: 0.18,
+        attack: 5,
+        decay: 200,
+        release: 240,
+        gate: 0.65,
+        filterType: 'lowpass',
+        cutoff: 1800,
+        resonance: 4,
+        keyTrack: 0.6,
+      }),
+      // Two thirds of the speed, so the two phrases drift and go on drifting. This is the thing a
+      // delay cannot do.
+      warp('slow', 3, 1, { transpose: 0, speed: 2 / 3 }),
+      osc('low', 1, 2, {
+        waveform: 'sawtooth',
+        steps: steps([note(0, -1), null, note(5, -2), null]),
+        division: '1/4',
+        gain: 0.22,
+        attack: 12,
+        decay: 0,
+        release: 600,
+        gate: 0.9,
+        glide: 140,
+        filterType: 'lowpass',
+        cutoff: 700,
+        resonance: 6,
+      }),
+      fx('ch', 0, 2, {
+        effect: 'chorus',
+        mix: 0.3,
+        sweep: 0.5,
+        rate: 0.3,
+        depth: 0.55,
+        cutoff: 3200,
+      }),
+      fx('rv', 2, 2, { effect: 'reverb', mix: 0.3, decay: 3, cutoff: 2600 }),
+    ],
+    [
+      wire('i', 'one'),
+      wire('i', 'two'),
+      wire('one', 'low'),
+      wire('one', 'ch', 'audio'),
+      wire('two', 'rv', 'audio'),
+      // Attached from the side, which is the whole design: nothing is rewired and nothing fires twice.
+      wire('all', 'i', 'warp'),
+      wire('up', 'one', 'warp'),
+      wire('slow', 'two', 'warp'),
+    ],
+  ),
+}
+
+export const PRESETS: Preset[] = [descent, drift, hive, canopy, chance, bend]

@@ -14,7 +14,15 @@ import { estimatePeakLoad } from '../audio/load'
 import { LAYER_THRESHOLD, MAX_LOAD } from '../audio/load'
 import { silentBecause, targetsFor } from '../audio/modulation'
 import { decodePatch, encodePatch } from '../state/patchCode'
-import type { Patch, PatchNode } from '../types/patch'
+import { warpDoingNothing } from '../state/transpose'
+import type {
+  ModParams,
+  OscParams,
+  Patch,
+  PatchNode,
+  StartParams,
+  WarpParams,
+} from '../types/patch'
 
 /** Everything a trigger can reach from an Ignite, which is everything that will ever make a sound. */
 function reachable(patch: Patch): Set<string> {
@@ -151,6 +159,79 @@ describe('the presets', () => {
     const load = estimatePeakLoad(patch)
     expect(load).toBeGreaterThan(0)
     expect(load, `${load.toFixed(0)} points`).toBeLessThan(MAX_LOAD * LAYER_THRESHOLD)
+  })
+
+  it.each(PRESETS)('$name attaches every warp to something it can bend', ({ patch }) => {
+    /*
+     * The quiet failure a WARP has, and the one that looks most like working: attached to nothing, or
+     * wired into the cascade instead of onto the side of it, the panel is full of settings, the cable is
+     * drawn, and the patch sounds exactly as it did before.
+     */
+    for (const node of patch.nodes.filter((one) => one.type === 'warp')) {
+      const why = warpDoingNothing(patch.nodes, patch.edges, node.id)
+      expect(why, `${node.id}: ${why}`).toBeNull()
+    }
+  })
+
+  it('between them show every part of the machine', () => {
+    /*
+     * The reason a preset exists at all. The dice produces an example without saying what it is an
+     * example of; a preset is supposed to be the one place a feature can be *seen* being used. So a
+     * feature nothing here demonstrates is one nobody will find, and that has happened twice already —
+     * step velocity lived in the format, the engine and the dice for months with no preset touching it.
+     */
+    const nodes = PRESETS.flatMap((preset) => preset.patch.nodes)
+    const oscillators = nodes
+      .filter((node) => node.type === 'osc')
+      .map((n) => n.params as OscParams)
+    const steps = oscillators.flatMap((params) => params.steps)
+
+    const shown: Record<string, boolean> = {
+      scale: oscillators.some((params) => (params.scale ?? 'free') !== 'free'),
+      chance: oscillators.some((params) => params.useChance) && steps.some((s) => s.chance != null),
+      ratchets:
+        oscillators.some((params) => params.useRatchet) && steps.some((s) => (s.ratchet ?? 1) > 1),
+      roll: steps.some((step) => (step.ratchetRamp ?? 0) !== 0),
+      slide: steps.some((step) => step.slide === true),
+      velocity: steps.some((step) => step.velocity < 1),
+      glide: oscillators.some((params) => (params.glide ?? 0) > 0),
+      detune: oscillators.some((params) => (params.detune ?? 0) !== 0),
+      keyTrack: oscillators.some((params) => (params.keyTrack ?? 0) > 0),
+      // Each propagation mode, since it is the control the whole instrument turns on.
+      onEnd: oscillators.some((params) => params.propagateMode === 'onEnd'),
+      onStart: oscillators.some((params) => params.propagateMode === 'onStart'),
+      onStep: oscillators.some((params) => params.propagateMode === 'onStep'),
+      // Both kinds of modulator, and the shape that does not repeat.
+      lfo: nodes.some((node) => node.type === 'mod' && (node.params as ModParams).kind === 'lfo'),
+      envelope: nodes.some(
+        (node) => node.type === 'mod' && (node.params as ModParams).kind === 'env',
+      ),
+      random: nodes.some(
+        (node) => node.type === 'mod' && (node.params as ModParams).wave === 'random',
+      ),
+      byVelocity: nodes.some(
+        (node) => node.type === 'mod' && (node.params as ModParams).byVelocity === true,
+      ),
+      delay: nodes.some((node) => node.type === 'delay'),
+      // And each dimension a warp bends, which is four controls that all look alike and are not.
+      warpPitch: nodes.some(
+        (node) => node.type === 'warp' && (node.params as WarpParams).transpose !== 0,
+      ),
+      warpSpeed: nodes.some(
+        (node) => node.type === 'warp' && ((node.params as WarpParams).speed ?? 1) !== 1,
+      ),
+      warpChance: nodes.some(
+        (node) => node.type === 'warp' && ((node.params as WarpParams).chance ?? 1) !== 1,
+      ),
+      bound: nodes.some(
+        (node) => node.type === 'start' && (node.params as StartParams).trigger === 'bound',
+      ),
+    }
+
+    const missing = Object.entries(shown)
+      .filter(([, there]) => !there)
+      .map(([what]) => what)
+    expect(missing, `no preset shows: ${missing.join(', ')}`).toEqual([])
   })
 
   it.each(PRESETS)('$name survives the trip through a patch code', ({ patch }) => {

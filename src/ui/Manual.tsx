@@ -101,14 +101,25 @@ export function Manual({ onClose }: { onClose: () => void }) {
           {section ? (
             <section>
               <h3>{section.title[language]}</h3>
-              <dl>
-                {(section.detail ?? []).map((term, i) => (
-                  <div key={i}>
-                    <dt>{term.term[language]}</dt>
-                    <dd>{term.text[language]}</dd>
-                  </div>
-                ))}
-              </dl>
+              {/* Grouped under the same headings the panel uses, which is what makes reading the manual
+                  and looking at the panel the same act. A chapter with twenty controls in one flat list
+                  is a list; the same twenty under SEQUENCE, VOICE, SHAPE, FILTER and NEXT is the panel.
+
+                  The headings are not translated: they are words printed on the screen, and a manual
+                  naming a group the panel does not have would be worse than one in the wrong language. */}
+              {(section.detail ?? []).map((group, g) => (
+                <div key={g} className="manual-group">
+                  {group.title && <h4>{group.title}</h4>}
+                  <dl>
+                    {group.terms.map((term, i) => (
+                      <div key={i}>
+                        <dt>{term.term[language]}</dt>
+                        <dd>{term.text[language]}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                </div>
+              ))}
             </section>
           ) : (
             MANUAL.map((one) => (

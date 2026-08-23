@@ -5,7 +5,7 @@ import { useManualWindow } from '../help/window'
 import { usePatchStore } from '../state/patchStore'
 import { Inspector } from './Inspector'
 import { Manual } from './Manual'
-import { MANUAL } from '../help/manual'
+import { detailTerms, MANUAL } from '../help/manual'
 
 /**
  * The manual: a window over the app, in one of two languages.
@@ -73,9 +73,11 @@ describe('the window', () => {
   })
 
   it('carries every section, so nothing is written and never shown', () => {
+    // Every one of them, taken from the manual rather than named here: a hardcoded list quietly stops
+    // covering a chapter added after it was written, and passes while saying it checked.
     render(<Manual onClose={() => {}} />)
-    for (const title of ['The one idea', 'The parts', 'Shortcuts']) {
-      expect(screen.getByText(title)).toBeDefined()
+    for (const section of MANUAL) {
+      expect(screen.getByText(section.title.en), section.id).toBeDefined()
     }
   })
 })
@@ -117,7 +119,7 @@ describe('reading further', () => {
   it('offers more on every section that has more', () => {
     render(<Manual onClose={() => {}} />)
     const more = screen.getAllByRole('button', { name: /read more/i })
-    expect(more.length).toBe(MANUAL.filter((section) => section.detail?.length).length)
+    expect(more.length).toBe(MANUAL.filter((section) => detailTerms(section).length).length)
     expect(more.length).toBeGreaterThan(0)
   })
 
@@ -128,7 +130,7 @@ describe('reading further', () => {
     fireEvent.click(screen.getAllByRole('button', { name: /read more/i })[0]!)
 
     expect(screen.queryAllByRole('button', { name: /read more/i })).toHaveLength(0)
-    expect(screen.getByText(MANUAL[0]!.detail![0]!.term.en)).toBeTruthy()
+    expect(screen.getByText(detailTerms(MANUAL[0]!)[0]!.term.en)).toBeTruthy()
   })
 
   it('comes back to the list, and to the top of it', () => {

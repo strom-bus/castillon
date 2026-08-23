@@ -851,6 +851,28 @@ input[type='range'] {
 }
 
 /*
+ * A group of controls under the heading its own panel uses.
+ *
+ * Set apart from the section heading above it rather than matching it: a chapter with five groups needs
+ * two levels of heading to be scannable, and two levels that look alike are one level with gaps in it.
+ * Dimmer and with a rule under it — the rule is what makes a long chapter read as parts rather than as
+ * a list somebody put subtitles in.
+ */
+.manual-group + .manual-group {
+  margin-top: 22px;
+}
+
+.manual-body h4 {
+  margin: 0 0 10px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+/*
  * The MIDI indicator, in the transport beside the volume.
  *
  * Dim rather than hidden, so the absence of a device is visible and hoverable — an icon that appears

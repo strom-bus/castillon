@@ -422,7 +422,9 @@ describe('patch code', () => {
     writer.writeSignedVarint(0)
     writer.writeSignedVarint(0)
     for (let i = 0; i < OSC_FIELD_TOTAL - 1; i++) writer.write(0, 1) // nothing differs
-    writer.write(1, 3) // four steps
+    // Four steps, written as the count itself in four bits. It was an index into a list of four in
+    // three, which is what forbade a five-step sequence — see MIN_STEPS.
+    writer.write(4 - 1, 4)
     for (let i = 0; i < 4; i++) {
       writer.write(1, 1)
       writer.write(60 - 24, 6)

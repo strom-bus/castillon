@@ -60,7 +60,14 @@ const WAVEFORM_WEIGHTS: [Waveform, number][] = [
 ]
 
 const DIVISIONS: Division[] = ['1/4', '1/8', '1/16']
-const STEP_COUNTS = [2, 4, 4, 8, 8, 16]
+/**
+ * Sequence lengths to draw from, odd ones included.
+ *
+ * Weighted towards the even ones, which is where a phrase usually sits — but a five or a seven against a
+ * four is the thing this instrument is *for*, and a generator that never rolled one would never show it.
+ * The same argument as the coverage rule: a feature the dice cannot produce is one most people never see.
+ */
+const STEP_COUNTS = [2, 3, 4, 4, 5, 6, 7, 8, 8, 12, 16]
 
 /** Column spacing wide enough that a sixteen-step node does not overlap its neighbour. */
 const COLUMN = 560

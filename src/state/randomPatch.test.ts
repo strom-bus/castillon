@@ -106,6 +106,23 @@ describe('randomPatch', () => {
     expect(never, `never rolled in 200: ${never.join(', ')}`).toEqual([])
   })
 
+  it('rolls sequence lengths that are not powers of two', () => {
+    /*
+     * The point of polymetry, and the same argument as everything else in the coverage rule: five against
+     * four is what a cascade should sound like, and a generator that never rolled an odd length would
+     * leave most people never hearing it. Weighted towards even, so a rolled patch still mostly sits
+     * where a phrase usually sits.
+     */
+    const lengths = new Set(
+      many(120)
+        .flatMap((patch) => patch.nodes)
+        .filter((node) => node.type === 'osc')
+        .map((node) => (node.params as OscParams).steps.length),
+    )
+    expect([...lengths].some((count) => count % 2 === 1)).toBe(true)
+    expect([...lengths].some((count) => count % 2 === 0)).toBe(true)
+  })
+
   it('keeps the plain sound reachable, so not every roll is a special effect', () => {
     /*
      * The other half of the test above, and the one that would go wrong if the odds were simply raised

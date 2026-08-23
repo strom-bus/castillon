@@ -252,10 +252,29 @@ describe('sequence length', () => {
     }
   })
 
-  it('refuses a length the engine cannot run', () => {
+  it('takes any length from one to sixteen, seven included', () => {
+    /*
+     * Seven used to be refused, and refusing it was the bug: this instrument's premise is that branches
+     * of different lengths drift against each other, and it offered only powers of two — the most
+     * bar-like set there is. Five against four is what a cascade should sound like.
+     */
     const osc = firstOsc()
-    usePatchStore.getState().setStepCount(osc.id, 7)
-    expect((firstOsc().data.params as OscParams).steps).toHaveLength(4)
+    for (const count of [1, 3, 5, 7, 11, 16]) {
+      usePatchStore.getState().setStepCount(osc.id, count)
+      expect((firstOsc().data.params as OscParams).steps, `${count} steps`).toHaveLength(count)
+    }
+  })
+
+  it('still refuses a length that is not one', () => {
+    // Generosity with a boundary: nothing, more than a phrase can be heard as, or not a number at all.
+    const osc = firstOsc()
+    usePatchStore.getState().setStepCount(osc.id, 8)
+    for (const bad of [0, -3, 99, Number.NaN]) {
+      usePatchStore.getState().setStepCount(osc.id, bad)
+      const length = (firstOsc().data.params as OscParams).steps.length
+      expect(length, `${bad} steps`).toBeGreaterThanOrEqual(1)
+      expect(length, `${bad} steps`).toBeLessThanOrEqual(16)
+    }
   })
 
   it('leaves other nodes alone', () => {

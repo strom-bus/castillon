@@ -7,7 +7,8 @@ import {
   defaultOscParams,
   DEFAULT_STEP_COUNT,
   normaliseStepCount,
-  STEP_COUNTS,
+  MAX_STEPS,
+  MIN_STEPS,
 } from '../nodes/registry'
 import { cutoffToSlider, MAX_RESONANCE, MIN_RESONANCE, sliderToCutoff } from '../audio/filter'
 import { FILTER_TYPES } from '../audio/filter'
@@ -78,7 +79,8 @@ const CODE_VERSION = 1
 const NODE_TYPE_BITS = 4
 const EFFECT_BITS = 5
 const WAVEFORM_BITS = 5
-const STEP_COUNT_BITS = 3
+/** Four bits, so any length from one to sixteen travels as itself. */
+const STEP_COUNT_BITS = 4
 /** How many parameters the writer knew about, per node type. See `writeParams`. */
 const FIELD_COUNT_BITS = 6
 /**
@@ -503,7 +505,9 @@ function writeOsc(writer: BitWriter, raw: OscParams): void {
   writeParams(writer, OSC_FIELDS, params, OSC_REFERENCE)
 
   const count = normaliseStepCount(params.steps?.length ?? DEFAULT_STEP_COUNT)
-  writer.write(STEP_COUNTS.indexOf(count), STEP_COUNT_BITS)
+  // The count itself rather than an index into a list of four, which is what forbade a five-step
+  // sequence — a storage detail that had been passing for a design decision.
+  writer.write(quantise(count, 1, MIN_STEPS, MAX_STEPS) - MIN_STEPS, STEP_COUNT_BITS)
 
   const steps = Array.from(
     { length: count },
@@ -532,7 +536,7 @@ function writeOsc(writer: BitWriter, raw: OscParams): void {
 
 function readOsc(reader: BitReader, declared: number): OscParams {
   const params = readParams(reader, OSC_FIELDS, OSC_REFERENCE, declared)
-  const count = STEP_COUNTS[reader.read(STEP_COUNT_BITS)] ?? DEFAULT_STEP_COUNT
+  const count = reader.read(STEP_COUNT_BITS) + MIN_STEPS
 
   const steps: Step[] = []
   for (let i = 0; i < count; i++) {

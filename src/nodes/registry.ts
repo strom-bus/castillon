@@ -59,6 +59,16 @@ export interface ScheduleResult {
   endTime: number
   /** Times at which this node fires its children. */
   outgoing: number[]
+  /**
+   * Whether this node kept a branch from happening that would otherwise have run.
+   *
+   * Only a SIEVE ever says so, and it is what tells a pass apart from a shorter one. A pass that is
+   * short because a branch was withheld must not shorten the cycle — otherwise a branch set to every
+   * other pass fires at irregular intervals. A pass that is short because it *is* short must be left
+   * alone, which is what an odd-length sequence with a swing is. The two look identical from the
+   * outside, so the node that did the withholding is the only thing that can tell them apart.
+   */
+  withheld?: boolean
 }
 
 export interface NodeDefinition {
@@ -186,7 +196,7 @@ const sieve: NodeDefinition = {
 
     // Ends where it began either way: it holds nothing back in time, only sometimes in fact. So a branch
     // that does not happen this pass costs the cascade no length, and the lap keeps its shape.
-    return { endTime: time, outgoing: passes ? [time] : [] }
+    return { endTime: time, outgoing: passes ? [time] : [], withheld: !passes }
   },
 }
 
@@ -293,17 +303,32 @@ export function warpingOf(nodes: PatchNode[], applying: readonly NodeId[]): Warp
 }
 
 /** Selectable sequence lengths. Append-only: the patch code stores the index into this. */
+/**
+ * How many steps a sequence may have: any number from one to sixteen.
+ *
+ * It was 2, 4, 8 and 16 — powers of two, which is the most bar-like constraint there is, in an instrument
+ * whose whole premise is that there is no bar. Five against four is exactly what a cascade should sound
+ * like and was the one thing it could not do. The engine never minded: `resizeSteps` has always taken any
+ * number, and what actually forbade it was three bits of patch code holding an *index* into a list of
+ * four rather than the count itself.
+ *
+ * Sixteen because a sequence longer than that stops being a phrase you can hear as one, and one because a
+ * single-step oscillator is a usable thing — a drone, or a trigger for whatever hangs below it.
+ */
+export const MIN_STEPS = 1
+export const MAX_STEPS = 16
+
+/** Kept for the places that offer a few sensible lengths rather than all of them. */
 export const STEP_COUNTS = [2, 4, 8, 16] as const
 
-export type StepCount = (typeof STEP_COUNTS)[number]
+export type StepCount = number
 
-export const DEFAULT_STEP_COUNT: StepCount = 4
+export const DEFAULT_STEP_COUNT = 4
 
 /** A patch could name any length; the engine only ever runs one of the four. */
 export function normaliseStepCount(count: number): StepCount {
-  return (STEP_COUNTS as readonly number[]).includes(count)
-    ? (count as StepCount)
-    : DEFAULT_STEP_COUNT
+  if (!Number.isFinite(count)) return DEFAULT_STEP_COUNT
+  return Math.min(MAX_STEPS, Math.max(MIN_STEPS, Math.round(count)))
 }
 
 /**
@@ -356,7 +381,7 @@ const osc: NodeDefinition = {
   place: 'cascade',
   ports: { trigger: 'both', side: true },
   defaults: defaultOscParams,
-  schedule({ node, time, bpm, engine, activity, warping = NO_WARPING }) {
+  schedule({ node, time, bpm, engine, activity, warping = NO_WARPING, lap = 1 }) {
     const params = node.params as OscParams
     /*
      * A warp on the branch stretches or compresses every step below it.
@@ -391,8 +416,17 @@ const osc: NodeDefinition = {
      *
      * At a swing of 1 both halves are one step and every line below reduces to what it was.
      *
-     * Every selectable step count is even, so the pattern always closes: no sequence ends on a long half
-     * with another long half following it round the loop.
+     * **Paired by where a step falls across the whole run, not by where it falls in this pass.** Step
+     * counts used to be powers of two, so a pass always held whole pairs and the two readings agreed. Now
+     * that a sequence can be five steps long a pass can end mid-pair, and pairing within the pass would
+     * put two long halves together at the loop — a stumble rather than a groove.
+     *
+     * Counting from the top of the cascade instead, an odd-length line swings *continuously*: its pattern
+     * comes round every two passes rather than breaking every one. The cost is that those two passes are
+     * not the same length, which is honest — a swing genuinely does not fit an odd count in one lap, and
+     * this instrument has never promised a fixed one. With an even count nothing changes at all.
+     *
+     * Only possible because a chain counts its passes now, which arrived for the SIEVE.
      */
     /*
      * This sequence's own feel, scaled by whatever a warp above asks for.
@@ -407,8 +441,16 @@ const osc: NodeDefinition = {
 
     const pair = step * 2
     const long = (pair * swing) / (swing + 1)
-    const lengthOf = (index: number) => (index % 2 === 0 ? long : pair - long)
-    const startOf = (index: number) => Math.floor(index / 2) * pair + (index % 2 === 1 ? long : 0)
+    /** Whether this pass begins mid-pair, which only an odd step count can cause. */
+    const from = ((lap - 1) * count) % 2
+    const lengthOf = (index: number) => ((index + from) % 2 === 0 ? long : pair - long)
+    // Summed rather than solved: with a pass that can begin mid-pair there is no closed form worth the
+    // trouble at sixteen steps.
+    const startOf = (index: number) => {
+      let at = 0
+      for (let i = 0; i < index; i++) at += lengthOf(i)
+      return at
+    }
 
     /*
      * How far a note may fall from where it was written: a share of the shortest gap in this sequence.
@@ -516,14 +558,24 @@ const osc: NodeDefinition = {
       }
     }
 
-    const endTime = time + count * step
+    /*
+     * Where the sequence actually ends, which is where its last step ends.
+     *
+     * `count * step` while every count was even, since a whole number of pairs comes to exactly that.
+     * An odd count under a swing does not: its pass holds one more long half than short, so the last
+     * step ran past the end the node reported and the next pass began underneath it. Summing the steps
+     * is right in both cases and identical in the old one.
+     */
+    const endTime = time + startOf(count)
     let outgoing: number[]
     switch (params.propagateMode) {
       case 'onStart':
         outgoing = [time]
         break
       case 'onStep':
-        outgoing = Array.from({ length: count }, (_, i) => time + i * step)
+        // Each step's own start, swing included: firing the branch below on the grid while the notes
+        // above it were swung would be two rhythms, not one.
+        outgoing = Array.from({ length: count }, (_, i) => time + startOf(i))
         break
       default:
         outgoing = [endTime]

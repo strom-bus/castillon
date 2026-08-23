@@ -1730,3 +1730,166 @@ describe('a sieve deciding which passes happen', () => {
     expect(overLaps({ every: 2, offset: 1 }, 8)).toBeCloseTo(Math.ceil(straight / 2), 0)
   })
 })
+
+/**
+ * Polymetry: a sequence of any length, and what that does to a swing.
+ *
+ * The instrument's premise is that branches of different lengths drift against each other, and it offered
+ * only powers of two — the most bar-like set there is. Five against four is what a cascade should sound
+ * like and was the one thing it could not do. The engine never minded; what forbade it was three bits of
+ * patch code holding an index into a list of four.
+ */
+describe('a sequence of any length', () => {
+  /** One oscillator of `count` steps, looping, with whatever else is asked of it. */
+  function run(count: number, over: Partial<OscParams>, seconds: number) {
+    const steps = Array.from({ length: count }, (_, i) => ({
+      note: 60 + i,
+      active: true,
+      velocity: 1,
+    }))
+    const node: PatchNode = {
+      id: 'o',
+      type: 'osc',
+      position: { x: 0, y: 0 },
+      params: { ...defaultOscParams(), gate: 1, steps, ...over },
+    }
+    const scheduler = build(
+      patchOf(
+        [{ id: 's', type: 'start', position: { x: 0, y: 0 }, params: {} }, node],
+        [edge('s', 'o')],
+        true,
+      ),
+    )
+    scheduler.start()
+    scheduler.drain(seconds)
+    scheduler.stop()
+    return engine.notes
+  }
+
+  /** What a note asks for, back in the terms the sequence was written in. */
+  const notes = (played: NoteRequest[]) =>
+    played.map((note) => Math.round(12 * Math.log2(note.freq / 440) + 69))
+
+  it.each([1, 3, 5, 7, 11, 16])('plays %i steps when %i are asked for', (count) => {
+    const played = notes(run(count, {}, 0.05 * count + 0.02))
+    expect(played).toEqual(Array.from({ length: count }, (_, i) => 60 + i))
+  })
+
+  it('runs an odd length against an even one without either being cut', () => {
+    // The whole point: five against four drift against each other for ever, which is what this
+    // instrument exists to do and was the one thing it could not do inside one oscillator.
+    expect(notes(run(5, {}, 0.3))).toEqual([60, 61, 62, 63, 64])
+    expect(notes(run(4, {}, 0.3))).toEqual([60, 61, 62, 63])
+  })
+
+  describe('swung', () => {
+    /*
+     * A pass can now end mid-pair, so pairing within the pass would put two long halves together at the
+     * loop — a stumble rather than a groove. Paired across the whole run instead, an odd line swings
+     * continuously and comes round every two passes.
+     */
+    const swung = { swing: 2, useSwing: true }
+
+    it('leaves an even count exactly as it was', () => {
+      // The change has to be invisible where it does not apply, or every existing patch moves.
+      const before = run(4, swung, 2.2).map((note) => note.time)
+      expect(before.length).toBeGreaterThan(4)
+      const gaps = before.slice(1).map((time, i) => time - before[i]!)
+      // Long, short, long, short — and the same on the second pass as on the first.
+      expect(gaps[0]).toBeCloseTo(gaps[2]!, 6)
+      expect(gaps[1]).toBeCloseTo(gaps[3]!, 6)
+      expect(gaps[0]).toBeGreaterThan(gaps[1]!)
+    })
+
+    it('carries the pairing across the loop on an odd count', () => {
+      /*
+       * Compared pass against pass, which is where the property lives. My first attempt asked only that
+       * no two *adjacent* gaps be equal, and that holds whether or not the pairing carries — five steps
+       * alternate within a pass either way, and the gap across the loop is a third value that separates
+       * them. It passed with the carry deliberately removed.
+       *
+       * With the carry, a pass that ends on a long half is followed by one that begins on a short one:
+       * the second pass is the first inverted. Without it, every pass is identical and the loop lurches.
+       */
+      const times = run(5, swung, 3).map((note) => note.time)
+      expect(times.length).toBeGreaterThanOrEqual(10)
+      const first = times.slice(0, 5)
+      const second = times.slice(5, 10)
+      const shape = (of: number[]) => of.slice(1).map((time, i) => time - of[i]!)
+
+      const one = shape(first)
+      const two = shape(second)
+      expect(one[0], 'the first pass opens long').toBeGreaterThan(one[1]!)
+      expect(two[0], 'the second opens short, being the first inverted').toBeLessThan(two[1]!)
+    })
+
+    it('comes round every second pass rather than every one', () => {
+      // The honest consequence: a swing does not fit an odd count in one lap, so the pattern takes two
+      // — and those two passes are genuinely different lengths.
+      const times = run(5, swung, 4).map((note) => note.time)
+      const lapOf = (i: number) => times[(i + 1) * 5]! - times[i * 5]!
+      expect(lapOf(0)).not.toBeCloseTo(lapOf(1), 6)
+      expect(lapOf(0)).toBeCloseTo(lapOf(2), 6)
+    })
+
+    it('fires the branch below on the swung steps, not on the grid underneath them', () => {
+      /*
+       * `onStep` hands the branch below one trigger per step. Those triggers have to land where the
+       * steps land — swung — or the oscillator plays a groove while everything under it plays straight,
+       * which is two rhythms rather than one and sounds like a fault in whichever you were listening to.
+       */
+      const steps = Array.from({ length: 4 }, (_, i) => ({
+        note: 60 + i,
+        active: true,
+        velocity: 1,
+      }))
+      const nodes: PatchNode[] = [
+        { id: 's', type: 'start', position: { x: 0, y: 0 }, params: {} },
+        {
+          id: 'top',
+          type: 'osc',
+          position: { x: 0, y: 0 },
+          params: {
+            ...defaultOscParams(),
+            gate: 1,
+            steps,
+            swing: 2,
+            useSwing: true,
+            propagateMode: 'onStep',
+          },
+        },
+        {
+          id: 'below',
+          type: 'osc',
+          position: { x: 0, y: 0 },
+          params: {
+            ...defaultOscParams(),
+            steps: [{ note: 72, active: true, velocity: 1 }],
+          },
+        },
+      ]
+      const scheduler = build(patchOf(nodes, [edge('s', 'top'), edge('top', 'below')]))
+      scheduler.start()
+      scheduler.drain(2)
+      scheduler.stop()
+
+      const above = engine.notes.filter((note) => note.nodeId === 'top').map((note) => note.time)
+      const under = engine.notes.filter((note) => note.nodeId === 'below').map((note) => note.time)
+      expect(under).toHaveLength(above.length)
+      for (const [i, at] of under.entries()) expect(at, `step ${i}`).toBeCloseTo(above[i]!, 6)
+    })
+
+    it('ends where its last step ends, so the next pass does not begin underneath it', () => {
+      /*
+       * The node reported `count * step`, which is exactly right for a whole number of pairs and wrong
+       * for an odd count: that pass holds one more long half than short, so the last step overran the
+       * end and the next pass started on top of it.
+       */
+      const straight = run(5, {}, 4).map((note) => note.time)
+      const swungTimes = run(5, swung, 4).map((note) => note.time)
+      const gapAcross = (of: number[]) => of[5]! - of[4]!
+      // Across the loop the gap is a real step length, not the average the grid would have given.
+      expect(gapAcross(swungTimes)).not.toBeCloseTo(gapAcross(straight), 6)
+    })
+  })
+})

@@ -77,8 +77,15 @@ interface Chain {
    *
    * The previous lap rather than the longest ever seen, so a patch that is genuinely shortened settles
    * within two passes instead of holding an old period for ever.
+   *
+   * And it applies only where something was actually withheld, which `withheld` below records. A pass
+   * that is short because it *is* short — an odd-length sequence under a swing, whose two passes are
+   * legitimately different lengths — must be left alone, or the floor pads it with silence and the very
+   * thing it was carrying across the loop is broken.
    */
   previousLength: number
+  /** Whether a SIEVE kept something from happening this pass. */
+  withheld: boolean
 }
 
 /** Whether this node waits for an input rather than for the transport. */
@@ -333,6 +340,9 @@ export class CascadeScheduler {
     })
 
     if (chain && result.endTime > chain.lastEnd) chain.lastEnd = result.endTime
+    // Remembered for `settle`: a pass that was cut short by a sieve keeps the cycle's length, and one
+    // that is simply shorter does not.
+    if (chain && result.withheld) chain.withheld = true
 
     // Effects light up with whatever is feeding them. This belongs here rather than in the node
     // definition, which has no idea what is wired to it — and that is what keeps effects cheap to
@@ -389,7 +399,8 @@ export class CascadeScheduler {
      * a cycle anybody can play against.
      */
     const own = chain.lastEnd - chain.startTime
-    const length = Math.max(own, chain.previousLength, own > 0 ? 0 : EMPTY_CHAIN_DELAY)
+    const floor = chain.withheld ? chain.previousLength : 0
+    const length = Math.max(own, floor, own > 0 ? 0 : EMPTY_CHAIN_DELAY)
     this.beginChain(chain.startNodeId, chain.startTime + length, chain.lap + 1, length)
   }
 
@@ -402,6 +413,7 @@ export class CascadeScheduler {
       startTime: time,
       lap,
       previousLength,
+      withheld: false,
     })
     // A cascade begins in the key it was written in; only a WARP in the branch moves it.
     this.enqueue({ nodeId: startNodeId, time, depth: 0, chainId, shifts: [] })

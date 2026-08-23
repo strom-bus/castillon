@@ -42,7 +42,10 @@ refused, since between an oscillator and an effect there is only one direction t
 
 ## What is in it
 
-- **Oscillators** (`OSC`) with 2, 4, 8 or 16 steps. Ten waveforms: sine, triangle, sawtooth, ramp, square,
+- **Oscillators** (`OSC`) of any length from one step to sixteen — five against four, seven against
+  three. That is what this instrument is for, and for a long time it offered only powers of two, which is
+  the most bar-like set there is in a machine whose premise is that there is no bar. The engine never
+  minded; what forbade it was three bits of patch code holding an index into a list of four. Ten waveforms: sine, triangle, sawtooth, ramp, square,
   variable-width pulse, and white, pink, brown and blue noise. Pulse and ramp are built from their
   Fourier series, since Web Audio ships neither.
 - **Per-voice filter** — low pass, high pass or band pass, cutoff edited on a log slider, with **key
@@ -280,7 +283,7 @@ refused, since between an oscillator and an effect there is only one direction t
   it longer without making it clearer. Both languages live adjacent in one file so a half-finished
   edit shows up in the diff rather than as a blank paragraph months later.
 
-  Fourteen chapters and a hundred and twenty-seven entries, written for whoever is using the instrument
+  Fourteen chapters and a hundred and twenty-eight entries, written for whoever is using the instrument
   rather than for whoever built it: no entry explains how something is implemented, and every one says
   what a control does to the sound and when you would reach for it. One chapter per module, each in
   the order its own panel is in and under the panel's own group headings, so reading the manual and
@@ -297,7 +300,7 @@ refused, since between an oscillator and an effect there is only one direction t
   patch changes it. **Generate** publishes and puts the code in the field; the field is empty until
   it does, because a code shown before it exists is a code somebody writes down. Copy copies what is
   there and nothing else. The field takes either kind of code.
-  The eight nodes it starts with come to 130 characters, against 3243 as JSON.
+  The eight nodes it starts with come to 131 characters, against 3243 as JSON.
 
 ## Sharing
 

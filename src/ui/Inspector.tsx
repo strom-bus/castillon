@@ -13,7 +13,7 @@ import {
   sliderToCutoff,
 } from '../audio/filter'
 import { MAX_PULSE_WIDTH, MIN_PULSE_WIDTH, WAVEFORM_NAMES, WAVEFORMS } from '../audio/waveforms'
-import { DEFAULT_DELAY_MS, DEFAULT_STEP_COUNT, STEP_COUNTS } from '../nodes/registry'
+import { DEFAULT_DELAY_MS, DEFAULT_STEP_COUNT, MAX_STEPS, MIN_STEPS } from '../nodes/registry'
 import {
   LFO_SHAPE_LABELS,
   LFO_SHAPES,
@@ -1291,19 +1291,17 @@ export function Inspector() {
           chosen, then timed, then given a tone, then a shape, then a colour — and last of all
           the patch is told what to fire next. */}
       <Group title="SEQUENCE">
-        <label className="inspector-field">
-          <span className="inspector-label">Steps</span>
-          <select
-            value={params.steps?.length ?? DEFAULT_STEP_COUNT}
-            onChange={(e) => setStepCount(node.id, Number(e.target.value))}
-          >
-            {STEP_COUNTS.map((count) => (
-              <option key={count} value={count}>
-                {count}
-              </option>
-            ))}
-          </select>
-        </label>
+        {/* A slider rather than a list of four. It was 2, 4, 8 and 16 — powers of two, which is the most
+            bar-like set there is, in an instrument whose premise is that there is no bar. Five against
+            four is what a cascade should sound like, and the useful lengths are every one of them. */}
+        <Slider
+          label="Steps"
+          value={params.steps?.length ?? DEFAULT_STEP_COUNT}
+          min={MIN_STEPS}
+          max={MAX_STEPS}
+          step={1}
+          onChange={(count) => setStepCount(node.id, count)}
+        />
 
         <label className="inspector-field">
           <span className="inspector-label">Division</span>

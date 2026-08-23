@@ -342,8 +342,8 @@ export const MANUAL: Section[] = [
           {
             term: { en: 'Steps', es: 'Steps' },
             text: {
-              en: 'How many notes the sequence has: 2, 4, 8 or 16. It is also how long this branch takes, and therefore when whatever hangs below it starts — so a two-step oscillator against a sixteen-step one is the simplest way to get two lines drifting against each other.',
-              es: 'Cuántas notas tiene la secuencia: 2, 4, 8 o 16. Es también lo que tarda esta rama, y por tanto cuándo arranca lo que cuelgue debajo — así que un oscilador de dos pasos contra uno de dieciséis es la manera más simple de tener dos líneas desfasándose.',
+              en: 'How many notes the sequence has: anything from one to sixteen. It is also how long this branch takes, and therefore when whatever hangs below it starts — so five steps against four is two lines that come apart and keep coming apart, which is the thing this instrument is for. One step is a drone, or a trigger for whatever hangs below it.',
+              es: 'Cuántas notas tiene la secuencia: de una a dieciséis. Es también lo que tarda esta rama, y por tanto cuándo arranca lo que cuelgue debajo — así que cinco pasos contra cuatro son dos líneas que se separan y siguen separándose, que es para lo que existe este instrumento. Un solo paso es un dron, o un disparo para lo que cuelgue debajo.',
             },
           },
           {
@@ -358,6 +358,13 @@ export const MANUAL: Section[] = [
             text: {
               en: 'What share of its step each note holds. Low is short and detached, one is a note that lasts until the next one begins. It is the difference between a plucked line and a legato one, and on a slow division a low gate leaves audible silence between notes.',
               es: 'Qué parte de su paso ocupa cada nota. Bajo es corto y separado, uno es una nota que dura hasta que empieza la siguiente. Es la diferencia entre una línea punteada y una ligada, y con una división lenta un gate bajo deja silencio audible entre notas.',
+            },
+          },
+          {
+            term: { en: 'Swing on an odd length', es: 'Swing en una longitud impar' },
+            text: {
+              en: 'A swing pairs the steps two by two, so a sequence of five ends mid-pair. Rather than start the next pass over — which would put two long halves together and make the loop lurch — the pairing carries on across it, so a five-step line swings continuously and its pattern comes round every second pass instead of every one. The cost is that those two passes are not the same length. That is honest rather than a fault: a swing genuinely does not fit an odd count in one pass, and this instrument has never promised a fixed one.',
+              es: 'Un swing empareja los pasos de dos en dos, así que una secuencia de cinco termina a media pareja. En vez de empezar de cero en la pasada siguiente — lo que juntaría dos mitades largas y haría que el bucle cojeara — el emparejamiento continúa a través de ella, así que una línea de cinco pasos hace swing sin interrupción y su patrón vuelve cada dos pasadas en lugar de cada una. El precio es que esas dos pasadas no duran lo mismo. Eso es honesto y no un fallo: un swing de verdad no cabe en un conteo impar dentro de una pasada, y este instrumento nunca ha prometido una duración fija.',
             },
           },
           {

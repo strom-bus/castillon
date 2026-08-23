@@ -7,7 +7,16 @@ import { NODE_DEFINITIONS } from '../nodes/registry'
 import { PRESETS } from '../presets/presets'
 import { encodePatch, decodePatch } from '../state/patchCode'
 import { INITIAL_PATCH_CODE } from '../state/patchStore'
-import { EDGE_KINDS_IN_ORDER } from './readmeFacts'
+import { EDGE_KINDS } from '../types/patch'
+import { MAX_LOAD } from '../audio/load'
+
+/**
+ * What the ceiling was assumed to be before anybody measured it, which is what the multiple is against.
+ *
+ * Not a constant of the code — nothing uses it any more — so it lives here, beside the only sentence
+ * that still refers to it.
+ */
+const BELIEVED_CEILING = 100
 
 /**
  * That the README still describes this version of the instrument.
@@ -51,20 +60,20 @@ const UNITS = [
 ]
 const TENS = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety']
 
+/** Nought to ninety-nine, which is every count this file reads out of prose on its own. */
+function underAHundred(value: number): string {
+  if (value < 20) return UNITS[value]!
+  if (value % 10 === 0) return TENS[Math.floor(value / 10)]!
+  return `${TENS[Math.floor(value / 10)]}-${UNITS[value % 10]}`
+}
+
 /** Only the range prose here uses: a hundred and something. Anything else is a test that should change. */
 function spellOut(value: number): string {
   expect(value, 'spellOut only covers 100 to 199').toBeGreaterThanOrEqual(100)
   expect(value, 'spellOut only covers 100 to 199').toBeLessThan(200)
 
   const rest = value - 100
-  if (rest === 0) return 'hundred'
-  const words =
-    rest < 20
-      ? UNITS[rest]!
-      : rest % 10 === 0
-        ? TENS[Math.floor(rest / 10)]!
-        : `${TENS[Math.floor(rest / 10)]}-${UNITS[rest % 10]}`
-  return `hundred and ${words}`
+  return rest === 0 ? 'hundred' : `hundred and ${underAHundred(rest)}`
 }
 
 describe('the README against the code', () => {
@@ -72,7 +81,7 @@ describe('the README against the code', () => {
     ['effects', EFFECTS.length, 'effects'],
     ['waveforms', WAVEFORMS.length, 'waveforms'],
     ['presets', PRESETS.length, 'presets'],
-    ['overlaid graphs', EDGE_KINDS_IN_ORDER.length, 'overlaid graphs'],
+    ['overlaid graphs', EDGE_KINDS.length, 'overlaid graphs'],
   ])('says there are %s and there are', (_what, count, noun) => {
     /*
      * Read out of the same table that spells the long counts, rather than the sparse one that used to sit
@@ -141,8 +150,19 @@ describe('the README against the code', () => {
   })
 
   it('quotes the ceiling multiple as the numbers give it', () => {
-    // It was a hundred points before anybody measured. The multiple is a fact about MAX_LOAD, and it
-    // was written as "about fifty times" while the ceiling was believed to be higher than it is.
-    expect(says('twenty-eight times that')).toBe(true)
+    /*
+     * It was a hundred points before anybody measured. The multiple is a fact about `MAX_LOAD`, and it
+     * was written as "about fifty times" while the ceiling was believed to be higher than it is.
+     *
+     * Derived from the constant rather than quoted: this used to assert the phrase "twenty-eight times
+     * that" literally, which pins the README to *a* number and not to *the* number — retuning the
+     * ceiling would have left it green and the prose wrong, which is the whole failure it exists to
+     * catch.
+     */
+    // Rounded up, because the prose says "a little under": 27.5 is a little under twenty-eight.
+    const multiple = underAHundred(Math.ceil(MAX_LOAD / BELIEVED_CEILING))
+    expect(says(`${multiple} times that`), `README does not say "${multiple} times that"`).toBe(
+      true,
+    )
   })
 })

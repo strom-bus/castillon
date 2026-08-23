@@ -224,7 +224,28 @@ export function ModNode({ id, data, selected }: NodeProps<FlowNode>) {
   )
   // A per-note envelope has no use for a trigger either: its clock is the notes it is pointed at.
   const ports = (envelope && params.fires !== 'note') || inCascade
-  const target = targetOf(params.target)
+  /*
+   * What the node says it is pointed at, asked of whatever it is actually pointed at.
+   *
+   * The destination's type is not optional information: `pitch` is a vibrato over a hundred cents on an
+   * oscillator and a resonator's tuning over twelve semitones on a comb, and an effect may rename a
+   * parameter it borrows — a phaser calls its cutoff Centre. Asked without the destination this showed
+   * whichever the effect table happened to hold, which for those two is the wrong label on one of them.
+   *
+   * The first mod cable, where there are several: they nearly always share a destination kind, and a node
+   * header has room for one word. Unwired it says nothing, which is honest — a target has no label until
+   * there is something to have it on.
+   */
+  const destination = usePatchStore((s) => {
+    const edge = s.edges.find((e) => e.source === id && e.data?.kind === 'mod')
+    const node = edge && s.nodes.find((n) => n.id === edge.target)
+    if (!node) return null
+    return node.type === 'fx' ? `fx:${(node.data.params as FxParams).effect}` : (node.type ?? 'osc')
+  })
+  const [destinationType, destinationEffect] = (destination ?? '').split(':')
+  const target = destination
+    ? targetOf(params.target, destinationType, destinationEffect as EffectKind | undefined)
+    : undefined
   const { pulsing } = useNodeActivity(id)
 
   return (

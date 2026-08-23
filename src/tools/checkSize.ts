@@ -35,6 +35,21 @@ const DEFERRED_LIMIT = 60
 /** Chunks that are fetched only when somebody opens the thing they belong to. */
 const DEFERRED = ['Manual', 'Gallery']
 
+/**
+ * What the README's table of chunks says each one weighs, and how far it may drift before that is a lie.
+ *
+ * A budget catches a chunk getting too big. Nothing caught the *documentation* getting stale, and it had:
+ * the table said the manual was about thirty kilobytes when it had reached thirty-nine, and the entry
+ * chunk forty when it was forty-four. Both inside every budget and both wrong by enough that a reader
+ * planning around them would plan around the wrong thing.
+ *
+ * Twenty per cent, because the table says "~" and a table of approximate sizes that has to be edited on
+ * every release is a table nobody edits. Wide enough to ignore ordinary growth, narrow enough that a
+ * third of a chunk appearing out of nowhere is a failure.
+ */
+const DOCUMENTED = { react: 54, canvas: 59, index: 44, Manual: 39, Gallery: 6 }
+const DRIFT = 0.2
+
 const kb = (bytes: number) => bytes / 1024
 
 function chunks() {
@@ -84,6 +99,25 @@ for (const chunk of later) {
   if (kb(chunk.gzip) > DEFERRED_LIMIT) {
     failures.push(
       `${chunk.name} is ${kb(chunk.gzip).toFixed(1)} kB gzipped, over the ${DEFERRED_LIMIT} kB budget for a deferred chunk.`,
+    )
+  }
+}
+
+/*
+ * The README's table, which is the one number here a reader takes away and the one nothing was checking.
+ */
+for (const [prefix, stated] of Object.entries(DOCUMENTED)) {
+  const chunk = all.find((one) => one.name.startsWith(prefix))
+  if (!chunk) {
+    failures.push(`the README's chunk table names ${prefix}, and the build has no such chunk.`)
+    continue
+  }
+  const actual = kb(chunk.gzip)
+  if (Math.abs(actual - stated) / stated > DRIFT) {
+    failures.push(
+      `the README says ${prefix} is about ${stated} kB gzipped and it is ${actual.toFixed(1)} kB. ` +
+        'Update the table in "How the output is split" — a stated size nobody maintains is worse than ' +
+        'none, because a reader believes it.',
     )
   }
 }

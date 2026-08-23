@@ -78,8 +78,22 @@ export interface EffectDescriptor {
    * Anything both effects use carries over untouched.
    */
   defaults?: Partial<FxParams>
-  /** Seconds the node's output is faded over before disposal, for effects with a tail. */
+  /** Seconds the node's output is faded over before disposal, so removing a node does not click. */
   releaseTime: number
+  /**
+   * Seconds this keeps sounding after its input stops, for an export that has to wait for it.
+   *
+   * A **different question** from `releaseTime`, and conflating the two cut the tail off every export
+   * this instrument has ever produced. A release is how long to fade a node out when somebody deletes
+   * it — a hundredth of a second is plenty, because the point is only to avoid a click. A tail is how
+   * long the effect goes on making sound on its own, which for a reverb is its whole decay: 0.4 against
+   * 3.2 meant a preset exported with 2.8 seconds of its reverb missing, and the stress patch lost 7.6.
+   *
+   * Declared per effect for the same reason `cost` is: what an effect is made of is the effect's own
+   * business, and only nine of the twelve have any memory at all. Absent means the release is the whole
+   * of it, which is the honest answer for anything built from a curve or a gain.
+   */
+  tail?(params: FxParams, bpm: number): number
   /**
    * What running this costs, in points, where one point is one plain oscillator voice. Declared here
    * because what an effect is made of is the effect's own business. See audio/load.ts for the unit.
@@ -94,6 +108,19 @@ export interface EffectDescriptor {
 }
 
 const RAMP = 0.02
+
+/**
+ * A decay in seconds, read the one way, so that what an effect is *priced* for and what it is *waited*
+ * for cannot disagree.
+ *
+ * The fallback matters more than it looks. A patch node always carries defaults, but a hand-built one or
+ * one arriving from an older code need not — and the first version of the tail answered nought for a
+ * reverb with no decay set, which is a reverb the render waits no time at all for. The number `cost` has
+ * always used is the honest one to wait for.
+ */
+function decaySeconds(params: FxParams, fallback: number): number {
+  return Math.min(MAX_DECAY, Math.max(MIN_DECAY, params.decay ?? fallback))
+}
 
 /** The tone control the effects share: a low-pass, gentle enough to shape rather than to filter. */
 function tone(ctx: BaseAudioContext): BiquadFilterNode {
@@ -119,12 +146,15 @@ const reverb: EffectDescriptor = {
   // The dearest thing here by a wide margin, and it scales with the tail, so the coefficient carries
   // the shape. At full decay it is two hundred points — a fifth of the ceiling for one node, which is
   // true rather than discouraging.
-  cost: (params) => 15 * Math.min(MAX_DECAY, Math.max(MIN_DECAY, params.decay ?? 2.5)),
+  cost: (params) => 15 * decaySeconds(params, 2.5),
   label: 'Reverb',
   params: ['decay', 'cutoff'],
   defaults: { decay: 2.5, cutoff: 4000 },
   // Long enough that removing the node lets the tail out rather than cutting it off.
   releaseTime: 0.4,
+  // The impulse response is `decay` seconds long, so that is exactly how long a reverb rings on after
+  // the last thing to reach it.
+  tail: (params) => decaySeconds(params, 2.5),
   create(ctx, random = Math.random) {
     const convolver = ctx.createConvolver()
     const damping = tone(ctx)
@@ -355,6 +385,20 @@ const echo: EffectDescriptor = {
   labels: { width: 'Spread' },
   defaults: { time: '1/8', feedback: 0.4, width: 0, cutoff: 3000 },
   releaseTime: 0.3,
+  /*
+   * However many repeats it takes to fall sixty decibels, at this tempo. Two lines in series, so one
+   * round trip is two steps.
+   *
+   * Capped, because the feedback reaches 0.95 and 0.95^n takes 135 round trips to get there — two
+   * minutes at a slow tempo, which is not a tail, it is the rest of the file. Ten seconds is past what
+   * anybody hears under the next pass.
+   */
+  tail: (params, bpm) => {
+    const step = stepDuration(bpm, params.time ?? '1/8') * 2
+    const feedback = Math.min(0.95, Math.max(0, params.feedback ?? 0))
+    if (feedback <= 0) return step
+    return Math.min(10, step * (Math.log(0.001) / Math.log(feedback)))
+  },
   create(ctx) {
     // Two lines in series with the feedback coming off the second, so the taps land at T, 2T, 3T
     // and alternate between them. Spread then decides how far apart the two sit in the stereo
@@ -885,9 +929,12 @@ const comb: EffectDescriptor = {
   // different scale; `cutoff` is the low-pass *inside* the loop, which is not a tone control at all.
   labels: { decay: 'Ring', cutoff: 'Damping' },
   defaults: { pitch: 57, decay: 2, cutoff: 4000 },
-  // Its own release has to outlast the longest ring it can be set to, or stopping the transport clips
-  // the tail off the one effect whose whole content is a tail.
+  // Long enough that deleting the node does not click, which is all a release is for — the ring itself
+  // is what `tail` answers, and it can be a hundred times this.
   releaseTime: 0.08,
+  // Ring is defined as the time to fall sixty decibels, so it *is* the tail. The damping can only make
+  // it shorter, so this errs long, which costs a moment of quiet rather than a cut note.
+  tail: (params) => decaySeconds(params, 2),
   create(ctx) {
     const input = ctx.createGain()
     const output = ctx.createGain()

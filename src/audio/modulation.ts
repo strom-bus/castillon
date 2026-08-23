@@ -489,9 +489,21 @@ export function targetsFor(
   return [LEVEL, MIX, ...own]
 }
 
-export function targetOf(key: ModTargetKey | undefined, nodeType?: string, effect?: EffectKind) {
-  if (nodeType) return targetsFor(nodeType, effect).find((target) => target.key === key)
-  return key === 'mix' ? MIX : key === 'level' ? LEVEL : FX_PARAM_TARGETS[key ?? '']
+/**
+ * The description of one target, on one kind of node.
+ *
+ * `nodeType` is **required**, and that is the whole of this function's history. It used to be optional,
+ * falling back to the effect parameter table plus level and mix — which was right for as long as no name
+ * meant two things. Then `pitch` did: an oscillator's vibrato reaches a hundred cents either way and a
+ * comb resonator's tuning twelve semitones, and since a depth is a *share* of the span, the wrong
+ * descriptor makes a full-depth vibrato eight times too small. Nothing throws and nothing looks wrong.
+ *
+ * That fault had already been found once, in `connectMod`, and fixed there — leaving the fallback in
+ * place for the next caller to find. Requiring the argument is what makes the compiler find them instead
+ * of a listener finding them one at a time.
+ */
+export function targetOf(key: ModTargetKey | undefined, nodeType: string, effect?: EffectKind) {
+  return targetsFor(nodeType, effect).find((target) => target.key === key)
 }
 
 /**

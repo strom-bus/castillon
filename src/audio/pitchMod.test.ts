@@ -42,14 +42,24 @@ function note(over: Partial<NoteRequest> = {}): NoteRequest {
 
 /** Plays one note under a modulator and answers what reached the source's detune. */
 function drivingDetune(mod: ModParams, over: Partial<NoteRequest> = {}): number {
+  return detuneDrivers(mod, over).length
+}
+
+/** The same, but handing back the drivers themselves, so their depth can be read off them. */
+function detuneDrivers(
+  mod: ModParams,
+  over: Partial<NoteRequest> = {},
+): Array<{ gain: { value: number } }> {
   const fake: FakeAudio = fakeAudio()
   const engine = new AudioEngine()
   engine.adopt(fake.ctx)
   engine.createModulator('m', mod)
   engine.connectMod('m', 'o', mod.target ?? 'pitch', mod.depth ?? 0.5)
   engine.playNote(note(over))
-  return fake.drivers('detune').length
+  return fake.drivers('detune') as Array<{ gain: { value: number } }>
 }
+
+const OSC_PITCH = targetsFor('osc').find((one) => one.key === 'pitch')!
 
 describe('pitch as a modulation destination', () => {
   it('is offered on an oscillator at all', () => {
@@ -94,6 +104,24 @@ describe('pitch as a modulation destination', () => {
     const target = targetsFor('osc').find((one) => one.key === 'pitch')!
     expect(amountFor(target, 1)).toBeCloseTo(MAX_VIBRATO, 6)
     expect(amountFor(target, 0.1)).toBeCloseTo(MAX_VIBRATO / 10, 6)
+  })
+
+  it('bends by that much *in the engine*, and not only in the table', () => {
+    /*
+     * The check above asks the parameter table and gets the right answer. The engine asked something else
+     * — `targetOf(key)` with no node type, which answered from the effect parameters — and for as long as
+     * no name meant two things the two agreed and nobody could tell. Then a comb resonator arrived with a
+     * `pitch` of its own, twelve semitones wide against the vibrato's hundred cents, and since depth is a
+     * *share* of the span every vibrato in the instrument silently became eight times too small.
+     *
+     * Nothing threw, nothing looked wrong, and the whole suite stayed green — because every test about
+     * vibrato asked the table. So this one asks the gain the engine actually set.
+     */
+    const [driver] = detuneDrivers({ ...LFO, depth: 1 })
+    expect(driver.gain.value).toBeCloseTo(MAX_VIBRATO, 4)
+
+    const [half] = detuneDrivers({ ...LFO, depth: 0.5 })
+    expect(half.gain.value).toBeCloseTo(amountFor(OSC_PITCH, 0.5), 4)
   })
 
   it('is symmetrical about the note, rather than only bending upward', () => {

@@ -1355,7 +1355,11 @@ export class AudioEngine implements Engine {
     instance: ModInstance,
   ): void {
     const ctx = this.ctx as BaseAudioContext
-    const descriptor = targetOf(key)
+    // An oscillator, always: this is the per-voice path, and a per-voice target is a filter or a detune
+    // built per note. Asked without the type it answered from the effect table, where `pitch` means a
+    // resonator's tuning over twelve semitones rather than a vibrato over a hundred cents — so a
+    // full-depth vibrato came out eight times too small, and nothing about it looked wrong.
+    const descriptor = targetOf(key, 'osc')
     const peak = descriptor ? amountFor(descriptor, depth) : 0
     const amount = ctx.createGain()
     amount.gain.value = peak

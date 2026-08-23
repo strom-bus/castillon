@@ -245,8 +245,24 @@ function flagField<P>(key: keyof P & string): Field<P> {
   )
 }
 
+/**
+ * Every enumerated table the format stores as an index, recorded as it is declared.
+ *
+ * For a test, and gathered here rather than listed beside the tables because a list beside them is the
+ * thing that falls behind. Two failures it exists to catch, both silent:
+ *
+ * - **A value the table has never heard of.** `indexOf` answers -1 and the clamp below turns that into
+ *   0, so a comb resonator shared as a patch code decodes as a *reverb* — the first entry, whatever it
+ *   happens to be. Adding the twelfth effect and forgetting to append it here changed nothing that any
+ *   test could see, which is how this was found.
+ * - **A table outgrowing its width.** The bit count is frozen wire format and written at each call, so
+ *   nothing stops a table reaching a seventeenth entry behind four bits and truncating every index.
+ */
+const INDEXED: { key: string; bits: number; size: number }[] = []
+
 /** An index into an append-only table, which is how every enumerated parameter travels. */
 function indexField<P, T>(key: keyof P & string, bits: number, table: T[]): Field<P> {
+  INDEXED.push({ key, bits, size: table.length })
   return field<P>(
     key,
     bits,
@@ -520,6 +536,25 @@ const STEP_COLUMNS: StepColumn[] = [
  * finds there is nobody's intention. That is exactly what happened when a fifth column arrived.
  */
 export const STEP_COLUMN_TOTAL = STEP_COLUMNS.length
+
+/**
+ * The enumerated tables and their widths, for the test that asks whether each still fits and still
+ * covers everything the app can make.
+ *
+ * The `indexField` ones are collected as they are declared. The three below are written out because they
+ * are not fields — a node's type, a modulator's wave and a cable's kind are read straight out of their
+ * tables rather than through the parameter mask — so there is nowhere for them to register themselves.
+ */
+export function indexedTables(): { key: string; bits: number; size: number }[] {
+  return [
+    ...INDEXED,
+    { key: 'nodeType', bits: NODE_TYPE_BITS, size: NODE_TYPES.length },
+    { key: 'modWave', bits: MOD_WAVE_BITS, size: MOD_WAVES.length },
+    // A cable's kind is the one variable width in the format: one bit where no patch modulates anything,
+    // two where one does. Two is the widest it ever gets, so two is what a fifth kind would overrun.
+    { key: 'edgeKind', bits: 2, size: EDGE_KINDS.length },
+  ]
+}
 
 /**
  * The columns themselves, for a test that asks whether a preset ever uses each one.

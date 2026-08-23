@@ -22,11 +22,30 @@ export type NodeId = string
  * `mod` and `warp` share the side ports with `audio`, and which of the three a cable becomes comes
  * from what is at its two ends rather than from a setting.
  */
-export type EdgeKind = 'event' | 'audio' | 'mod' | 'warp'
+/*
+ * Each of these is an **array first and a type second**, which is the way round that holds.
+ *
+ * A union has no length, so nothing at runtime can count one — which is how the README came to say
+ * "three overlaid graphs" for as long as it did, and why a file was written to give the count a home.
+ * That file said listing them "fails to compile if the union changes underneath it", and it only half
+ * did: removing a kind broke the array, and *adding* one left it quietly short, which is the direction
+ * the mistake actually goes in.
+ *
+ * Deriving the type from the array closes it. There is one place to add a kind, the count follows, and a
+ * list that has fallen behind is no longer expressible.
+ *
+ * The wire format keeps its own copies of these on purpose — those are append-only and frozen, so
+ * retuning an order here must not change what an existing patch code decodes to. `codecTables.test.ts`
+ * is what holds the two together.
+ */
+export const EDGE_KINDS = ['event', 'audio', 'mod', 'warp'] as const
+export type EdgeKind = (typeof EDGE_KINDS)[number]
 
-export type Division = '1/4' | '1/8' | '1/16'
+export const DIVISIONS = ['1/4', '1/8', '1/16'] as const
+export type Division = (typeof DIVISIONS)[number]
 
-export type PropagateMode = 'onEnd' | 'onStart' | 'onStep'
+export const PROPAGATE_MODES = ['onEnd', 'onStart', 'onStep'] as const
+export type PropagateMode = (typeof PROPAGATE_MODES)[number]
 
 /**
  * `pulse` is not a native Web Audio type: it is synthesised with a `PeriodicWave`

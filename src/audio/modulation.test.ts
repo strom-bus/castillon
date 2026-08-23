@@ -82,8 +82,8 @@ describe('targetsFor', () => {
   })
 
   it('says how each target is reached, since not all of them are AudioParams', () => {
-    const decay = targetOf('decay')
-    const cutoff = targetOf('cutoff')
+    const decay = targetOf('decay', 'fx', 'reverb')
+    const cutoff = targetOf('cutoff', 'fx', 'filter')
     // A decay rebuilds an impulse response, so nothing can be connected to it.
     expect(decay?.via).toBe('value')
     expect(cutoff?.via).toBe('audio')
@@ -108,14 +108,14 @@ describe('targetsFor', () => {
 describe('amountFor', () => {
   it('scales depth to the target, so one control means the same thing everywhere', () => {
     // Depth 1 on a cutoff has to be thousands of hertz; on a mix it has to be half of one.
-    const cutoff = targetOf('cutoff')!
-    const mix = targetOf('mix')!
+    const cutoff = targetOf('cutoff', 'fx', 'filter')!
+    const mix = targetOf('mix', 'fx', 'filter')!
     expect(amountFor(cutoff, 1)).toBeGreaterThan(1000)
     expect(amountFor(mix, 1)).toBeCloseTo(0.5, 3)
   })
 
   it('is nothing at depth zero and clamped past one', () => {
-    const cutoff = targetOf('cutoff')!
+    const cutoff = targetOf('cutoff', 'fx', 'filter')!
     expect(amountFor(cutoff, 0)).toBe(0)
     expect(amountFor(cutoff, 5)).toBe(amountFor(cutoff, 1))
   })

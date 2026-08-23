@@ -204,7 +204,17 @@ export function planRender(patch: Patch, passes: number): RenderPlan {
       measurer.longestNote,
       ...patch.nodes
         .filter((n) => n.type === 'fx')
-        .map((n) => effectOr((n.params as FxParams).effect).releaseTime),
+        .map((n) => {
+          /*
+           * How long the effect keeps sounding, which is not how long it takes to fade out when deleted.
+           * This asked `releaseTime` — the disposal fade — and so allowed a reverb four tenths of a
+           * second for a three-second decay. Every export this instrument had made was missing the end
+           * of its reverb, and the stress patch was missing seven and a half seconds of it.
+           */
+          const params = n.params as FxParams
+          const descriptor = effectOr(params.effect)
+          return descriptor.tail?.(params, patch.bpm) ?? descriptor.releaseTime
+        }),
     ) + TAIL_PAD
 
   const wanted = Math.max(MIN_PASSES, Math.min(MAX_PASSES, Math.floor(passes)))

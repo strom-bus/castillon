@@ -203,8 +203,8 @@ describe("an oscillator's filter", () => {
 
     const [onCutoff] = fake.drivers('frequency') as Array<{ gain: { value: number } }>
     const [onQ] = fake.drivers('Q') as Array<{ gain: { value: number } }>
-    expect(onCutoff.gain.value).toBeCloseTo(amountFor(targetOf('cutoff')!, 0.5), 3)
-    expect(onQ.gain.value).toBeCloseTo(amountFor(targetOf('resonance')!, 0.5), 3)
+    expect(onCutoff.gain.value).toBeCloseTo(amountFor(targetOf('cutoff', 'osc')!, 0.5), 3)
+    expect(onQ.gain.value).toBeCloseTo(amountFor(targetOf('resonance', 'osc')!, 0.5), 3)
     expect(onCutoff.gain.value).toBeGreaterThan(onQ.gain.value * 10)
   })
 

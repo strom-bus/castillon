@@ -14,13 +14,13 @@ import type {
   PatchEdge,
   PatchNode,
   Step,
-  TransformParams,
+  WarpParams,
 } from '../types/patch'
 import {
   MAX_DELAY_MS,
   MAX_MOD_ATTACK,
   MAX_RATCHET,
-  MAX_TRANSPOSE,
+  MAX_WARP,
   MAX_MOD_DECAY,
   MIN_DELAY_MS,
   MIN_MOD_ATTACK,
@@ -35,7 +35,7 @@ export interface ScheduleArgs {
   bpm: number
   engine: Engine
   activity: ActivityBus
-  /** What every TRANSFORM above this node adds up to. Zero unless one of them is in the branch. */
+  /** What every WARP above this node adds up to. Zero unless one of them is in the branch. */
   transpose?: number
 }
 
@@ -110,7 +110,7 @@ const delay: NodeDefinition = {
   },
 }
 
-export function defaultTransformParams(): TransformParams {
+export function defaultWarpParams(): WarpParams {
   return { transpose: 0 }
 }
 
@@ -127,11 +127,11 @@ export function defaultTransformParams(): TransformParams {
  * that branch. It has no schedule, because nothing triggers it — the scheduler reads what is hanging on
  * a node as the trigger arrives.
  */
-const transform: NodeDefinition = {
-  type: 'transform',
-  label: 'TRANSFORM',
+const warp: NodeDefinition = {
+  type: 'warp',
+  label: 'WARP',
   place: 'side',
-  defaults: defaultTransformParams,
+  defaults: defaultWarpParams,
 }
 
 /**
@@ -142,14 +142,14 @@ const transform: NodeDefinition = {
  * one step would climb without limit until the depth cap stopped it. A transform applies to a node or
  * it does not, and going round twice does not make it apply twice.
  */
-export function shiftsOn(
+export function warpsOn(
   edges: PatchEdge[],
   nodeId: NodeId,
   already: readonly NodeId[],
 ): readonly NodeId[] {
   let grown: NodeId[] | null = null
   for (const edge of edges) {
-    if (edge.kind !== 'shift' || edge.target !== nodeId) continue
+    if (edge.kind !== 'warp' || edge.target !== nodeId) continue
     if (already.includes(edge.source)) continue
     grown ??= [...already]
     grown.push(edge.source)
@@ -162,9 +162,9 @@ export function stepsOf(nodes: PatchNode[], applying: readonly NodeId[]): number
   let total = 0
   for (const id of applying) {
     const node = nodes.find((one) => one.id === id)
-    if (node?.type !== 'transform') continue
-    const params = node.params as TransformParams
-    total += clamp(Math.round(params.transpose ?? 0), -MAX_TRANSPOSE, MAX_TRANSPOSE)
+    if (node?.type !== 'warp') continue
+    const params = node.params as WarpParams
+    total += clamp(Math.round(params.transpose ?? 0), -MAX_WARP, MAX_WARP)
   }
   return total
 }
@@ -415,7 +415,7 @@ const clamp = (value: number, min: number, max: number) => Math.min(max, Math.ma
  * Within each, the order a patch is built in — a cascade starts, then sounds, then waits; and a sound is
  * shaped, then swept, then moved.
  */
-export const NODE_DEFINITIONS: NodeDefinition[] = [start, osc, delay, fx, mod, transform]
+export const NODE_DEFINITIONS: NodeDefinition[] = [start, osc, delay, fx, mod, warp]
 
 const byType = new Map(NODE_DEFINITIONS.map((d) => [d.type, d]))
 

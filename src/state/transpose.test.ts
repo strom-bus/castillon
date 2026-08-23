@@ -8,7 +8,7 @@
  */
 
 import { describe, expect, it } from 'vitest'
-import { transformDoingNothing, transposeByNode } from './transpose'
+import { warpDoingNothing, transposeByNode } from './transpose'
 import type { PatchEdge, PatchNode } from '../types/patch'
 
 const node = (id: string, type: string, transpose?: number): PatchNode => ({
@@ -27,7 +27,7 @@ const edge = (source: string, target: string, kind: PatchEdge['kind'] = 'event')
 
 const shift = (source: string, target: string): PatchEdge => ({
   id: `${source}~${target}`,
-  kind: 'shift',
+  kind: 'warp',
   source,
   target,
 })
@@ -41,7 +41,7 @@ describe('what each node is being moved by', () => {
   it('reaches what it is attached to, and everything below that', () => {
     // From where it is wired, downward — and that includes where it is wired.
     const table = transposeByNode(
-      [node('s', 'start'), node('t', 'transform', 3), node('a', 'osc'), node('b', 'osc')],
+      [node('s', 'start'), node('t', 'warp', 3), node('a', 'osc'), node('b', 'osc')],
       [edge('s', 'a'), edge('a', 'b'), shift('t', 'a')],
     )
     expect(table.get('a')).toBe(3)
@@ -50,7 +50,7 @@ describe('what each node is being moved by', () => {
 
   it('leaves what is beside it alone', () => {
     const table = transposeByNode(
-      [node('s', 'start'), node('t', 'transform', 3), node('a', 'osc'), node('b', 'osc')],
+      [node('s', 'start'), node('t', 'warp', 3), node('a', 'osc'), node('b', 'osc')],
       [edge('s', 'a'), edge('s', 'b'), shift('t', 'a')],
     )
     expect(table.get('a')).toBe(3)
@@ -60,7 +60,7 @@ describe('what each node is being moved by', () => {
   it('takes a whole cascade when it is on the Ignite', () => {
     // The thing that was impossible before without standing directly under one.
     const table = transposeByNode(
-      [node('s', 'start'), node('t', 'transform', 5), node('a', 'osc'), node('b', 'osc')],
+      [node('s', 'start'), node('t', 'warp', 5), node('a', 'osc'), node('b', 'osc')],
       [edge('s', 'a'), edge('a', 'b'), shift('t', 's')],
     )
     expect(table.get('a')).toBe(5)
@@ -69,7 +69,7 @@ describe('what each node is being moved by', () => {
 
   it('adds two on the same node together rather than letting one win', () => {
     const table = transposeByNode(
-      [node('s', 'start'), node('t', 'transform', 2), node('u', 'transform', 5), node('a', 'osc')],
+      [node('s', 'start'), node('t', 'warp', 2), node('u', 'warp', 5), node('a', 'osc')],
       [edge('s', 'a'), shift('t', 'a'), shift('u', 'a')],
     )
     expect(table.get('a')).toBe(7)
@@ -79,8 +79,8 @@ describe('what each node is being moved by', () => {
     const table = transposeByNode(
       [
         node('s', 'start'),
-        node('t', 'transform', 2),
-        node('u', 'transform', 5),
+        node('t', 'warp', 2),
+        node('u', 'warp', 5),
         node('a', 'osc'),
         node('b', 'osc'),
       ],
@@ -93,7 +93,7 @@ describe('what each node is being moved by', () => {
   it('returns rather than hanging on a patch that loops back on itself', () => {
     // A reader of a cycle should get a drawing, not a frozen tab.
     const table = transposeByNode(
-      [node('s', 'start'), node('t', 'transform', 1), node('a', 'osc'), node('b', 'osc')],
+      [node('s', 'start'), node('t', 'warp', 1), node('a', 'osc'), node('b', 'osc')],
       [edge('s', 'a'), edge('a', 'b'), edge('b', 'a'), shift('t', 'a')],
     )
     expect(table.get('a')).toBe(1)
@@ -110,8 +110,8 @@ describe('what each node is being moved by', () => {
  */
 describe('why a transform may be doing nothing', () => {
   it('says so when it is attached to nothing', () => {
-    const why = transformDoingNothing(
-      [node('s', 'start'), node('a', 'osc'), node('t', 'transform', 5)],
+    const why = warpDoingNothing(
+      [node('s', 'start'), node('a', 'osc'), node('t', 'warp', 5)],
       [edge('s', 'a')],
       't',
     )
@@ -119,8 +119,8 @@ describe('why a transform may be doing nothing', () => {
   })
 
   it('says so when there is no note below what it is on', () => {
-    const why = transformDoingNothing(
-      [node('s', 'start'), node('d', 'delay'), node('t', 'transform', 5)],
+    const why = warpDoingNothing(
+      [node('s', 'start'), node('d', 'delay'), node('t', 'warp', 5)],
       [edge('s', 'd'), shift('t', 'd')],
       't',
     )
@@ -128,8 +128,8 @@ describe('why a transform may be doing nothing', () => {
   })
 
   it('is quiet on an oscillator', () => {
-    const why = transformDoingNothing(
-      [node('s', 'start'), node('a', 'osc'), node('t', 'transform', 5)],
+    const why = warpDoingNothing(
+      [node('s', 'start'), node('a', 'osc'), node('t', 'warp', 5)],
       [edge('s', 'a'), shift('t', 'a')],
       't',
     )
@@ -137,8 +137,8 @@ describe('why a transform may be doing nothing', () => {
   })
 
   it('is quiet on an Ignite with a cascade under it', () => {
-    const why = transformDoingNothing(
-      [node('s', 'start'), node('a', 'osc'), node('t', 'transform', 5)],
+    const why = warpDoingNothing(
+      [node('s', 'start'), node('a', 'osc'), node('t', 'warp', 5)],
       [edge('s', 'a'), shift('t', 's')],
       't',
     )

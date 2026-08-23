@@ -19,8 +19,10 @@ describe('the palette', () => {
 
   it('keeps the two kinds together rather than interleaved', () => {
     /*
-     * A rule is drawn wherever the kind changes, so an order that alternated would draw five of them
-     * and mean nothing by any. One change is what makes it a division rather than a decoration.
+     * The line between them came and went — drawn through a row of buttons it read as a break in the
+     * row rather than as a division of it — and the grouping it was drawn for is the part worth
+     * keeping. An order that alternated would put a side node between two cascade ones, which is the
+     * arrangement this is here to prevent whether or not anything is drawn at the seam.
      */
     const changes = NODE_DEFINITIONS.filter(
       (definition, i) => i > 0 && definition.place !== NODE_DEFINITIONS[i - 1]!.place,
@@ -45,6 +47,6 @@ describe('the palette', () => {
      * and nothing else would notice.
      */
     const sideTypes = NODE_DEFINITIONS.filter((d) => d.place === 'side').map((d) => d.type)
-    expect(sideTypes).toEqual(['fx', 'mod', 'transform'])
+    expect(sideTypes).toEqual(['fx', 'mod', 'warp'])
   })
 })

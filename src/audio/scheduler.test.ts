@@ -755,7 +755,7 @@ describe('a step that does more than play', () => {
 })
 
 /**
- * A TRANSFORM moving a whole branch (PLAN §18.18).
+ * A WARP moving a whole branch (PLAN §18.18).
  *
  * The same shape as a delay, which is the argument for it being a node at all: one moves a branch in
  * time and the other in pitch. On an oscillator it would not be per-branch — ten oscillators down a
@@ -790,8 +790,8 @@ describe('a transform attached to a node', () => {
     const links: PatchEdge[] = [edge('s', 'o')]
     steps.forEach((transpose, i) => {
       const id = `t${i}`
-      nodes.push({ id, type: 'transform', position: { x: 0, y: 0 }, params: { transpose } })
-      links.push({ id: `${id}~`, kind: 'shift', source: id, target: to === 'start' ? 's' : 'o' })
+      nodes.push({ id, type: 'warp', position: { x: 0, y: 0 }, params: { transpose } })
+      links.push({ id: `${id}~`, kind: 'warp', source: id, target: to === 'start' ? 's' : 'o' })
     })
 
     const scheduler = build(patchOf(nodes, links))
@@ -836,14 +836,14 @@ describe('a transform attached to a node', () => {
         position: { x: 0, y: 0 },
         params: { ...defaultOscParams(), steps: [{ note: 60, active: true, velocity: 1 }] },
       },
-      { id: 'up', type: 'transform', position: { x: 0, y: 0 }, params: { transpose: 2 } },
-      { id: 'down', type: 'transform', position: { x: 0, y: 0 }, params: { transpose: 3 } },
+      { id: 'up', type: 'warp', position: { x: 0, y: 0 }, params: { transpose: 2 } },
+      { id: 'down', type: 'warp', position: { x: 0, y: 0 }, params: { transpose: 3 } },
     ]
     const scheduler = build(
       patchOf(nodes, [
         edge('s', 'o'),
-        { id: 'a', kind: 'shift', source: 'up', target: 's' },
-        { id: 'b', kind: 'shift', source: 'down', target: 'o' },
+        { id: 'a', kind: 'warp', source: 'up', target: 's' },
+        { id: 'b', kind: 'warp', source: 'down', target: 'o' },
       ]),
     )
     scheduler.start()
@@ -884,14 +884,14 @@ describe('a transform attached to a node', () => {
         position: { x: 0, y: 0 },
         params: { ...defaultOscParams(), steps: [{ note: 60, active: true, velocity: 1 }] },
       },
-      { id: 't', type: 'transform', position: { x: 0, y: 0 }, params: { transpose: 1 } },
+      { id: 't', type: 'warp', position: { x: 0, y: 0 }, params: { transpose: 1 } },
     ]
     const scheduler = build(
       patchOf(nodes, [
         edge('s', 'a'),
         edge('a', 'b'),
         edge('b', 'a'),
-        { id: 'x', kind: 'shift', source: 't', target: 'a' },
+        { id: 'x', kind: 'warp', source: 't', target: 'a' },
       ]),
     )
     scheduler.start()
@@ -917,13 +917,13 @@ describe('a transform attached to a node', () => {
         position: { x: 0, y: 0 },
         params: { ...defaultOscParams(), steps: [{ note: 60, active: true, velocity: 1 }] },
       },
-      { id: 't', type: 'transform', position: { x: 0, y: 0 }, params: { transpose: 7 } },
+      { id: 't', type: 'warp', position: { x: 0, y: 0 }, params: { transpose: 7 } },
     ]
     const scheduler = build(
       patchOf(nodes, [
         edge('s', 'under'),
         edge('s', 'beside'),
-        { id: 'a', kind: 'shift', source: 't', target: 'under' },
+        { id: 'a', kind: 'warp', source: 't', target: 'under' },
       ]),
     )
     scheduler.start()

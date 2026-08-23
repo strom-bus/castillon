@@ -8,7 +8,7 @@ import {
   useReactFlow,
   type IsValidConnection,
 } from '@xyflow/react'
-import { Fragment, useCallback, useMemo, useRef } from 'react'
+import { useCallback, useMemo, useRef } from 'react'
 import { NODE_DEFINITIONS } from '../nodes/registry'
 import { canConnect } from '../state/connections'
 import { usePatchStore, type FlowEdge } from '../state/patchStore'
@@ -77,19 +77,19 @@ function CanvasInner() {
     <div className="canvas" ref={wrapper}>
       {/* Driven by the registry, so adding a node type really is one file plus one line. */}
       <div className="palette">
-        {NODE_DEFINITIONS.map((definition, i) => (
-          <Fragment key={definition.type}>
-            {/* One rule, where what stands in a cascade gives way to what hangs off one. It is the
-                division a person has to hold to use any of this, and it is also the difference between
-                the two directions cables run in — so the palette says it once rather than leaving it
-                to be worked out six times. */}
-            {i > 0 && definition.place !== NODE_DEFINITIONS[i - 1]!.place && (
-              <span className="palette-rule" aria-hidden="true" />
-            )}
-            <button type="button" className="btn" onClick={() => addAtCenter(definition.type)}>
-              + {definition.label}
-            </button>
-          </Fragment>
+        {/* The grouping stays and the line between the groups does not: what stands in a cascade is
+            still listed before what hangs off one, which is the order a patch is built in, and a rule
+            drawn through a row of buttons turned out to read as a break in the row rather than as a
+            division of it. */}
+        {NODE_DEFINITIONS.map((definition) => (
+          <button
+            key={definition.type}
+            type="button"
+            className="btn"
+            onClick={() => addAtCenter(definition.type)}
+          >
+            + {definition.label}
+          </button>
         ))}
       </div>
       {/* Opposite the palette: on the left what a patch can gain, on the right what it costs. */}

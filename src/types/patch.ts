@@ -16,12 +16,12 @@ export type NodeId = string
  * is a behaviour rather than a colour, because colour already means cascade depth.
  */
 /**
- * `shift` is what a TRANSFORM hangs on, and it is a fourth kind rather than a reuse of `mod` for the
+ * `shift` is what a WARP hangs on, and it is a fourth kind rather than a reuse of `mod` for the
  * same reason `mod` was not a reuse of `audio`: it neither carries sound nor sweeps a value, it changes
  * what a branch plays. Drawn to the side like modulation because that is what it has in common with it —
  * it attaches to a node instead of standing in the cascade.
  */
-export type EdgeKind = 'event' | 'audio' | 'mod' | 'shift'
+export type EdgeKind = 'event' | 'audio' | 'mod' | 'warp'
 
 export type Division = '1/4' | '1/8' | '1/16'
 
@@ -259,10 +259,10 @@ export const MAX_RATE = 20
 export const MIN_SWEEP = 0.5
 export const MAX_SWEEP = 35
 
-/** How far a TRANSFORM may move a branch. Two octaves either way is more than any patch has wanted. */
-export const MAX_TRANSPOSE = 14
+/** How far a WARP may move a branch. Two octaves either way is more than any patch has wanted. */
+export const MAX_WARP = 14
 
-export interface TransformParams {
+export interface WarpParams {
   /**
    * Steps to move everything below this node, counted in whatever units each oscillator can offer.
    *
@@ -384,8 +384,7 @@ export interface ModParams {
   decay?: number
 }
 
-export type NodeParams =
-  OscParams | FxParams | DelayParams | StartParams | ModParams | TransformParams
+export type NodeParams = OscParams | FxParams | DelayParams | StartParams | ModParams | WarpParams
 
 export const MIN_DELAY_MS = 10
 export const MAX_DELAY_MS = 4000

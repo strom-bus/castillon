@@ -10,7 +10,7 @@ import { usePatchStore, type FlowNode } from '../state/patchStore'
 import { targetOf } from '../audio/modulation'
 import type {
   DelayParams,
-  TransformParams,
+  WarpParams,
   EffectKind,
   FxParams,
   ModParams,
@@ -101,12 +101,12 @@ export function OscNode({ id, data, selected }: NodeProps<FlowNode>) {
       <div className="node-header">
         <span className="node-title">
           OSC <span className="node-ordinal">{ordinal}</span>
-          {/* What a TRANSFORM somewhere above is doing to this oscillator, said on the oscillator.
+          {/* What a WARP somewhere above is doing to this oscillator, said on the oscillator.
               Otherwise it sounds moved with nothing on it saying why — a delay has the same reach and
-              gets away with it, because a shift in time is heard from where it came and a shift in
+              gets away with it, because a move in time is heard from where it came and a move in
               pitch is silent about its cause. */}
           {moved !== 0 && (
-            <span className="node-moved" title="Moved by a TRANSFORM above it">
+            <span className="node-moved" title="Moved by a WARP above it">
               {moved > 0 ? `+${moved}` : moved}
             </span>
           )}
@@ -280,21 +280,21 @@ export function ModNode({ id, data, selected }: NodeProps<FlowNode>) {
 }
 
 /**
- * A TRANSFORM on the canvas: a number and a sign, and nothing else to look at.
+ * A WARP on the canvas: a number and a sign, and nothing else to look at.
  *
  * The same shape as a DELAY because it is the same kind of thing — a node that makes no sound and changes
  * what happens beneath it. One moves a branch in time and the other moves it in pitch.
  */
-export function TransformNode({ id, data, selected }: NodeProps<FlowNode>) {
+export function WarpNode({ id, data, selected }: NodeProps<FlowNode>) {
   const { pulsing } = useNodeActivity(id)
   const colors = useNodeColors(id)
   const ordinal = useOrdinal(id)
-  const params = data.params as TransformParams
+  const params = data.params as WarpParams
   const steps = Math.round(params.transpose ?? 0)
 
   return (
     <div
-      className={`node node-transform${pulsing ? ' pulsing' : ''}${selected ? ' selected' : ''}`}
+      className={`node node-warp${pulsing ? ' pulsing' : ''}${selected ? ' selected' : ''}`}
       style={depthStyle(colors)}
     >
       {/* Side ports only, like a MOD: it attaches to what it moves rather than standing in the cascade,
@@ -315,7 +315,7 @@ export function TransformNode({ id, data, selected }: NodeProps<FlowNode>) {
       />
       <div className="node-header">
         <span className="node-title">
-          TRANSFORM <span className="node-ordinal">{ordinal}</span>
+          WARP <span className="node-ordinal">{ordinal}</span>
         </span>
         <span className="node-meta">{steps === 0 ? 'off' : 'steps'}</span>
       </div>

@@ -1,5 +1,5 @@
 /**
- * What every TRANSFORM above a node adds up to (PLAN §18.18).
+ * What every WARP above a node adds up to (PLAN §18.18).
  *
  * A transform changes what its whole branch plays, which is the point of it being a node — and it is
  * also the danger. An oscillator three levels down sounds moved with nothing on it saying why, and a
@@ -11,7 +11,7 @@
  * it accumulates the same number as the trigger travels — and this is for the reader instead.
  */
 
-import type { Patch, PatchEdge, PatchNode, TransformParams } from '../types/patch'
+import type { Patch, PatchEdge, PatchNode, WarpParams } from '../types/patch'
 
 /** How many steps each node is being moved by, for every node a trigger can reach. */
 export function transposeByNode(nodes: PatchNode[], edges: PatchEdge[]): Map<string, number> {
@@ -22,7 +22,7 @@ export function transposeByNode(nodes: PatchNode[], edges: PatchEdge[]): Map<str
       const list = children.get(edge.source)
       if (list) list.push(edge.target)
       else children.set(edge.source, [edge.target])
-    } else if (edge.kind === 'shift') {
+    } else if (edge.kind === 'warp') {
       const list = attached.get(edge.target)
       if (list) list.push(edge.source)
       else attached.set(edge.target, [edge.source])
@@ -63,8 +63,8 @@ export function transposeByNode(nodes: PatchNode[], edges: PatchEdge[]): Map<str
 
   const steps = new Map(
     nodes
-      .filter((node) => node.type === 'transform')
-      .map((node) => [node.id, Math.round((node.params as TransformParams).transpose ?? 0)]),
+      .filter((node) => node.type === 'warp')
+      .map((node) => [node.id, Math.round((node.params as WarpParams).transpose ?? 0)]),
   )
 
   const carried = new Map<string, number>()
@@ -92,12 +92,12 @@ export function transposeIn(patch: Patch): Map<string, number> {
  * What is left is the honest kind of nothing. It is attached to nothing, or what it is attached to has
  * no oscillator at or below it, so there are no notes for it to move.
  */
-export function transformDoingNothing(
+export function warpDoingNothing(
   nodes: PatchNode[],
   edges: PatchEdge[],
   id: string,
 ): string | null {
-  const attached = edges.filter((edge) => edge.kind === 'shift' && edge.source === id)
+  const attached = edges.filter((edge) => edge.kind === 'warp' && edge.source === id)
   if (attached.length === 0) return 'it is not attached to anything'
 
   const children = new Map<string, string[]>()

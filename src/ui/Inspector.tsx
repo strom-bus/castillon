@@ -42,20 +42,20 @@ import {
   MIN_MOD_DECAY,
   MAX_NOTE,
   MAX_RATCHET,
-  MAX_TRANSPOSE,
+  MAX_WARP,
   MIN_NOTE,
   DEFAULT_IGNITE,
   type Step,
   type IgniteBehaviour,
   type IgniteTrigger,
   type ModParams,
-  type TransformParams,
+  type WarpParams,
   type StartParams,
 } from '../types/patch'
 import { noteName } from '../audio/clock'
 import { BindingCapture } from './BindingCapture'
 import { formatOrdinal, nodeOrdinal } from '../state/ordinals'
-import { transformDoingNothing } from '../state/transpose'
+import { warpDoingNothing } from '../state/transpose'
 import { useManualWindow } from '../help/window'
 import { usePatchStore } from '../state/patchStore'
 import { NumberInput } from './NumberInput'
@@ -587,7 +587,7 @@ function Panel({ children }: { children: ReactNode }) {
 export function Inspector() {
   const showManual = useManualWindow((s) => s.show)
   const node = usePatchStore((s) => s.nodes.find((n) => n.id === s.selectedId))
-  // The whole graph, because a transform is a fact about a branch rather than about itself.
+  // The whole graph, because a warp is a fact about a branch rather than about itself.
   const nodes = usePatchStore((s) => s.nodes)
   const edges = usePatchStore((s) => s.edges)
   // The same number the node shows on the canvas, so the panel and the node agree on which one
@@ -965,9 +965,9 @@ export function Inspector() {
     )
   }
 
-  if (node.type === 'transform') {
-    const transformParams = node.data.params as TransformParams
-    const doingNothing = transformDoingNothing(
+  if (node.type === 'warp') {
+    const warpParams = node.data.params as WarpParams
+    const doingNothing = warpDoingNothing(
       nodes.map((n) => ({
         id: n.id,
         type: n.type ?? '',
@@ -985,14 +985,17 @@ export function Inspector() {
     return (
       <Panel>
         <h2 className="inspector-title">
-          TRANSFORM <span className="node-ordinal">{ordinal}</span>
+          WARP <span className="node-ordinal">{ordinal}</span>
         </h2>
 
+        {/* Named for the dimension it bends rather than for the operation, so the ones that follow —
+            a speed, a velocity, a chance — arrive as its peers instead of as afterthoughts beside it.
+            Signed, and counted in steps, which is what keeps it a move rather than a setting. */}
         <Slider
-          label="Transpose"
-          value={Math.round(transformParams.transpose ?? 0)}
-          min={-MAX_TRANSPOSE}
-          max={MAX_TRANSPOSE}
+          label="Pitch"
+          value={Math.round(warpParams.transpose ?? 0)}
+          min={-MAX_WARP}
+          max={MAX_WARP}
           step={1}
           suffix=" steps"
           onChange={(transpose) => updateParams(node.id, { transpose })}
@@ -1002,7 +1005,7 @@ export function Inspector() {
             This one has two ways of failing in silence, and the second is worse than useless: wired
             beside the cable it was meant to replace, the node below fires twice — once through it and
             once around it — and the untransposed one masks the other, so the patch sounds untouched
-            while everything on screen says the transform is working. */}
+            while everything on screen says the warp is working. */}
         {doingNothing && <p className="inspector-warn">Doing nothing: {doingNothing}.</p>}
 
         {/* Said here because a control that acts at a distance has to say how far it reaches, and

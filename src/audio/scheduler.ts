@@ -1,4 +1,4 @@
-import { getDefinition, shiftsOn, stepsOf } from '../nodes/registry'
+import { getDefinition, warpsOn, stepsOf } from '../nodes/registry'
 import type { NodeId, Patch, PatchNode, StartParams } from '../types/patch'
 import type { ActivityBus } from '../viz/activity'
 import type { Engine } from './engine'
@@ -39,7 +39,7 @@ export interface TriggerEvent {
   depth: number
   chainId: number
   /**
-   * What every TRANSFORM above this point adds up to, carried down the branch.
+   * What every WARP above this point adds up to, carried down the branch.
    *
    * Alongside the depth and for the same reason: it is a fact about the path taken to get here rather
    * than about the node that arrived, so it travels with the trigger. Which ones rather than how much,
@@ -287,7 +287,7 @@ export class CascadeScheduler {
       return
     }
 
-    const carried = shiftsOn(patch.edges, node.id, event.shifts)
+    const carried = warpsOn(patch.edges, node.id, event.shifts)
 
     const result = definition.schedule({
       node,
@@ -361,7 +361,7 @@ export class CascadeScheduler {
   private beginChain(startNodeId: NodeId, time: number): void {
     const chainId = this.nextChainId++
     this.chains.set(chainId, { pending: 0, lastEnd: time, startNodeId, startTime: time })
-    // A cascade begins in the key it was written in; only a TRANSFORM in the branch moves it.
+    // A cascade begins in the key it was written in; only a WARP in the branch moves it.
     this.enqueue({ nodeId: startNodeId, time, depth: 0, chainId, shifts: [] })
   }
 

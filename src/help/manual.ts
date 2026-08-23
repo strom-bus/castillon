@@ -115,8 +115,8 @@ export const MANUAL: Section[] = [
       {
         term: { en: 'Making one', es: 'Hacer uno' },
         text: {
-          en: 'Drag from a port to a port, or drop a node onto a cable to put it inside that cable — which is how a DELAY or a TRANSFORM goes between two things that are already joined. The ports on the top and bottom of a node take triggers; the one on its side takes audio or modulation, and which of the two it becomes is decided by what you wired, not by a setting. Drag a cable away from its port to remove it.',
-          es: 'Arrastra de un puerto a otro, o suelta un nodo encima de un cable para meterlo dentro de ese cable — que es como un DELAY o un TRANSFORM va entre dos cosas ya unidas. Los puertos de arriba y abajo de un nodo toman disparos; el del costado toma audio o modulación, y cuál de los dos es lo decide lo que cableaste, no un ajuste. Arrastra un cable fuera de su puerto para quitarlo.',
+          en: 'Drag from a port to a port, or drop a node onto a cable to put it inside that cable — which is how a DELAY goes between two things that are already joined. The ports on the top and bottom of a node take triggers; the one on its side takes audio, modulation or a warp, and which of the three it becomes is decided by what you wired, not by a setting. Drag a cable away from its port to remove it.',
+          es: 'Arrastra de un puerto a otro, o suelta un nodo encima de un cable para meterlo dentro de ese cable — que es como un DELAY va entre dos cosas ya unidas. Los puertos de arriba y abajo de un nodo toman disparos; el del costado toma audio, modulación o un warp, y cuál de los tres es lo decide lo que cableaste, no un ajuste. Arrastra un cable fuera de su puerto para quitarlo.',
         },
       },
       {
@@ -169,7 +169,7 @@ export const MANUAL: Section[] = [
         },
       },
       {
-        term: { en: 'TRANSFORM', es: 'TRANSFORM' },
+        term: { en: 'WARP', es: 'WARP' },
         text: {
           en: 'Wired to the side of a node, like a MOD, and it makes no sound of its own. It moves that node and everything the cascade reaches from it: on an IGNITE the whole cascade, on an oscillator just that branch. Any two reaching the same note add up. A step is a degree of the scale on each oscillator it reaches, or a semitone where that oscillator is free — so a bass in pentatonic and a lead in minor both move a third and both stay in key. Anything it is moving says so, next to its name.',
           es: 'Se cablea al costado de un nodo, como un MOD, y no suena por sí mismo. Mueve ese nodo y todo lo que la cascada alcanza desde él: en un IGNITE la cascada entera, en un oscilador solo esa rama. Dos que lleguen a la misma nota se suman. Un paso es un grado de la escala en cada oscilador al que llega, o un semitono donde ese oscilador está libre — así que un bajo en pentatónica y un lead en menor se mueven los dos una tercera y los dos siguen en tono. Lo que esté moviendo lo dice, junto a su nombre.',

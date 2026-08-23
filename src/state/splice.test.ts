@@ -83,7 +83,7 @@ describe('a node dropped on a cable', () => {
 
 describe('a node dropped anywhere else', () => {
   it('is left alone when it lands away from every cable', () => {
-    store().addNode('transform', { x: 9000, y: 9000 })
+    store().addNode('warp', { x: 9000, y: 9000 })
     const id = store().nodes.at(-1)!.id
     expect(store().spliceIntoCable(id)).toBe(false)
     expect(store().edges.some((e) => e.source === id || e.target === id)).toBe(false)

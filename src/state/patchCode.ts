@@ -1,7 +1,7 @@
 import { SCALES, type ScaleName } from '../audio/scales'
 import {
   defaultDelayParams,
-  defaultTransformParams,
+  defaultWarpParams,
   defaultFxParams,
   defaultOscParams,
   DEFAULT_STEP_COUNT,
@@ -14,7 +14,7 @@ import {
   MAX_BPM,
   MAX_DECAY,
   MAX_DELAY_MS,
-  MAX_TRANSPOSE,
+  MAX_WARP,
   MAX_FEEDBACK,
   MAX_NOTE,
   MAX_RATE,
@@ -30,7 +30,7 @@ import {
   MIN_RATE,
   MIN_SWEEP,
   type DelayParams,
-  type TransformParams,
+  type WarpParams,
   type DistortionShape,
   type Division,
   type EdgeKind,
@@ -104,7 +104,7 @@ const FLAG_IGNITE_TRIGGER = 1
 const FLAG_MODULATION = 2
 
 /** Cable kinds, in the order their index is written. Appended to, never reordered. */
-const EDGE_KINDS = ['event', 'audio', 'mod', 'shift'] as const
+const EDGE_KINDS = ['event', 'audio', 'mod', 'warp'] as const
 
 /** How a short string is written: a length and then its characters. */
 const BINDING_SOURCE_BITS = 1
@@ -128,7 +128,7 @@ const MOD_WAVES = ['sine', 'triangle', 'square', 'sawtooth', 'random'] as const
 // Appended, never reordered: a code stores the index, so moving an entry would rewrite history. Four
 // bits leave room for sixteen, of which five are used.
 // Append-only, and there is room: four bits hold sixteen and six are used.
-const NODE_TYPES = ['start', 'osc', 'delay', 'fx', 'mod', 'transform'] as const
+const NODE_TYPES = ['start', 'osc', 'delay', 'fx', 'mod', 'warp'] as const
 
 const EFFECT_CODES: EffectKind[] = [
   'reverb',
@@ -627,8 +627,8 @@ export function encodePatch(patch: Patch): string {
   // Two bits are needed by anything past the first two kinds, so the flag covers all of them: there
   // were three when it was named and there are four now, and the question it answers is the same one.
   const anyModulation =
-    patch.nodes.some((node) => node.type === 'mod' || node.type === 'transform') ||
-    patch.edges.some((e) => e.kind === 'mod' || e.kind === 'shift')
+    patch.nodes.some((node) => node.type === 'mod' || node.type === 'warp') ||
+    patch.edges.some((e) => e.kind === 'mod' || e.kind === 'warp')
   writer.write(
     (anyBound ? FLAG_IGNITE_TRIGGER : 0) | (anyModulation ? FLAG_MODULATION : 0),
     HEADER_FLAG_BITS,
@@ -649,10 +649,10 @@ export function encodePatch(patch: Patch): string {
     } else if (node.type === 'delay') {
       const { delayMs } = { ...defaultDelayParams(), ...(node.params as DelayParams) }
       writer.write(quantise(delayMs / 10, 1, MIN_DELAY_MS / 10, MAX_DELAY_MS / 10), 9)
-    } else if (node.type === 'transform') {
+    } else if (node.type === 'warp') {
       // Shifted so the sign travels without a bit of its own: five bits carry the whole range twice over.
-      const { transpose } = { ...defaultTransformParams(), ...(node.params as TransformParams) }
-      writer.write(quantise(transpose, 1, -MAX_TRANSPOSE, MAX_TRANSPOSE) + MAX_TRANSPOSE, 5)
+      const { transpose } = { ...defaultWarpParams(), ...(node.params as WarpParams) }
+      writer.write(quantise(transpose, 1, -MAX_WARP, MAX_WARP) + MAX_WARP, 5)
     } else if (node.type === 'start' && anyBound) {
       writeStart(writer, node.params as StartParams)
     } else if (node.type === 'mod') {
@@ -709,8 +709,8 @@ export function decodePatch(code: string): Patch | null {
         params = readFx(reader, fxFields)
       } else if (type === 'delay') {
         params = { delayMs: reader.read(9) * 10 }
-      } else if (type === 'transform') {
-        params = { transpose: reader.read(5) - MAX_TRANSPOSE }
+      } else if (type === 'warp') {
+        params = { transpose: reader.read(5) - MAX_WARP }
       } else if (type === 'start' && ignitesCarryTrigger) {
         params = readStart(reader)
       } else if (type === 'mod') {

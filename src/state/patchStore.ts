@@ -24,7 +24,7 @@ import type {
   Patch,
   StartParams,
   Step,
-  TransformParams,
+  WarpParams,
 } from '../types/patch'
 import { connectionFor, EVENT_IN, EVENT_OUT, SIGNAL_LEFT, SIGNAL_RIGHT } from './connections'
 import { decodePatch } from './patchCode'
@@ -41,7 +41,7 @@ const EDGE_COMPONENT: Record<EdgeKind, string> = {
   mod: 'modulation',
   // Drawn as modulation is: to the side, quietly, as something attached rather than something passing
   // through. What it carries is different; where it sits and what it means to the eye is the same.
-  shift: 'modulation',
+  warp: 'modulation',
 }
 
 function newId(prefix: string): string {
@@ -103,9 +103,7 @@ interface PatchState {
   spliceIntoCable(id: string): boolean
   updateParams(
     id: string,
-    partial: Partial<
-      OscParams & FxParams & DelayParams & StartParams & ModParams & TransformParams
-    >,
+    partial: Partial<OscParams & FxParams & DelayParams & StartParams & ModParams & WarpParams>,
   ): void
   setEffect(id: string, effect: EffectKind): void
   updateStep(id: string, index: number, partial: Partial<Step>): void
@@ -310,7 +308,7 @@ export const usePatchStore = create<PatchState>((set, get) => ({
     /*
      * The gesture that was missing, and what its absence cost.
      *
-     * To put a TRANSFORM between two nodes you had to delete the cable joining them first, and nothing
+     * To put a WARP between two nodes you had to delete the cable joining them first, and nothing
      * said so — so it got wired *beside* that cable instead, and then the node underneath fired twice,
      * once through the transform and once around it. A doubled delay is heard as an echo and a doubled
      * transposition is heard as nothing, so it looked like a node that did not work. It was reported as

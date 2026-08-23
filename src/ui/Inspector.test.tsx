@@ -169,6 +169,24 @@ describe('the oscillator panel', () => {
   const headings = () =>
     Array.from(document.querySelectorAll('.inspector-group-title')).map((el) => el.textContent)
 
+  it('shows each control once', () => {
+    /*
+     * The test that was missing, and the regrouping it was written for shipped showing every slider
+     * seven times without one of the four tests here noticing. They asked whether the headings were in
+     * order and whether anything sat outside a group; a control repeated in all five groups satisfies
+     * both. Counting is the only question that catches it.
+     */
+    selectOsc()
+    const labels = Array.from(document.querySelectorAll('.inspector-group label')).map((el) =>
+      el.textContent?.replace(/[\d.\s]+$/, '').trim(),
+    )
+    const seen = new Map<string, number>()
+    for (const label of labels) if (label) seen.set(label, (seen.get(label) ?? 0) + 1)
+
+    const twice = [...seen].filter(([, times]) => times > 1)
+    expect(twice).toEqual([])
+  })
+
   it('reads in the order a note is lived', () => {
     // Chosen, timed, given a tone, given a shape, given a colour — and last, what to fire next.
     selectOsc()

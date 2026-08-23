@@ -854,8 +854,8 @@ export function Inspector() {
       </h2>
 
       {/* The panel reads the way the cascade does: what happens first is written first. A note is
-          chosen, then timed, then given a tone, then a shape, then a colour — and last of all the
-          patch is told what to fire next. */}
+          chosen, then timed, then given a tone, then a shape, then a colour — and last of all
+          the patch is told what to fire next. */}
       <Group title="SEQUENCE">
         <label className="inspector-field">
           <span className="inspector-label">Steps</span>
@@ -886,14 +886,6 @@ export function Inspector() {
         </label>
 
         <Slider
-          label="Gain"
-          value={params.gain}
-          min={0}
-          max={1}
-          step={0.01}
-          onChange={(gain) => set({ gain })}
-        />
-        <Slider
           label="Gate"
           value={params.gate}
           min={0.05}
@@ -901,56 +893,11 @@ export function Inspector() {
           step={0.05}
           onChange={(gate) => set({ gate })}
         />
-        <Slider
-          label="Attack"
-          value={params.attack}
-          min={1}
-          max={500}
-          step={1}
-          suffix=" ms"
-          onChange={(attack) => set({ attack })}
-        />
-        <Slider
-          label="Detune"
-          value={params.detune ?? 0}
-          min={-50}
-          max={50}
-          step={1}
-          suffix=" ¢"
-          onChange={(detune) => set({ detune })}
-        />
-        <Slider
-          label="Glide"
-          value={params.glide ?? 0}
-          min={0}
-          max={1000}
-          step={5}
-          suffix=" ms"
-          onChange={(glide) => set({ glide })}
-        />
-        <Slider
-          label="Decay"
-          value={params.decay ?? 0}
-          min={0}
-          max={2000}
-          step={5}
-          suffix=" ms"
-          onChange={(decay) => set({ decay })}
-        />
-        <Slider
-          label="Release"
-          value={params.release}
-          min={5}
-          max={2000}
-          step={5}
-          suffix=" ms"
-          onChange={(release) => set({ release })}
-        />
       </Group>
 
       {/* What the tone is, before anything moves it. Detune sits here rather than with glide because
-          the axis these groups are cut along is standing against changing, and a detune does not
-          move while a note lasts. */}
+          the axis these groups are cut along is standing against changing, and a detune does
+          not move while a note lasts. */}
       <Group title="VOICE">
         <label className="inspector-field">
           <span className="inspector-label">Waveform</span>
@@ -975,31 +922,6 @@ export function Inspector() {
         )}
 
         <Slider
-          label="Gain"
-          value={params.gain}
-          min={0}
-          max={1}
-          step={0.01}
-          onChange={(gain) => set({ gain })}
-        />
-        <Slider
-          label="Gate"
-          value={params.gate}
-          min={0.05}
-          max={1}
-          step={0.05}
-          onChange={(gate) => set({ gate })}
-        />
-        <Slider
-          label="Attack"
-          value={params.attack}
-          min={1}
-          max={500}
-          step={1}
-          suffix=" ms"
-          onChange={(attack) => set({ attack })}
-        />
-        <Slider
           label="Detune"
           value={params.detune ?? 0}
           min={-50}
@@ -1007,33 +929,6 @@ export function Inspector() {
           step={1}
           suffix=" ¢"
           onChange={(detune) => set({ detune })}
-        />
-        <Slider
-          label="Glide"
-          value={params.glide ?? 0}
-          min={0}
-          max={1000}
-          step={5}
-          suffix=" ms"
-          onChange={(glide) => set({ glide })}
-        />
-        <Slider
-          label="Decay"
-          value={params.decay ?? 0}
-          min={0}
-          max={2000}
-          step={5}
-          suffix=" ms"
-          onChange={(decay) => set({ decay })}
-        />
-        <Slider
-          label="Release"
-          value={params.release}
-          min={5}
-          max={2000}
-          step={5}
-          suffix=" ms"
-          onChange={(release) => set({ release })}
         />
 
         <Slider
@@ -1043,83 +938,14 @@ export function Inspector() {
           max={1}
           step={0.01}
           onChange={(gain) => set({ gain })}
-        />
-        <Slider
-          label="Gate"
-          value={params.gate}
-          min={0.05}
-          max={1}
-          step={0.05}
-          onChange={(gate) => set({ gate })}
-        />
-        <Slider
-          label="Attack"
-          value={params.attack}
-          min={1}
-          max={500}
-          step={1}
-          suffix=" ms"
-          onChange={(attack) => set({ attack })}
-        />
-        <Slider
-          label="Detune"
-          value={params.detune ?? 0}
-          min={-50}
-          max={50}
-          step={1}
-          suffix=" ¢"
-          onChange={(detune) => set({ detune })}
-        />
-        <Slider
-          label="Glide"
-          value={params.glide ?? 0}
-          min={0}
-          max={1000}
-          step={5}
-          suffix=" ms"
-          onChange={(glide) => set({ glide })}
-        />
-        <Slider
-          label="Decay"
-          value={params.decay ?? 0}
-          min={0}
-          max={2000}
-          step={5}
-          suffix=" ms"
-          onChange={(decay) => set({ decay })}
-        />
-        <Slider
-          label="Release"
-          value={params.release}
-          min={5}
-          max={2000}
-          step={5}
-          suffix=" ms"
-          onChange={(release) => set({ release })}
         />
       </Group>
 
       {/* How a note behaves over its life. Three of these move its loudness and one moves its pitch,
-          which is one group and not two: what they have in common is that they are all happening
-          while you hear them. */}
+          which is one group and not two: what they have in common is that they are all
+          happening while you hear them. */}
       <Group title="SHAPE">
         <Slider
-          label="Gain"
-          value={params.gain}
-          min={0}
-          max={1}
-          step={0.01}
-          onChange={(gain) => set({ gain })}
-        />
-        <Slider
-          label="Gate"
-          value={params.gate}
-          min={0.05}
-          max={1}
-          step={0.05}
-          onChange={(gate) => set({ gate })}
-        />
-        <Slider
           label="Attack"
           value={params.attack}
           min={1}
@@ -1128,24 +954,7 @@ export function Inspector() {
           suffix=" ms"
           onChange={(attack) => set({ attack })}
         />
-        <Slider
-          label="Detune"
-          value={params.detune ?? 0}
-          min={-50}
-          max={50}
-          step={1}
-          suffix=" ¢"
-          onChange={(detune) => set({ detune })}
-        />
-        <Slider
-          label="Glide"
-          value={params.glide ?? 0}
-          min={0}
-          max={1000}
-          step={5}
-          suffix=" ms"
-          onChange={(glide) => set({ glide })}
-        />
+
         <Slider
           label="Decay"
           value={params.decay ?? 0}
@@ -1155,6 +964,7 @@ export function Inspector() {
           suffix=" ms"
           onChange={(decay) => set({ decay })}
         />
+
         <Slider
           label="Release"
           value={params.release}
@@ -1166,40 +976,6 @@ export function Inspector() {
         />
 
         <Slider
-          label="Gain"
-          value={params.gain}
-          min={0}
-          max={1}
-          step={0.01}
-          onChange={(gain) => set({ gain })}
-        />
-        <Slider
-          label="Gate"
-          value={params.gate}
-          min={0.05}
-          max={1}
-          step={0.05}
-          onChange={(gate) => set({ gate })}
-        />
-        <Slider
-          label="Attack"
-          value={params.attack}
-          min={1}
-          max={500}
-          step={1}
-          suffix=" ms"
-          onChange={(attack) => set({ attack })}
-        />
-        <Slider
-          label="Detune"
-          value={params.detune ?? 0}
-          min={-50}
-          max={50}
-          step={1}
-          suffix=" ¢"
-          onChange={(detune) => set({ detune })}
-        />
-        <Slider
           label="Glide"
           value={params.glide ?? 0}
           min={0}
@@ -1207,154 +983,12 @@ export function Inspector() {
           step={5}
           suffix=" ms"
           onChange={(glide) => set({ glide })}
-        />
-        <Slider
-          label="Decay"
-          value={params.decay ?? 0}
-          min={0}
-          max={2000}
-          step={5}
-          suffix=" ms"
-          onChange={(decay) => set({ decay })}
-        />
-        <Slider
-          label="Release"
-          value={params.release}
-          min={5}
-          max={2000}
-          step={5}
-          suffix=" ms"
-          onChange={(release) => set({ release })}
-        />
-
-        <Slider
-          label="Gain"
-          value={params.gain}
-          min={0}
-          max={1}
-          step={0.01}
-          onChange={(gain) => set({ gain })}
-        />
-        <Slider
-          label="Gate"
-          value={params.gate}
-          min={0.05}
-          max={1}
-          step={0.05}
-          onChange={(gate) => set({ gate })}
-        />
-        <Slider
-          label="Attack"
-          value={params.attack}
-          min={1}
-          max={500}
-          step={1}
-          suffix=" ms"
-          onChange={(attack) => set({ attack })}
-        />
-        <Slider
-          label="Detune"
-          value={params.detune ?? 0}
-          min={-50}
-          max={50}
-          step={1}
-          suffix=" ¢"
-          onChange={(detune) => set({ detune })}
-        />
-        <Slider
-          label="Glide"
-          value={params.glide ?? 0}
-          min={0}
-          max={1000}
-          step={5}
-          suffix=" ms"
-          onChange={(glide) => set({ glide })}
-        />
-        <Slider
-          label="Decay"
-          value={params.decay ?? 0}
-          min={0}
-          max={2000}
-          step={5}
-          suffix=" ms"
-          onChange={(decay) => set({ decay })}
-        />
-        <Slider
-          label="Release"
-          value={params.release}
-          min={5}
-          max={2000}
-          step={5}
-          suffix=" ms"
-          onChange={(release) => set({ release })}
-        />
-
-        <Slider
-          label="Gain"
-          value={params.gain}
-          min={0}
-          max={1}
-          step={0.01}
-          onChange={(gain) => set({ gain })}
-        />
-        <Slider
-          label="Gate"
-          value={params.gate}
-          min={0.05}
-          max={1}
-          step={0.05}
-          onChange={(gate) => set({ gate })}
-        />
-        <Slider
-          label="Attack"
-          value={params.attack}
-          min={1}
-          max={500}
-          step={1}
-          suffix=" ms"
-          onChange={(attack) => set({ attack })}
-        />
-        <Slider
-          label="Detune"
-          value={params.detune ?? 0}
-          min={-50}
-          max={50}
-          step={1}
-          suffix=" ¢"
-          onChange={(detune) => set({ detune })}
-        />
-        <Slider
-          label="Glide"
-          value={params.glide ?? 0}
-          min={0}
-          max={1000}
-          step={5}
-          suffix=" ms"
-          onChange={(glide) => set({ glide })}
-        />
-        <Slider
-          label="Decay"
-          value={params.decay ?? 0}
-          min={0}
-          max={2000}
-          step={5}
-          suffix=" ms"
-          onChange={(decay) => set({ decay })}
-        />
-        <Slider
-          label="Release"
-          value={params.release}
-          min={5}
-          max={2000}
-          step={5}
-          suffix=" ms"
-          onChange={(release) => set({ release })}
         />
       </Group>
 
       {/* Last of the sound groups because it is the only one that changes size — one control becomes
-          four the moment it is switched on, and a group that grows unsettles less at the bottom
-          than in the middle. */}
+          four the moment it is switched on, and a group that grows unsettles less at the
+          bottom than in the middle. */}
       <Group title="FILTER">
         <label className="inspector-field">
           <span className="inspector-label">Filter</span>
@@ -1394,8 +1028,8 @@ export function Inspector() {
       </Group>
 
       {/* On its own, and at the end, because it is not about this node at all: it is where this one
-          finishes and the next begins. It spent a long time seventh in a flat list, which is a
-          poor place for one of the few controls this whole instrument turns on. */}
+          finishes and the next begins. It spent a long time seventh in a flat list, which is
+          a poor place for one of the few controls this whole instrument turns on. */}
       <Group title="NEXT">
         <label className="inspector-field">
           <span className="inspector-label">Propagation</span>

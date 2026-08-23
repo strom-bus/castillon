@@ -22,6 +22,11 @@ is scheduled rather than travelling at all.
 | Ports           | Top and bottom            | The sides                               | The sides                     | The sides                     |
 | Cables          | Thin, and they flow       | Thicker, and they glow                  | Dotted, and they breathe      | Dashed, and completely still  |
 
+**Only the event graph is coloured.** A trigger cable is painted with a gradient from the depth hue of
+the node above it to that of the node below, so a long branch reads as one continuous sweep rather than
+as stacked bands; every side cable is grey whichever kind it is. Which gives the fastest reading of any
+patch — the coloured lines are the order things happen in, the grey ones are everything else.
+
 The warp cable is drawn still on purpose. Everything a WARP changes takes effect on the next pass —
 an oscillator commits its whole sequence when it is triggered — so a cable that pulsed would be
 promising something live, and the one thing worth knowing about a WARP is that it is not.
@@ -37,7 +42,7 @@ refused, since between an oscillator and an effect there is only one direction t
 
 ## What is in it
 
-- **Oscillators** with 2, 4, 8 or 16 steps. Ten waveforms: sine, triangle, sawtooth, ramp, square,
+- **Oscillators** (`OSC`) with 2, 4, 8 or 16 steps. Ten waveforms: sine, triangle, sawtooth, ramp, square,
   variable-width pulse, and white, pink, brown and blue noise. Pulse and ramp are built from their
   Fourier series, since Web Audio ships neither.
 - **Per-voice filter** — low pass, high pass or band pass, cutoff edited on a log slider, with **key
@@ -67,8 +72,8 @@ refused, since between an oscillator and an effect there is only one direction t
 - **A budget counted in work, not voices.** One point is one plain oscillator voice, and the ceiling is
   measured rather than chosen: Chrome reports how much of each 128-sample block the audio thread has
   used, so ramping load until that reaches a hundred per cent _is_ the ceiling rather than a proxy for
-  it. It was a hundred points for as long as nobody had measured it, and turned out to be about fifty
-  times that. A wavetable voice costs more than a native one, a
+  it. It was a hundred points for as long as nobody had measured it, and turned out to be a little under
+  twenty-eight times that. A wavetable voice costs more than a native one, a
   per-voice filter adds a little, and effects are paid for the whole time they exist — a reverb is a
   `ConvolverNode`, the dearest thing here, priced by the length of its tail. The meter shows the split,
   because the standing cost of a rack is what explains why a heavy patch stops layering early. Past
@@ -76,16 +81,17 @@ refused, since between an oscillator and an effect there is only one direction t
   that quarter of headroom is the margin for a machine slower than the one this was calibrated on.
   Effects are never disabled behind your back, since you put them there.
 
-  Every cost is measured twice, and the second time changed three of them.
-  One exception, and it is written on the line it belongs to: **pan** was measured the day before the
-  probe was fixed, and the fault that was fixed was specifically its own — it followed the heaviest
-  subject in the run and the probe could not tell an overloaded context from a spoiled one. So the
-  confirming pass that agreed to within 15 % on the other ten never covered it. `measure.html?only=pan`
-  sweeps that one subject against the reference, which is a minute rather than a quarter of an hour. An offline render is a
+  Every cost is measured twice, and the second time changed three of them. An offline render is a
   batch — the cache behaves and per-block overheads amortise — while live, every 128 samples is a fresh
   visit. The correction turns out to scale with how much _memory traffic_ a node drags with it: a
   buffer read was exactly right, a biquad a shade light, a convolver light by half. The two methods now
   agree to within 1.3 % across five completely different kinds of work.
+
+  One entry is not held to that, and it says so on its own line: **pan** was measured the day before the
+  probe was fixed, and the fault that was fixed was specifically its own — it followed the heaviest
+  subject in the run, and the probe could not then tell an overloaded context from a spoiled one. So the
+  confirming pass that agreed to within 15 % across the other ten never covered it. `measure.html?only=pan`
+  sweeps that one subject against the reference, a minute rather than a quarter of an hour.
 
 - **Whole-cascade loop.** When every branch has drained, the cascade fires again. Each pass lasts
   as long as its longest branch, so the cycle breathes rather than holding a fixed pulse.
@@ -215,7 +221,7 @@ refused, since between an oscillator and an effect there is only one direction t
   it longer without making it clearer. Both languages live adjacent in one file so a half-finished
   edit shows up in the diff rather than as a blank paragraph months later.
 
-  Thirteen chapters and a hundred and fourteen entries, written for whoever is using the instrument
+  Thirteen chapters and a hundred and fifteen entries, written for whoever is using the instrument
   rather than for whoever built it: no entry explains how something is implemented, and every one says
   what a control does to the sound and when you would reach for it. One chapter per module, each in
   the order its own panel is in and under the panel's own group headings, so reading the manual and
@@ -232,7 +238,7 @@ refused, since between an oscillator and an effect there is only one direction t
   patch changes it. **Generate** publishes and puts the code in the field; the field is empty until
   it does, because a code shown before it exists is a code somebody writes down. Copy copies what is
   there and nothing else. The field takes either kind of code.
-  Eight nodes come to about 150 characters, against roughly 2700 as JSON.
+  The eight nodes it starts with come to 127 characters, against 3243 as JSON.
 
 ## Sharing
 

@@ -1052,6 +1052,12 @@ input[type='range'] {
    The three states are told apart by weight instead — dim, mid, bright. */
 .node-fx {
   --accent: var(--text);
+  /* Cancelled once here rather than in each of the four state rules below, which is how every other
+     side node does it. A `border-image` covers a `border-color` completely, so a state that sets a tone
+     without cancelling it shows nothing — and the repetition made that unnoticeable in two directions:
+     four chances to forget one, and a test counting per class that could not see one going missing while
+     the other three remained. */
+  border-image: none;
   transition:
     border-color 120ms linear,
     background-color 120ms linear;
@@ -1060,7 +1066,6 @@ input[type='range'] {
 /* Three tones, brightening as it comes to life: the same neutral edge every resting node has,
    then a lighter grey once something reaches it, then white while signal passes. */
 .node-fx.idle {
-  border-image: none;
   border: 1px solid var(--border-strong);
   background: var(--surface);
 }
@@ -1076,7 +1081,6 @@ input[type='range'] {
 }
 
 .node-fx.wired {
-  border-image: none;
   border: 1px solid var(--muted);
   background: var(--surface);
 }
@@ -1086,7 +1090,6 @@ input[type='range'] {
 }
 
 .node-fx.active {
-  border-image: none;
   border: 1px solid var(--text);
   background: var(--surface-raised);
 }
@@ -1096,7 +1099,6 @@ input[type='range'] {
 }
 
 .node-fx.selected {
-  border-image: none;
   border: 1px solid var(--text);
 }
 

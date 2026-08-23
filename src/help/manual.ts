@@ -222,8 +222,15 @@ export const MANUAL: Section[] = [
           {
             term: { en: 'What the colour means', es: 'Qué significa el color' },
             text: {
-              en: 'The colour of a node is how far down the cascade it sits, not what kind of thing it is. Nodes at the same depth share a colour, so a wide patch reads as bands and you can see which branches are level with each other. It carries no other meaning.',
-              es: 'El color de un nodo es lo hondo que está en la cascada, no de qué tipo es. Los nodos a la misma profundidad comparten color, así que un patch ancho se lee como franjas y ves qué ramas van a la par. No significa nada más.',
+              en: 'How far down the cascade a thing sits, and nothing else — not what kind of thing it is. Nodes at the same depth share a colour, so a wide patch reads as bands and you can see which branches are level with each other.',
+              es: 'Lo hondo que está algo en la cascada, y nada más — no de qué tipo es. Los nodos a la misma profundidad comparten color, así que un patch ancho se lee como franjas y ves qué ramas van a la par.',
+            },
+          },
+          {
+            term: { en: 'Colour belongs to the cascade', es: 'El color es de la cascada' },
+            text: {
+              en: 'Only trigger cables are coloured, and each one is a blend from the depth of the node above it to the depth of the node below — which is why a long branch reads as one continuous sweep rather than as stacked bands. Every side cable is grey, whichever of the three it is. So the quickest way to see the shape of a patch is that the coloured lines are the order things happen in, and the grey ones are everything else.',
+              es: 'Solo los cables de disparo llevan color, y cada uno es una mezcla entre la profundidad del nodo de arriba y la del de abajo — por eso una rama larga se lee como un barrido continuo y no como franjas apiladas. Todos los cables de costado son grises, sea cual sea de los tres. Así que la manera más rápida de ver la forma de un patch es esta: las líneas de color son el orden en que pasan las cosas, y las grises son todo lo demás.',
             },
           },
           {
@@ -1117,8 +1124,8 @@ export const MANUAL: Section[] = [
           {
             term: { en: 'What costs what', es: 'Qué cuesta qué' },
             text: {
-              en: 'A reverb is worth about fifty plain voices and grows with its Decay, so a long tail is the single most expensive thing you can add. A distortion is about a dozen, a phaser about nine, and most of the rest a handful each. A filter on an oscillator costs roughly one extra voice per note, because there is one per note.',
-              es: 'Un reverb vale unas cincuenta voces simples y crece con su Decay, así que una cola larga es lo más caro que puedes añadir. Una distorsión son cerca de doce, un phaser unos nueve, y casi todo lo demás un puñado cada uno. Un filtro en un oscilador cuesta como una voz más por nota, porque hay uno por nota.',
+              en: 'A reverb is worth about forty plain voices at the tail it arrives with, and a hundred and fifty at its longest — so Decay is the most expensive control in the instrument, not merely the most expensive effect. A distortion is about a dozen, a phaser about nine, and most of the rest a handful each. A filter on an oscillator costs roughly one extra voice per note, because there is one per note.',
+              es: 'Un reverb vale unas cuarenta voces simples con la cola que trae de fábrica, y ciento cincuenta en su máximo — así que el Decay es el control más caro del instrumento, no solo el efecto más caro. Una distorsión son cerca de doce, un phaser unos nueve, y casi todo lo demás un puñado cada uno. Un filtro en un oscilador cuesta como una voz más por nota, porque hay uno por nota.',
             },
           },
           {

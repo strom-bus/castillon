@@ -731,8 +731,15 @@ const sift: Preset = {
       // reading under which they mean anything different from each other.
       sieve('g3', 0, 2, { counts: 'triggers', every: 3, offset: 1, chance: 1 }),
       sieve('g5', 2, 2, { counts: 'triggers', every: 5, offset: 1, chance: 1 }),
-      // And the older reading beside them: passes, not triggers, so this one ignores the steps entirely.
-      sieve('gp', 3, 2, { counts: 'passes', every: 2, offset: 1, chance: 0.75 }),
+      /*
+       * And the older reading beside them: passes, not triggers.
+       *
+       * Off the IGNITE and not off the tick, which is the whole difference said in one cable. Under the
+       * tick this would be reached sixteen times a pass with the same pass number every time, so on its
+       * own pass it would let all sixteen through and the pad would machine-gun — which is what it did
+       * when this preset was first wired. Counting passes wants one arrival a pass to count.
+       */
+      sieve('gp', 3, 1, { counts: 'passes', every: 2, offset: 1, chance: 0.75 }),
 
       osc('chime', 0, 3, {
         ...IN_KEY,
@@ -763,7 +770,7 @@ const sift: Preset = {
         cutoff: 620,
         resonance: 4,
       }),
-      osc('pad', 3, 3, {
+      osc('pad', 3, 2, {
         ...IN_KEY,
         waveform: 'sawtooth',
         detune: -6,
@@ -786,7 +793,7 @@ const sift: Preset = {
       wire('i', 'tick'),
       wire('tick', 'g3'),
       wire('tick', 'g5'),
-      wire('tick', 'gp'),
+      wire('i', 'gp'),
       wire('g3', 'chime'),
       wire('g5', 'bass'),
       wire('gp', 'pad'),

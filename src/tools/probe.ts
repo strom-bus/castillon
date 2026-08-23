@@ -338,6 +338,38 @@ async function quiet(ctx: AudioContext): Promise<Settling> {
  */
 const TRIAL_PATIENCE = 30
 
+/**
+ * Whether the machine is idle enough to measure on, asked before anything is built.
+ *
+ * The thing a person cannot answer reliably. "Were other Chrome windows open?" — nobody knows, and a
+ * forgotten tab holding an `AudioContext` is invisible: it makes no sound, shows no indicator, and shares
+ * the one audio device every context on the machine renders through. Its glitches land in this run and
+ * are indistinguishable from the load under test failing.
+ *
+ * So it is measured. An empty context, nothing built, held for a moment: any underrun at all belongs to
+ * something else, because nothing here is asking the audio thread for work. That turns a precondition
+ * somebody has to remember into a number the report can print — and a run that should not have started
+ * into one that says so before spending a quarter of an hour.
+ */
+export interface Idle {
+  /** Underruns while nothing at all was playing. Zero is the only good answer. */
+  events: number
+  /** Seconds watched. */
+  watched: number
+  quiet: boolean
+}
+
+export async function checkIdle(pool: Pool, seconds = 2): Promise<Idle> {
+  const ctx = await pool.get()
+  const before = readPlayback(ctx)?.events ?? 0
+  await wait(seconds)
+  const events = (readPlayback(ctx)?.events ?? 0) - before
+  // Retired either way: this context has been sitting idle and its statistics are now about the machine
+  // rather than about anything measured, which is not the state a first trial should inherit.
+  pool.retire()
+  return { events, watched: seconds, quiet: events === 0 }
+}
+
 export async function probe(
   subject: Subject,
   units: number,

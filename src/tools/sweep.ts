@@ -16,10 +16,12 @@ import { MAX_LOAD } from '../audio/load'
 import type { EffectKind } from '../types/patch'
 import {
   audioTargets,
+  checkIdle,
   openPool,
   probe,
   projectedPoints,
   WARM_UP,
+  type Idle,
   type Pool,
   type Subject,
   type Trial,
@@ -59,6 +61,15 @@ export interface Found {
   /** Whether the search was abandoned because no trial could be trusted. A result, not a number. */
   unsettled: boolean
   /**
+   * The reference readings taken either side of this subject, in points.
+   *
+   * A factor is only a ratio if both halves came off the same machine, and over a run this machine is not
+   * the same machine — the unit read 2456, 2655, 2655 and 3403 across four measurements of identical work.
+   * Comparing a subject against a reference from ten minutes earlier is comparing two machines. These two
+   * bracket it, so the comparison is local and their disagreement is this row's own error bar.
+   */
+  against?: { before: number; after: number }
+  /**
    * The trial that would not settle, kept rather than thrown away.
    *
    * It used to be discarded, which is why a run could report "never went quiet" and nothing else. The
@@ -73,6 +84,10 @@ export interface Sweep {
   reference: Found | null
   effects: Found[]
   surcharges: Found[]
+  /** Every reference reading in order, one more than there are subjects. */
+  references?: Found[]
+  /** Whether the machine was idle before any of this was built. */
+  idle?: Idle
   /**
    * The reference measured again at the end, which is what says whether any of the rest means anything.
    *
@@ -337,21 +352,64 @@ async function run(
   options: SweepOptions,
   onStep: (label: string) => void,
 ): Promise<Sweep> {
+  /*
+   * Before anything else: is this machine idle?
+   *
+   * Asked first because the answer changes what every figure below is worth, and because it is the one
+   * precondition a person cannot check. A run was invalidated by a reference that moved twenty-eight per
+   * cent inside six subjects, and the likeliest cause — another Chrome window holding an `AudioContext`,
+   * silent and unremarkable — could not be confirmed or ruled out afterwards by anybody.
+   */
+  onStep('checking the machine is idle')
+  const idle = await checkIdle(pool)
+
   // Discarded on purpose: the point is to have run this code, not to know what it said.
   for (const [subject, units] of WARM_UP) {
     onStep(`warming up · ${subject.label} · ${units} units`)
     await probe(subject, units, pool)
   }
 
-  const reference = await attempted({ label: 'voices', filtered: true }, pool, onStep)
+  /*
+   * The reference measured **between** subjects rather than once at each end.
+   *
+   * This is the change that makes any of the rest mean something. The unit is a plain voice load, and four
+   * readings of it on one machine came out 2456, 2655, 2655 and 3403 points — a spread of thirty-nine per
+   * cent, with twenty-eight of that inside a single six-subject run. Whatever the cause (thermal state, or
+   * the previous subject's teardown, and from inside the page those are indistinguishable), the machine
+   * that measured the last subject is not the machine that measured the first.
+   *
+   * A factor was `firstReference / subject`, which compares a subject measured in the tenth minute against
+   * a reference from the zeroth. That is not a ratio, it is two measurements of two machines. Bracketing
+   * each subject with a reading either side of it cancels any drift slower than one subject, which is what
+   * drift of this shape is. It costs one extra reference per subject — a run twice as long — and a table
+   * that cannot be trusted costs all of it.
+   */
+  let previous = await attempted({ label: 'voices', filtered: true }, pool, onStep)
+  const reference = previous
+  const references: Found[] = [previous]
+
+  /** One subject, then the reference again, so what is returned carries the pair it sits between. */
+  const between = async (subject: Subject): Promise<Found> => {
+    const found = await attempted(subject, pool, onStep)
+    const after = await attempted(
+      { label: `voices · after ${subject.label}`, filtered: true },
+      pool,
+      onStep,
+    )
+    references.push(after)
+    const bracketed: Found = {
+      ...found,
+      against: { before: pointsOf(previous), after: pointsOf(after) },
+    }
+    previous = after
+    return bracketed
+  }
 
   const wantedEffects = new Set(selectedSubjects(options))
   const effects: Found[] = []
   for (const descriptor of EFFECTS) {
     if (!wantedEffects.has(descriptor.label)) continue
-    effects.push(
-      await attempted({ label: descriptor.label, effect: descriptor.kind }, pool, onStep),
-    )
+    effects.push(await between({ label: descriptor.label, effect: descriptor.kind }))
   }
 
   /*
@@ -373,20 +431,22 @@ async function run(
   )
 
   if (wantSurcharges) {
-    surcharges.push(await attempted({ label: 'filter · unswept', effect: subject }, pool, onStep))
+    surcharges.push(await between({ label: 'filter · unswept', effect: subject }))
     for (const target of wanted) {
       surcharges.push(
-        await attempted(
-          { label: `filter · ${target}`, effect: subject, modulate: target },
-          pool,
-          onStep,
-        ),
+        await between({ label: `filter · ${target}`, effect: subject, modulate: target }),
       )
     }
   }
 
-  const again = await attempted({ label: 'voices again', filtered: true }, pool, onStep)
-  return { supported: true, reference, effects, surcharges, again }
+  // The last reference taken, which is also the far end of the last subject's bracket.
+  const again = previous
+  return { supported: true, reference, effects, surcharges, again, references, idle }
+}
+
+/** A reading's points, or zero where there was none. */
+function pointsOf(found: Found): number {
+  return found.clean?.points ?? found.broke?.points ?? 0
 }
 
 /** How far the two reference readings may differ before the sweep is calling itself untrustworthy. */
@@ -459,10 +519,53 @@ function describeSettling(found: Found): string {
   return ` after ${settling.waited.toFixed(1)}s with ${settling.events} underruns during the wait: ${reading}`
 }
 
-/** What one subject's break point says the model is out by. */
+/**
+ * What one subject's break point says the model is out by, against the machine it was measured on.
+ *
+ * The reference used is the mean of the two readings bracketing this subject, not the one at the top of
+ * the run. With the brackets a factor is a ratio; without them it was a comparison of two machines, and
+ * the fallback is kept only so an old result can still be printed.
+ */
 function factor(found: Found, referencePoints: number): number | null {
   const points = found.clean?.points ?? found.broke?.points
-  return points && points > 0 ? referencePoints / points : null
+  if (!points || points <= 0) return null
+
+  const against = found.against
+  const local = against && against.before > 0 && against.after > 0
+  return (local ? (against.before + against.after) / 2 : referencePoints) / points
+}
+
+/** How far this subject's own two reference readings disagree, which is its error bar. */
+function localDrift(found: Found): number | null {
+  const against = found.against
+  if (!against || against.before <= 0 || against.after <= 0) return null
+  return Math.abs(against.after - against.before) / Math.min(against.after, against.before)
+}
+
+/**
+ * What the idle check found, said before anything else, because it decides what the rest is worth.
+ *
+ * Any underrun at all while nothing was built belongs to something other than this run — every
+ * `AudioContext` on the machine renders through one audio device, and a forgotten tab holding one makes
+ * no sound and shows no indicator. That is the precondition nobody can check by remembering, and the
+ * reason a run reported its unit at 3403 points and then at 2655 could not afterwards be established by
+ * anybody. Now it is on the page whether or not anything else goes wrong.
+ */
+function idleLine(idle: Idle | undefined): string[] {
+  if (!idle) return []
+  if (idle.quiet) {
+    return [
+      `The machine was idle before this started: no underruns in ${idle.watched}s of silence.`,
+      '',
+    ]
+  }
+  return [
+    `THE MACHINE WAS NOT IDLE. ${idle.events} underruns arrived in ${idle.watched}s with nothing built,`,
+    'so something else on this machine is using the audio device — another Chrome window or tab holding an',
+    'AudioContext, this app included, or a second dev server. Those glitches land in every figure below and',
+    'cannot be told apart from the load under test failing. Close them and run it again.',
+    '',
+  ]
 }
 
 export function formatSweep(result: Sweep): string {
@@ -512,10 +615,26 @@ export function formatSweep(result: Sweep): string {
       )
     }
     const out = factor(found, referencePoints)
+    /*
+     * Each row carries its own error bar, which is the only honest way to print these.
+     *
+     * A factor of 0.86 read against references that themselves disagreed by twenty per cent is not a
+     * measurement of anything, and it used to be printed identically to one read against references that
+     * agreed to three. The reader could not tell them apart, and neither could I — a whole conclusion
+     * about the effect table being ten per cent heavy came from rows whose brackets were never shown.
+     */
+    const drift = localDrift(found)
+    const bar =
+      drift === null
+        ? ''
+        : drift > DRIFT_LIMIT
+          ? `  ± ${(drift * 100).toFixed(0)}% — WIDER THAN THE FIGURE, ignore this row`
+          : `  ± ${(drift * 100).toFixed(0)}%`
     return (
       `  ${found.subject.label.padEnd(20)} ${String(units).padStart(5)} units` +
       `   ${clean.toFixed(0).padStart(6)} points` +
       `   model out by ${out ? out.toFixed(2) : '?'}x` +
+      bar +
       // Printed on every row, not only when it trips the limit. Whether this column falls across a run is
       // the difference between a machine that warmed up and one that wore out, and a whole sweep was
       // thrown away for want of being able to tell which.
@@ -582,6 +701,7 @@ export function formatSweep(result: Sweep): string {
   return [
     `MAX_LOAD is ${MAX_LOAD}. Every factor below is measured against voices, which is the unit.`,
     '',
+    ...idleLine(result.idle),
     ...verdict,
     '',
     'Reference:',

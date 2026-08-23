@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
+import { NODE_DEFINITIONS } from '../nodes/registry'
 import { detailTerms, MANUAL } from './manual'
 
 /**
@@ -102,10 +103,23 @@ describe('the manual against the panel', () => {
     expect(titled).toEqual(['SEQUENCE', 'VOICE', 'SHAPE', 'FILTER', 'NEXT'])
   })
 
-  it('has a chapter for every kind of node', () => {
-    const ids = MANUAL.map((section) => section.id)
-    for (const node of ['ignite', 'osc', 'delay', 'fx', 'mod', 'warp']) {
-      expect(ids, `no chapter for ${node}`).toContain(node)
-    }
+  it('has a chapter for every kind of node, asked of the registry and not of a list', () => {
+    /*
+     * The list this replaced had six entries and the registry had seven — the SIEVE shipped, the list
+     * was never extended, and a test named "for every kind of node" happily checked six of them. Every
+     * hand-written list in a coverage test is a second declaration of what exists, and this file exists
+     * because a second declaration always falls behind the first.
+     *
+     * The manual keys its chapters by name rather than by node type, so the one mapping that cannot be
+     * derived is `start` → `ignite`: the type reads better in a stack trace and the label reads better
+     * on screen, and the registry deliberately holds both.
+     */
+    const ids = new Set(MANUAL.map((section) => section.id))
+    const missing = NODE_DEFINITIONS.map((definition) =>
+      definition.type === 'start' ? 'ignite' : definition.type,
+    ).filter((id) => !ids.has(id))
+
+    expect(missing, `no chapter for: ${missing.join(', ')}`).toEqual([])
+    expect(NODE_DEFINITIONS.length).toBeGreaterThan(5)
   })
 })

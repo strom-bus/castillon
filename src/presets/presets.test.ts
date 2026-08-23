@@ -15,7 +15,8 @@ import { stressLoad } from '../tools/stressPatch'
 import { LAYER_THRESHOLD, MAX_LOAD } from '../audio/load'
 import { silentBecause, targetsFor } from '../audio/modulation'
 import { permits } from '../state/connections'
-import { decodePatch, encodePatch } from '../state/patchCode'
+import { defaultFxParams, NODE_DEFINITIONS } from '../nodes/registry'
+import { decodePatch, encodePatch, STEP_COLUMN_USAGE } from '../state/patchCode'
 import { warpDoingNothing } from '../state/transpose'
 import type {
   ModParams,
@@ -24,7 +25,6 @@ import type {
   PatchNode,
   SieveParams,
   StartParams,
-  WarpParams,
 } from '../types/patch'
 
 /** Everything a trigger can reach from an Ignite, which is everything that will ever make a sound. */
@@ -222,35 +222,106 @@ describe('the presets', () => {
     }
   })
 
-  it('between them show every part of the machine', () => {
+  /**
+   * Parameters no preset is expected to move off its default, each for a reason that would not apply to
+   * the next one added.
+   *
+   * Kept short on purpose: a list like this is where derived coverage goes back to being hand-written,
+   * so anything on it has to be something a preset genuinely cannot show.
+   */
+  const NOT_DEMONSTRABLE = new Set([
     /*
-     * The reason a preset exists at all. The dice produces an example without saying what it is an
-     * example of; a preset is supposed to be the one place a feature can be *seen* being used. So a
-     * feature nothing here demonstrates is one nobody will find, and that has happened twice already —
-     * step velocity lived in the format, the engine and the dice for months with no preset touching it.
+     * Every parameter of every effect except which effect it is and how much of it you hear.
+     *
+     * `FxParams` is eleven effects flattened into one record, so asking whether each of its fields is
+     * moved is really asking whether a preset uses each of the eleven — and eleven effects across eight
+     * presets built around one idea each would make a bad preset rather than a thorough one. Effect
+     * coverage is somebody else's job and is done twice already: the manual is checked against
+     * `effects.ts` control by control, and the die is checked against every kind it can name.
+     *
+     * Derived from the type rather than listed, so an effect added tomorrow does not need a line here.
+     */
+    ...Object.keys(defaultFxParams())
+      .filter((key) => key !== 'effect' && key !== 'mix')
+      .map((key) => `fx.${key}`),
+    // The sequence itself. Every oscillator has different steps, so "away from the default" is true of
+    // all of them and says nothing — what a step carries is checked column by column below instead.
+    'osc.steps',
+    // The count and the place in a run are one idea, and a preset showing a run of one would be showing
+    // a sieve at rest. `every` above 1 is the check; `offset` at 1 is a legitimate choice within it.
+    'sieve.offset',
+  ])
+
+  it('use every parameter every node has, asked of the nodes and not of a list', () => {
+    /*
+     * What the check below used to be: a map of feature names written out by hand. It missed the whole
+     * SIEVE — the node shipped, the map never got an entry, and for its entire life no preset showed
+     * one. The test whose only job was to catch that was itself the thing that had fallen behind.
+     *
+     * So this asks the registry instead. Every node type has a `defaults()`; a parameter nothing moves
+     * off its default is a parameter no preset demonstrates, and a node type absent altogether fails on
+     * all of its parameters at once. Nothing has to be added here when a parameter is.
+     */
+    const missing: string[] = []
+    for (const definition of NODE_DEFINITIONS) {
+      const defaults = definition.defaults() as Record<string, unknown>
+      const mine = PRESETS.flatMap((preset) =>
+        preset.patch.nodes.filter((node) => node.type === definition.type),
+      ).map((node) => node.params as Record<string, unknown>)
+
+      for (const key of Object.keys(defaults)) {
+        const name = `${definition.type}.${key}`
+        if (NOT_DEMONSTRABLE.has(name)) continue
+        const moved = mine.some(
+          (params) => JSON.stringify(params[key]) !== JSON.stringify(defaults[key]),
+        )
+        if (!moved) missing.push(name)
+      }
+    }
+    expect(missing, `no preset moves: ${missing.join(', ')}`).toEqual([])
+  })
+
+  it('use every column a step carries, asked of the format and not of a list', () => {
+    // The same question the writer asks when it decides whether a column is worth any bits. A column no
+    // preset uses is a per-step feature nobody will find — which is exactly what step velocity was.
+    const steps = PRESETS.flatMap((preset) => preset.patch.nodes)
+      .filter((node) => node.type === 'osc')
+      .flatMap((node) => (node.params as OscParams).steps)
+
+    const unused = STEP_COLUMN_USAGE.filter((column) => !steps.some(column.used)).map((c) => c.name)
+    expect(unused, `no preset uses: ${unused.join(', ')}`).toEqual([])
+  })
+
+  it('found parameters to check, so a broken reader cannot pass by finding none', () => {
+    // The failure the two tests above would otherwise have: a registry that stops answering, an empty
+    // list of keys, and two green tests that have checked nothing at all.
+    const keys = NODE_DEFINITIONS.flatMap((d) => Object.keys(d.defaults()))
+    expect(keys.length).toBeGreaterThan(30)
+    expect(STEP_COLUMN_USAGE.length).toBeGreaterThan(3)
+  })
+
+  it('between them show every idea the machine has, which no schema can name', () => {
+    /*
+     * What is left once the parameters are asked of the registry: the ideas that are *combinations*, and
+     * the enumerated values where one is not enough. A negative depth is a parameter moved off its
+     * default and also the whole of ducking, six choices deep with nothing naming it. The three
+     * propagation modes are one field, and the field being moved once does not show the other two.
+     *
+     * This list is allowed to be hand-written because every entry is a sentence about the instrument
+     * rather than a field in a type. Nothing belongs here that a schema could have answered.
      */
     const nodes = PRESETS.flatMap((preset) => preset.patch.nodes)
     const oscillators = nodes
       .filter((node) => node.type === 'osc')
       .map((n) => n.params as OscParams)
-    const steps = oscillators.flatMap((params) => params.steps)
 
     const shown: Record<string, boolean> = {
-      scale: oscillators.some((params) => (params.scale ?? 'free') !== 'free'),
-      chance: oscillators.some((params) => params.useChance) && steps.some((s) => s.chance != null),
-      ratchets:
-        oscillators.some((params) => params.useRatchet) && steps.some((s) => (s.ratchet ?? 1) > 1),
-      roll: steps.some((step) => (step.ratchetRamp ?? 0) !== 0),
-      slide: steps.some((step) => step.slide === true),
-      velocity: steps.some((step) => step.velocity < 1),
-      glide: oscillators.some((params) => (params.glide ?? 0) > 0),
-      detune: oscillators.some((params) => (params.detune ?? 0) !== 0),
-      keyTrack: oscillators.some((params) => (params.keyTrack ?? 0) > 0),
-      // Each propagation mode, since it is the control the whole instrument turns on.
+      // Each propagation mode, since it is one field and the control the whole instrument turns on.
+      // Moving it off its default once shows one of the three; this asks for all of them.
       onEnd: oscillators.some((params) => params.propagateMode === 'onEnd'),
       onStart: oscillators.some((params) => params.propagateMode === 'onStart'),
       onStep: oscillators.some((params) => params.propagateMode === 'onStep'),
-      // Both kinds of modulator, and the shape that does not repeat.
+      // Both kinds of modulator, and the shape that does not repeat — again one field, three demands.
       lfo: nodes.some((node) => node.type === 'mod' && (node.params as ModParams).kind === 'lfo'),
       envelope: nodes.some(
         (node) => node.type === 'mod' && (node.params as ModParams).kind === 'env',
@@ -258,46 +329,30 @@ describe('the presets', () => {
       random: nodes.some(
         (node) => node.type === 'mod' && (node.params as ModParams).wave === 'random',
       ),
-      byVelocity: nodes.some(
-        (node) => node.type === 'mod' && (node.params as ModParams).byVelocity === true,
-      ),
       /*
        * A modulation pulling *down*, which is the whole of ducking and the one thing here that nobody
        * would find by exploring: an envelope, fired by a trigger, pointed at a level, with the depth
        * taken below zero. Six choices deep and nothing names it, so if no preset shows it, it may as
-       * well not exist.
+       * well not exist. A negative depth alone is a parameter off its default; *this* is the idea.
        */
       ducking: nodes.some(
-        (node) => node.type === 'mod' && ((node.params as ModParams).depth ?? 0) < 0,
+        (node) =>
+          node.type === 'mod' &&
+          (node.params as ModParams).kind === 'env' &&
+          (node.params as ModParams).fires === 'trigger' &&
+          (node.params as ModParams).target === 'level' &&
+          ((node.params as ModParams).depth ?? 0) < 0,
       ),
-      delay: nodes.some((node) => node.type === 'delay'),
       /*
-       * The SIEVE, which this very test was written to catch and did not — the node shipped, the map
-       * never got an entry for it, and for its whole life no preset showed one. Split into what it can
-       * be asked to do, because a sieve at rest passes everything and demonstrates nothing.
+       * A SIEVE counting the triggers reaching it rather than the passes — a divider on the steps above
+       * it. One value of one field, invisible in the panel, and the reading that makes the node more
+       * than a probability gate.
        */
-      sieve: nodes.some((node) => node.type === 'sieve'),
-      sieveRun: nodes.some(
-        (node) => node.type === 'sieve' && (node.params as SieveParams).every > 1,
-      ),
-      sieveOdds: nodes.some(
-        (node) => node.type === 'sieve' && ((node.params as SieveParams).chance ?? 1) < 1,
-      ),
-      // Counting arrivals rather than passes, which turns a sieve into a divider on the steps above it
-      // — six choices deep, invisible in the panel, and nothing but a preset will ever show it.
-      sieveTriggers: nodes.some(
+      dividing: nodes.some(
         (node) => node.type === 'sieve' && (node.params as SieveParams).counts === 'triggers',
       ),
-      // And each dimension a warp bends, which is four controls that all look alike and are not.
-      warpPitch: nodes.some(
-        (node) => node.type === 'warp' && (node.params as WarpParams).transpose !== 0,
-      ),
-      warpSpeed: nodes.some(
-        (node) => node.type === 'warp' && ((node.params as WarpParams).speed ?? 1) !== 1,
-      ),
-      warpChance: nodes.some(
-        (node) => node.type === 'warp' && ((node.params as WarpParams).chance ?? 1) !== 1,
-      ),
+      // An Ignite that waits to be played rather than being seeded by the transport, which is the whole
+      // of playing this thing by hand.
       bound: nodes.some(
         (node) => node.type === 'start' && (node.params as StartParams).trigger === 'bound',
       ),

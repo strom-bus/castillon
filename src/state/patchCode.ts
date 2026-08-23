@@ -437,6 +437,8 @@ function readParams<P extends object>(
  * uses it — which is the usual case for all four of these.
  */
 interface StepColumn {
+  /** For a message, not for the format. Nothing reads it but a failing test. */
+  name: string
   bits: number
   /** What the column reads when nothing has touched it, so an untouched column can be skipped. */
   rest: number
@@ -448,6 +450,7 @@ const STEP_COLUMNS: StepColumn[] = [
   // Sixteen levels of loudness, which is finer than anyone sets by hand and a quarter of the bits a
   // continuous value would want.
   {
+    name: 'velocity',
     bits: 4,
     rest: 15,
     pack: (step) => clamp(Math.round((step.velocity ?? 1) * 15), 0, 15),
@@ -456,6 +459,7 @@ const STEP_COLUMNS: StepColumn[] = [
     },
   },
   {
+    name: 'chance',
     bits: 4,
     rest: 15,
     pack: (step) => clamp(Math.round((step.chance ?? 1) * 15), 0, 15),
@@ -465,6 +469,7 @@ const STEP_COLUMNS: StepColumn[] = [
   },
   // Stored as hits minus one, so an ordinary note is zero and an unused column is a run of them.
   {
+    name: 'ratchet',
     bits: 2,
     rest: 0,
     pack: (step) => clamp(Math.round(step.ratchet ?? 1), 1, MAX_RATCHET) - 1,
@@ -475,6 +480,7 @@ const STEP_COLUMNS: StepColumn[] = [
   // Signed, so it travels shifted: seven values either side of a flat roll, which is finer than anybody
   // sets a ramp by hand.
   {
+    name: 'ratchetRamp',
     bits: 4,
     rest: 7,
     pack: (step) => clamp(Math.round(((step.ratchetRamp ?? 0) + 1) * 7), 0, 14),
@@ -483,6 +489,7 @@ const STEP_COLUMNS: StepColumn[] = [
     },
   },
   {
+    name: 'slide',
     bits: 1,
     rest: 0,
     pack: (step) => (step.slide ? 1 : 0),
@@ -501,6 +508,18 @@ const STEP_COLUMNS: StepColumn[] = [
  * finds there is nobody's intention. That is exactly what happened when a fifth column arrived.
  */
 export const STEP_COLUMN_TOTAL = STEP_COLUMNS.length
+
+/**
+ * The columns themselves, for a test that asks whether a preset ever uses each one.
+ *
+ * `pack(step) !== rest` is the same question the writer asks when it decides whether a column is worth
+ * spending bits on, so a test built on it cannot fall behind the table — which is the whole point:
+ * step velocity sat in the format, the engine and the dice for months with no preset touching it, and
+ * the check that was supposed to notice was a list of field names written out by hand beside this one.
+ */
+export const STEP_COLUMN_USAGE: { name: string; used(step: Step): boolean }[] = STEP_COLUMNS.map(
+  (column) => ({ name: column.name, used: (step: Step) => column.pack(step) !== column.rest }),
+)
 
 function writeOsc(writer: BitWriter, raw: OscParams): void {
   const params = { ...defaultOscParams(), ...raw }

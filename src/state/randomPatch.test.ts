@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { EFFECTS } from '../audio/effects'
 import { estimatePeakLoad } from '../audio/load'
 import { silentBecause, targetOf } from '../audio/modulation'
+import { NODE_DEFINITIONS } from '../nodes/registry'
 import { permits } from './connections'
 import type { FxParams, ModParams, OscParams, Patch, SieveParams, WarpParams } from '../types/patch'
 import { decodePatch, encodePatch } from './patchCode'
@@ -316,9 +317,26 @@ describe('randomPatch', () => {
     expect(withMod.length).toBeGreaterThan(10)
   })
 
-  it('rolls sieves, which the die had never heard of either', () => {
-    // The same gap the modulators had: the node existed, nothing rolled it, and the only patches with
-    // one in were the ones somebody wired by hand.
+  it('rolls every node the machine has, asked of the registry and not of a list', () => {
+    /*
+     * Twice now a node has existed that the die never rolled — first the MOD, then the SIEVE — so the
+     * only patches containing one were the ones somebody wired by hand. Both times there were tests
+     * about the die and none of them noticed, because each was a claim about a node somebody had
+     * remembered to write a claim about.
+     *
+     * So this asks the registry. A node type added tomorrow and not rolled fails here on the day it is
+     * added, and nothing has to be added here for that to happen.
+     */
+    const rolled = new Set(many(80).flatMap((patch) => patch.nodes.map((node) => node.type)))
+    const never = NODE_DEFINITIONS.map((d) => d.type).filter((type) => !rolled.has(type))
+    expect(never, `the die never rolls: ${never.join(', ')}`).toEqual([])
+    // And it has to have found types to check, or an empty registry would pass this silently.
+    expect(NODE_DEFINITIONS.length).toBeGreaterThan(5)
+  })
+
+  it('rolls sieves often enough to be a feature rather than a rarity', () => {
+    // The check above only asks whether it ever happens. One in eighty would satisfy it and would still
+    // mean nobody meets the node.
     const withSieve = many(60).filter((patch) => patch.nodes.some((node) => node.type === 'sieve'))
     expect(withSieve.length).toBeGreaterThan(5)
   })

@@ -58,6 +58,18 @@ export const MAX_PASSES = 32
 class Measurer implements Engine {
   /** When the last sound would stop, release included. */
   end = 0
+  /**
+   * The longest a single note lives, from its start to the end of its release.
+   *
+   * What the file's tail has to be, and it was not being measured at all. A lap ends where the last step
+   * of the last pass ends, and a note's release goes on past that — so a patch with a two-second release
+   * exported one-and-seven-tenths of a second short, its final decay simply missing from the file. The
+   * tail only ever allowed for an *effect's* release, which is the one release most patches do not have.
+   *
+   * A note can never start after its own lap ends, so the lap boundary plus the longest note life is a
+   * bound that always holds — slop included, since that moves a note's start and its life goes with it.
+   */
+  longestNote = 0
   private busy = new Map<NodeId, number>()
 
   now(): number {
@@ -67,6 +79,8 @@ class Measurer implements Engine {
   playNote(req: NoteRequest): void {
     const stops = req.time + req.duration + req.release / 1000
     if (stops > this.end) this.end = stops
+    const life = stops - req.time
+    if (life > this.longestNote) this.longestNote = life
     const known = this.busy.get(req.nodeId) ?? 0
     if (stops > known) this.busy.set(req.nodeId, stops)
   }
@@ -174,9 +188,18 @@ export function planRender(patch: Patch, passes: number): RenderPlan {
   }
 
   const offset = first === Infinity ? 0 : first
+  /*
+   * Room after the last lap for everything still sounding: an effect's tail, and — which this used to
+   * forget entirely — the release of a note.
+   *
+   * A note cannot start after its own lap ends, so the boundary plus the longest note life is a bound
+   * that always holds. Erring long costs a fraction of a second of silence; erring short cut the final
+   * decay off every patch with a release over about two tenths of a second, which was most of them.
+   */
   const tail =
     Math.max(
       0,
+      measurer.longestNote,
       ...patch.nodes
         .filter((n) => n.type === 'fx')
         .map((n) => effectOr((n.params as FxParams).effect).releaseTime),

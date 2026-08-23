@@ -113,9 +113,17 @@ refused, since between an oscillator and an effect there is only one direction t
   cascade could not otherwise be asked: transposing ten oscillators down a branch meant ten edits,
   and a node _in_ the chain could not do it either — wired alongside the cable it was meant to
   replace, the node below fires twice, once through it and once around it, and the untransposed pass
-  masks the moved one. So it attaches beside a node instead: nothing is rewired and nothing fires
-  twice, and it reaches that node and everything the cascade reaches from it. On an Ignite that is a
-  whole cascade; on one oscillator, one branch.
+  masks the moved one. So it attaches beside an oscillator instead: nothing is rewired and nothing
+  fires twice, and it bends that oscillator and everything the cascade reaches from it. A whole
+  cascade is one warp on the oscillator at the top of it, since reach travels downward.
+
+  An oscillator and nothing else, which took a second pass to get right. The rules first allowed an
+  Ignite and a Delay as well, and neither has anything a warp can bend — a wait is a number in
+  milliseconds that no ratio scales, and a trigger has no pitch or tempo of its own. A warp attached
+  to either was never bending that node, it was using it as a place to stand while it reached the
+  oscillators below: reach dressed up as attachment. The first fix was to give those two nodes side
+  ports, which is a hole covered rather than closed; the second was to narrow the rule so no port
+  has to be invented for a cable that means nothing.
 
   Four dimensions, each named for what it bends rather than for the arithmetic that bends it.
   **Pitch** moves in degrees of each oscillator's own scale and in semitones where that oscillator is
@@ -130,6 +138,16 @@ refused, since between an oscillator and an effect there is only one direction t
   is **which** warps apply rather than their total, because a branch that loops back on itself would
   otherwise re-add each warp on every lap — a two-node cycle under a warp of one step read as
   thirty-two before that was fixed.
+
+  Each node now **declares its ports** in its definition, and the connection rules read that
+  declaration rather than assuming. Those were two lists that had to agree and could not be derived
+  from one another — the rules decided what a cable may join, each component decided what a cable can
+  land on — and when they disagreed the failure was silent in the worst way: a cable the rules permit
+  but the canvas cannot draw is refused by hand for no stated reason, and _invisible_ when it arrives
+  from a preset, the dice or a patch code, since the edge is in the data whether or not there is a
+  handle to hang it on. The patch plays as though the cable is there, and it is. That is how a warp
+  wired to an Ignite lived in three shipped patches for four commits, and it surfaced only because
+  one rolled by the dice came out looking unwired.
 
 - **Ignite modes.** An Ignite either fires by itself with the transport, or waits for a key. Bound to
   a key it can hold — sounding while the key is down — or toggle, starting on one press and stopping

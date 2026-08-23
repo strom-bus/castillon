@@ -926,8 +926,8 @@ export const MANUAL: Section[] = [
     title: { en: 'WARP — bending a whole branch', es: 'WARP — doblar una rama entera' },
     body: [
       {
-        en: 'A WARP attaches to the side of a node and bends everything the cascade reaches from there — that node and every node below it. Attach it to an IGNITE and it takes the whole cascade; attach it to one oscillator and it takes that branch and nothing else.',
-        es: 'Un WARP se engancha al costado de un nodo y dobla todo lo que la cascada alcanza desde ahí — ese nodo y todos los de debajo. Engánchalo a un IGNITE y se lleva la cascada entera; engánchalo a un oscilador y se lleva esa rama y nada más.',
+        en: 'A WARP attaches to the side of an oscillator and bends that oscillator and everything the cascade reaches from it. Attach it to the one at the top of a branch and it takes the branch; attach it to the last one and it takes only that. An oscillator, because an oscillator is the thing that plays notes — there is nothing in a trigger or a wait for a warp to bend.',
+        es: 'Un WARP se engancha al costado de un oscilador y dobla ese oscilador y todo lo que la cascada alcanza desde él. Engánchalo al de arriba de una rama y se lleva la rama; engánchalo al último y se lleva solo ese. Un oscilador, porque un oscilador es lo que toca notas — en un disparo o en una espera no hay nada que un warp pueda doblar.',
       },
       {
         en: 'It is not part of the chain, which is the whole point of it: nothing gets rewired and nothing fires twice. Four controls, each at a neutral point, so a WARP you have just added leaves the patch exactly as it was until you move something.',
@@ -973,15 +973,15 @@ export const MANUAL: Section[] = [
           {
             term: { en: 'How far it reaches', es: 'Hasta dónde llega' },
             text: {
-              en: 'Downward only, from wherever it is attached. Everything the cascade can reach from that node is bent; everything above it and everything on another branch is untouched. Attach the same WARP to two places and it reaches both.',
-              es: 'Solo hacia abajo, desde donde esté enganchado. Todo lo que la cascada alcance desde ese nodo se dobla; todo lo de arriba y todo lo de otra rama queda intacto. Engancha el mismo WARP en dos sitios y llega a los dos.',
+              en: 'Downward only, from the oscillator it is attached to. Everything the cascade can reach from there is bent; everything above it and everything on another branch is untouched. So a whole cascade is one warp on the oscillator at the top of it, and a phrase inside that cascade is another further down. Attach the same WARP to two oscillators and it reaches both.',
+              es: 'Solo hacia abajo, desde el oscilador al que está enganchado. Todo lo que la cascada alcance desde ahí se dobla; todo lo de arriba y todo lo de otra rama queda intacto. Así que una cascada entera es un warp en el oscilador de arriba, y una frase de dentro es otro más abajo. Engancha el mismo WARP a dos osciladores y llega a los dos.',
             },
           },
           {
             term: { en: 'Stacking two of them', es: 'Apilar dos de ellos' },
             text: {
-              en: 'Any number can reach the same notes and they combine without one winning. Pitch adds — two warps of a third up come to a sixth up — and the three ratios multiply, so two at half speed come to a quarter. That is why you can attach one to an IGNITE for the whole piece and another to one branch inside it.',
-              es: 'Cualquier número puede llegar a las mismas notas y se combinan sin que uno gane. El Pitch suma — dos warps de una tercera arriba dan una sexta arriba — y las tres razones multiplican, así que dos a media velocidad dan un cuarto. Por eso puedes enganchar uno a un IGNITE para la pieza entera y otro a una rama de dentro.',
+              en: 'Any number can reach the same notes and they combine without one winning. Pitch adds — two warps of a third up come to a sixth up — and the three ratios multiply, so two at half speed come to a quarter. That is why you can put one at the top of a branch for all of it and another further down for part of it, and read the result off the two.',
+              es: 'Cualquier número puede llegar a las mismas notas y se combinan sin que uno gane. El Pitch suma — dos warps de una tercera arriba dan una sexta arriba — y las tres razones multiplican, así que dos a media velocidad dan un cuarto. Por eso puedes poner uno arriba de una rama para toda ella y otro más abajo para una parte, y leer el resultado de los dos.',
             },
           },
           {
@@ -994,8 +994,8 @@ export const MANUAL: Section[] = [
           {
             term: { en: 'A common mistake', es: 'Un error común' },
             text: {
-              en: 'Wiring it into the cascade instead of onto the side of it. Do that and the node below fires twice — once through the WARP and once around it — and the unbent pass masks the bent one, so the patch sounds untouched while everything on screen says the warp is working. The panel warns you when it is attached to nothing that makes a note.',
-              es: 'Cablearlo dentro de la cascada en vez de al costado. Si lo haces, el nodo de abajo dispara dos veces — una a través del WARP y otra por fuera — y la pasada sin doblar tapa la doblada, así que el patch suena intacto mientras todo en pantalla dice que el warp funciona. El panel avisa cuando no está enganchado a nada que haga una nota.',
+              en: 'Looking for somewhere to attach it other than an oscillator. There is nowhere: an IGNITE and a DELAY have no side port, because neither has anything a warp could bend — a wait is a number in milliseconds that no ratio scales, and a trigger has no pitch. To bend a whole cascade, attach it to the oscillator at the top. The panel warns you when it is attached to nothing that makes a note.',
+              es: 'Buscar dónde engancharlo que no sea un oscilador. No hay otro sitio: un IGNITE y un DELAY no tienen puerto lateral, porque ninguno tiene nada que un warp pueda doblar — una espera es un número en milisegundos que ninguna razón escala, y un disparo no tiene altura. Para doblar una cascada entera, engánchalo al oscilador de arriba. El panel avisa cuando no está enganchado a nada que haga una nota.',
             },
           },
         ],

@@ -63,6 +63,9 @@ export function StartNode({ id, data, selected }: NodeProps<FlowNode>) {
         IGNITE <span className="node-ordinal">{ordinal}</span>
         {key && <span className="node-key">{key}</span>}
       </div>
+      {/* One port, and no side ports: an Ignite says *now* and carries nothing else. A WARP briefly
+          attached here, which meant two signal ports on a node that has nothing to do with signal —
+          see WARPABLE in state/connections for why the rule changed instead. */}
       <Handle type="source" id={EVENT_OUT} position={Position.Bottom} className="port port-out" />
     </div>
   )
@@ -370,6 +373,9 @@ export function DelayNode({ id, data, selected }: NodeProps<FlowNode>) {
       style={depthStyle(colors)}
     >
       <Handle type="target" id={EVENT_IN} position={Position.Top} className="port port-in" />
+      {/* No side ports, and that is a decision rather than an omission: a DELAY's wait is a number in
+          milliseconds that no warp scales, so warping one does exactly what warping the node below it
+          does. See WARPABLE in state/connections. */}
       <div className="node-header">
         <span className="node-title">
           DELAY <span className="node-ordinal">{ordinal}</span>

@@ -62,6 +62,21 @@ export interface NodeDefinition {
    * palette says it once instead of leaving it to be worked out six times.
    */
   place: 'cascade' | 'side'
+  /**
+   * Which ports the node has, declared here rather than left to be read off its JSX.
+   *
+   * Two lists that must agree and could not be derived from one another: the connection rules decided
+   * what a cable may join, and each component decided what a cable can land on. When they disagreed the
+   * failure was silent in the worst way — a cable the rules permit but the canvas cannot draw is refused
+   * by hand for no stated reason, and *invisible* when it arrives from a preset, the dice or a patch
+   * code, since the edge is in the data whether or not there is a handle to hang it on. The patch then
+   * plays as though the cable is there, and it is.
+   *
+   * `trigger` is a port at the top, at the bottom, or both: `in` can be fired, `out` can fire something,
+   * `both` passes a trigger on. `side` is the pair of signal ports — audio, modulation or a warp, which
+   * of the three being decided by what is at the cable's other end rather than by the port.
+   */
+  ports: { trigger?: 'in' | 'out' | 'both'; side?: boolean }
   defaults(): NodeParams
   /**
    * Absent for nodes that are not in the event graph. An FX node has no event ports, so nothing
@@ -79,6 +94,7 @@ const start: NodeDefinition = {
   type: 'start',
   label: 'IGNITE',
   place: 'cascade',
+  ports: { trigger: 'out' },
   defaults: () => ({}),
   schedule({ node, time, activity }) {
     activity.push({ kind: 'node', id: node.id, time, duration: FLASH })
@@ -101,6 +117,7 @@ const delay: NodeDefinition = {
   type: 'delay',
   label: 'DELAY',
   place: 'cascade',
+  ports: { trigger: 'both' },
   defaults: defaultDelayParams,
   schedule({ node, time, activity }) {
     const params = node.params as DelayParams
@@ -134,6 +151,7 @@ const warp: NodeDefinition = {
   type: 'warp',
   label: 'WARP',
   place: 'side',
+  ports: { side: true },
   defaults: defaultWarpParams,
 }
 
@@ -257,6 +275,7 @@ const osc: NodeDefinition = {
   type: 'osc',
   label: 'OSC',
   place: 'cascade',
+  ports: { trigger: 'both', side: true },
   defaults: defaultOscParams,
   schedule({ node, time, bpm, engine, activity, warping = NO_WARPING }) {
     const params = node.params as OscParams
@@ -411,6 +430,7 @@ const fx: NodeDefinition = {
   type: 'fx',
   label: 'FX',
   place: 'side',
+  ports: { side: true },
   defaults: defaultFxParams,
 }
 
@@ -448,6 +468,7 @@ const mod: NodeDefinition = {
   type: 'mod',
   label: 'MOD',
   place: 'side',
+  ports: { trigger: 'both', side: true },
   defaults: defaultModParams,
   schedule({ node, time, engine, activity }) {
     const params = node.params as ModParams

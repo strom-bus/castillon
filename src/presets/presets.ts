@@ -600,19 +600,19 @@ const chance: Preset = {
  * DELAY sets two branches a fixed distance apart and holds them there for ever, and a ratio makes them
  * come apart and keep coming apart, so the patch never arrives at the same alignment twice.
  *
- * A third WARP sits on the Ignite with nothing but Chance on it, which reaches everything below and
- * thins the whole cascade out — a control over a whole patch, which is the argument for the node.
+ * A third WARP carries nothing but Chance, on the bass branch under the first oscillator. That one is
+ * there to show **reach**: the bass is already a third up, because the warp on the oscillator above it
+ * reaches down to it, and it is thinned as well by its own. One note ends up carrying two warps that
+ * were attached in two places, which is the thing about this node worth knowing.
  */
 const bend: Preset = {
   id: 'bend',
   name: 'BEND',
-  about: 'One phrase, twice, bent by two warps: one moved in pitch, one running at another speed.',
+  about: 'One phrase, twice, bent from the side: one moved in pitch, one running at another speed.',
   patch: patchOf(
     100,
     [
       ignite('i', 1, 0),
-      // Everything below it, thinned. Nothing else in the patch could say this in one control.
-      warp('all', 2, 0, { transpose: 0, chance: 0.85 }),
       osc('one', 0, 1, {
         waveform: 'triangle',
         steps: steps([note(0, 1), note(4, 0), note(2, 1), null, note(6, 0), note(4, 0)]),
@@ -648,6 +648,9 @@ const bend: Preset = {
       // Two thirds of the speed, so the two phrases drift and go on drifting. This is the thing a
       // delay cannot do.
       warp('slow', 3, 1, { transpose: 0, speed: 2 / 3 }),
+      // On the bass, which is already being moved by the warp above it. Attached in two places and
+      // both arrive: the pitch from up the branch, the thinning from here.
+      warp('thin', 2, 2, { transpose: 0, chance: 0.85 }),
       osc('low', 1, 2, {
         waveform: 'sawtooth',
         steps: steps([note(0, -1), null, note(5, -2), null]),
@@ -679,9 +682,11 @@ const bend: Preset = {
       wire('one', 'ch', 'audio'),
       wire('two', 'rv', 'audio'),
       // Attached from the side, which is the whole design: nothing is rewired and nothing fires twice.
-      wire('all', 'i', 'warp'),
+      // Onto oscillators, because an oscillator is the thing that plays notes — and a warp reaches down
+      // from wherever it lands, so one on the top of a branch takes the branch.
       wire('up', 'one', 'warp'),
       wire('slow', 'two', 'warp'),
+      wire('thin', 'low', 'warp'),
     ],
   ),
 }

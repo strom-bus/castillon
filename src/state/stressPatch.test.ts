@@ -7,6 +7,7 @@ import { WAVEFORMS } from '../audio/waveforms'
 import type { OscParams, WarpParams } from '../types/patch'
 import { LAYER_THRESHOLD, MAX_LOAD } from '../audio/load'
 import { stressLoad, stressPatch } from '../tools/stressPatch'
+import { permits } from './connections'
 import { decodePatch, encodePatch } from './patchCode'
 
 /**
@@ -61,6 +62,18 @@ describe('the load-test patch', () => {
     const warps = patch.nodes.filter((node) => node.type === 'warp')
     expect(warps).toHaveLength(1)
     expect((warps[0]!.params as WarpParams).speed).not.toBe(1)
+  })
+
+  it('wires only cables the instrument has', () => {
+    // It had a warp on the Ignite, which the rules permitted and the canvas could not draw.
+    const patch = decodePatch(code as string)!
+    for (const edge of patch.edges) {
+      const from = patch.nodes.find((n) => n.id === edge.source)?.type
+      const to = patch.nodes.find((n) => n.id === edge.target)?.type
+      expect(permits(from, to, edge.kind), `no ${edge.kind} cable runs from ${from} to ${to}`).toBe(
+        true,
+      )
+    }
   })
 
   it('sits between degrading and breaking, which is the only useful place', () => {

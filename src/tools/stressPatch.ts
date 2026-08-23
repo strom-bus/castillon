@@ -97,8 +97,8 @@ function oscFor(index: number): OscParams {
     cutoff: 400 + (index % 12) * 450,
     resonance: 1 + (index % 10),
     keyTrack: filterType === 'off' ? 0 : (index % 5) * 0.25,
-    // Siblings, all sounding at once. On `onEnd` they would sound one at a time and the patch would
-    // measure one per cent, which is what the first version of this file did for months.
+    // All sounding at once. On `onEnd` they would sound one at a time and the patch would measure one
+    // per cent, which is what the first version of this file did for months.
     propagateMode: 'onStart',
   }
 }
@@ -111,6 +111,19 @@ export function stressPatch(): Patch {
 
   nodes.push({ id: 'ign', type: 'start', position: { x: 0, y: 0 }, params: {} })
 
+  /*
+   * One oscillator under the Ignite, and the other forty-seven under that one.
+   *
+   * They still all sound together — the first propagates `onStart`, so its children begin when it does
+   * rather than after it — and the shape is not cosmetic. A WARP attaches to an oscillator, because an
+   * oscillator is the only thing that plays notes, and it reaches everything the cascade reaches from
+   * there. Forty-eight siblings directly under the Ignite have no such node: a warp could only take one
+   * of them. Under a single head, one warp takes all forty-eight, which is what makes the speed control
+   * below measurable at all.
+   *
+   * This used to hang the warp on the Ignite instead, which the rules permitted and the canvas could
+   * not draw — an invisible cable on a patch whose whole purpose is to be looked at while it plays.
+   */
   for (let i = 0; i < OSCILLATORS; i++) {
     const id = `o${i}`
     nodes.push({
@@ -122,7 +135,7 @@ export function stressPatch(): Patch {
       },
       params: oscFor(i),
     })
-    wire('ign', id)
+    wire(i === 0 ? 'ign' : 'o0', id)
   }
 
   // The reverbs are where the effect budget is: one at its longest decay is worth about fifty voices.
@@ -162,19 +175,19 @@ export function stressPatch(): Patch {
     })
 
   /*
-   * And a warp on the Ignite, which reaches the whole cascade.
+   * And a warp on the head oscillator, which reaches every one below it.
    *
-   * Speed is the only control in the instrument that changes the load rather than only the sound: every
-   * one of the forty-eight oscillators fires proportionally more notes into the same release tail. It
-   * also puts the warp path itself under load, which nothing else in this patch would.
+   * Speed is the only control in the instrument that changes the load rather than only the sound: all
+   * forty-eight fire proportionally more notes into the same release tail. It also puts the warp path
+   * itself under load, which nothing else in this patch would.
    */
   nodes.push({
     id: 'wp',
     type: 'warp',
-    position: { x: -COLUMN, y: 0 },
+    position: { x: -COLUMN, y: ROW },
     params: { transpose: 0, speed: WARP_SPEED },
   })
-  wire('wp', 'ign', 'warp')
+  wire('wp', 'o0', 'warp')
 
   return { version: 1, bpm: BPM, loop: true, nodes, edges }
 }

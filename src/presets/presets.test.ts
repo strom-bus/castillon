@@ -13,6 +13,7 @@ import { PRESETS } from './presets'
 import { estimatePeakLoad } from '../audio/load'
 import { LAYER_THRESHOLD, MAX_LOAD } from '../audio/load'
 import { silentBecause, targetsFor } from '../audio/modulation'
+import { permits } from '../state/connections'
 import { decodePatch, encodePatch } from '../state/patchCode'
 import { warpDoingNothing } from '../state/transpose'
 import type {
@@ -159,6 +160,23 @@ describe('the presets', () => {
     const load = estimatePeakLoad(patch)
     expect(load).toBeGreaterThan(0)
     expect(load, `${load.toFixed(0)} points`).toBeLessThan(MAX_LOAD * LAYER_THRESHOLD)
+  })
+
+  it.each(PRESETS)('$name wires only cables the instrument has', ({ patch }) => {
+    /*
+     * Every edge checked against the same rule a drag goes through. A patch built in code never goes
+     * through a drag, so nothing was checking these at all — and one of them was wrong: a warp wired to
+     * an Ignite, which the rules permitted and the canvas could not draw, so the preset played warped
+     * with no cable on screen to say what was doing it.
+     */
+    for (const edge of patch.edges) {
+      const from = nodeOf(patch, edge.source)?.type
+      const to = nodeOf(patch, edge.target)?.type
+      expect(
+        permits(from, to, edge.kind),
+        `${edge.id}: no ${edge.kind} cable runs from ${from} to ${to}`,
+      ).toBe(true)
+    }
   })
 
   it.each(PRESETS)('$name attaches every warp to something it can bend', ({ patch }) => {

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { EFFECTS } from '../audio/effects'
 import { estimatePeakLoad } from '../audio/load'
 import { silentBecause, targetOf } from '../audio/modulation'
+import { permits } from './connections'
 import type { FxParams, ModParams, OscParams, Patch, WarpParams } from '../types/patch'
 import { decodePatch, encodePatch } from './patchCode'
 import { warpDoingNothing } from './transpose'
@@ -119,6 +120,22 @@ describe('randomPatch', () => {
 
     const plain = oscillators.filter((params) => !params.useChance && !params.useRatchet)
     expect(plain.length / oscillators.length).toBeGreaterThan(0.3)
+  })
+
+  it('only ever wires cables the instrument has', () => {
+    // The same rule a drag goes through, asked of a patch that never went through one. The dice builds
+    // edges directly, so a kind it got wrong would show up as a cable the canvas cannot draw — present
+    // in the data, absent from the screen, and audible either way.
+    for (const patch of many(60)) {
+      for (const edge of patch.edges) {
+        const from = patch.nodes.find((n) => n.id === edge.source)?.type
+        const to = patch.nodes.find((n) => n.id === edge.target)?.type
+        expect(
+          permits(from, to, edge.kind),
+          `no ${edge.kind} cable runs from ${from} to ${to}`,
+        ).toBe(true)
+      }
+    }
   })
 
   it('never rolls a warp that does nothing', () => {

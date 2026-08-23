@@ -530,19 +530,25 @@ export function randomPatch(random: () => number = Math.random): Patch {
    * there is and the one most easily overdone: two of them stack, and two rolled at random stack in a way
    * nobody chose. One is a patch with a decision in it; three is a patch with an accident in it.
    *
-   * Where it lands decides how much it takes. On an Ignite it takes that whole cascade, which is the
-   * reading worth having when a patch has more than one — two cascades and one of them warped is a
-   * conversation. On an oscillator it takes that branch and leaves its siblings alone, which is the
-   * reading worth having when there is only one cascade to bend.
+   * It lands on an oscillator, because that is the only thing a warp can bend — and since reach travels
+   * downward, one on the top of a branch takes the branch. Preferring a shallow one, so the warp is
+   * usually doing something to a run of nodes rather than to a single leaf at the bottom.
    *
    * And it is given one dimension rather than four. All four at once is a patch nobody can hear their way
    * back out of, and each on its own is legible: this branch is a third up, or this one runs at two
    * thirds of the speed, or this one happens most of the time.
    */
-  const ignites = nodes.filter((node) => node.type === 'start')
   if (c.chance(0.3) && oscillators.length > 1) {
-    const onCascade = ignites.length > 1 && c.chance(0.6)
-    const host = onCascade ? c.pick(ignites) : c.pick(oscillators)
+    /*
+     * Shallowest first, and among those at random.
+     *
+     * A warp on the last oscillator of a branch reaches one node, which is a warp you cannot hear as a
+     * warp — it looks like that oscillator was simply set differently. Higher up, the same node bends
+     * several and the point of it is audible.
+     */
+    const shallowest = Math.min(...oscillators.map((one) => one.position.y))
+    const highest = oscillators.filter((one) => one.position.y === shallowest)
+    const host = c.pick(highest)
     const params = c.weighted<WarpParams>([
       // A third or a fifth in degrees of the scale, so it is an interval and not an interval-shaped
       // number of semitones. Away from zero, since a warp of nothing is a node that does nothing.

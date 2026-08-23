@@ -18,15 +18,21 @@ const round = (value: number) => value.toFixed(0)
 
 const text = `Load test for the audio engine.
 
-Forty-eight oscillators as siblings under one Ignite, covering all ten waveforms, all four filter
-types and all four sequence lengths, plus five reverbs and five other effects, at ${patch.bpm} BPM on loop,
-with a WARP on the Ignite running the whole cascade at half again its written speed.
+Forty-eight oscillators all sounding at once, covering all ten waveforms, all four filter types and
+all four sequence lengths, plus five reverbs and five other effects, at ${patch.bpm} BPM on loop, with a
+WARP on the head oscillator running every one of them at half again its written speed.
 Paste the code below into the PATCH CODE field.
 
-Siblings rather than a deep cascade, which was the difference from the first version of this file.
-A cascade sounds one level at a time, so twenty-four oscillators spread down five levels were a
-handful playing at any instant — it measured 22 points out of ${MAX_LOAD}, which is one per cent, and had
-been sitting there unnoticed since the ceiling was believed to be a hundred.
+All at once rather than a deep cascade, which was the difference from the first version of this
+file. A cascade sounds one level at a time, so twenty-four oscillators spread down five levels were
+a handful playing at any instant — it measured 22 points out of ${MAX_LOAD}, which is one per cent, and
+had been sitting there unnoticed since the ceiling was believed to be a hundred.
+
+They hang off one head oscillator rather than off the Ignite directly, and that is not cosmetic. A
+WARP attaches to an oscillator, since an oscillator is the only thing that plays notes, and it
+reaches everything the cascade reaches from there. Forty-eight siblings under the Ignite have no
+such node — a warp could only take one of them. Under a single head, one warp takes all forty-eight.
+The head propagates on start, so they still all sound together.
 
 Everything a step can carry is in here, and not for completeness: each of them is load as well as
 format. Rolls put four voices where one was, per-step velocity exercises the whole gain path rather
@@ -50,9 +56,9 @@ What to listen and look for:
   - the output clipping rather than being held by the limiter
   - the load meter going bright, and retriggered oscillators restarting rather than layering. That
     is the designed degradation, not a fault.
-  - the whole thing running half again as fast from one control, which is the WARP on the far left.
-    Unplug its cable and the same patch drops by about a third, which is the cheapest way to see
-    what that one setting costs.
+  - the whole thing running half again as fast from one control, which is the WARP on the left of the
+    head oscillator. Unplug its cable and the same patch drops by about a third, which is the
+    cheapest way to see what one setting costs.
 
 One thing the meter will not tell you: it reads well under half of what this costs. The estimate
 caps how many voices an oscillator is assumed to be holding at four, and these hold about ${round(overlap)} — a

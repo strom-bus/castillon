@@ -1,3 +1,4 @@
+import { NODE_DEFINITIONS } from '../nodes/registry'
 import type { EdgeKind } from '../types/patch'
 
 /**
@@ -51,8 +52,53 @@ export interface ConnectionRules {
   edges: EdgeLike[]
 }
 
-/** What a transform can be attached to: everything a trigger travels through. */
-const WARPABLE = new Set(['start', 'osc', 'delay'])
+/**
+ * What a WARP can be attached to: the thing that plays notes, and nothing else.
+ *
+ * This said `start`, `osc`, `delay` for four commits and two of those three were wrong — found because
+ * a warp rolled by the dice came out with no cable on it. The rules permitted an Ignite and the Ignite
+ * had no side port, so the cable was refused when drawn by hand and *invisible* when it arrived from a
+ * preset, the dice or a patch code: the patch played warped with nothing on screen saying why.
+ *
+ * The first fix was to give an Ignite and a Delay side ports, and it was the wrong fix — a hole
+ * covered rather than closed. Neither node has anything a warp can bend. A Delay's wait is a number in
+ * milliseconds that no ratio scales; an Ignite has no notes, no pitch and no tempo of its own. A warp
+ * attached to either was never bending that node at all, it was using it as a place to stand while it
+ * reached the oscillators below — reach dressed up as attachment, and paid for with two signal ports on
+ * nodes that have nothing to do with signal.
+ *
+ * So the rule matches what a warp can actually do, and the ports stop needing to be invented: **it
+ * attaches to an oscillator**, and bends that one and everything the cascade reaches from it. A whole
+ * cascade is still one warp, on the oscillator at the top of it, because reach travels downward and
+ * always did. What is genuinely lost is one case — an Ignite with two oscillators directly under it,
+ * where a single warp used to cover both and now takes two. Two warps that each cover their own branch
+ * is a thing anybody can read; a warp hanging off a trigger source is not.
+ *
+ * Exported because the canvas has to render a side port on every one of these, and there is no way to
+ * derive one list from the other by reading the components. `ui/ports.test.tsx` is what makes them
+ * agree, and it is the test that would have caught the original fault on the day it was introduced.
+ */
+export const WARPABLE = new Set(['osc'])
+
+/*
+ * There is deliberately no "does this node have side ports" guard in `orient`.
+ *
+ * One was added when a warp turned out to be attachable to an Ignite, and it was the wrong shape of fix:
+ * a rule naming a type that cannot take the cable is a rule to correct, not a rule to filter afterwards.
+ * Every type named below has side ports, and `connections.test.ts` asserts that over the whole rule set
+ * rather than re-checking it on every call — which catches a rule added wrongly in future, where a guard
+ * would only have made one silently do nothing.
+ */
+
+const triggerOf = (type: string | undefined) =>
+  NODE_DEFINITIONS.find((one) => one.type === type)?.ports.trigger
+
+/** Whether a trigger can run from one node type into another: one has a way out, the other a way in. */
+function canTrigger(from: string | undefined, to: string | undefined): boolean {
+  const out = triggerOf(from)
+  const into = triggerOf(to)
+  return (out === 'out' || out === 'both') && (into === 'in' || into === 'both')
+}
 
 /** A connection as it will be stored: which way round it goes, and what kind of cable it is. */
 export interface Connected {
@@ -70,11 +116,12 @@ function orient(from: string | undefined, to: string | undefined): EdgeKind | 'r
   if (to === 'mod' && (from === 'osc' || from === 'fx')) return 'reversed'
 
   /*
-   * A transform attaches to whatever it is meant to move, and moves that thing and everything the
-   * cascade reaches from it. Onto an Ignite it takes the whole cascade, onto an oscillator just that
-   * branch — which is the point of attaching rather than standing in the chain. Standing in it meant
-   * the cable joining two nodes had to be broken to get between them, and a transform wired beside
-   * that cable instead of in place of it does nothing you can hear.
+   * A WARP attaches to whatever it is meant to bend, and bends that thing and everything the cascade
+   * reaches from it. Onto an Ignite it takes the whole cascade, onto an oscillator just that branch —
+   * which is the point of attaching rather than standing in the chain. Standing in it meant the cable
+   * joining two nodes had to be broken to get between them, and one wired beside that cable instead of
+   * in place of it does nothing you can hear: the node below fires twice, and the unwarped pass masks
+   * the warped one.
    */
   if (from === 'warp' && WARPABLE.has(to ?? '')) return 'warp'
   if (to === 'warp' && WARPABLE.has(from ?? '')) return 'reversed'
@@ -85,6 +132,27 @@ function orient(from: string | undefined, to: string | undefined): EdgeKind | 'r
   if (from === 'fx' && to === 'osc') return 'reversed'
 
   return null
+}
+
+/**
+ * Whether a cable of this kind may run from one node type to the other, stored this way round.
+ *
+ * The rule `connectionFor` applies, asked without a drag. A patch that arrives already built — from a
+ * preset, the dice, or a patch code — never goes through a drag, so nothing was checking its edges
+ * against the rules at all. A warp wired to an Ignite survived four commits that way: permitted by a
+ * rule, undrawable by the canvas, and present in three shipped patches.
+ *
+ * Asked per kind rather than "what cable goes between these two", because one pair of types can carry
+ * more than one. An oscillator and a MOD take a modulation cable from the MOD *and* a trigger cable
+ * into it, and a function returning one answer has to throw the other away.
+ */
+export function permits(from: string | undefined, to: string | undefined, kind: EdgeKind): boolean {
+  // A trigger runs out of a bottom port and into a top one, so it is a question about ports. Read from
+  // the node definitions rather than assumed, so this and the canvas answer from one declaration
+  // instead of from two lists somebody has to keep in step.
+  if (kind === 'event') return canTrigger(from, to)
+
+  return orient(from, to) === kind
 }
 
 /**
@@ -137,20 +205,24 @@ export function connectionFor(
   const startsAtOutput = sourceHandle === EVENT_OUT || sourceHandle === null
   const endsAtInput = targetHandle === EVENT_IN || targetHandle === null
   if (startsAtOutput && endsAtInput) {
-    return already(source, target)
-      ? null
-      : { source, target, sourceHandle, targetHandle, kind: 'event' }
+    // Checked against the port declarations and not only against the handle names. A handle that is
+    // null — which is what a patch code carries, since it stores which nodes a cable joins and not
+    // which port — would otherwise be taken as a trigger port on any node at all, including one that
+    // has none. That is the same fault as a warp on an Ignite, in the other direction.
+    return canTrigger(typeOf(source), typeOf(target)) && !already(source, target)
+      ? { source, target, sourceHandle, targetHandle, kind: 'event' }
+      : null
   }
   if (sourceHandle === EVENT_IN && targetHandle === EVENT_OUT) {
-    return already(target, source)
-      ? null
-      : {
+    return canTrigger(typeOf(target), typeOf(source)) && !already(target, source)
+      ? {
           source: target,
           target: source,
           sourceHandle: targetHandle,
           targetHandle: sourceHandle,
           kind: 'event',
         }
+      : null
   }
 
   return null

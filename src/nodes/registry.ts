@@ -21,6 +21,8 @@ import {
   MAX_MOD_ATTACK,
   MAX_RATCHET,
   MAX_WARP,
+  MAX_WARP_RATIO,
+  MIN_WARP_RATIO,
   MAX_MOD_DECAY,
   MIN_DELAY_MS,
   MIN_MOD_ATTACK,
@@ -35,8 +37,8 @@ export interface ScheduleArgs {
   bpm: number
   engine: Engine
   activity: ActivityBus
-  /** What every WARP above this node adds up to. Zero unless one of them is in the branch. */
-  transpose?: number
+  /** What every WARP reaching this node comes to. Neutral unless one of them is on the branch. */
+  warping?: Warping
 }
 
 export interface ScheduleResult {
@@ -111,7 +113,8 @@ const delay: NodeDefinition = {
 }
 
 export function defaultWarpParams(): WarpParams {
-  return { transpose: 0 }
+  // Every dimension at its neutral point, so a warp just added does nothing until it is asked to.
+  return { transpose: 0, speed: 1, velocity: 1, chance: 1 }
 }
 
 /**
@@ -157,14 +160,37 @@ export function warpsOn(
   return grown ?? already
 }
 
-/** What a list of transforms comes to in steps. */
-export function stepsOf(nodes: PatchNode[], applying: readonly NodeId[]): number {
-  let total = 0
+/** Everything a stack of warps comes to, which is what a branch below them is bent by. */
+export interface Warping {
+  /** Steps of pitch, added. */
+  pitch: number
+  /** Ratios, multiplied. */
+  speed: number
+  velocity: number
+  chance: number
+}
+
+export const NO_WARPING: Warping = { pitch: 0, speed: 1, velocity: 1, chance: 1 }
+
+/**
+ * What a list of warps comes to.
+ *
+ * Pitch adds and the rest multiply, and the difference is not arbitrary: two warps a third up each come
+ * to a sixth up, while two at half speed each come to a quarter. Both are the same operation applied
+ * twice, which is the property that lets them stack without anybody deciding which one wins.
+ */
+export function warpingOf(nodes: PatchNode[], applying: readonly NodeId[]): Warping {
+  if (applying.length === 0) return NO_WARPING
+
+  const total: Warping = { ...NO_WARPING }
   for (const id of applying) {
     const node = nodes.find((one) => one.id === id)
     if (node?.type !== 'warp') continue
     const params = node.params as WarpParams
-    total += clamp(Math.round(params.transpose ?? 0), -MAX_WARP, MAX_WARP)
+    total.pitch += clamp(Math.round(params.transpose ?? 0), -MAX_WARP, MAX_WARP)
+    total.speed *= clamp(params.speed ?? 1, MIN_WARP_RATIO, MAX_WARP_RATIO)
+    total.velocity *= clamp(params.velocity ?? 1, 0, MAX_WARP_RATIO)
+    total.chance *= clamp(params.chance ?? 1, 0, MAX_WARP_RATIO)
   }
   return total
 }
@@ -232,9 +258,17 @@ const osc: NodeDefinition = {
   label: 'OSC',
   place: 'cascade',
   defaults: defaultOscParams,
-  schedule({ node, time, bpm, engine, activity, transpose = 0 }) {
+  schedule({ node, time, bpm, engine, activity, warping = NO_WARPING }) {
     const params = node.params as OscParams
-    const step = stepDuration(bpm, params.division)
+    /*
+     * A warp on the branch stretches or compresses every step below it.
+     *
+     * Divided rather than multiplied because the number is a speed and this is a duration: at twice the
+     * speed a step lasts half as long. It changes how long the whole sequence takes, and therefore when
+     * this node hands the cascade on — which is the point. A delay sets two branches a fixed distance
+     * apart and they stay that far apart for ever; a ratio makes them drift and keep drifting.
+     */
+    const step = stepDuration(bpm, params.division) / warping.speed
 
     // Only layer while there is budget left, counted in work rather than in voices — a rack of
     // effects is paid for before a note is played, so it is the effects that decide how much
@@ -262,8 +296,25 @@ const osc: NodeDefinition = {
        * four-hit roll turns it into a stutter — a fine sound to want and a poor thing to get by default,
        * since it would make a plain sequence unpredictable in a way nobody asked it to be.
        */
-      const chance = params.useChance ? (s.chance ?? 1) : 1
+      /*
+       * A step's own chance, scaled by whatever the branch is being warped by.
+       *
+       * The branch scaling applies even where the oscillator does not use per-step chance, which is
+       * deliberate: "this branch happens half the time" is worth wanting without having set a chance on
+       * sixteen steps first. Clamped, since the product may land either side of what a chance can be.
+       */
+      const own = params.useChance ? (s.chance ?? 1) : 1
+      const chance = clamp(own * warping.chance, 0, 1)
       if (chance < 1 && engine.chance() >= chance) continue
+
+      /*
+       * And its velocity, likewise scaled by the branch.
+       *
+       * Clamped to one because it feeds two things at once: how loud the note is, and — wherever a
+       * per-note envelope takes its depth from velocity — how far that envelope opens. Past one the
+       * first would only clip while the second went on climbing, so they part company.
+       */
+      const velocity = clamp(s.velocity * warping.velocity, 0, 1)
 
       // Hits share the slot, so a roll fits inside the step rather than running over the next one.
       const asked = params.useRatchet ? (s.ratchet ?? 1) : 1
@@ -271,19 +322,30 @@ const osc: NodeDefinition = {
       const slot = step / hits
 
       for (let hit = 0; hit < hits; hit++) {
+        /*
+         * Where in the roll this hit falls, and how loud that makes it.
+         *
+         * A ramp of one takes the last hit to silence and of minus one brings the first up from it, with
+         * everything between them on a straight line. One hit is untouched: there is no roll to ramp
+         * across, so the number has nothing to say.
+         */
+        const along = hits > 1 ? hit / (hits - 1) : 0
+        const ramp = clamp(s.ratchetRamp ?? 0, -1, 1)
+        const rolled = clamp(velocity * (1 - ramp * (ramp > 0 ? along : along - 1)), 0, 1)
+
         engine.playNote({
           nodeId: node.id,
           time: at + hit * slot,
           freq:
             midiToFreq(
-              transposeBy(s.note, transpose, params.scale ?? 'free', params.scaleRoot ?? 0),
+              transposeBy(s.note, warping.pitch, params.scale ?? 'free', params.scaleRoot ?? 0),
             ) * detuneRatio(params.detune ?? 0),
           // ?? keeps patches saved before waveforms existed playable.
           waveform: params.waveform ?? 'square',
           pulseWidth: params.pulseWidth ?? 0.5,
           duration: slot * params.gate,
-          gain: params.gain * s.velocity,
-          velocity: s.velocity,
+          gain: params.gain * rolled,
+          velocity: rolled,
           attack: params.attack,
           decay: params.decay ?? 0,
           release: params.release,
@@ -293,7 +355,7 @@ const osc: NodeDefinition = {
           filterType: params.filterType ?? 'off',
           cutoff: trackedCutoff(
             params.cutoff ?? 2000,
-            transposeBy(s.note, transpose, params.scale ?? 'free', params.scaleRoot ?? 0),
+            transposeBy(s.note, warping.pitch, params.scale ?? 'free', params.scaleRoot ?? 0),
             params.keyTrack ?? 0,
           ),
           resonance: params.resonance ?? 1,

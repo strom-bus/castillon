@@ -7,6 +7,7 @@ import {
   type OscParams,
   type Patch,
   type PatchEdge,
+  type WarpParams,
   type PatchNode,
   type Step,
 } from '../types/patch'
@@ -725,6 +726,51 @@ describe('a step that does more than play', () => {
       // Past four it stops being a roll and starts being a faster sequence, which is what division is.
       expect(withSteps(plain({ ratchet: 99 }), { useRatchet: true })).toHaveLength(MAX_RATCHET)
     })
+
+    /*
+     * How much each hit of a roll changes in level.
+     *
+     * Level rather than pitch, of the two things a roll could ramp in: a real roll decays, and that
+     * decay is what makes four hits read as one gesture instead of four notes stuck together. A climb
+     * in pitch is an arpeggio inside a step, which is a different thing to want.
+     */
+    const levels = (over: Partial<Step>) =>
+      withSteps(plain(over), { useRatchet: true }).map((n) => n.velocity)
+
+    it('are flat unless a ramp asks otherwise', () => {
+      // So the off position lives inside the number, rather than being a second control whose only job
+      // is to say "not the usual thing".
+      expect(levels({ ratchet: 4 })).toEqual([1, 1, 1, 1])
+      expect(levels({ ratchet: 4, ratchetRamp: 0 })).toEqual([1, 1, 1, 1])
+    })
+
+    it('fade away across the step as the ramp goes up', () => {
+      const fading = levels({ ratchet: 4, ratchetRamp: 1 })
+      expect(fading[0]).toBeCloseTo(1, 6)
+      expect(fading.at(-1)).toBeCloseTo(0, 6)
+      for (let i = 1; i < fading.length; i++) expect(fading[i]!).toBeLessThan(fading[i - 1]!)
+    })
+
+    it('swell instead when it goes the other way', () => {
+      const swelling = levels({ ratchet: 4, ratchetRamp: -1 })
+      expect(swelling[0]).toBeCloseTo(0, 6)
+      expect(swelling.at(-1)).toBeCloseTo(1, 6)
+      for (let i = 1; i < swelling.length; i++)
+        expect(swelling[i]!).toBeGreaterThan(swelling[i - 1]!)
+    })
+
+    it('ramp from whatever the step is worth, not from full', () => {
+      // The step's own velocity is still the ceiling of its roll: a quiet step ramps quietly.
+      const half = withSteps(plain({ velocity: 0.5, ratchet: 2, ratchetRamp: 1 }), {
+        useRatchet: true,
+      })
+      expect(half[0]!.velocity).toBeCloseTo(0.5, 6)
+    })
+
+    it('say nothing about a step that has one hit', () => {
+      // There being no second hit for it to be louder or quieter than.
+      expect(levels({ ratchet: 1, ratchetRamp: 1 })).toEqual([1])
+    })
   })
 
   describe('slide', () => {
@@ -761,7 +807,7 @@ describe('a step that does more than play', () => {
  * time and the other in pitch. On an oscillator it would not be per-branch — ten oscillators down a
  * branch would be ten edits — and two stacked would mean nothing.
  */
-describe('a transform attached to a node', () => {
+describe('a warp attached to a node', () => {
   /**
    * Wired to the side of a node, moving that node and everything the cascade reaches from it.
    *
@@ -797,6 +843,41 @@ describe('a transform attached to a node', () => {
     const scheduler = build(patchOf(nodes, links))
     scheduler.start()
     scheduler.drain(10)
+    scheduler.stop()
+    return engine.notes
+  }
+
+  /** Two steps rather than one, so a change of pace is visible as the gap between them. */
+  function attachedWith(first: WarpParams, second?: WarpParams, roll = 0) {
+    const nodes: PatchNode[] = [
+      { id: 's', type: 'start', position: { x: 0, y: 0 }, params: {} },
+      {
+        id: 'o',
+        type: 'osc',
+        position: { x: 0, y: 0 },
+        params: {
+          ...defaultOscParams(),
+          steps: [
+            { note: 60, active: true, velocity: 1 },
+            { note: 60, active: true, velocity: 1 },
+          ],
+        },
+      },
+      { id: 'w1', type: 'warp', position: { x: 0, y: 0 }, params: first },
+    ]
+    const links: PatchEdge[] = [
+      edge('s', 'o'),
+      { id: 'a', kind: 'warp', source: 'w1', target: 's' },
+    ]
+    if (second) {
+      nodes.push({ id: 'w2', type: 'warp', position: { x: 0, y: 0 }, params: second })
+      links.push({ id: 'b', kind: 'warp', source: 'w2', target: 's' })
+    }
+
+    const scheduler = build(patchOf(nodes, links))
+    engine.chanceValue = roll
+    scheduler.start()
+    scheduler.drain(20)
     scheduler.stop()
     return engine.notes
   }
@@ -861,6 +942,89 @@ describe('a transform attached to a node', () => {
     expect(semitonesFrom(attached([2], 'start', { scale: 'major', scaleRoot: 0 })[0]!.freq)).toBe(
       64,
     )
+  })
+
+  it('stretches every step below it when it is slowed', () => {
+    /*
+     * The one thing a cascade could not do before: two branches at different speeds. A delay sets them
+     * a fixed distance apart and they stay that far apart for ever; a ratio makes them drift and keep
+     * drifting, which is what the machine is for.
+     */
+    const gapOf = (notes: NoteRequest[]) => notes[1]!.time - notes[0]!.time
+    const plain = gapOf(attachedWith({ transpose: 0, speed: 1 }))
+
+    expect(gapOf(attachedWith({ transpose: 0, speed: 0.5 }))).toBeCloseTo(plain * 2, 6)
+  })
+
+  it('shortens them when it is sped up, and stacks with another', () => {
+    const gap = (notes: NoteRequest[]) => notes[1]!.time - notes[0]!.time
+    const plain = gap(attachedWith({ transpose: 0, speed: 1 }))
+    expect(gap(attachedWith({ transpose: 0, speed: 2 }))).toBeCloseTo(plain / 2, 6)
+    // Two halves come to a quarter, which is the operation applied twice rather than one of them winning.
+    expect(
+      gap(attachedWith({ transpose: 0, speed: 0.5 }, { transpose: 0, speed: 0.5 })),
+    ).toBeCloseTo(plain * 4, 6)
+  })
+
+  it('scales what every note below it is worth', () => {
+    // And it does two things at once, velocity being a modulation source: quieter, and wherever a
+    // per-note envelope takes its depth from velocity, less open as well.
+    const [note] = attachedWith({ transpose: 0, velocity: 0.5 })
+    expect(note!.velocity).toBeCloseTo(0.5, 6)
+  })
+
+  it('never asks for a velocity past what one can be', () => {
+    // Because it feeds loudness and envelope depth together: past one the first would only clip while
+    // the second went on climbing, and the two would part company.
+    const [note] = attachedWith({ transpose: 0, velocity: 4 })
+    expect(note!.velocity).toBeLessThanOrEqual(1)
+  })
+
+  it('thins a branch out by chance, whether or not the steps carry one', () => {
+    /*
+     * The branch scaling applies even where the oscillator does not use per-step chance, which is the
+     * useful reading: "this branch happens half the time" is worth wanting without having set a chance
+     * on sixteen steps first.
+     */
+    expect(attachedWith({ transpose: 0, chance: 0.5 }, undefined, 0.9)).toHaveLength(0)
+    expect(attachedWith({ transpose: 0, chance: 0.5 }, undefined, 0.1)).not.toHaveLength(0)
+  })
+
+  it('does not let a loud branch flatten a roll that swells', () => {
+    /*
+     * Why the branch scaling is clamped before the roll is shaped rather than after.
+     *
+     * Unclamped, a branch pushed to four times level would take a swelling roll straight to the top on
+     * its second hit and hold it there: the ramp would still be set, and would be doing nothing. The
+     * shape a step was given survives how loud the branch asks for it to be.
+     */
+    const nodes: PatchNode[] = [
+      { id: 's', type: 'start', position: { x: 0, y: 0 }, params: {} },
+      {
+        id: 'o',
+        type: 'osc',
+        position: { x: 0, y: 0 },
+        params: {
+          ...defaultOscParams(),
+          useRatchet: true,
+          steps: [{ note: 60, active: true, velocity: 1, ratchet: 4, ratchetRamp: -1 }],
+        },
+      },
+      { id: 'w', type: 'warp', position: { x: 0, y: 0 }, params: { transpose: 0, velocity: 4 } },
+    ]
+    const scheduler = build(
+      patchOf(nodes, [edge('s', 'o'), { id: 'a', kind: 'warp', source: 'w', target: 's' }]),
+    )
+    scheduler.start()
+    scheduler.drain(10)
+    scheduler.stop()
+
+    const swelling = engine.notes.map((n) => n.velocity)
+    for (let i = 1; i < swelling.length; i++) expect(swelling[i]!).toBeGreaterThan(swelling[i - 1]!)
+  })
+
+  it('leaves a branch alone at a chance of one', () => {
+    expect(attachedWith({ transpose: 0, chance: 1 }, undefined, 0.99)).not.toHaveLength(0)
   })
 
   it('applies once to a branch that loops back on itself', () => {

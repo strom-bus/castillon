@@ -43,6 +43,7 @@ import {
   MAX_NOTE,
   MAX_RATCHET,
   MAX_WARP,
+  SPEEDS,
   MIN_NOTE,
   DEFAULT_IGNITE,
   type Step,
@@ -533,14 +534,35 @@ function StepPanel({
         )}
 
         {params.useRatchet && (
-          <Slider
-            label="Ratchet"
-            value={Math.max(1, Math.round(step.ratchet ?? 1))}
-            min={1}
-            max={MAX_RATCHET}
-            step={1}
-            onChange={(ratchet) => set({ ratchet })}
-          />
+          <>
+            <Slider
+              label="Ratchet"
+              value={Math.max(1, Math.round(step.ratchet ?? 1))}
+              min={1}
+              max={MAX_RATCHET}
+              step={1}
+              suffix=" hits"
+              onChange={(ratchet) => set({ ratchet })}
+            />
+
+            {/* Only where there is a roll to ramp across. A single hit has no second hit to be louder
+                or quieter than, so the control would be asking about nothing.
+
+                Level rather than pitch, of the two dimensions a roll could ramp in: a real roll decays,
+                and that is what makes four hits sound like one gesture instead of four notes stuck
+                together. Signed, so the off position is inside the number — up fades away, down swells,
+                zero is the ordinary roll. */}
+            {(step.ratchet ?? 1) > 1 && (
+              <Slider
+                label="Roll"
+                value={Math.round((step.ratchetRamp ?? 0) * 100) / 100}
+                min={-1}
+                max={1}
+                step={0.05}
+                onChange={(ratchetRamp) => set({ ratchetRamp })}
+              />
+            )}
+          </>
         )}
 
         <label className="inspector-check">
@@ -557,6 +579,24 @@ function StepPanel({
       </Group>
     </Panel>
   )
+}
+
+/**
+ * A speed ratio as a musician would say it.
+ *
+ * Halves and thirds as fractions rather than as decimals, because "1/3" is a musical thought and
+ * "0.333" is an arithmetic one — and a third is exactly the ratio somebody reaches for.
+ */
+function ratioLabel(ratio: number): string {
+  if (ratio === 1) return 'x1  (as written)'
+  const fractions: Record<string, string> = {
+    '0.25': 'x1/4',
+    '0.3333333333333333': 'x1/3',
+    '0.5': 'x1/2',
+    '0.6666666666666666': 'x2/3',
+    '1.5': 'x3/2',
+  }
+  return fractions[String(ratio)] ?? `x${ratio}`
 }
 
 function Group({ title, children }: { title: string; children: ReactNode }) {
@@ -988,9 +1028,10 @@ export function Inspector() {
           WARP <span className="node-ordinal">{ordinal}</span>
         </h2>
 
-        {/* Named for the dimension it bends rather than for the operation, so the ones that follow —
-            a speed, a velocity, a chance — arrive as its peers instead of as afterthoughts beside it.
-            Signed, and counted in steps, which is what keeps it a move rather than a setting. */}
+        {/* Four dimensions, each named for what it bends rather than for the operation that bends it,
+            and each at a neutral point so a warp just added does nothing. Pitch adds where the rest
+            multiply — two warps a third up each come to a sixth up, two at half speed each come to a
+            quarter — which is what lets any number of them stack without deciding which one wins. */}
         <Slider
           label="Pitch"
           value={Math.round(warpParams.transpose ?? 0)}
@@ -999,6 +1040,42 @@ export function Inspector() {
           step={1}
           suffix=" steps"
           onChange={(transpose) => updateParams(node.id, { transpose })}
+        />
+
+        {/* A list rather than a slider, because a half and a third are worth having and 0.87 is not:
+            against a musical grid an arbitrary ratio is only out of time. */}
+        <label className="inspector-field">
+          <span className="inspector-label">Speed</span>
+          <select
+            value={String(warpParams.speed ?? 1)}
+            onChange={(e) => updateParams(node.id, { speed: Number(e.target.value) })}
+          >
+            {SPEEDS.map((ratio) => (
+              <option key={ratio} value={String(ratio)}>
+                {ratioLabel(ratio)}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <Slider
+          label="Velocity"
+          value={Math.round((warpParams.velocity ?? 1) * 100) / 100}
+          min={0}
+          max={2}
+          step={0.05}
+          suffix="x"
+          onChange={(velocity) => updateParams(node.id, { velocity })}
+        />
+
+        <Slider
+          label="Chance"
+          value={Math.round((warpParams.chance ?? 1) * 100) / 100}
+          min={0}
+          max={2}
+          step={0.05}
+          suffix="x"
+          onChange={(chance) => updateParams(node.id, { chance })}
         />
 
         {/* The same habit the MOD panel has of saying why a cable is not doing what its owner expects.

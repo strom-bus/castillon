@@ -3,7 +3,14 @@ import { defaultFxParams, defaultOscParams } from '../nodes/registry'
 import type { ModParams, Patch, PatchEdge, PatchNode, StartParams } from '../types/patch'
 import { BitWriter } from './bits'
 import { INITIAL_PATCH_CODE } from './patchStore'
-import { decodePatch, encodePatch, FX_FIELD_TOTAL, OSC_FIELD_TOTAL, toBase64Url } from './patchCode'
+import {
+  decodePatch,
+  encodePatch,
+  FX_FIELD_TOTAL,
+  OSC_FIELD_TOTAL,
+  STEP_COLUMN_TOTAL,
+  toBase64Url,
+} from './patchCode'
 
 function osc(id: string, overrides: Partial<ReturnType<typeof defaultOscParams>> = {}): PatchNode {
   return {
@@ -412,6 +419,9 @@ describe('patch code', () => {
       writer.write(1, 1)
       writer.write(60 - 24, 6)
     }
+    // Every step column absent, which is what a sequence of plain notes writes. Without these the code
+    // is not an older one but a truncated one, and the reader runs off the end of it.
+    for (let i = 0; i < STEP_COLUMN_TOTAL; i++) writer.write(0, 1)
     writer.writeVarint(0) // no edges
 
     const code = toBase64Url(writer.finish())

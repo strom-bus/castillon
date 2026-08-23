@@ -77,6 +77,18 @@ export interface Step {
    */
   ratchet?: number
   /**
+   * How much each hit of a roll changes in level, −1 to 1. Zero is flat, which is what a roll was.
+   *
+   * Level rather than pitch, of the two dimensions a roll could ramp in. A real roll decays — that is
+   * what makes four hits sound like one gesture instead of four notes stuck together — where a climb in
+   * pitch is an arpeggio inside a step, which is decoration. And signed rather than a mode: positive
+   * fades away, negative swells, and zero is the ordinary roll, so the off position is inside the number
+   * instead of being a second control that only ever says "not the usual thing".
+   *
+   * Nothing at all on a step with one hit, there being nothing to ramp across.
+   */
+  ratchetRamp?: number
+  /**
    * Whether this note slides in from the one before it.
    *
    * Which note slides belongs to the note; how long the slide takes belongs to the oscillator, and stays
@@ -262,6 +274,19 @@ export const MAX_SWEEP = 35
 /** How far a WARP may move a branch. Two octaves either way is more than any patch has wanted. */
 export const MAX_WARP = 14
 
+/**
+ * How far a ratio on a WARP may go either way.
+ *
+ * Four times is already a branch running at a quite different tempo from the one beside it; past that
+ * the two stop sounding like the same piece. Stacking two warps can exceed it, which is allowed —
+ * what is clamped is what one node may ask for.
+ */
+export const MIN_WARP_RATIO = 0.25
+export const MAX_WARP_RATIO = 4
+
+/** Ratios a WARP offers for speed, all musical rather than arbitrary. Neutral is 1. */
+export const SPEEDS = [0.25, 1 / 3, 0.5, 2 / 3, 1, 1.5, 2, 3, 4] as const
+
 export interface WarpParams {
   /**
    * Steps to move everything below this node, counted in whatever units each oscillator can offer.
@@ -269,9 +294,36 @@ export interface WarpParams {
    * Degrees where the oscillator has a scale and semitones where it is free, which is one number meaning
    * what a musician means by it in both cases — "a third up" is two steps, and whether that comes out as
    * three semitones or four is a question about the key rather than about the gesture. It is also what
-   * lets one transform serve oscillators in different scales: each reads the offset in its own terms.
+   * lets one warp serve oscillators in different scales: each reads the offset in its own terms.
    */
   transpose: number
+  /**
+   * What to multiply the pace of everything below by. 1 leaves it alone.
+   *
+   * The one thing a cascade could not do before: two branches at different speeds. A DELAY sets them
+   * apart by a fixed amount and they stay that far apart for ever; a ratio makes them drift, and keep
+   * drifting, which is what the machine is for.
+   *
+   * Chosen from musical ratios rather than dragged, because a half and a third are worth having and 0.87
+   * is not — against a grid an arbitrary ratio is only out of time.
+   */
+  speed?: number
+  /**
+   * What to multiply every note's velocity by below here. 1 leaves it alone.
+   *
+   * One control doing two things, which follows from velocity being a modulation source: it makes a
+   * branch quieter, and wherever a per-note envelope takes its depth from velocity it closes that filter
+   * as well.
+   */
+  velocity?: number
+  /**
+   * What to multiply the chance of every step below by. 1 leaves it alone.
+   *
+   * It applies whether or not the oscillator uses per-step chance, which is deliberate: "this branch
+   * happens half the time" is worth wanting without having set a chance on sixteen steps first. Above one
+   * it makes a sparse sequence denser, up to always.
+   */
+  chance?: number
 }
 
 export interface DelayParams {

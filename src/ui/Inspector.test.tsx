@@ -3,7 +3,13 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { SIGNAL_LEFT, SIGNAL_RIGHT } from '../state/connections'
 import { usePatchStore } from '../state/patchStore'
-import { MAX_DELAY_MS, MIN_DELAY_MS, type DelayParams, type OscParams } from '../types/patch'
+import {
+  MAX_DELAY_MS,
+  MIN_DELAY_MS,
+  type DelayParams,
+  type OscParams,
+  type WarpParams,
+} from '../types/patch'
 import { Inspector } from './Inspector'
 
 function selectDelay(): string {
@@ -373,6 +379,33 @@ describe('the step panel', () => {
     expect(screen.getByLabelText(/^Ratchet/)).toBeTruthy()
   })
 
+  it('offers the roll shape only once there is a roll to shape', () => {
+    /*
+     * Ratchet one is a step played once, and how a single hit fades across itself is not a question.
+     * The control appears with the second hit, which is the first moment it means anything.
+     */
+    const id = oscId()
+    usePatchStore.getState().updateParams(id, { useRatchet: true })
+    openStep()
+    expect(screen.queryByLabelText(/^Roll/)).toBeNull()
+
+    fireEvent.change(screen.getByLabelText(/^Ratchet/), { target: { value: '4' } })
+    expect(screen.getByLabelText(/^Roll/)).toBeTruthy()
+  })
+
+  it('writes the roll shape onto the step', () => {
+    const id = oscId()
+    usePatchStore.getState().updateParams(id, { useRatchet: true })
+    usePatchStore.getState().updateStep(id, 2, { ratchet: 4 })
+    openStep()
+
+    fireEvent.change(screen.getByLabelText(/^Roll/), { target: { value: '-0.5' } })
+    const steps = (
+      usePatchStore.getState().nodes.find((n) => n.id === id)!.data.params as OscParams
+    ).steps
+    expect(steps[2]!.ratchetRamp).toBeCloseTo(-0.5, 5)
+  })
+
   it('keeps what the steps hold when a switch goes off again', () => {
     // So it can be turned back on and find the sequence as it was left, rather than as it was born.
     const id = oscId()
@@ -480,5 +513,77 @@ describe('a scale reaches every way a note can be changed', () => {
     const note = (usePatchStore.getState().nodes.find((n) => n.id === id)!.data.params as OscParams)
       .steps[1]!.note
     expect(note).toBe(61)
+  })
+})
+
+/**
+ * The four dimensions a WARP bends, and the neutral point each of them starts at.
+ */
+describe('the warp panel', () => {
+  /** A warp on the canvas, wired from its side to the Ignite, which is what makes it do anything. */
+  function selectWarp(): string {
+    const start = usePatchStore.getState().nodes.find((n) => n.type === 'start')!
+    usePatchStore.getState().addNode('warp', { x: start.position.x + 260, y: start.position.y })
+    const id = usePatchStore.getState().nodes.at(-1)!.id
+    usePatchStore.getState().onConnect({
+      source: id,
+      target: start.id,
+      sourceHandle: SIGNAL_LEFT,
+      targetHandle: SIGNAL_RIGHT,
+    })
+    usePatchStore.getState().select(id)
+    render(<Inspector />)
+    return id
+  }
+
+  const paramsOf = (id: string) =>
+    usePatchStore.getState().nodes.find((n) => n.id === id)!.data.params as WarpParams
+
+  it('does nothing at all until something is asked of it', () => {
+    // Four controls that each start neutral: a warp dropped on a patch has to leave it as it was, or
+    // adding one would be a change to undo rather than a change to make.
+    const id = selectWarp()
+    const params = paramsOf(id)
+    expect(params.transpose ?? 0).toBe(0)
+    expect(params.speed ?? 1).toBe(1)
+    expect(params.velocity ?? 1).toBe(1)
+    expect(params.chance ?? 1).toBe(1)
+  })
+
+  it('offers speed as musical ratios rather than as a free number', () => {
+    /*
+     * A list, because against a grid a half and a third are worth having and 0.87 is only out of time.
+     * Said as fractions too: "1/3" is a musical thought where "0.333" is an arithmetic one.
+     */
+    selectWarp()
+    const select = screen.getByLabelText('Speed') as HTMLSelectElement
+    const labels = [...select.options].map((o) => o.textContent)
+    expect(labels).toContain('x1/3')
+    expect(labels).toContain('x1/2')
+    expect(labels.some((l) => l?.startsWith('x1 '))).toBe(true)
+  })
+
+  it('writes each of them where the scheduler reads it', () => {
+    const id = selectWarp()
+
+    fireEvent.change(screen.getByLabelText(/^Pitch/), { target: { value: '5' } })
+    fireEvent.change(screen.getByLabelText('Speed'), { target: { value: '0.5' } })
+    fireEvent.change(screen.getByLabelText(/^Velocity/), { target: { value: '0.6' } })
+    fireEvent.change(screen.getByLabelText(/^Chance/), { target: { value: '0.4' } })
+
+    const params = paramsOf(id)
+    expect(params.transpose).toBe(5)
+    expect(params.speed).toBeCloseTo(0.5, 5)
+    expect(params.velocity).toBeCloseTo(0.6, 5)
+    expect(params.chance).toBeCloseTo(0.4, 5)
+  })
+
+  it('says so when it is wired to nothing that makes a note', () => {
+    // The failure that looks like working: a warp on screen, a cable drawn, and no sound changed.
+    usePatchStore.getState().addNode('warp', { x: 9000, y: 9000 })
+    const id = usePatchStore.getState().nodes.at(-1)!.id
+    usePatchStore.getState().select(id)
+    render(<Inspector />)
+    expect(screen.getByText(/Doing nothing/)).toBeTruthy()
   })
 })

@@ -442,6 +442,16 @@ const STEP_COLUMNS: StepColumn[] = [
       step.ratchet = stored + 1
     },
   },
+  // Signed, so it travels shifted: seven values either side of a flat roll, which is finer than anybody
+  // sets a ramp by hand.
+  {
+    bits: 4,
+    rest: 7,
+    pack: (step) => clamp(Math.round(((step.ratchetRamp ?? 0) + 1) * 7), 0, 14),
+    unpack: (step, stored) => {
+      step.ratchetRamp = stored / 7 - 1
+    },
+  },
   {
     bits: 1,
     rest: 0,
@@ -451,6 +461,16 @@ const STEP_COLUMNS: StepColumn[] = [
     },
   },
 ]
+
+/**
+ * How many columns a step carries, for a test that hand-builds a code.
+ *
+ * Counted from the table rather than written down, so it cannot fall behind it. Exported for the same
+ * reason the field totals are: a test writing a code by hand has to write a *valid* one, and one short
+ * of a column is not an older code but a truncated one — the reader runs off the end of it and what it
+ * finds there is nobody's intention. That is exactly what happened when a fifth column arrived.
+ */
+export const STEP_COLUMN_TOTAL = STEP_COLUMNS.length
 
 function writeOsc(writer: BitWriter, raw: OscParams): void {
   const params = { ...defaultOscParams(), ...raw }

@@ -1,4 +1,4 @@
-import { getDefinition, warpsOn, stepsOf } from '../nodes/registry'
+import { getDefinition, warpingOf, warpsOn } from '../nodes/registry'
 import type { NodeId, Patch, PatchNode, StartParams } from '../types/patch'
 import type { ActivityBus } from '../viz/activity'
 import type { Engine } from './engine'
@@ -302,7 +302,7 @@ export class CascadeScheduler {
        * node instead of standing between two — so there is no moment at which it runs, only a node that
        * has one on it. Added, so two on the same node stack and so do one up the branch and one down it.
        */
-      transpose: stepsOf(patch.nodes, carried),
+      warping: warpingOf(patch.nodes, carried),
     })
 
     if (chain && result.endTime > chain.lastEnd) chain.lastEnd = result.endTime

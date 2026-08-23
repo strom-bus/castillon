@@ -24,18 +24,6 @@ import { EDGE_KINDS_IN_ORDER } from './readmeFacts'
  * regular expression. What can be checked is every number that is really a fact about the code.
  */
 
-/** Numbers as English, since that is how prose says them. */
-const WORDS: Record<number, string> = {
-  4: 'four',
-  7: 'seven',
-  8: 'eight',
-  14: 'fourteen',
-  6: 'six',
-  10: 'ten',
-  11: 'eleven',
-  13: 'thirteen',
-}
-
 const says = (text: string) => readme.toLowerCase().includes(text.toLowerCase())
 
 /** Small numbers as English words, for reading a count out of prose and comparing it with a count. */
@@ -86,7 +74,13 @@ describe('the README against the code', () => {
     ['presets', PRESETS.length, 'presets'],
     ['overlaid graphs', EDGE_KINDS_IN_ORDER.length, 'overlaid graphs'],
   ])('says there are %s and there are', (_what, count, noun) => {
-    const word = WORDS[count]
+    /*
+     * Read out of the same table that spells the long counts, rather than the sparse one that used to sit
+     * beside it. That one held eight numbers somebody had needed at some point, so adding a twelfth
+     * effect failed here with `no english word for 12` — a test about the README, broken by the README
+     * being right and the table not.
+     */
+    const word = UNITS[count]
     expect(word, `no english word for ${count}`).toBeTruthy()
     expect(says(`${word} ${noun}`), `README does not say "${word} ${noun}"`).toBe(true)
   })
@@ -123,7 +117,7 @@ describe('the README against the code', () => {
      * were a hundred and fifteen, and the first version of this test asserted 114 as though that were a
      * fact about the code.
      */
-    expect(says(`${WORDS[MANUAL.length]} chapters`)).toBe(true)
+    expect(says(`${UNITS[MANUAL.length]} chapters`)).toBe(true)
 
     const written = /a (hundred(?: and [a-z-]+)?) entries/.exec(readme)?.[1]
     expect(written, 'the README does not say how many entries the manual has').toBeTruthy()

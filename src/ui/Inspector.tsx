@@ -1,7 +1,14 @@
 import { ROOT_NAMES, SCALES, SCALE_NAMES, snapToScale, type ScaleName } from '../audio/scales'
 import type { ReactNode } from 'react'
 import { DIVISIONS } from '../audio/clock'
-import { MAX_BITS, MAX_REDUCTION, MIN_BITS, MIN_REDUCTION } from '../audio/dsp'
+import {
+  MAX_BITS,
+  MAX_COMB_NOTE,
+  MAX_REDUCTION,
+  MIN_BITS,
+  MIN_COMB_NOTE,
+  MIN_REDUCTION,
+} from '../audio/dsp'
 import { EFFECTS, effectOr } from '../audio/effects'
 import {
   cutoffToSlider,
@@ -360,6 +367,26 @@ function EffectControl({
           step={0.1}
           suffix="s"
           onChange={(decay) => onChange({ decay })}
+        />
+      )
+    case 'pitch':
+      /*
+       * A note, shown as a note. The resonator has to agree with the sequence and nobody agrees with a
+       * sequence in hertz — so the slider steps in semitones and says which one, the same way a step
+       * does. Whole semitones only: a resonator between two of them is out of tune with everything
+       * rather than interestingly detuned.
+       */
+      return (
+        <TypedSlider
+          label={name('Pitch')}
+          value={params.pitch ?? 57}
+          min={MIN_COMB_NOTE}
+          max={MAX_COMB_NOTE}
+          step={1}
+          // The number stays typeable and the name sits beside it, which is the only arrangement where
+          // both work: you cannot type A3 into a number field, and 57 on its own says nothing.
+          suffix={` ${noteName(Math.round(params.pitch ?? 57))}`}
+          onChange={(pitch) => onChange({ pitch })}
         />
       )
     case 'drive':

@@ -7,27 +7,14 @@
  * an ordinary function in `dsp.ts` with ordinary tests, and this is only the plumbing around it.
  */
 
-import { decimate, decimateState, MAX_REDUCTION, MIN_REDUCTION, type DecimateState } from '../dsp'
-import { DECIMATOR } from './names'
+import { decimate, decimateState, MIN_REDUCTION, type DecimateState } from '../dsp'
+import { DECIMATOR, WORKLET_PARAMS } from './names'
 
 class Decimator extends AudioWorkletProcessor {
-  /**
-   * `k-rate`: one value per block of 128 samples rather than per sample.
-   *
-   * A hold count is not a smooth quantity — it is how many outputs one sample lasts — and a block is
-   * under three milliseconds, so nothing audible is lost. It is far cheaper, and a modulation cable
-   * still reaches it: connecting a signal to a k-rate parameter works, it is simply read once a block.
-   */
+  // Declared in `names.ts`, which is the one place both this and the test stub for `AudioWorkletNode`
+  // can read. See there for why it is k-rate.
   static get parameterDescriptors() {
-    return [
-      {
-        name: 'hold',
-        defaultValue: MIN_REDUCTION,
-        minValue: MIN_REDUCTION,
-        maxValue: MAX_REDUCTION,
-        automationRate: 'k-rate' as const,
-      },
-    ]
+    return WORKLET_PARAMS[DECIMATOR]
   }
 
   /** One per channel: the two sides have to hold independently or the image collapses to the middle. */

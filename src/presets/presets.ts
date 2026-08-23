@@ -803,4 +803,81 @@ const sift: Preset = {
   ),
 }
 
-export const PRESETS: Preset[] = [descent, drift, hive, chance, bend, sift, duck, stress]
+/**
+ * A struck string, from a click and a resonator.
+ *
+ * The comb decides the pitch, not the source — so what plays the tune is not the oscillator, it is three
+ * resonators tuned to a minor triad, all struck by the same thing. That thing is a fiftieth of a second
+ * of white noise: no pitch, no sustain, nothing but a shape in time, which is exactly what a resonator
+ * wants and nothing else here has any use for.
+ *
+ * Wired the way a preset has to be to explain anything: one click, three sends, three notes. Turning any
+ * one of them off leaves the other two, and turning the click off leaves silence — which is the whole of
+ * what the effect is, said with cables.
+ *
+ * The MOD is the part worth finding. An envelope on the lowest resonator's Pitch, fired by the same
+ * trigger as the click and pulling *down*, is a string being pulled sharp and released — a gesture the
+ * instrument has no other way of making, since the pitch of a note is fixed the moment it is scheduled
+ * and this pitch belongs to the resonator rather than to the note.
+ */
+const pluck: Preset = {
+  id: 'pluck',
+  name: 'PLUCK',
+  about:
+    'One click and three resonators, so the effect plays the tune and the oscillator only strikes it.',
+  patch: patchOf(
+    88,
+    [
+      ignite('i', 1, 0),
+      /*
+       * The striker. As short as the envelope allows and quiet, because what anybody is meant to hear is
+       * the three tails and not the hammer — and white rather than pitched, since a resonator throws away
+       * everything about its input except when it happened.
+       */
+      osc('hit', 1, 1, {
+        waveform: 'white',
+        steps: steps(
+          [note(0, 0), null, note(0, 0), null, note(0, 0), null, null, note(0, 0)],
+          [1, 1, 0.55, 1, 0.8, 1, 1, 0.4],
+        ),
+        division: '1/8',
+        gain: 0.12,
+        attack: 1,
+        decay: 18,
+        release: 20,
+        gate: 0.06,
+        filterType: 'highpass',
+        cutoff: 400,
+        resonance: 1,
+      }),
+
+      // A minor triad, one resonator a note. The lowest rings longest, which is what a string does.
+      fx('low', 0, 2, { effect: 'comb', mix: 0.95, pitch: 45, decay: 3.5, cutoff: 2600 }),
+      fx('mid', 1, 2, { effect: 'comb', mix: 0.9, pitch: 48, decay: 2.4, cutoff: 3200 }),
+      fx('top', 2, 2, { effect: 'comb', mix: 0.85, pitch: 52, decay: 1.6, cutoff: 4200 }),
+
+      /*
+       * The bend. Fired by the trigger rather than by a note, so it lands on the strike whether or not
+       * this pass has a strike on that step, and pulling down — a string released rather than pushed.
+       */
+      mod('bend', 0, 3, {
+        kind: 'env',
+        fires: 'trigger',
+        target: 'pitch',
+        depth: -0.18,
+        attack: 4,
+        decay: 260,
+      }),
+    ],
+    [
+      wire('i', 'hit'),
+      wire('i', 'bend'),
+      wire('hit', 'low', 'audio'),
+      wire('hit', 'mid', 'audio'),
+      wire('hit', 'top', 'audio'),
+      wire('bend', 'low', 'mod'),
+    ],
+  ),
+}
+
+export const PRESETS: Preset[] = [descent, drift, hive, chance, bend, sift, pluck, duck, stress]

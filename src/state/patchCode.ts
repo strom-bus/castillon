@@ -55,7 +55,14 @@ import {
   type Step,
   type SieveParams,
 } from '../types/patch'
-import { MAX_BITS, MAX_REDUCTION, MIN_BITS, MIN_REDUCTION } from '../audio/dsp'
+import {
+  MAX_BITS,
+  MAX_COMB_NOTE,
+  MAX_REDUCTION,
+  MIN_BITS,
+  MIN_COMB_NOTE,
+  MIN_REDUCTION,
+} from '../audio/dsp'
 import { BitReader, BitWriter } from './bits'
 
 /**
@@ -167,6 +174,7 @@ const EFFECT_CODES: EffectKind[] = [
   'phaser',
   'tremolo',
   'octave',
+  'comb',
 ]
 
 const SHAPE_CODES: DistortionShape[] = ['overdrive', 'distortion', 'fuzz', 'octave']
@@ -332,6 +340,8 @@ const FX_FIELDS: Field<FxParams>[] = [
   scaledField('width', 7, 100, 0, 100),
   indexField('shape', 2, SHAPE_CODES),
   scaledField('sweep', 9, 10, MIN_SWEEP * 10, MAX_SWEEP * 10),
+  // Whole semitones over six octaves, which is seven bits with room over. Appended, as everything is.
+  scaledField('pitch', 7, 1, MIN_COMB_NOTE, MAX_COMB_NOTE),
 ]
 
 /**
@@ -381,6 +391,8 @@ const FX_REFERENCE: FxParams = {
   width: 0.3,
   shape: 'overdrive',
   sweep: 6,
+  // A3, the middle of the resonator's range. Frozen like everything else here.
+  pitch: 57,
 }
 
 /**

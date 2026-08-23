@@ -9,13 +9,15 @@ import {
 import { stepDuration } from './clock'
 import {
   MAX_BITS,
+  MAX_COMB_NOTE,
   MAX_REDUCTION,
+  MIN_COMB_NOTE,
   MIN_REDUCTION,
   crushCurve,
   distortionCurve,
   fillImpulse,
 } from './dsp'
-import { DECIMATOR, OCTAVE } from './worklets/names'
+import { COMB, DECIMATOR, OCTAVE } from './worklets/names'
 import type { Random } from './random'
 import { MAX_CUTOFF, MIN_CUTOFF } from './filter'
 
@@ -866,6 +868,84 @@ const octave: EffectDescriptor = {
   },
 }
 
+const comb: EffectDescriptor = {
+  kind: 'comb',
+  /*
+   * A worklet, so it is priced with the other one rather than with the native nodes: JavaScript on the
+   * audio thread every block, which an offline render charges almost nothing for and a live one pays in
+   * full. Started from the octave divider's measured 4.8, because the work per sample is the same order —
+   * a circular-buffer read, one interpolation, two one-poles and a write, against the octave's smoothing
+   * and crossing detection — and it wants confirming with a sweep of its own before it is trusted to
+   * three figures.
+   */
+  cost: () => 5,
+  label: 'Comb',
+  params: ['pitch', 'decay', 'cutoff'],
+  // `decay` is a tail in seconds for the reverb and a ring in seconds here, which is the same idea at a
+  // different scale; `cutoff` is the low-pass *inside* the loop, which is not a tone control at all.
+  labels: { decay: 'Ring', cutoff: 'Damping' },
+  defaults: { pitch: 57, decay: 2, cutoff: 4000 },
+  // Its own release has to outlast the longest ring it can be set to, or stopping the transport clips
+  // the tail off the one effect whose whole content is a tail.
+  releaseTime: 0.08,
+  create(ctx) {
+    const input = ctx.createGain()
+    const output = ctx.createGain()
+
+    /**
+     * Attempted rather than checked, as with the bitcrusher and the divider: constructing the node is
+     * the only reliable test of whether the processor is registered on *this* context.
+     *
+     * Unlike those two there is nothing to fall back to — the resonator *is* the worklet, and a comb
+     * built from a `DelayNode` cannot reach above the sample rate over 128, which is about 344 Hz at
+     * 44.1 kHz and 375 at 48. A tuned effect whose pitch depends on the hardware is worse than an
+     * absent one, so this passes the signal through instead and says nothing, the same shape of
+     * degradation as an offline context that cannot suspend.
+     */
+    let ring: AudioWorkletNode | null = null
+    try {
+      ring = new AudioWorkletNode(ctx, COMB)
+    } catch {
+      ring = null
+    }
+
+    if (ring) input.connect(ring).connect(output)
+    else input.connect(output)
+
+    const note = ring?.parameters.get('note') ?? null
+    const length = ring?.parameters.get('ring') ?? null
+    const damping = ring?.parameters.get('damping') ?? null
+
+    return {
+      input,
+      output,
+      update(params, { at }) {
+        // Whole semitones: the control is a note, and a resonator between two of them is out of tune
+        // with everything rather than interestingly detuned.
+        const pitch = Math.round(
+          Math.min(MAX_COMB_NOTE, Math.max(MIN_COMB_NOTE, params.pitch ?? 57)),
+        )
+        note?.setTargetAtTime(pitch, at, RAMP)
+        length?.setTargetAtTime(Math.max(0, params.decay ?? 2), at, RAMP)
+        damping?.setTargetAtTime(Math.max(20, params.cutoff ?? 4000), at, RAMP)
+      },
+      paramFor(key) {
+        // All three reachable, which is the point of them being `AudioParam`s rather than messages. A
+        // modulated pitch is a resonator being bent, and it is the best thing this effect does.
+        if (key === 'pitch') return note
+        if (key === 'decay') return length
+        if (key === 'cutoff') return damping
+        return null
+      },
+      dispose() {
+        input.disconnect()
+        ring?.disconnect()
+        output.disconnect()
+      },
+    }
+  },
+}
+
 export const EFFECTS: EffectDescriptor[] = [
   reverb,
   echo,
@@ -878,6 +958,7 @@ export const EFFECTS: EffectDescriptor[] = [
   ring,
   pan,
   octave,
+  comb,
 ]
 
 const byKind = new Map(EFFECTS.map((e) => [e.kind, e]))

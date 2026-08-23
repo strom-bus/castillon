@@ -27,6 +27,8 @@ export interface Write {
   how?: 'set' | 'target' | 'linear' | 'exponential'
 }
 
+import { WORKLET_PARAMS } from './worklets/names'
+
 export interface FakeParam {
   value: number
   /** What is connected into this parameter. */
@@ -76,8 +78,16 @@ export function installWorkletStub(): void {
   class AudioWorkletNodeStub {
     parameters: Map<string, unknown>
 
-    constructor(_ctx: BaseAudioContext, _name: string) {
-      this.parameters = new Map([['hold', currentParam?.('hold', 1) ?? { value: 1 }]])
+    constructor(_ctx: BaseAudioContext, name: string) {
+      // Read from the same list the processors declare, so the stub cannot know a different set of
+      // parameters from the thing it stands in for. It used to hold `['hold']` written out by hand,
+      // which was right when there was one worklet and silently wrong once there were three.
+      this.parameters = new Map(
+        (WORKLET_PARAMS[name] ?? []).map((param) => [
+          param.name,
+          currentParam?.(param.name, param.defaultValue) ?? { value: param.defaultValue },
+        ]),
+      )
     }
 
     connect(next: unknown) {

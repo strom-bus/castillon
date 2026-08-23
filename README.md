@@ -120,8 +120,8 @@ refused, since between an oscillator and an effect there is only one direction t
 
 - **Whole-cascade loop.** When every branch has drained, the cascade fires again. Each pass lasts
   as long as its longest branch, so the cycle breathes rather than holding a fixed pulse.
-- **An FX node** with eleven effects: reverb, distortion, bitcrush, echo, filter, chorus, phaser,
-  tremolo, ring modulation, stereo pan and an octave divider. The bitcrusher does both halves: bit depth through a
+- **An FX node** with twelve effects: reverb, distortion, bitcrush, echo, filter, chorus, phaser,
+  tremolo, ring modulation, stereo pan, an octave divider and a comb resonator. The bitcrusher does both halves: bit depth through a
   waveshaper, and sample rate through an `AudioWorklet`, since holding a sample between outputs is
   memory and a curve has none. No filtering on the way down — the aliasing is the sound. The **octave
   divider** is the other one that needs memory: a flip-flop clocked by the signal's own zero crossings
@@ -130,6 +130,32 @@ refused, since between an oscillator and an effect there is only one direction t
   all along. They attach to an oscillator's side ports as sends —
   several on one oscillator, or one shared by several — and each carries a wet/dry mix, so a send is
   a blend rather than a replacement.
+- **A comb resonator**, which is the only effect here that decides the pitch instead of the source. A
+  delay line short enough to be a note, fed back into itself: a click in gives a plucked string, a drum
+  gives a tuned drum. A low-pass **inside** the loop is what separates a struck string from a metallic
+  buzz — every trip round loses a little more of its top, so it darkens as it dies — and it shortens the
+  note as well, which is what a real string does. Karplus-Strong with the excitation left to whatever
+  you wire in.
+
+  Three things about it are decisions rather than arithmetic. **Ring is a time, not a feedback amount**:
+  one trip round the loop is one cycle of the note, so a fixed feedback would ring eight times longer at
+  the bottom of the range than at the top, and retuning would change the length of the note. Asking for
+  a time and solving for the feedback keeps it constant, and it measures 58 to 59 dB down at the half
+  second it was asked for, from 100 Hz to 800. **Pitch is a note, not a frequency**, in whole semitones,
+  because a resonator has to agree with the sequence and nobody agrees with a sequence in hertz. And it
+  **needs an `AudioWorklet`**, which is not a preference: a `DelayNode` inside a feedback loop is held to
+  a minimum of one render quantum, so a native comb tops out at the sample rate over 128 — about 344 Hz
+  at 44.1 kHz and 375 at 48. Not merely low but _different on different hardware_, which for a tuned
+  effect means the same patch plays a different note on another machine.
+
+  Two high-passes that nobody would guess at, both found by measuring rather than by listening. A
+  low-pass has a gain of exactly one at nought hertz, so a direct current in the delay line is
+  multiplied by the feedback and nothing else — at a high pitch that is a thump lasting a seventh of a
+  second, at no pitch, in front of the note. A real string does not do this because a fixed end reflects
+  with its sign flipped; inverting this loop would move every note by an octave, so the nought comes out
+  on the way round instead. A second one on the tap keeps a nought from _leaving_, since a send carrying
+  direct current is inaudible and eats headroom in the limiter all the way past.
+
 - **A MOD node** that sweeps a parameter of whatever it is wired to. Which parameters it offers
   depends on the destination: a reverb's decay, a chorus's sweep, an oscillator's filter cutoff — or its
   **pitch**, which is vibrato from an LFO and the drop at the front of a percussive sound from a per-note
@@ -278,7 +304,7 @@ refused, since between an oscillator and an effect there is only one direction t
 - **A patch gallery**, a window over the canvas rather than a page — so choosing a patch loads it into
   the instrument already underneath. Cards draw their own cascade, and stars decay with age so the
   popular sort does not freeze on whatever was published first. Two tabs: the patches people have
-  shared, and **eight presets** that come with the machine.
+  shared, and **nine presets** that come with the machine.
 
   Six are built around one idea that is hard to arrive at by rolling and small enough to read at a
   glance — the plain cascade, why there is no clock, one phrase driving another note by note, a figure
@@ -323,7 +349,7 @@ refused, since between an oscillator and an effect there is only one direction t
   it longer without making it clearer. Both languages live adjacent in one file so a half-finished
   edit shows up in the diff rather than as a blank paragraph months later.
 
-  Fourteen chapters and a hundred and thirty-five entries, written for whoever is using the instrument
+  Fourteen chapters and a hundred and thirty-nine entries, written for whoever is using the instrument
   rather than for whoever built it: no entry explains how something is implemented, and every one says
   what a control does to the sound and when you would reach for it. One chapter per module, each in
   the order its own panel is in and under the panel's own group headings, so reading the manual and

@@ -308,6 +308,29 @@ const FX_PARAM_TARGETS: Record<string, ModTarget> = {
   drive: { key: 'drive', label: 'Drive', min: 0, max: 1, via: 'value', surcharge: 0 },
   bits: { key: 'bits', label: 'Bits', min: MIN_BITS, max: MAX_BITS, via: 'value', surcharge: 0 },
   /**
+   * The resonator's tuning, in semitones.
+   *
+   * Declared over an octave either way rather than over the whole range the control offers, because a
+   * depth is a *share* of the span: three octaves at full depth would make every setting below a tenth
+   * unusable, and bending a resonator by an octave is already more than anybody wants. Same reasoning as
+   * the vibrato on an oscillator, and the same shape of number.
+   *
+   * A resonator being bent while it rings is the best thing this effect does — it is the one modulation
+   * here that sounds like a hand rather than like a control moving.
+   */
+  pitch: {
+    key: 'pitch',
+    label: 'Pitch',
+    min: -12,
+    max: 12,
+    via: 'audio',
+    // A note handed to a worklet once a block, which recomputes a delay length from it: one divide,
+    // against the biquad recomputation a filter cutoff costs. Free by the same argument as the
+    // decimator's hold, and unmeasured for the same reason — it is below what a sweep can resolve.
+    surcharge: 0,
+    hint: 'Bends the pitch the resonator rings at. Wired to an envelope it is a string being pulled; wired to an LFO it is one being wobbled.',
+  },
+  /**
    * The decimator's hold count, which lives on a worklet.
    *
    * Connected rather than recomputed, unlike the rest of the bitcrusher's parameters: it is a real
@@ -328,17 +351,35 @@ const FX_PARAM_TARGETS: Record<string, ModTarget> = {
 }
 
 /**
- * Where a parameter name means something other than the usual thing, so the surcharge does too.
+ * Where a parameter name means something other than the usual thing in one effect.
  *
- * Both of these are a cutoff that is not behind a filter of its own, and both measured at nothing.
+ * The table above is keyed by *name*, which is what keeps a depth meaning the same on every effect that
+ * borrows a field — and a name can genuinely mean two things. A cutoff that is not behind a filter of
+ * its own costs nothing to sweep; a decay that is an `AudioParam` rather than a rebuilt buffer is not
+ * merely cheaper, it is reached a different way. So an override patches the entry rather than only its
+ * price, which is what the surcharge-only version of this could not express.
  */
-const SURCHARGE_OVERRIDES: Partial<Record<EffectKind, Record<string, number>>> = {
+const TARGET_OVERRIDES: Partial<Record<EffectKind, Record<string, Partial<ModTarget>>>> = {
   // A ring modulator's Freq borrows the cutoff field for its range, but what it sets is the carrier —
   // an oscillator's frequency, which is free to automate.
-  ring: { cutoff: 0 },
+  ring: { cutoff: { surcharge: 0 } },
   // A phaser's stages are already swept by its own internal LFO, so their frequencies are automated
   // whether a MOD is there or not. A second signal into an already-automated parameter adds nothing.
-  phaser: { cutoff: 0 },
+  phaser: { cutoff: { surcharge: 0 } },
+  /*
+   * The resonator borrows two fields and means something different by both.
+   *
+   * Its Ring is a feedback amount solved for a time — a real `AudioParam` on the worklet, connected and
+   * read once a block — where a reverb's Decay of the same name rebuilds two channels of impulse
+   * response and is the dearest thing here to sweep. Same word, opposite cost, and a different route.
+   *
+   * Its Damping is the low-pass *inside* the loop rather than a tone control after the effect, so it is
+   * also free: a coefficient the worklet recomputes from a number it is handed anyway.
+   */
+  comb: {
+    decay: { via: 'audio', surcharge: 0, rebuildEvery: undefined },
+    cutoff: { surcharge: 0 },
+  },
 }
 
 /**
@@ -442,7 +483,7 @@ export function targetsFor(
       ...target,
       // The effect's own name for it, where it has renamed one: a phaser calls its cutoff Centre.
       label: descriptor.labels?.[target.key as keyof FxParams] ?? target.label,
-      surcharge: SURCHARGE_OVERRIDES[effect]?.[target.key] ?? target.surcharge,
+      ...TARGET_OVERRIDES[effect]?.[target.key],
     }))
 
   return [LEVEL, MIX, ...own]

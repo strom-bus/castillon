@@ -7,9 +7,16 @@
  */
 
 import { octaveDown, octaveState, type OctaveState } from '../dsp'
-import { OCTAVE } from './names'
+import { OCTAVE, WORKLET_PARAMS } from './names'
 
 class Octave extends AudioWorkletProcessor {
+  // Empty, and declared anyway: every processor reads its parameters from `names.ts` so that one rule
+  // covers all of them. A browser cannot tell an empty list from an absent getter, but a reader can tell
+  // "this one has none" from "this one is the exception".
+  static get parameterDescriptors() {
+    return WORKLET_PARAMS[OCTAVE]
+  }
+
   /** One per channel: two sides tracking together would lock the image to the middle. */
   private states: OctaveState[] = []
 

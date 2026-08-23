@@ -23,19 +23,29 @@ class DOMMatrixReadOnlyStub {
 
 globalThis.DOMMatrixReadOnly ??= DOMMatrixReadOnlyStub as unknown as typeof DOMMatrixReadOnly
 
-Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
-  configurable: true,
-  get() {
-    return Number(this.style.height?.replace('px', '')) || 400
-  },
-})
+/*
+ * The two that reach into a prototype rather than adding a global, so they need one to reach into.
+ *
+ * Guarded because a test file may ask for the `node` environment instead — the worklet bundling test does,
+ * since esbuild refuses to run where jsdom's `TextEncoder` is. Everything above is `??=` on a global and
+ * harmless without a DOM; these two threw, and the setup file taking down a suite that never touches a
+ * DOM is a poor reason not to write it.
+ */
+if (typeof HTMLElement !== 'undefined') {
+  Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
+    configurable: true,
+    get() {
+      return Number(this.style.height?.replace('px', '')) || 400
+    },
+  })
 
-Object.defineProperty(HTMLElement.prototype, 'offsetWidth', {
-  configurable: true,
-  get() {
-    return Number(this.style.width?.replace('px', '')) || 800
-  },
-})
+  Object.defineProperty(HTMLElement.prototype, 'offsetWidth', {
+    configurable: true,
+    get() {
+      return Number(this.style.width?.replace('px', '')) || 800
+    },
+  })
+}
 
 globalThis.DOMRect ??= class {
   x = 0

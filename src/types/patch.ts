@@ -221,6 +221,7 @@ export type EffectKind =
   | 'ring'
   | 'pan'
   | 'octave'
+  | 'comb'
 
 /**
  * One flat parameter set for every effect, with the inspector showing only the fields the current
@@ -239,8 +240,16 @@ export interface FxParams {
    * `direct`, which is what keeps it from being counted twice.
    */
   mix: number
-  /** Reverb tail, seconds. */
+  /** Reverb tail, seconds. Also the comb resonator's ring, which is the same idea at a different scale. */
   decay: number
+  /**
+   * The note the comb resonator rings at, as a MIDI number.
+   *
+   * A note and not a frequency, because the whole point of a resonator is that it is *tuned*: it has to
+   * agree with the sequence, and nobody agrees with a sequence in hertz. Whole semitones only — you tune
+   * a resonator to the key, not to 437.
+   */
+  pitch: number
   /** Distortion amount, 0–1. */
   drive: number
   /** Which flavour of distortion. */

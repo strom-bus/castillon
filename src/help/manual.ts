@@ -791,7 +791,7 @@ export const MANUAL: Section[] = [
   },
   {
     id: 'fx',
-    title: { en: 'FX — the eleven effects', es: 'FX — los once efectos' },
+    title: { en: 'FX — the twelve effects', es: 'FX — los doce efectos' },
     body: [
       {
         en: 'Wire an oscillator’s side port into an FX to feed it. Several oscillators can share one effect and one oscillator can feed several, because an effect is a send off the output rather than a stage in a chain — which is also why it does not matter where on the canvas you put it.',
@@ -809,8 +809,8 @@ export const MANUAL: Section[] = [
           {
             term: { en: 'Effect', es: 'Effect' },
             text: {
-              en: 'Which of the eleven this node is. Changing it replaces the controls below with that effect’s own, and the Mix above stays where it was — which is why Mix is above them rather than below, where it would slide up and down the panel every time you changed your mind.',
-              es: 'Cuál de los once es este nodo. Cambiarlo reemplaza los controles de abajo por los de ese efecto, y el Mix de arriba se queda donde estaba — por eso el Mix va encima y no debajo, donde se desplazaría por el panel cada vez que cambiaras de idea.',
+              en: 'Which of the twelve this node is. Changing it replaces the controls below with that effect’s own, and the Mix above stays where it was — which is why Mix is above them rather than below, where it would slide up and down the panel every time you changed your mind.',
+              es: 'Cuál de los doce es este nodo. Cambiarlo reemplaza los controles de abajo por los de ese efecto, y el Mix de arriba se queda donde estaba — por eso el Mix va encima y no debajo, donde se desplazaría por el panel cada vez que cambiaras de idea.',
             },
           },
           {
@@ -900,6 +900,34 @@ export const MANUAL: Section[] = [
             text: {
               en: 'Adds a note an octave below what it is fed, which is how a thin line gets a bottom without a second oscillator. Tone shapes that added octave. It works best on something monophonic and clearly pitched; on a chord or a noise it has nothing to track.',
               es: 'Añade una nota una octava por debajo de lo que se le alimenta, que es como una línea fina consigue un fondo sin un segundo oscilador. Tone modela esa octava añadida. Funciona mejor sobre algo monofónico y de altura clara; sobre un acorde o un ruido no tiene nada que seguir.',
+            },
+          },
+          {
+            term: { en: 'Comb', es: 'Comb' },
+            text: {
+              en: 'A resonator: it rings at one note, and whatever you feed it excites that note. Nothing about the sound coming in survives except its shape in time — feed it a click and you get a plucked string, feed it a drum and you get a tuned drum, feed it a chord and you get your one note. It is the only effect here that decides the pitch rather than the source.',
+              es: 'Un resonador: suena en una nota, y lo que le metas excita esa nota. Nada del sonido que entra sobrevive salvo su forma en el tiempo — mételе un clic y sale una cuerda pulsada, mételе un tambor y sale un tambor afinado, mételе un acorde y sale tu nota. Es el único efecto de aquí que decide la altura en vez de la fuente.',
+            },
+          },
+          {
+            term: { en: 'Pitch', es: 'Pitch' },
+            text: {
+              en: 'Which note the resonator rings at, said as a note because it has to agree with the sequence and nobody agrees with a sequence in hertz. Whole semitones only — a resonator between two of them is out of tune with everything rather than interestingly detuned. It reaches from C1 to C7. Wire a MOD to it and the resonator bends, which is the best thing this effect does.',
+              es: 'En qué nota suena el resonador, dicho como nota porque tiene que estar de acuerdo con la secuencia y nadie está de acuerdo con una secuencia en hercios. Solo semitonos enteros — un resonador entre dos está desafinado con todo, no interesantemente desafinado. Llega de C1 a C7. Cablea un MOD y el resonador se dobla, que es lo mejor que hace este efecto.',
+            },
+          },
+          {
+            term: { en: 'Ring', es: 'Ring' },
+            text: {
+              en: 'How long it goes on sounding after it is struck, in seconds. A time and not an amount of feedback, which is not the same thing: one trip round a resonator is one cycle of the note, so a fixed feedback would ring eight times longer at the bottom of the range than at the top. Asking for a time means retuning it does not change the length of the note.',
+              es: 'Cuánto sigue sonando después del golpe, en segundos. Un tiempo y no una cantidad de realimentación, que no es lo mismo: una vuelta al resonador es un ciclo de la nota, así que una realimentación fija sonaría ocho veces más en la parte baja del rango que en la alta. Pedir un tiempo hace que reafinarlo no cambie la duración de la nota.',
+            },
+          },
+          {
+            term: { en: 'Damping', es: 'Damping' },
+            text: {
+              en: 'A low-pass *inside* the loop, so every trip round loses a little more of its top. That is the whole difference between a struck string and a metallic buzz, and it shortens the note as well as darkening it — which is what a real string does too. Open at the top of the control, where the resonator keeps whatever brightness it was given.',
+              es: 'Un pasa-bajos *dentro* del bucle, así que cada vuelta pierde un poco más de agudo. Esa es toda la diferencia entre una cuerda pulsada y un zumbido metálico, y acorta la nota además de oscurecerla — que es lo que hace también una cuerda de verdad. Abierto arriba del control, donde el resonador conserva el brillo que se le dio.',
             },
           },
         ],

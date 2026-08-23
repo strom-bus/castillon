@@ -18,6 +18,14 @@ declare abstract class AudioWorkletProcessor {
   ): boolean
 }
 
+/**
+ * The rate the context runs at, which a processor is told and cannot ask for.
+ *
+ * There is no `AudioContext` in here to read it off, and it matters: everything the comb resonator does
+ * is a length in samples, so the same note is a different number of them at 44.1 kHz and at 48.
+ */
+declare const sampleRate: number
+
 declare function registerProcessor(
   name: string,
   processor: new (options?: unknown) => AudioWorkletProcessor,

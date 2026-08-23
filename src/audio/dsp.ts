@@ -227,3 +227,210 @@ export function octaveDown(input: Float32Array, output: Float32Array, state: Oct
     output[i] = input[i] * state.sign
   }
 }
+
+/**
+ * The comb resonator: a delay line short enough to be a pitch, fed back into itself.
+ *
+ * A delay of one two-hundredth of a second repeats what you put in two hundred times a second, which is
+ * not an echo — it is a note. Feed it back and it rings at that pitch; put a low-pass inside the loop
+ * and each trip round loses its top, so the ring starts bright and darkens as it dies. That last part is
+ * the whole difference between a struck string and a metallic buzz, and it is one multiplication.
+ *
+ * Karplus-Strong, in other words, with the excitation left to whoever wired something into it. There is
+ * no oscillator here: the resonator has no sound of its own and every note it plays is the shape of
+ * whatever was fed in, which is why it belongs among the effects rather than among the nodes.
+ *
+ * **What the Ring control is worth, measured.** Asked for half a second, the tail is 58 to 59 decibels
+ * down at half a second anywhere from 100 Hz to 800 — which is the promise, since the control solves for
+ * a time rather than naming a feedback amount. Both ends of the range fall a little short and both for a
+ * stated reason: the lowest note loses about two decibels to the loop's high-pass (see `DC_CORNER`), and
+ * the highest loses about twelve because linear interpolation is itself a mild low-pass and a trip round
+ * the loop up there is twenty-three samples rather than fourteen hundred. Shorter than asked at the very
+ * top, never longer, and never a different pitch.
+ *
+ * **Why this needs a worklet at all.** A `DelayNode` inside a feedback loop is held to a minimum of one
+ * render quantum — 128 samples — so the highest pitch a native comb can reach is the sample rate over
+ * 128: about 344 Hz at 44.1 kHz and 375 at 48. Not just low, but *different on different hardware*,
+ * which for a tuned resonator means the same patch plays a different note on another machine. There is
+ * no version of that worth shipping.
+ */
+
+/** Lowest and highest note the resonator can be tuned to, as MIDI numbers: C1 to C7. */
+export const MIN_COMB_NOTE = 24
+export const MAX_COMB_NOTE = 96
+
+/**
+ * The most of itself the loop may feed back.
+ *
+ * Below one, always: at exactly one the resonator never decays, and a shade above it doubles every trip
+ * round the loop until it is the only thing anybody can hear. The margin is what makes that impossible
+ * rather than unlikely.
+ */
+export const MAX_COMB_FEEDBACK = 0.9995
+
+/**
+ * How much of itself the loop keeps, to lose 60 dB in `seconds` at this pitch.
+ *
+ * The control is a *time* rather than a feedback amount because a resonator's feedback does not mean
+ * anything on its own: one trip round the loop is one cycle of the note, so 0.99 rings for a third of a
+ * second at 100 Hz and a twentieth at 2 kHz. Asking for a time and solving for the feedback keeps a ring
+ * the same length as you retune it, which is what anyone turning the knob believes it does.
+ */
+export function combFeedback(hz: number, seconds: number): number {
+  const trips = Math.max(1, hz * Math.max(0, seconds))
+  return Math.min(MAX_COMB_FEEDBACK, Math.pow(10, -3 / trips))
+}
+
+/**
+ * The one-pole low-pass coefficient for a corner at `hz`, at this sample rate.
+ *
+ * Returned as the weight the filter gives its *own* previous output, so the loop reads
+ * `lp += (1 - damping) * (y - lp)` — a form whose gain at DC is exactly one. That matters more than it
+ * looks: the filter sits inside the feedback loop, so any gain it had would multiply every trip round
+ * and the ring would be a different length than asked for. At unity DC gain the low notes decay in the
+ * time the control says and the high ones decay faster, which is the point of having it.
+ */
+export function combDamping(hz: number, sampleRate: number): number {
+  if (!(hz > 0) || !(sampleRate > 0)) return 0
+  // At and above Nyquist the filter is *gone*, not merely wide: `exp(-π)` is still 0.04, and a resonator
+  // whose brightest setting quietly rounds off every trip round the loop is one whose Ring control lies
+  // at the top of the knob. Zero is the only honest answer for a corner the loop cannot reach.
+  if (hz >= sampleRate / 2) return 0
+  return Math.max(0, Math.min(0.9999, Math.exp((-2 * Math.PI * hz) / sampleRate)))
+}
+
+/**
+ * Where the loop's high-pass sits, in hertz. Low enough to be under the lowest note it can be tuned to.
+ *
+ * **Why a resonator needs one at all.** The loop is `x + feedback · lowpass(delayed)`, and a low-pass has
+ * a gain of exactly one at nought hertz — so a direct current sitting in the delay line is multiplied by
+ * the feedback and nothing else, once per trip. At a high pitch a trip is thirty samples and the feedback
+ * is 0.996, which means any offset in whatever was fed in decays with a time constant of a seventh of a
+ * second: a thump, sounding at no pitch, louder and longer than the note it is standing in front of.
+ *
+ * A real string does not do this because a fixed end reflects with its sign flipped, and a loop that
+ * inverts has no resonance at nought hertz to begin with. Inverting this one would move every note it
+ * plays by an octave, so the honest equivalent is to take the nought out on the way round.
+ */
+const DC_CORNER = 5
+
+/** The high-pass's pole, kept where the loop is: one number, derived once per block. */
+function dcPole(sampleRate: number): number {
+  return sampleRate > 0 ? Math.max(0, 1 - (2 * Math.PI * DC_CORNER) / sampleRate) : 0
+}
+
+/** What a resonator has to remember: the loop itself, where it is writing, and the filter's last output. */
+export interface CombState {
+  /** The delay line, as long as the lowest note needs. Written round and round. */
+  line: Float32Array
+  write: number
+  /** The low-pass's previous output, which is the only state the damping has. */
+  low: number
+  /** The loop's high-pass: its last input and last output, all a one-pole needs to block a nought. */
+  dcIn: number
+  dcOut: number
+  /**
+   * And a second one on the way out, which is not the same job.
+   *
+   * The loop's high-pass keeps a nought from *ringing*; this one keeps a nought from *leaving*. A send
+   * carrying direct current is worse than useless — inaudible, and eating headroom in the master limiter
+   * all the way past — and the tap is taken before the loop's filter, so it has not been through one.
+   *
+   * Taking the output from after the loop's high-pass instead would have cost nothing and been wrong:
+   * that tap is the *damped* signal, and handing it out darkens the attack of whatever was fed in, which
+   * is not the resonator's business. So the tap keeps its brightness and loses its nought separately.
+   *
+   * What this does **not** fix, measured rather than assumed: a comb tuned high with the damping closed
+   * leaves a residue around twenty hertz, some fifty decibels under the strike, because a non-inverting
+   * delay line has a resonance approaching nought and that is what the loop can still sustain when the
+   * note itself cannot. Removing it wants a corner near thirty hertz, which is above the lowest note this
+   * can be tuned to — so it would shorten a bass ring to fix an extreme setting, and it is left alone.
+   */
+  outIn: number
+  outOut: number
+  /** The high-pass's pole for the rate this was built at, since the rate cannot change under it. */
+  pole: number
+  /**
+   * The delay actually in use, which chases the one asked for.
+   *
+   * Retuning a ringing resonator by jumping the read head cuts the waveform mid-cycle and clicks. This
+   * slides instead, which sounds like a string being bent — a better answer than the click and a better
+   * answer than refusing to retune.
+   */
+  delay: number
+}
+
+export function combState(sampleRate: number): CombState {
+  // Long enough for the lowest note, plus a sample so the interpolation always has two to read.
+  const longest = sampleRate / (440 * Math.pow(2, (MIN_COMB_NOTE - 69) / 12))
+  return {
+    line: new Float32Array(Math.ceil(longest) + 2),
+    write: 0,
+    low: 0,
+    dcIn: 0,
+    dcOut: 0,
+    outIn: 0,
+    outOut: 0,
+    delay: 0,
+    pole: dcPole(sampleRate),
+  }
+}
+
+/** How fast the delay slides to a new pitch: a fifth of the way there each sample, per millisecond. */
+const GLIDE = 0.0008
+
+/**
+ * One block through the resonator.
+ *
+ * Reads the line a fractional number of samples back, because integer delays cannot be tuned: at 48 kHz
+ * a note wanting 24.4 samples gets 24, which is seventy cents sharp — audibly out of tune with anything
+ * else playing. Linear interpolation between the two neighbouring samples costs one multiply and buys
+ * the whole top of the range.
+ *
+ * Pure over its arguments, state included, so it can be tested with two arrays and no audio thread.
+ */
+export function comb(
+  input: Float32Array,
+  output: Float32Array,
+  target: number,
+  feedback: number,
+  damping: number,
+  state: CombState,
+): void {
+  const size = state.line.length
+  // Two samples of headroom at each end: one for the interpolation to read, one so a delay equal to the
+  // line length cannot land on the sample about to be overwritten.
+  const wanted = Math.max(1, Math.min(size - 2, target))
+  // A resonator built this block starts in tune rather than sliding up from nothing.
+  if (state.delay === 0) state.delay = wanted
+  const keep = Math.max(0, Math.min(MAX_COMB_FEEDBACK, feedback))
+  const damp = Math.max(0, Math.min(0.9999, damping))
+
+  for (let i = 0; i < input.length; i++) {
+    state.delay += (wanted - state.delay) * GLIDE
+
+    const back = state.write - state.delay + size
+    const whole = Math.floor(back)
+    const fraction = back - whole
+    const a = state.line[whole % size]
+    const b = state.line[(whole + 1) % size]
+    const delayed = a + (b - a) * fraction
+
+    // The filter's own output is what goes back round, so what the listener hears is the undamped tap
+    // and what rings is the damped one. Taking the damped signal both ways would darken the attack of
+    // whatever was fed in, which is not the resonator's business.
+    state.low += (1 - damp) * (delayed - state.low)
+
+    // And the nought comes out on the way round, or it is the loudest thing in the tail. See DC_CORNER.
+    state.dcOut = state.low - state.dcIn + state.pole * state.dcOut
+    state.dcIn = state.low
+
+    state.line[state.write] = input[i] + state.dcOut * keep
+    state.write = (state.write + 1) % size
+
+    // The undamped tap, minus the nought the comb resonates at no matter what the loop does.
+    state.outOut = delayed - state.outIn + state.pole * state.outOut
+    state.outIn = delayed
+    output[i] = state.outOut
+  }
+}

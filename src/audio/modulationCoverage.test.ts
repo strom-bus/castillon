@@ -40,6 +40,13 @@ const BY_NAME: Record<string, string> = {
  */
 const ELSEWHERE: Record<string, Record<string, string>> = {
   ring: { cutoff: 'oscFrequency' },
+  /*
+   * The resonator borrows three fields and none of them is what the name usually means. Its Damping is
+   * the low-pass inside the feedback loop rather than a filter after the effect, its Ring is a feedback
+   * amount solved for a time rather than an impulse response, and its Pitch is a delay length. All three
+   * are parameters on the worklet, so all three are named by what the processor calls them.
+   */
+  comb: { cutoff: 'damping', decay: 'ring', pitch: 'note' },
 }
 
 const nameOf = (kind: EffectKind, key: string): string | undefined =>

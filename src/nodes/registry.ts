@@ -614,6 +614,8 @@ export function defaultFxParams(): FxParams {
     pan: 0,
     width: 0.3,
     sweep: 6,
+    // A3, which is in the middle of the range and in the key most of the presets are in.
+    pitch: 57,
   }
 }
 

@@ -87,3 +87,32 @@ describe('what a subset may never skip', () => {
     expect(body.indexOf("'voices again'")).toBeGreaterThan(body.indexOf('wantedEffects'))
   })
 })
+
+describe('whether a subset measures the surcharges', () => {
+  /*
+   * They are skipped by default, because they are the slowest half of a run and they answer a different
+   * question. But they are also where the self-check lives — the filter is measured once as an effect and
+   * again as `filter · unswept`, and those two disagreeing is the only thing that catches a spurious
+   * break. So a subset has to be able to ask for them, or a short run can never vouch for itself.
+   */
+  const source = readFileSync('src/tools/sweep.ts', 'utf8')
+
+  it('skips them for a subset and keeps them for a whole run', () => {
+    const line = /const wantSurcharges = ([^\n]+)/.exec(source)?.[1] ?? ''
+    expect(line).toContain('options.surcharges')
+    expect(line).toContain('length === 0')
+  })
+
+  it('is asked for from the address, alongside which effects to cover', () => {
+    // A link somebody can be handed, which is the whole reason the subset is a URL and not a control.
+    const page = readFileSync('src/tools/measurePage.ts', 'utf8')
+    expect(page).toContain("query.get('surcharges')")
+    expect(page).toMatch(/surcharges:\s*surcharges/)
+  })
+
+  it('keeps them on a whole run even when the flag is absent', () => {
+    // Otherwise adding the flag would have quietly changed what the plain SWEEP button does.
+    const page = readFileSync('src/tools/measurePage.ts', 'utf8')
+    expect(page).toMatch(/surcharges \|\| only\.length === 0/)
+  })
+})

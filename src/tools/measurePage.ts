@@ -171,22 +171,35 @@ const sweepButton = document.getElementById('sweep') as HTMLButtonElement
  * The button says what it will do, since a sweep that quietly covered one effect when somebody expected
  * eleven would read as a sweep that failed most of the way through.
  */
-const only = (new URLSearchParams(location.search).get('only') ?? '')
+const query = new URLSearchParams(location.search)
+
+const only = (query.get('only') ?? '')
   .split(',')
   .map((name) => name.trim())
   .filter(Boolean)
+
+/**
+ * Whether to measure the modulation surcharges as well, which a subset skips by default.
+ *
+ * Worth being able to ask for, because they are also where the **self-check** lives: the filter is
+ * measured once as an effect and again as `filter · unswept`, and the two disagreeing is the only thing
+ * that catches a spurious break. A subset without them produces a table that has to say it cannot vouch
+ * for itself — which is right, and useless when the question is whether one subject can be read at all.
+ */
+const surcharges = query.get('surcharges') === '1'
 
 const covering = selectedSubjects({ only })
 
 if (only.length > 0) {
   sweepButton.textContent =
     covering.length > 0
-      ? `SWEEP ${covering.join(', ').toUpperCase()}`
+      ? `SWEEP ${covering.join(', ').toUpperCase()}${surcharges ? ' + SURCHARGES' : ''}`
       : 'SWEEP — no effect by that name'
   sweepButton.disabled = covering.length === 0
   status.textContent =
     covering.length > 0
-      ? `${covering.length} of ${selectedSubjects().length} effects, and the reference either way.`
+      ? `${covering.length} of ${selectedSubjects().length} effects, the reference either way` +
+        `${surcharges ? ', and the surcharges, so the run can check itself' : ', without the surcharges — so it cannot check itself'}.`
       : `No effect called "${only.join(', ')}". Known: ${selectedSubjects().join(', ')}.`
 }
 
@@ -201,7 +214,9 @@ sweepButton.addEventListener('click', async () => {
       (label) => {
         status.textContent = `trying ${label}…`
       },
-      { only },
+      // A whole run always measures them; a subset only when asked, so adding the flag cannot quietly
+      // change what the plain button does.
+      { only, surcharges: surcharges || only.length === 0 },
     )
     status.textContent = 'done'
     out.textContent = formatSweep(result)

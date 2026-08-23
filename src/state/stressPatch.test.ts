@@ -52,13 +52,24 @@ describe('the load-test patch', () => {
   })
 
   it('is one connected cascade, not islands that never fire', () => {
+    /*
+     * Followed both ways along a cable, not only forwards.
+     *
+     * A modulator is never anything's target — it points at what it sweeps, so nothing points at it, and
+     * walking only forwards from an Ignite leaves every one of them looking like an island. The patch
+     * this replaces had none, so the rule was never wrong and never tested either. What is actually
+     * being asked is that no node is stranded, and a cable connects whichever end you start from.
+     */
     const patch = decodePatch(code as string)!
-    const reachable = new Set(patch.nodes.filter((n) => n.type === 'start').map((n) => n.id))
+    const joined = new Set(patch.nodes.filter((n) => n.type === 'start').map((n) => n.id))
     for (let pass = 0; pass < patch.nodes.length; pass++) {
       for (const edge of patch.edges) {
-        if (reachable.has(edge.source)) reachable.add(edge.target)
+        if (joined.has(edge.source)) joined.add(edge.target)
+        if (joined.has(edge.target)) joined.add(edge.source)
       }
     }
-    expect(reachable.size).toBe(patch.nodes.length)
+
+    const stranded = patch.nodes.filter((n) => !joined.has(n.id)).map((n) => `${n.type} ${n.id}`)
+    expect(stranded).toEqual([])
   })
 })

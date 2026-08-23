@@ -1,15 +1,36 @@
 Load test for the audio engine.
 
-24 oscillators over five cascade levels, covering all ten waveforms, all four filter types and
-all four sequence lengths, at 300 BPM on loop. Paste the code below into the PATCH CODE field.
+Forty-eight oscillators as siblings under one Ignite, covering all ten waveforms, all four filter
+types and all four sequence lengths, plus five reverbs and five other effects, at 300 BPM on loop.
+Paste the code below into the PATCH CODE field.
+
+Siblings rather than a deep cascade, which is the whole difference from the version this replaces.
+A cascade sounds one level at a time, so twenty-four oscillators spread down five levels were a
+handful playing at any instant — it measured 22 points out of 2750, which is one per cent, and had
+been sitting there unnoticed since the ceiling was believed to be a hundred.
+
+The load, by the model's own arithmetic:
+
+  voices     1870   48 oscillators, each holding about 19 at a time
+  effects     742   five reverbs at their longest, and five cheaper ones
+  total      2611   against a layering threshold of 2063 and a ceiling of 2750
+
+So it is meant to sit past the point where the engine starts degrading and short of where it
+breaks. That is the interesting place: a load test that always glitches tells you nothing, and one
+that never does tells you less.
 
 What to listen and look for:
-  - crackling or dropouts, which would mean the scheduler is missing its window
+  - crackling or dropouts, which would mean the audio thread is missing its window
   - the output clipping rather than being held by the limiter
-  - the voice counter in the transport: past 48 of 64, nodes stop layering and restart instead,
-    and the meter goes bright. That is the designed degradation, not a fault.
+  - the load meter going bright, and retriggered oscillators restarting rather than layering. That
+    is the designed degradation, not a fault.
+
+One thing the meter will not tell you: it reads about half of what this costs. The estimate caps
+how many voices an oscillator is assumed to be holding at four, and these hold nineteen — a cap
+that keeps the dice honest and makes it blind to exactly this. Trust your ears over the number
+here.
 
 The code is checked on every test run (see src/state/stressPatch.test.ts), so a change to the
 patch-code format cannot rot it silently — CI fails instead.
 
-FGKKIDIYQGOioHhhAAky4GWAHmATyRwASTH4mad_XRAV-6AbHACiVRo6rWaYYycKuEB6gK6AbHAJCXYBO8O0nf10bqmdazTDGThVAcQBxgGQwAyVymI0jgG0BagBscASJOCHZYVcO0BWdICsYAUJWOqjd0zjWaZYAWjUApHAGs8CCbsZOBXDtp31dG7pnGs0wB_ALUArDAHiU2Dov6wGSBNQCscAgJNUk5zDLGQBqAXUAhHATq1DFLad_XRO6ZwDfA2oBWOADX-9jtzrWaYYycKuFbTv66J3SAqHAB2EAEIsRFXCA8wDwAcjgEzloRM3dI60A_gFwAdjgB1ykMdWRhVw7aZ_WA1gJgAdjgCGDo8naujd0zjWaZYyMKuHbTPgPsDYAHIYAtKwTETLAD6A-EB2OANXG5zs07-siAoPYCWMAOYLBVazDLGThVQgKtjAsjgEVvHhN4VtO_rondM61mGWMnCqA_gF2AhhgKrBI6FM4BkgTsBLHABCTN5OeFXDtAagF7ASRwAmdVZiqN3SOtZplgBvgbsBLHAJrXax27GRhVw7aZ_XRu6R1rNMAYACAIEYRAShGDOIgVIyg1iMHaQ4l5UC4mSNmdQ-qFkbpYA
+FGKKJH4AAAIA6X-QJBQC3--wuishJnAMwBOl_kBwUAt_v0qIrIy6FW0A2AI6X-QFBQC3-_z-islNpV7k6nYugOQDOl9kEwUAt_v1AisnPqWb1Crav0a1vBSr3MIDwBDof5CCgFv99rxFZCjWAfgKdL_IBgoBb_frTRWRp2LuIBkA10v8gWCgFv9_udFZKrav5K1vBlAagPdL7IGgoBb_fvlFZOvcw5rF3Fns3sei1fyaQEA5gG_yB4KAW_32F0VkLN4BmALmAb_IIgoBb_fpURWRt4MuoBsATmAb_IEgoBb_f5_RWSu4s-y9j0bQHIBuYBvsgOCgFv9-oEVk7-TTuwZdW_Dm18MWfZxAeAI5gG_yAoKAW_32vEVkJM4B-ArmAb_IJgoBb_frTRWRl0KtoBkA3mAT_IQUAt_v9zorJTaVe5Op2LoDUB_MA32QDBQC3-_fKKyc-pZvUKtq_RrW8FKvcwgIBtAV_kCwUAt_vsLorIUawDMAW0BX-QNBQC3-_SoisjTsXcQDYAm0BX-QPBQC3-_z-islVtX8la3gygOQDbQFfZBEFALf79QIrJ17mHNYu4s9m9j0Wr-TSA8ARtAV_kCQUAt_vteIrIWbwD8BW0BX-QHBQC3-_WmisjbwZdQDIBu0BX-QFBQC3-_3OisldxZ9l7Ho2gNQH7QFfZBMFALf798orJ38mndgy6t-HNr4Ys-ziAgGYBn-QgoBb_fYXRWQkzgGYAswDv8gGCgFv9-lRFZGXQq2gGwBMwDv8gWCgFv9_n9FZKbSr3J1OxdAcgGzAO-yBoKAW_36gRWTn1LN6hVtX6Na3gpV7mEB4AjMA7_IHgoBb_fa8RWQo1gH4CswDv8giCgFv9-tNFZGnYu4gGQDcwDv8gSCgFv9_udFZKrav5K1vBlAagPzAO-yA4KAW_375RWTr3MOaxdxZ7N7HotX8mkBAMAEv8gKCgFv99hdFZCzeAZgCwAS_yCYKAW_36VEVkbeDLqAbAEwAQ_yEFALf7_P6KyV3Fn2XsejaA5ANgAl9kAwUAt_v1Aisnfyad2DLq34c2vhiz7OIDwBGACX-QLBQC3--14ishJnAPwFYAJf5A0FALf79aaKyMuhVtAMgG4AJf5A8FALf7_c6KyU2lXuTqdi6A1AfgAl9kEQUAt_v3yisnPqWb1Crav0a1vBSr3MICAWQLf5AkFALf77C6KyFGsAzAFZAt_kBwUAt_v0qIrI07F3EA2AJZAt_kBQUAt_v8_orJVbV_JWt4MoDkA1kC32QTBQC3-_UCKyde5hzWLuLPZvY9Fq_k0gPAEWQKf5CCgFv99rxFZCzeAfgKsgW_yAYKAW_3600VkbeDLqAZANsgW_yBYKAW_3-50VkruLPsvY9G0BqA-yBb7IGgoBb_fvlFZO_k07sGXVvw5tfDFn2cQPAEXRlACjGj1o9gTdGUAKMaPWjwBHmAWUAKJ6PWj2BPmAWUAI8aPWjwBHaAmUAI7KPWj2BPaAuUAIUE0etHgCOYB0oAETR60ewJ5gHygAKgm81o8ARwATlABVBNHrR7AngAnKABqCaPWklwJ0ADI8BQJYNj69N-bMkuBcwCAMh4CgSwbH16b82ZJcC2gIAljwFAlg2Pr035syS4FmAYBkHgKBLBsfXpvzZj4ABAAgAMAEABQAYAHACAAkAKACwAwANADgA8AQAEQBIATAFABUAWAFwBgAZAGgBsAcAHQB4AfAIACEAiAIwCQAlAJgCcAoAKQCoArALAC0AuALwDBBxRskvNQ0VdVrZf3ZOGnlu6uwbwK9DvhA

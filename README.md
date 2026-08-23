@@ -211,8 +211,16 @@ refused, since between an oscillator and an effect there is only one direction t
   the short, which is what lets it join the others: a displacement would have to be clamped when two
   stacked, and clamping is the one thing that breaks stacking. A pair keeps its total, so a sequence
   takes exactly as long swung as straight and hands the cascade on at the same moment — swing changes
-  how a branch feels, never when it ends. Every selectable step count is even, so the pattern always
-  closes. It sits behind a switch beside its own value rather than at one end of it, because listening
+  how a branch feels, never when it ends.
+
+  It pairs by where a step falls across the whole run rather than within one pass, which matters only
+  since sequences could be any length: five steps end mid-pair, and pairing within the pass would put two
+  long halves together at the loop. Carried across it instead, an odd line swings continuously and its
+  pattern comes round every second pass. Those two passes are then not the same length — honest rather
+  than a fault, since a swing genuinely does not fit an odd count in one pass and this instrument has
+  never promised a fixed one. With an even count nothing changed at all.
+
+  It sits behind a switch beside its own value rather than at one end of it, because listening
   straight, then swung, then straight again is what you actually do with a groove, and a control walked
   back to 1 loses the setting.
 

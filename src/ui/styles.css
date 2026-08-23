@@ -530,6 +530,31 @@ input[type='range'] {
   background: var(--border-strong);
 }
 
+/* The divisions of a roll, cut across the bar. Drawn as gaps in the bar rather than as marks on top of
+   it, so what you see is one step divided and not one step with lines on it. */
+/* The notes the scale allows, drawn faintly across the track so the grid is seen before a bar is let
+   go of rather than felt afterwards. Under the bar, since it is the paper and not the mark. */
+.step-guide {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--border);
+}
+
+.step-hit {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--bg);
+}
+
+/* The step whose details are open in the panel, so it is obvious which one the panel is describing. */
+.step.open .step-track {
+  border-color: var(--text);
+}
+
 .step-track.playing .step-bar {
   background: var(--accent);
 }
@@ -538,7 +563,15 @@ input[type='range'] {
   background: #1c1c1c;
 }
 
+/* The square says two things at once, which only works because a sequencer is either using chance or
+   it is not: filled or hollow is armed or muted, and how far it fills is how likely the step is. With
+   chance switched off there is nothing to fill and it means only the first thing. */
 .step-toggle {
+  background: linear-gradient(
+    to top,
+    var(--border-strong) var(--chance, 100%),
+    transparent var(--chance, 100%)
+  );
   width: 10px;
   height: 10px;
   padding: 0;
@@ -873,6 +906,28 @@ input[type='range'] {
  * and quiet: it is a signpost, not a section of the document. A panel of six shouting titles would read as
  * six panels.
  */
+/* The breadcrumb in a panel title: where you are, and the way back out being the part you came from.
+   The button carries no chrome at all — it is a word in a heading that happens to be pressable, and a
+   framed button in a title would read as an action on the patch rather than as a step backwards. */
+.inspector-up {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+}
+
+.inspector-up:hover {
+  color: var(--text);
+}
+
+.inspector-trail::before {
+  content: ' | ';
+  color: var(--border-strong);
+}
+
 .inspector-group + .inspector-group {
   margin-top: 22px;
   padding-top: 16px;
@@ -905,6 +960,15 @@ input[type='range'] {
    The rest of the panel names a value on the left and shows it on the right, which is right for a slider
    and wrong for a box: it sends the tick to the far margin with the label stranded away from it. Here the
    two sit together and the whole row is the target, since a five-pixel box is a poor thing to aim at. */
+/* Set apart from the selects above it, because it is the one control here that changes the patch
+   rather than describing it. */
+.inspector-fit {
+  display: block;
+  margin: 0 0 14px auto;
+  padding: 3px 9px;
+  font-size: 10px;
+}
+
 .inspector-check {
   display: flex;
   align-items: center;
@@ -1076,6 +1140,16 @@ input[type='range'] {
 }
 
 /* Dimmer than the name: it identifies the node without competing with what the node is. */
+/* What a TRANSFORM above is doing to this node, worn by the node it happens to. Set apart from the
+   title so it reads as something arriving from elsewhere rather than as part of the name. */
+.node-moved {
+  margin-left: 8px;
+  padding: 0 4px;
+  border: 1px solid var(--border-strong);
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
 .node-ordinal {
   color: var(--muted);
   font-weight: 400;

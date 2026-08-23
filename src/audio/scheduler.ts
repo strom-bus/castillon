@@ -38,6 +38,14 @@ export interface TriggerEvent {
   time: number
   depth: number
   chainId: number
+  /**
+   * What every TRANSFORM above this point adds up to, carried down the branch.
+   *
+   * Alongside the depth and for the same reason: it is a fact about the path taken to get here rather
+   * than about the node that arrived, so it travels with the trigger. Summed rather than replaced, which
+   * is what lets two of them stack without raising the question of which one wins.
+   */
+  transpose: number
 }
 
 interface Chain {
@@ -285,6 +293,7 @@ export class CascadeScheduler {
       bpm: patch.bpm,
       engine: this.deps.engine,
       activity: this.deps.activity,
+      transpose: event.transpose,
     })
 
     if (chain && result.endTime > chain.lastEnd) chain.lastEnd = result.endTime
@@ -312,6 +321,7 @@ export class CascadeScheduler {
               time: at,
               depth: event.depth + 1,
               chainId: event.chainId,
+              transpose: event.transpose + (result.transpose ?? 0),
             })
           }
         }
@@ -342,7 +352,8 @@ export class CascadeScheduler {
   private beginChain(startNodeId: NodeId, time: number): void {
     const chainId = this.nextChainId++
     this.chains.set(chainId, { pending: 0, lastEnd: time, startNodeId, startTime: time })
-    this.enqueue({ nodeId: startNodeId, time, depth: 0, chainId })
+    // A cascade begins in the key it was written in; only a TRANSFORM in the branch moves it.
+    this.enqueue({ nodeId: startNodeId, time, depth: 0, chainId, transpose: 0 })
   }
 
   private enqueue(event: TriggerEvent): void {

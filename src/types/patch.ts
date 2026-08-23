@@ -1,3 +1,5 @@
+import type { ScaleName } from '../audio/scales'
+
 /** Patch data model. Everything here is JSON-serialisable: no Web Audio objects. */
 
 export type NodeId = string
@@ -140,6 +142,15 @@ export interface OscParams {
   useChance?: boolean
   /** Whether this sequencer uses per-step ratchets at all. Off by default, and kept when off. */
   useRatchet?: boolean
+  /**
+   * Which notes dragging a bar is allowed to land on. `free` is anything, and is the default.
+   *
+   * It bites while editing and nowhere else: changing it never retunes a sequence already written, since
+   * what is on the screen has to be what plays. See `audio/scales.ts`.
+   */
+  scale?: ScaleName
+  /** The scale's root as a pitch class, 0 being C. Meaningless while the scale is free. */
+  scaleRoot?: number
   /** Biquad Q. */
   resonance: number
   /**
@@ -241,6 +252,21 @@ export const MIN_RATE = 0.1
 export const MAX_RATE = 20
 export const MIN_SWEEP = 0.5
 export const MAX_SWEEP = 35
+
+/** How far a TRANSFORM may move a branch. Two octaves either way is more than any patch has wanted. */
+export const MAX_TRANSPOSE = 14
+
+export interface TransformParams {
+  /**
+   * Steps to move everything below this node, counted in whatever units each oscillator can offer.
+   *
+   * Degrees where the oscillator has a scale and semitones where it is free, which is one number meaning
+   * what a musician means by it in both cases — "a third up" is two steps, and whether that comes out as
+   * three semitones or four is a question about the key rather than about the gesture. It is also what
+   * lets one transform serve oscillators in different scales: each reads the offset in its own terms.
+   */
+  transpose: number
+}
 
 export interface DelayParams {
   /** How long the trigger is held before being passed on, in milliseconds. */
@@ -352,7 +378,8 @@ export interface ModParams {
   decay?: number
 }
 
-export type NodeParams = OscParams | FxParams | DelayParams | StartParams | ModParams
+export type NodeParams =
+  OscParams | FxParams | DelayParams | StartParams | ModParams | TransformParams
 
 export const MIN_DELAY_MS = 10
 export const MAX_DELAY_MS = 4000

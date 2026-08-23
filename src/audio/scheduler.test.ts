@@ -753,3 +753,99 @@ describe('a step that does more than play', () => {
     })
   })
 })
+
+/**
+ * A TRANSFORM moving a whole branch (PLAN §18.18).
+ *
+ * The same shape as a delay, which is the argument for it being a node at all: one moves a branch in
+ * time and the other in pitch. On an oscillator it would not be per-branch — ten oscillators down a
+ * branch would be ten edits — and two stacked would mean nothing.
+ */
+describe('a transform in the branch', () => {
+  function chain(transforms: number[], oscOver: Partial<OscParams> = {}) {
+    const nodes: PatchNode[] = [{ id: 's', type: 'start', position: { x: 0, y: 0 }, params: {} }]
+    const links: PatchEdge[] = []
+    let from = 's'
+    transforms.forEach((transpose, i) => {
+      const id = `t${i}`
+      nodes.push({ id, type: 'transform', position: { x: 0, y: 0 }, params: { transpose } })
+      links.push(edge(from, id))
+      from = id
+    })
+    nodes.push({
+      id: 'o',
+      type: 'osc',
+      position: { x: 0, y: 0 },
+      params: {
+        ...defaultOscParams(),
+        steps: [{ note: 60, active: true, velocity: 1 }],
+        ...oscOver,
+      },
+    })
+    links.push(edge(from, 'o'))
+
+    const scheduler = build(patchOf(nodes, links))
+    scheduler.start()
+    scheduler.drain(10)
+    scheduler.stop()
+    return engine.notes
+  }
+
+  const semitonesFrom = (freq: number) => Math.round(12 * Math.log2(freq / 440) + 69)
+
+  it('leaves the branch alone when it is set to nothing', () => {
+    expect(semitonesFrom(chain([0])[0]!.freq)).toBe(60)
+  })
+
+  it('moves what hangs below it', () => {
+    // Semitones, because this oscillator is free and there are no degrees to count.
+    expect(semitonesFrom(chain([4])[0]!.freq)).toBe(64)
+    expect(semitonesFrom(chain([-5])[0]!.freq)).toBe(55)
+  })
+
+  it('adds up when two are stacked, rather than one winning', () => {
+    /*
+     * The property that makes it worth being a node. Anything that replaced instead of adding would
+     * raise the question of which of the two applies, and there is no good answer to that.
+     */
+    expect(semitonesFrom(chain([2, 3])[0]!.freq)).toBe(65)
+    expect(semitonesFrom(chain([5, -5])[0]!.freq)).toBe(60)
+  })
+
+  it('counts degrees where the oscillator has a scale', () => {
+    // "A third up" is two steps. In minor that is three semitones and in major four, and the same
+    // transform serves both — which is what lets one sit above oscillators in different keys.
+    expect(semitonesFrom(chain([2], { scale: 'minor', scaleRoot: 0 })[0]!.freq)).toBe(63)
+    expect(semitonesFrom(chain([2], { scale: 'major', scaleRoot: 0 })[0]!.freq)).toBe(64)
+  })
+
+  it('does not reach what is not below it', () => {
+    // A branch is what hangs off it, not the patch. Two cascades under two Ignites are two pieces.
+    const nodes: PatchNode[] = [
+      { id: 's', type: 'start', position: { x: 0, y: 0 }, params: {} },
+      { id: 't', type: 'transform', position: { x: 0, y: 0 }, params: { transpose: 7 } },
+      {
+        id: 'under',
+        type: 'osc',
+        position: { x: 0, y: 0 },
+        params: { ...defaultOscParams(), steps: [{ note: 60, active: true, velocity: 1 }] },
+      },
+      {
+        id: 'beside',
+        type: 'osc',
+        position: { x: 0, y: 0 },
+        params: { ...defaultOscParams(), steps: [{ note: 60, active: true, velocity: 1 }] },
+      },
+    ]
+    const scheduler = build(
+      patchOf(nodes, [edge('s', 't'), edge('t', 'under'), edge('s', 'beside')]),
+    )
+    scheduler.start()
+    scheduler.drain(10)
+    scheduler.stop()
+
+    const played = new Map(engine.notes.map((n) => [n.nodeId, semitonesFrom(n.freq)]))
+    expect(played.get('under')).toBe(67)
+    expect(played.get('beside')).toBe(60)
+  })
+})

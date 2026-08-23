@@ -1,5 +1,7 @@
+import { SCALES, type ScaleName } from '../audio/scales'
 import {
   defaultDelayParams,
+  defaultTransformParams,
   defaultFxParams,
   defaultOscParams,
   DEFAULT_STEP_COUNT,
@@ -12,6 +14,7 @@ import {
   MAX_BPM,
   MAX_DECAY,
   MAX_DELAY_MS,
+  MAX_TRANSPOSE,
   MAX_FEEDBACK,
   MAX_NOTE,
   MAX_RATE,
@@ -27,6 +30,7 @@ import {
   MIN_RATE,
   MIN_SWEEP,
   type DelayParams,
+  type TransformParams,
   type DistortionShape,
   type Division,
   type EdgeKind,
@@ -123,7 +127,8 @@ const MOD_WAVES = ['sine', 'triangle', 'square', 'sawtooth', 'random'] as const
 
 // Appended, never reordered: a code stores the index, so moving an entry would rewrite history. Four
 // bits leave room for sixteen, of which five are used.
-const NODE_TYPES = ['start', 'osc', 'delay', 'fx', 'mod'] as const
+// Append-only, and there is room: four bits hold sixteen and six are used.
+const NODE_TYPES = ['start', 'osc', 'delay', 'fx', 'mod', 'transform'] as const
 
 const EFFECT_CODES: EffectKind[] = [
   'reverb',
@@ -259,6 +264,8 @@ const OSC_FIELDS: Field<OscParams>[] = [
   scaledField('keyTrack', 7, 100, 0, 100),
   flagField('useChance'),
   flagField('useRatchet'),
+  indexField('scale', 4, SCALES as ScaleName[]),
+  scaledField('scaleRoot', 4, 1, 0, 11),
   scaledField('glide', 10, 1, 0, 1000),
   // Stored shifted, since the field encoder works in non-negative steps and this one runs either way.
   scaledField('detune', 7, 1, -50, 50),
@@ -321,6 +328,8 @@ const OSC_REFERENCE: OscParams = {
   keyTrack: 0,
   useChance: false,
   useRatchet: false,
+  scale: 'free',
+  scaleRoot: 0,
   propagateMode: 'onEnd',
 }
 
@@ -637,6 +646,10 @@ export function encodePatch(patch: Patch): string {
     } else if (node.type === 'delay') {
       const { delayMs } = { ...defaultDelayParams(), ...(node.params as DelayParams) }
       writer.write(quantise(delayMs / 10, 1, MIN_DELAY_MS / 10, MAX_DELAY_MS / 10), 9)
+    } else if (node.type === 'transform') {
+      // Shifted so the sign travels without a bit of its own: five bits carry the whole range twice over.
+      const { transpose } = { ...defaultTransformParams(), ...(node.params as TransformParams) }
+      writer.write(quantise(transpose, 1, -MAX_TRANSPOSE, MAX_TRANSPOSE) + MAX_TRANSPOSE, 5)
     } else if (node.type === 'start' && anyBound) {
       writeStart(writer, node.params as StartParams)
     } else if (node.type === 'mod') {
@@ -693,6 +706,8 @@ export function decodePatch(code: string): Patch | null {
         params = readFx(reader, fxFields)
       } else if (type === 'delay') {
         params = { delayMs: reader.read(9) * 10 }
+      } else if (type === 'transform') {
+        params = { transpose: reader.read(5) - MAX_TRANSPOSE }
       } else if (type === 'start' && ignitesCarryTrigger) {
         params = readStart(reader)
       } else if (type === 'mod') {

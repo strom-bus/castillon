@@ -1,5 +1,6 @@
 import { detuneRatio, midiToFreq, stepDuration } from '../audio/clock'
 import { trackedCutoff } from '../audio/filter'
+import { transposeBy } from '../audio/scales'
 import type { Engine } from '../audio/engine'
 import { MIN_REDUCTION } from '../audio/dsp'
 import { LAYER_THRESHOLD, MAX_LOAD } from '../audio/load'
@@ -11,11 +12,13 @@ import type {
   OscParams,
   PatchNode,
   Step,
+  TransformParams,
 } from '../types/patch'
 import {
   MAX_DELAY_MS,
   MAX_MOD_ATTACK,
   MAX_RATCHET,
+  MAX_TRANSPOSE,
   MAX_MOD_DECAY,
   MIN_DELAY_MS,
   MIN_MOD_ATTACK,
@@ -30,6 +33,8 @@ export interface ScheduleArgs {
   bpm: number
   engine: Engine
   activity: ActivityBus
+  /** What every TRANSFORM above this node adds up to. Zero unless one of them is in the branch. */
+  transpose?: number
 }
 
 export interface ScheduleResult {
@@ -37,6 +42,14 @@ export interface ScheduleResult {
   endTime: number
   /** Times at which this node fires its children. */
   outgoing: number[]
+  /**
+   * Steps this node adds to what everything below it plays, if any.
+   *
+   * Added to what arrived rather than replacing it, so two of them stacked come to the sum of the two —
+   * which is the property that makes it worth being a node. Anything that replaced instead would raise
+   * the question of which one wins, and there is no good answer to that.
+   */
+  transpose?: number
 }
 
 export interface NodeDefinition {
@@ -92,6 +105,35 @@ const delay: NodeDefinition = {
   },
 }
 
+export function defaultTransformParams(): TransformParams {
+  return { transpose: 0 }
+}
+
+/**
+ * A node that changes what happens below it and makes no sound of its own.
+ *
+ * The same shape as a DELAY, which is the argument for it being a node at all: a delay moves a branch in
+ * time and this moves one in pitch. Put it on an oscillator instead and it stops being per-branch — ten
+ * oscillators down a branch would be ten edits — and stacking two would mean nothing.
+ *
+ * It passes the trigger straight through. Everything it does happens to the notes underneath, and the
+ * scheduler is what carries it there.
+ */
+const transform: NodeDefinition = {
+  type: 'transform',
+  label: 'TRANSFORM',
+  defaults: defaultTransformParams,
+  schedule({ node, time, activity }) {
+    const params = node.params as TransformParams
+    activity.push({ kind: 'node', id: node.id, time, duration: FLASH })
+    return {
+      endTime: time,
+      outgoing: [time],
+      transpose: clamp(Math.round(params.transpose ?? 0), -MAX_TRANSPOSE, MAX_TRANSPOSE),
+    }
+  },
+}
+
 /** Selectable sequence lengths. Append-only: the patch code stores the index into this. */
 export const STEP_COUNTS = [2, 4, 8, 16] as const
 
@@ -143,6 +185,9 @@ export function defaultOscParams(): OscParams {
     // Both off: a sequencer does what it always did until it is asked for more.
     useChance: false,
     useRatchet: false,
+    // And free, which is not a scale switched off but the way everything played until there were any.
+    scale: 'free',
+    scaleRoot: 0,
     propagateMode: 'onEnd',
   }
 }
@@ -151,7 +196,7 @@ const osc: NodeDefinition = {
   type: 'osc',
   label: 'OSC',
   defaults: defaultOscParams,
-  schedule({ node, time, bpm, engine, activity }) {
+  schedule({ node, time, bpm, engine, activity, transpose = 0 }) {
     const params = node.params as OscParams
     const step = stepDuration(bpm, params.division)
 
@@ -193,7 +238,10 @@ const osc: NodeDefinition = {
         engine.playNote({
           nodeId: node.id,
           time: at + hit * slot,
-          freq: midiToFreq(s.note) * detuneRatio(params.detune ?? 0),
+          freq:
+            midiToFreq(
+              transposeBy(s.note, transpose, params.scale ?? 'free', params.scaleRoot ?? 0),
+            ) * detuneRatio(params.detune ?? 0),
           // ?? keeps patches saved before waveforms existed playable.
           waveform: params.waveform ?? 'square',
           pulseWidth: params.pulseWidth ?? 0.5,
@@ -207,7 +255,11 @@ const osc: NodeDefinition = {
           // same pitch, so there is nothing for them to slide from.
           glide: s.slide && hit === 0 ? (params.glide ?? 0) : 0,
           filterType: params.filterType ?? 'off',
-          cutoff: trackedCutoff(params.cutoff ?? 2000, s.note, params.keyTrack ?? 0),
+          cutoff: trackedCutoff(
+            params.cutoff ?? 2000,
+            transposeBy(s.note, transpose, params.scale ?? 'free', params.scaleRoot ?? 0),
+            params.keyTrack ?? 0,
+          ),
           resonance: params.resonance ?? 1,
         })
       }
@@ -320,7 +372,7 @@ const mod: NodeDefinition = {
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
 
 /** This order is the palette's order: what a cascade needs, in the order you need it. */
-export const NODE_DEFINITIONS: NodeDefinition[] = [start, osc, fx, mod, delay]
+export const NODE_DEFINITIONS: NodeDefinition[] = [start, osc, fx, mod, delay, transform]
 
 const byType = new Map(NODE_DEFINITIONS.map((d) => [d.type, d]))
 

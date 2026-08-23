@@ -150,8 +150,8 @@ export const MANUAL: Section[] = [
       {
         term: { en: 'OSC', es: 'OSC' },
         text: {
-          en: 'A sequencer and a voice in one. Two to sixteen steps: drag a bar to tune it, click the square underneath to mute it. Ten waveforms, four noises among them, and a filter built per note rather than shared. Its envelope has a decay but no sustain, because the length of a note is decided in advance here: a short decay is a pluck, a long one a flat top. Glide slides from one step into the next, Detune sets it a few cents off so that two oscillators read as one thick voice, and Key follow opens the filter as the pitch rises — which matters because the die picks the register, not you.',
-          es: 'Un secuenciador y una voz a la vez. De dos a dieciséis pasos: arrastra una barra para afinarla, pulsa el cuadrado de debajo para silenciarla. Diez formas de onda, cuatro ruidos entre ellas, y un filtro construido por nota y no compartido. Su envolvente tiene decay pero no sustain, porque aquí la duración de una nota se decide de antemano: un decay corto es un pluck, uno largo un techo plano. Glide desliza de un paso al siguiente, Detune la desafina unos cents para que dos osciladores se lean como una sola voz gorda, y Key follow abre el filtro a medida que sube la altura — que importa porque el registro lo elige el dado, no tú.',
+          en: 'A sequencer and a voice in one. Two to sixteen steps: drag a bar to tune it, which also opens that step in the panel, where it has a volume of its own and a slide. Click the square underneath to mute it. Ten waveforms, four noises among them, and a filter built per note rather than shared. Its envelope has a decay but no sustain, because the length of a note is decided in advance here: a short decay is a pluck, a long one a flat top. Glide slides from one step into the next, Detune sets it a few cents off so that two oscillators read as one thick voice, and Key follow opens the filter as the pitch rises — which matters because the die picks the register, not you.',
+          es: 'Un secuenciador y una voz a la vez. De dos a dieciséis pasos: arrastra una barra para afinarla, lo que además abre ese paso en el panel, donde tiene volumen propio y deslizamiento. Pulsa el cuadrado de debajo para silenciarla. Diez formas de onda, cuatro ruidos entre ellas, y un filtro construido por nota y no compartido. Su envolvente tiene decay pero no sustain, porque aquí la duración de una nota se decide de antemano: un decay corto es un pluck, uno largo un techo plano. Glide desliza de un paso al siguiente, Detune la desafina unos cents para que dos osciladores se lean como una sola voz gorda, y Key follow abre el filtro a medida que sube la altura — que importa porque el registro lo elige el dado, no tú.',
         },
       },
       {
@@ -166,6 +166,13 @@ export const MANUAL: Section[] = [
         text: {
           en: 'Eleven effects behind one selector, wired to an oscillator’s side as a send. Several effects can share one oscillator, and one effect can take several.',
           es: 'Once efectos detrás de un selector, cableados al lado de un oscilador como un envío. Varios efectos pueden compartir un oscilador, y un efecto puede recibir de varios.',
+        },
+      },
+      {
+        term: { en: 'TRANSFORM', es: 'TRANSFORM' },
+        text: {
+          en: 'Moves everything below it in pitch, and makes no sound of its own. The same shape as a DELAY and for the same reason: one shifts a branch in time, the other in key. Two of them stacked add up. A step is a degree of the scale on each oscillator it reaches, or a semitone where that oscillator is free — so a bass in pentatonic and a lead in minor both move a third and both stay in key. Anything it is moving says so, next to its name.',
+          es: 'Mueve en altura todo lo que cuelga debajo, y no suena por sí mismo. La misma forma que un DELAY y por la misma razón: uno desplaza una rama en el tiempo y el otro en la tonalidad. Dos apilados se suman. Un paso es un grado de la escala en cada oscilador al que llega, o un semitono donde ese oscilador está libre — así que un bajo en pentatónica y un lead en menor se mueven los dos una tercera y los dos siguen en tono. Lo que esté moviendo lo dice, junto a su nombre.',
         },
       },
       {
@@ -189,6 +196,13 @@ export const MANUAL: Section[] = [
         text: {
           en: 'Two to sixteen steps. Drag a bar up or down to tune that step; click the square underneath to silence it without losing the note. Division is how long a step lasts in musical time, so 1/16 runs four times as fast as 1/4. Gate is the fraction of the step the note actually sounds: low is staccato, one is legato with each note running into the next.',
           es: 'De dos a dieciséis pasos. Arrastra una barra arriba o abajo para afinar ese paso; pulsa el cuadrado de debajo para silenciarlo sin perder la nota. Division es cuánto dura un paso en tiempo musical, así que 1/16 corre cuatro veces más rápido que 1/4. Gate es la fracción del paso que la nota suena de verdad: bajo es staccato, uno es legato y cada nota entra en la siguiente.',
+        },
+      },
+      {
+        term: { en: 'OSC — one step at a time', es: 'OSC — un paso cada vez' },
+        text: {
+          en: 'Dragging a bar opens that step in the panel, which is where the rest of it lives: its own volume, whether it slides in from the note before it, and — where the sequencer has been asked for them — how often it sounds at all and how many times it fires inside its slot. Both of those last two are switched off until you ask, in SEQUENCE, because the square under a bar already means armed or muted and a half-filled one would otherwise have two readings. The scale there decides what dragging is allowed to land on; it never retunes a sequence you already wrote, and FIT TO SCALE is how you ask for that on purpose.',
+          es: 'Arrastrar una barra abre ese paso en el panel, que es donde vive el resto de él: su propio volumen, si entra deslizando desde la nota anterior y — cuando se lo has pedido al secuenciador — cada cuánto suena y cuántas veces dispara dentro de su hueco. Esos dos últimos están apagados hasta que los pidas, en SEQUENCE, porque el cuadrado bajo una barra ya significa armado o mudo y uno a medias tendría si no dos lecturas. La escala de ahí decide dónde puede caer un arrastre; nunca reafina una secuencia que ya escribiste, y FIT TO SCALE es cómo se pide eso a propósito.',
         },
       },
       {

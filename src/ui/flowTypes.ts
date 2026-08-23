@@ -1,6 +1,6 @@
 import { CascadeEdge } from './CascadeEdge'
 import { ModEdge } from './ModEdge'
-import { DelayNode, FxNode, ModNode, OscNode, StartNode } from './nodes'
+import { DelayNode, FxNode, ModNode, OscNode, StartNode, TransformNode } from './nodes'
 import { SignalEdge } from './SignalEdge'
 
 /**
@@ -14,6 +14,7 @@ export const nodeTypes = {
   fx: FxNode,
   mod: ModNode,
   delay: DelayNode,
+  transform: TransformNode,
 }
 
 export const edgeTypes = {

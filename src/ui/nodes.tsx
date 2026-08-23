@@ -10,6 +10,7 @@ import { usePatchStore, type FlowNode } from '../state/patchStore'
 import { targetOf } from '../audio/modulation'
 import type {
   DelayParams,
+  TransformParams,
   EffectKind,
   FxParams,
   ModParams,
@@ -20,6 +21,7 @@ import { useNodeColors, type NodeColors } from '../viz/depth'
 import { useNodeActivity } from '../viz/useActivity'
 import { bindingLabel } from './keys'
 import { StepBars } from './StepBars'
+import { useTransposedBy } from './useTransposedBy'
 
 /**
  * The depth hues go in as local custom properties. `--accent` drives everything the node paints
@@ -73,6 +75,7 @@ export function OscNode({ id, data, selected }: NodeProps<FlowNode>) {
   const params = data.params as OscParams
   const waveform = params.waveform ?? 'square'
   const filter = FILTER_LABELS[params.filterType ?? 'off']
+  const moved = useTransposedBy(id)
 
   return (
     <div
@@ -98,13 +101,30 @@ export function OscNode({ id, data, selected }: NodeProps<FlowNode>) {
       <div className="node-header">
         <span className="node-title">
           OSC <span className="node-ordinal">{ordinal}</span>
+          {/* What a TRANSFORM somewhere above is doing to this oscillator, said on the oscillator.
+              Otherwise it sounds moved with nothing on it saying why — a delay has the same reach and
+              gets away with it, because a shift in time is heard from where it came and a shift in
+              pitch is silent about its cause. */}
+          {moved !== 0 && (
+            <span className="node-moved" title="Moved by a TRANSFORM above it">
+              {moved > 0 ? `+${moved}` : moved}
+            </span>
+          )}
         </span>
         <span className="node-meta">
           {WAVEFORM_LABELS[waveform]}
           {filter && ` ${filter}`} · {params.division}
         </span>
       </div>
-      <StepBars nodeId={id} steps={params.steps} currentStep={currentStep} />
+      <StepBars
+        nodeId={id}
+        steps={params.steps}
+        currentStep={currentStep}
+        useChance={params.useChance}
+        useRatchet={params.useRatchet}
+        scale={params.scale}
+        scaleRoot={params.scaleRoot}
+      />
       <Handle type="source" id={EVENT_OUT} position={Position.Bottom} className="port port-out" />
     </div>
   )
@@ -255,6 +275,41 @@ export function ModNode({ id, data, selected }: NodeProps<FlowNode>) {
           </>
         )}
       </div>
+    </div>
+  )
+}
+
+/**
+ * A TRANSFORM on the canvas: a number and a sign, and nothing else to look at.
+ *
+ * The same shape as a DELAY because it is the same kind of thing — a node that makes no sound and changes
+ * what happens beneath it. One moves a branch in time and the other moves it in pitch.
+ */
+export function TransformNode({ id, data, selected }: NodeProps<FlowNode>) {
+  const { pulsing } = useNodeActivity(id)
+  const colors = useNodeColors(id)
+  const ordinal = useOrdinal(id)
+  const params = data.params as TransformParams
+  const steps = Math.round(params.transpose ?? 0)
+
+  return (
+    <div
+      className={`node node-transform${pulsing ? ' pulsing' : ''}${selected ? ' selected' : ''}`}
+      style={depthStyle(colors)}
+    >
+      <Handle type="target" id={EVENT_IN} position={Position.Top} className="port port-in" />
+      <div className="node-header">
+        <span className="node-title">
+          TRANSFORM <span className="node-ordinal">{ordinal}</span>
+        </span>
+        <span className="node-meta">{steps === 0 ? 'off' : 'steps'}</span>
+      </div>
+      <div className="delay-body">
+        {/* Signed even when positive, because the sign is the whole reading: +2 and 2 look alike at a
+            glance and only one of them says which way. */}
+        <span className="delay-value">{steps > 0 ? `+${steps}` : steps}</span>
+      </div>
+      <Handle type="source" id={EVENT_OUT} position={Position.Bottom} className="port port-out" />
     </div>
   )
 }

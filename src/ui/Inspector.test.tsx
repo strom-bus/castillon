@@ -1,8 +1,9 @@
+import { pitchesOf } from '../audio/scales'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { SIGNAL_LEFT, SIGNAL_RIGHT } from '../state/connections'
 import { usePatchStore } from '../state/patchStore'
-import { MAX_DELAY_MS, MIN_DELAY_MS, type DelayParams } from '../types/patch'
+import { MAX_DELAY_MS, MIN_DELAY_MS, type DelayParams, type OscParams } from '../types/patch'
 import { Inspector } from './Inspector'
 
 function selectDelay(): string {
@@ -285,5 +286,149 @@ describe('the modulator panel', () => {
     for (const below of ['Fires on', 'Attack', 'Depth']) {
       expect(positionOf(below), below).toBeGreaterThan(positionOf('Kind'))
     }
+  })
+})
+
+/**
+ * Looking at one step of one sequencer (PLAN §18.16).
+ *
+ * A second, finer selection rather than a mode. Everything else here is inspected by selecting it, and a
+ * step is a smaller thing to select — so the panel shows a step the way it shows a node.
+ */
+describe('the step panel', () => {
+  function oscId(): string {
+    return usePatchStore.getState().nodes.find((n) => n.type === 'osc')!.id
+  }
+
+  function openStep(index = 2) {
+    const id = oscId()
+    usePatchStore.getState().selectStep(id, index)
+    render(<Inspector />)
+    return id
+  }
+
+  it('replaces the oscillator rather than sitting beside it', () => {
+    // Two scopes on screen at once leaves the reader to work out which control belongs to which.
+    openStep()
+    expect(screen.getByText(/STP 3/)).toBeTruthy()
+    expect(screen.queryByLabelText(/^Waveform/)).toBeNull()
+  })
+
+  it('says where you are and offers the way back', () => {
+    // A panel whose only exit is "click somewhere else" is one people get stuck in.
+    const id = openStep()
+    fireEvent.click(screen.getByRole('button', { name: /OSC/ }))
+
+    expect(usePatchStore.getState().selectedStep).toBeNull()
+    expect(usePatchStore.getState().selectedId).toBe(id)
+  })
+
+  it('gives a note its own volume, which nothing could set before', () => {
+    /*
+     * Velocity has been in the file format, in the engine and in the dice since long before today, read
+     * by anything wired to it — and there has never been a way to write it. This panel exists as much to
+     * expose that as to carry what arrived with it.
+     */
+    const id = openStep()
+    // Matched on the start of the label: a slider's label carries its current value, so asking for
+    // "Volume" exactly finds nothing at all.
+    const slider = screen.getByLabelText(/^Volume/)
+    fireEvent.change(slider, { target: { value: '0.4' } })
+
+    const steps = (
+      usePatchStore.getState().nodes.find((n) => n.id === id)!.data.params as OscParams
+    ).steps
+    expect(steps[2]!.velocity).toBeCloseTo(0.4, 5)
+  })
+
+  it('hides chance and ratchets until the sequencer asks for them', () => {
+    // A control for something switched off is a question about a thing that is not happening.
+    openStep()
+    expect(screen.queryByLabelText(/^Chance/)).toBeNull()
+    expect(screen.queryByLabelText(/^Ratchet/)).toBeNull()
+  })
+
+  it('shows them once it does', () => {
+    const id = oscId()
+    usePatchStore.getState().updateParams(id, { useChance: true, useRatchet: true })
+    openStep()
+
+    expect(screen.getByLabelText(/^Chance/)).toBeTruthy()
+    expect(screen.getByLabelText(/^Ratchet/)).toBeTruthy()
+  })
+
+  it('keeps what the steps hold when a switch goes off again', () => {
+    // So it can be turned back on and find the sequence as it was left, rather than as it was born.
+    const id = oscId()
+    usePatchStore.getState().updateParams(id, { useChance: true })
+    usePatchStore.getState().updateStep(id, 2, { chance: 0.3 })
+    usePatchStore.getState().updateParams(id, { useChance: false })
+
+    const steps = (
+      usePatchStore.getState().nodes.find((n) => n.id === id)!.data.params as OscParams
+    ).steps
+    expect(steps[2]!.chance).toBeCloseTo(0.3, 5)
+  })
+
+  it('drops the step when another node is chosen', () => {
+    // A step of a node you are no longer looking at is not a thing to be looking at.
+    openStep()
+    const other = usePatchStore.getState().nodes.find((n) => n.type === 'start')!.id
+    usePatchStore.getState().select(other)
+    expect(usePatchStore.getState().selectedStep).toBeNull()
+  })
+})
+
+/**
+ * The scale, where it lives and what it is allowed to touch.
+ */
+describe('a sequencer scale', () => {
+  function selectOscillator(): string {
+    const osc = usePatchStore.getState().nodes.find((n) => n.type === 'osc')!
+    usePatchStore.getState().select(osc.id)
+    render(<Inspector />)
+    return osc.id
+  }
+
+  const stepsOf = (id: string) =>
+    (usePatchStore.getState().nodes.find((n) => n.id === id)!.data.params as OscParams).steps
+
+  it('offers a root only once there is a scale to have one in', () => {
+    // A root while everything is allowed is a question with no consequence.
+    selectOscillator()
+    expect(screen.queryByLabelText('Root')).toBeNull()
+
+    fireEvent.change(screen.getByLabelText('Scale'), { target: { value: 'minor' } })
+    expect(screen.getByLabelText('Root')).toBeTruthy()
+  })
+
+  it('leaves the notes alone when the scale changes', () => {
+    /*
+     * The bargain this instrument makes is that you see what you hear, and a control that silently
+     * retuned a sequence you had written would break it. The scale bites while a bar is dragged.
+     */
+    const id = selectOscillator()
+    const before = stepsOf(id).map((s) => s.note)
+    fireEvent.change(screen.getByLabelText('Scale'), { target: { value: 'blues' } })
+
+    expect(stepsOf(id).map((s) => s.note)).toEqual(before)
+  })
+
+  it('moves them when asked to, and only then', () => {
+    const id = selectOscillator()
+    fireEvent.change(screen.getByLabelText('Scale'), { target: { value: 'minorPentatonic' } })
+    fireEvent.click(screen.getByRole('button', { name: /FIT TO SCALE/ }))
+
+    const allowed = pitchesOf('minorPentatonic', 0)!
+    for (const step of stepsOf(id)) {
+      expect(allowed.has(((step.note % 12) + 12) % 12), String(step.note)).toBe(true)
+    }
+  })
+
+  it('hides the way to move them while everything is allowed', () => {
+    // Fitting to no scale is fitting to nothing, and a button that does nothing teaches people to stop
+    // pressing them.
+    selectOscillator()
+    expect(screen.queryByRole('button', { name: /FIT TO SCALE/ })).toBeNull()
   })
 })

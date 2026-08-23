@@ -1,3 +1,4 @@
+import { snapToScale, type ScaleName } from '../audio/scales'
 import {
   addEdge,
   applyEdgeChanges,
@@ -23,6 +24,7 @@ import type {
   Patch,
   StartParams,
   Step,
+  TransformParams,
 } from '../types/patch'
 import { connectionFor, EVENT_IN, EVENT_OUT, SIGNAL_LEFT, SIGNAL_RIGHT } from './connections'
 import { decodePatch } from './patchCode'
@@ -60,6 +62,14 @@ interface PatchState {
   edges: FlowEdge[]
   selectedId: string | null
   /**
+   * Which step of the selected oscillator is being looked at, if any.
+   *
+   * A second, finer selection rather than a mode. Everything else here is inspected by selecting it, and
+   * a step is a smaller thing to select — so the panel shows a step the way it shows a node, and going
+   * back up is choosing the node again.
+   */
+  selectedStep: number | null
+  /**
    * Deliberately outlives loading another patch: roll the dice, find an oscillator worth keeping,
    * roll again, paste it in.
    */
@@ -78,9 +88,15 @@ interface PatchState {
   addNode(type: string, position: { x: number; y: number }): void
   removeEdge(id: string): void
   select(id: string | null): void
+  /** Looks at one step of a node, selecting the node too if it was not already selected. */
+  selectStep(id: string, index: number | null): void
+  /** Moves every note of a sequence onto the nearest one its scale allows. */
+  fitToScale(id: string, scale: ScaleName, root: number): void
   updateParams(
     id: string,
-    partial: Partial<OscParams & FxParams & DelayParams & StartParams & ModParams>,
+    partial: Partial<
+      OscParams & FxParams & DelayParams & StartParams & ModParams & TransformParams
+    >,
   ): void
   setEffect(id: string, effect: EffectKind): void
   updateStep(id: string, index: number, partial: Partial<Step>): void
@@ -198,6 +214,7 @@ export const usePatchStore = create<PatchState>((set, get) => ({
   masterGain: 0.8,
   ...initialPatch(),
   selectedId: null,
+  selectedStep: null,
   clipboard: null,
   pasteRun: 0,
   patchRun: 0,
@@ -233,7 +250,35 @@ export const usePatchStore = create<PatchState>((set, get) => ({
   },
 
   select(id) {
-    set({ selectedId: id })
+    // Choosing a node drops the step, since a step of another node is not a thing to be looking at —
+    // and choosing the same node again is how you climb back out of one.
+    set({ selectedId: id, selectedStep: null })
+  },
+
+  selectStep(id, index) {
+    set({ selectedId: id, selectedStep: index })
+  },
+
+  fitToScale(id, scale, root) {
+    /*
+     * The one place a scale is allowed to change notes already written.
+     *
+     * Because it was asked for. A scale that quantised on playback would be the same arithmetic and a
+     * quite different thing: the bars would show one sequence and the speakers would play another, and
+     * this instrument's whole bargain is that you see what you hear. Done here it happens once, visibly,
+     * and undo covers it like any other gesture.
+     */
+    set({
+      nodes: get().nodes.map((n) => {
+        if (n.id !== id) return n
+        const params = n.data.params as OscParams
+        const steps = params.steps.map((step) => ({
+          ...step,
+          note: snapToScale(step.note, scale, root),
+        }))
+        return { ...n, data: { params: { ...params, steps } } }
+      }),
+    })
   },
 
   updateParams(id, partial) {
@@ -317,17 +362,18 @@ export const usePatchStore = create<PatchState>((set, get) => ({
   },
 
   loadPatch(patch) {
-    set({ ...fromPatch(patch), selectedId: null, patchRun: get().patchRun + 1 })
+    set({ ...fromPatch(patch), selectedId: null, selectedStep: null, patchRun: get().patchRun + 1 })
   },
 
   resetPatch() {
-    set({ ...initialPatch(), selectedId: null, patchRun: get().patchRun + 1 })
+    set({ ...initialPatch(), selectedId: null, selectedStep: null, patchRun: get().patchRun + 1 })
   },
 
   randomisePatch() {
     set({
       ...fromPatch(randomPatch()),
       selectedId: null,
+      selectedStep: null,
       pasteRun: 0,
       patchRun: get().patchRun + 1,
     })

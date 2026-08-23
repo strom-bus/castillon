@@ -1,3 +1,4 @@
+import { ROOT_NAMES, SCALES, SCALE_NAMES, type ScaleName } from '../audio/scales'
 import type { ReactNode } from 'react'
 import { DIVISIONS } from '../audio/clock'
 import { MAX_BITS, MAX_REDUCTION, MIN_BITS, MIN_REDUCTION } from '../audio/dsp'
@@ -39,12 +40,19 @@ import {
   MAX_MOD_DECAY,
   MIN_MOD_ATTACK,
   MIN_MOD_DECAY,
+  MAX_NOTE,
+  MAX_RATCHET,
+  MAX_TRANSPOSE,
+  MIN_NOTE,
   DEFAULT_IGNITE,
+  type Step,
   type IgniteBehaviour,
   type IgniteTrigger,
   type ModParams,
+  type TransformParams,
   type StartParams,
 } from '../types/patch'
+import { noteName } from '../audio/clock'
 import { BindingCapture } from './BindingCapture'
 import { formatOrdinal, nodeOrdinal } from '../state/ordinals'
 import { useManualWindow } from '../help/window'
@@ -427,6 +435,115 @@ function EffectControl({
  * new parameter nowhere to belong, so decay, glide and key follow each landed at the bottom for no reason
  * anybody could read off the screen.
  */
+/**
+ * One step of one sequencer.
+ *
+ * It exists because a step already carried more than the bars could show. Velocity has been in the file
+ * format, in the engine and in the dice since long before today, read by anything wired to it — and there
+ * has never been a way to set it. Everything here is either that, or something that arrived with it.
+ */
+function StepPanel({
+  nodeId,
+  ordinal,
+  index,
+  step,
+  params,
+}: {
+  nodeId: string
+  ordinal: string
+  index: number
+  step: Step
+  params: OscParams
+}) {
+  const updateStep = usePatchStore((s) => s.updateStep)
+  const select = usePatchStore((s) => s.select)
+  const set = (partial: Partial<Step>) => updateStep(nodeId, index, partial)
+
+  return (
+    <Panel>
+      {/* A trail rather than a title: it says how deep you are, and the way back out is the part of it
+          you came from. A panel whose only exit is "click somewhere else" is one people get stuck in. */}
+      <h2 className="inspector-title">
+        <button type="button" className="inspector-up" onClick={() => select(nodeId)}>
+          OSC <span className="node-ordinal">{ordinal}</span>
+        </button>
+        <span className="inspector-trail">STP {index + 1}</span>
+      </h2>
+
+      <Group title="THIS STEP">
+        <label className="inspector-field">
+          <span className="inspector-label">
+            Note
+            <em>{noteName(step.note)}</em>
+          </span>
+          <input
+            type="range"
+            min={MIN_NOTE}
+            max={MAX_NOTE}
+            step={1}
+            value={step.note}
+            onChange={(e) => set({ note: Number(e.target.value) })}
+          />
+        </label>
+
+        <Slider
+          label="Volume"
+          value={step.velocity ?? 1}
+          min={0}
+          max={1}
+          step={0.01}
+          onChange={(velocity) => set({ velocity })}
+        />
+
+        <label className="inspector-check">
+          <input
+            type="checkbox"
+            checked={step.active}
+            onChange={(e) => set({ active: e.target.checked })}
+          />
+          <span>Armed</span>
+        </label>
+
+        {/* Only where the oscillator is using it. A control for something switched off is a question
+            about a thing that is not happening. */}
+        {params.useChance && (
+          <Slider
+            label="Chance"
+            value={Math.round((step.chance ?? 1) * 100)}
+            min={0}
+            max={100}
+            step={5}
+            suffix="%"
+            onChange={(chance) => set({ chance: chance / 100 })}
+          />
+        )}
+
+        {params.useRatchet && (
+          <Slider
+            label="Ratchet"
+            value={Math.max(1, Math.round(step.ratchet ?? 1))}
+            min={1}
+            max={MAX_RATCHET}
+            step={1}
+            onChange={(ratchet) => set({ ratchet })}
+          />
+        )}
+
+        <label className="inspector-check">
+          <input
+            type="checkbox"
+            checked={step.slide === true}
+            onChange={(e) => set({ slide: e.target.checked })}
+          />
+          {/* Named for what it does here rather than for the parameter it uses: how long the slide takes
+              is the oscillator's Glide, and saying so is more useful than repeating the word. */}
+          <span>Slide in {(params.glide ?? 0) === 0 && '(set Glide on the OSC first)'}</span>
+        </label>
+      </Group>
+    </Panel>
+  )
+}
+
 function Group({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="inspector-group">
@@ -460,8 +577,10 @@ export function Inspector() {
   const ordinal = usePatchStore((s) =>
     s.selectedId ? formatOrdinal(nodeOrdinal(s.nodes, s.selectedId)) : '',
   )
+  const selectedStep = usePatchStore((s) => s.selectedStep)
   const updateParams = usePatchStore((s) => s.updateParams)
   const setStepCount = usePatchStore((s) => s.setStepCount)
+  const fitToScale = usePatchStore((s) => s.fitToScale)
   const setEffect = usePatchStore((s) => s.setEffect)
   /**
    * The kinds of node the selected modulator reaches, which decide what it may point at.
@@ -828,6 +947,35 @@ export function Inspector() {
     )
   }
 
+  if (node.type === 'transform') {
+    const transformParams = node.data.params as TransformParams
+    return (
+      <Panel>
+        <h2 className="inspector-title">
+          TRANSFORM <span className="node-ordinal">{ordinal}</span>
+        </h2>
+
+        <Slider
+          label="Transpose"
+          value={Math.round(transformParams.transpose ?? 0)}
+          min={-MAX_TRANSPOSE}
+          max={MAX_TRANSPOSE}
+          step={1}
+          suffix=" steps"
+          onChange={(transpose) => updateParams(node.id, { transpose })}
+        />
+
+        {/* Said here because a control that acts at a distance has to say how far it reaches, and
+            because what a step means depends on the oscillator it lands on rather than on this node. */}
+        <p className="inspector-empty">
+          Moves everything below it, and stacks with any other TRANSFORM in the branch. A step is a
+          degree of the scale on each oscillator it reaches, or a semitone where that oscillator is
+          free — so a bass in pentatonic and a lead in minor both move a third and both stay in key.
+        </p>
+      </Panel>
+    )
+  }
+
   if (node.type === 'delay') {
     const delayParams = node.data.params as DelayParams
     return (
@@ -855,6 +1003,25 @@ export function Inspector() {
   const params = node.data.params as OscParams
   const waveform = params.waveform ?? 'square'
   const set = (partial: Partial<OscParams>) => updateParams(node.id, partial)
+
+  /*
+   * A step, when one is being looked at, in place of the oscillator rather than beside it.
+   *
+   * The panel shows one thing and shows what was selected, which is how everything else here works — a
+   * step is only a smaller thing to select. Showing both at once would put two scopes on screen and leave
+   * it to the reader to work out which control belongs to which.
+   */
+  if (selectedStep !== null && params.steps?.[selectedStep]) {
+    return (
+      <StepPanel
+        nodeId={node.id}
+        ordinal={ordinal}
+        index={selectedStep}
+        step={params.steps[selectedStep]}
+        params={params}
+      />
+    )
+  }
 
   return (
     <Panel>
@@ -902,6 +1069,75 @@ export function Inspector() {
           step={0.05}
           onChange={(gate) => set({ gate })}
         />
+
+        {/* Per oscillator rather than per patch. A scale is not a property of the piece but of the
+            voice — a bass in pentatonic against a lead in minor is ordinary music, and one setting for
+            everything forbids it. It bites while dragging a bar and nowhere else: changing it never
+            retunes a sequence already written, because what is on the screen has to be what plays. */}
+        <label className="inspector-field">
+          <span className="inspector-label">Scale</span>
+          <select
+            value={params.scale ?? 'free'}
+            onChange={(e) => set({ scale: e.target.value as ScaleName })}
+          >
+            {SCALES.map((option) => (
+              <option key={option} value={option}>
+                {SCALE_NAMES[option]}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        {(params.scale ?? 'free') !== 'free' && (
+          <>
+            <label className="inspector-field">
+              <span className="inspector-label">Root</span>
+              <select
+                value={params.scaleRoot ?? 0}
+                onChange={(e) => set({ scaleRoot: Number(e.target.value) })}
+              >
+                {ROOT_NAMES.map((name, pitch) => (
+                  <option key={name} value={pitch}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            {/* The destructive half, asked for rather than happening. It rewrites the notes once, in
+                front of you, and undo covers it — where a scale that quantised on playback would leave
+                the bars showing one thing and the speakers saying another. */}
+            <button
+              type="button"
+              className="btn inspector-fit"
+              onClick={() => fitToScale(node.id, params.scale ?? 'free', params.scaleRoot ?? 0)}
+            >
+              FIT TO SCALE
+            </button>
+          </>
+        )}
+
+        {/* Both off until asked for, and both are switches rather than just values because the square
+            under a bar already means armed or muted — once its fill can also mean a chance, a half-filled
+            square has two readings. Turning one off keeps what the steps hold, so it can be turned back
+            on and find the sequence as it was left. */}
+        <label className="inspector-check">
+          <input
+            type="checkbox"
+            checked={params.useChance === true}
+            onChange={(e) => set({ useChance: e.target.checked })}
+          />
+          <span>Step chance</span>
+        </label>
+
+        <label className="inspector-check">
+          <input
+            type="checkbox"
+            checked={params.useRatchet === true}
+            onChange={(e) => set({ useRatchet: e.target.checked })}
+          />
+          <span>Ratchets</span>
+        </label>
       </Group>
 
       {/* What the tone is, before anything moves it. Detune sits here rather than with glide because

@@ -323,8 +323,39 @@ const SURCHARGE_OVERRIDES: Partial<Record<EffectKind, Record<string, number>>> =
  * target is — see the engine's voice links. They are the same two entries the effects use, and
  * deliberately so: same constants, same span, so a depth means the same thing on either.
  */
+/**
+ * How far a vibrato reaches at full depth, in cents. A semitone either way.
+ *
+ * Wide on purpose, because depth is a share of it: a tenth is ten cents, which is the shimmer most
+ * patches want, and the whole range is available for the ones that want a siren. Narrower and the useful
+ * settings would all live in the first sliver of the control.
+ */
+export const MAX_VIBRATO = 100
+
+const PITCH: ModTarget = {
+  key: 'pitch',
+  label: 'Pitch',
+  min: -MAX_VIBRATO,
+  max: MAX_VIBRATO,
+  via: 'audio',
+  perVoice: true,
+  /*
+   * Reasoned rather than measured, and by the principle the measured ones established: automating a gain
+   * is free and automating a filter roughly triples it, because a biquad recomputes its coefficients per
+   * sample instead of per block. An oscillator reading an a-rate detune recomputes its phase increment,
+   * which is one multiply against a biquad's five — so the same half point the cutoff carries is, if
+   * anything, generous.
+   *
+   * Left unmeasured deliberately. A sweep resolves about one point per unit and this is under that, so
+   * measuring it would produce a number with no more behind it than this sentence (PLAN §24.6).
+   */
+  surcharge: 0.5,
+  hint: 'Bends the pitch of every note the oscillator plays. On the noise waveforms it shifts the grain instead, which is a texture rather than a note.',
+}
+
 const OSC_TARGETS: readonly ModTarget[] = [
   LEVEL,
+  PITCH,
   {
     ...FX_PARAM_TARGETS.cutoff,
     hint: 'Sweeps the filter of every note the oscillator plays.',
@@ -411,7 +442,23 @@ export function resolveTarget(
 ): ModTargetKey | null {
   const offered = targetsFor(nodeType, effect)
   if (offered.length === 0) return null
-  return offered.some((target) => target.key === key) ? (key as ModTargetKey) : offered[0].key
+  if (offered.some((target) => target.key === key)) return key as ModTargetKey
+
+  /*
+   * Falling back to `level` by name rather than to whatever happens to be first.
+   *
+   * Insurance rather than a fix, and worth saying which. It was positional, and putting pitch at the head
+   * of the oscillator's list briefly meant a modulation whose target had vanished would have become a
+   * vibrato instead of a tremolo — caught before it shipped, and fixed properly by putting level back at
+   * the head where it belongs. Today every destination lists level first, so by name and by position give
+   * the same answer and this line changes nothing.
+   *
+   * It stays because it says at the call site what the rule *is*, instead of leaving it to be inferred
+   * from an ordering that nothing at the call site can see. `modulation.test.ts` asserts the invariant
+   * that actually protects the behaviour: every destination offers level, and offers it first.
+   */
+  const level = offered.find((target) => target.key === 'level')
+  return (level ?? offered[0]).key
 }
 
 /** Depth as a share of the target's own span, so one control means the same thing everywhere. */

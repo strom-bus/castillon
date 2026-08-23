@@ -239,6 +239,10 @@ export function fakeAudio(): FakeAudio {
         buffer: null,
         loop: false,
         playbackRate: param('playbackRate', 1),
+        // A buffer source carries one as well as an oscillator does, where it shifts the playback rate
+        // rather than a frequency. Absent here, a vibrato on a noise voice looked like a cable that
+        // connected to nothing — a gap in the stub reported as a gap in the engine.
+        detune: param('detune'),
       }),
     createPeriodicWave: () => ({}),
     createBuffer: (channels: number, length: number) => {

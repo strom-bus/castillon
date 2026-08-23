@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { EFFECTS } from './effects'
 import {
   amountFor,
   PULSE_RATE_CEILING,
@@ -14,8 +15,31 @@ import {
  */
 
 describe('targetsFor', () => {
-  it('offers an oscillator its output and its filter', () => {
-    expect(targetsFor('osc').map((t) => t.key)).toEqual(['level', 'cutoff', 'resonance'])
+  it('offers an oscillator its output, its pitch and its filter', () => {
+    expect(targetsFor('osc').map((t) => t.key)).toEqual(['level', 'pitch', 'cutoff', 'resonance'])
+  })
+
+  it('opens on level, since that is what a fallback lands on', () => {
+    // Not decoration: `resolveTarget` picks `level` by name now, and a list whose first entry is
+    // something else would put the panel and the fallback out of step with each other.
+    expect(targetsFor('osc')[0]!.key).toBe('level')
+  })
+
+  it('offers level first from every destination there is', () => {
+    /*
+     * The invariant the fallback rests on, asserted over every list rather than over one.
+     *
+     * My first attempt at this reversed a *copy* of the oscillator's list and asserted against that,
+     * which the function never sees — a test that could not fail for the thing it named. What actually
+     * keeps a lost target landing somewhere audible is that level is on every destination and at the head
+     * of every list, so this asks that of all thirteen.
+     */
+    const lists = [targetsFor('osc'), ...EFFECTS.map((effect) => targetsFor('fx', effect.kind))]
+    expect(lists.length).toBeGreaterThan(10)
+    for (const list of lists) {
+      expect(list.map((target) => target.key)).toContain('level')
+      expect(list[0]!.key).toBe('level')
+    }
   })
 
   it("gives an oscillator's cutoff the same range an effect's has", () => {

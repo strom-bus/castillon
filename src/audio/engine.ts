@@ -228,7 +228,15 @@ interface Voice {
 interface VoiceLink {
   modId: NodeId
   oscId: NodeId
-  key: 'cutoff' | 'resonance'
+  /**
+   * Which of the voice's own parameters this points at.
+   *
+   * A `ModTargetKey` rather than the two filter names it used to be. Naming them here made the type
+   * agree with a hardcoded branch in `connectMod` and disagree with the target table, which is the one
+   * place that says what is per-voice — so a third such target could be declared, be correct, and never
+   * be routed.
+   */
+  key: ModTargetKey
   amount: GainNode
   /** The scaled depth, kept so a per-note envelope's own gain knows what to rise to. */
   peak: number
@@ -259,6 +267,30 @@ export interface Engine {
    * same patch stops exporting to the same file — which is the one promise a render makes.
    */
   chance(): number
+}
+
+/**
+ * Which of a voice's own parameters a modulation target points at, or null where this voice has none.
+ *
+ * `pitch` reaches the source's `detune`, which is free for it: an oscillator's static `detune` control is
+ * folded into the frequency it is asked for (`detuneRatio` in the registry) and glide ramps `frequency`,
+ * so nothing else writes here and a vibrato composes with both by construction rather than by care.
+ *
+ * It works on the noise waveforms too, where `detune` shifts the buffer's playback rate. That is a real
+ * change and an audible one, so there is no reason to refuse it — it is simply not pitch in the sense a
+ * musician means, and the panel says what it does rather than promising a note.
+ *
+ * The filter targets return null when the voice has no filter, which is what makes a cable to a switched
+ * off filter do nothing rather than throw.
+ */
+function voiceParam(voice: Voice, key: string): AudioParam | null {
+  if (key === 'pitch') {
+    // Both `OscillatorNode` and `AudioBufferSourceNode` carry one; the union type does not say so.
+    const source = voice.source as unknown as { detune?: AudioParam }
+    return source.detune ?? null
+  }
+  if (!voice.filter) return null
+  return key === 'cutoff' ? voice.filter.frequency : voice.filter.Q
 }
 
 /** Ramps a param to zero without clicking, respecting what is already scheduled. */
@@ -996,7 +1028,16 @@ export class AudioEngine implements Engine {
     const instance = this.modulators.get(modId)
     if (!this.ctx || !instance) return
 
-    const descriptor = targetOf(target)
+    /*
+     * Resolved against what the cable actually landed on, not against the generic table.
+     *
+     * `targetOf(key)` with no node type answers from the effect parameters plus level and mix, which is
+     * every target an *effect* can offer — and pitch is not one of them, so it came back undefined and
+     * the per-voice branch below never fired. The engine does know which it is: anything that is not a
+     * registered effect is an oscillator.
+     */
+    const onEffect = this.effects.get(targetId)
+    const descriptor = targetOf(target, onEffect ? 'fx' : 'osc', onEffect?.params.effect)
 
     // Nothing to connect to: the parameter exists but rebuilds something rather than being an
     // `AudioParam`, so it is driven by recomputation.
@@ -1021,9 +1062,18 @@ export class AudioEngine implements Engine {
       return
     }
 
-    // An oscillator's filter, which does not exist yet: it arrives with the next note, and with every
-    // note after that. What is set up now is the depth; the connecting happens per voice.
-    if (!this.effects.has(targetId) && (target === 'cutoff' || target === 'resonance')) {
+    /*
+     * A parameter that belongs to a voice rather than to the node: it does not exist yet, arriving with
+     * the next note and with every note after it. What is set up now is the depth; the connecting happens
+     * per voice.
+     *
+     * Decided by the target's own `perVoice` flag rather than by naming the two filter targets, which is
+     * what this said. That was a fact declared in the target table and re-derived by hand here, so adding
+     * pitch — flagged `perVoice`, and correctly — routed it down the node-parameter path instead, where
+     * an oscillator has no such parameter and the cable silently did nothing. The same shape of coupling
+     * as a fallback chosen by list position: one truth, written twice.
+     */
+    if (!this.effects.has(targetId) && descriptor?.perVoice) {
       this.linkVoices(modId, targetId, target, depth, instance)
       this.chargeFor(modId, targetId, target)
       return
@@ -1240,7 +1290,7 @@ export class AudioEngine implements Engine {
   private linkVoices(
     modId: NodeId,
     oscId: NodeId,
-    key: 'cutoff' | 'resonance',
+    key: ModTargetKey,
     depth: number,
     instance: ModInstance,
   ): void {
@@ -1270,8 +1320,8 @@ export class AudioEngine implements Engine {
    * trigger already is.
    */
   private attachVoice(link: VoiceLink, voice: Voice, at: number): void {
-    if (!voice.filter) return
-    const param = link.key === 'cutoff' ? voice.filter.frequency : voice.filter.Q
+    const param = voiceParam(voice, link.key)
+    if (!param) return
     const instance = this.modulators.get(link.modId)
 
     if (instance && instance.kind === 'env' && instance.fires === 'note') {

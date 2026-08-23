@@ -113,7 +113,12 @@ refused, since between an oscillator and an effect there is only one direction t
   several on one oscillator, or one shared by several — and each carries a wet/dry mix, so a send is
   a blend rather than a replacement.
 - **A MOD node** that sweeps a parameter of whatever it is wired to. Which parameters it offers
-  depends on the destination: a reverb's decay, a chorus's sweep, an oscillator's filter cutoff. Most
+  depends on the destination: a reverb's decay, a chorus's sweep, an oscillator's filter cutoff — or its
+  **pitch**, which is vibrato from an LFO and the drop at the front of a percussive sound from a per-note
+  envelope. That one is built per note, so each wobbles on its own, and it reaches a semitone either way
+  at full depth. It needed no new machinery: `detune` was free, because an oscillator's static detune is
+  folded into the frequency a voice is asked for and glide ramps that frequency, so a vibrato owns the
+  parameter outright and composes with both by construction. Most
   are reached by connecting the modulator straight into an `AudioParam`, which Web Audio does on its
   own thread for nothing; the few that rebuild something — an impulse response, a shaper curve —
   are driven by recomputation instead, quantised so a sweep does not regenerate a buffer per frame.
@@ -268,7 +273,7 @@ refused, since between an oscillator and an effect there is only one direction t
   it longer without making it clearer. Both languages live adjacent in one file so a half-finished
   edit shows up in the diff rather than as a blank paragraph months later.
 
-  Thirteen chapters and a hundred and twenty-one entries, written for whoever is using the instrument
+  Thirteen chapters and a hundred and twenty-two entries, written for whoever is using the instrument
   rather than for whoever built it: no entry explains how something is implemented, and every one says
   what a control does to the sound and when you would reach for it. One chapter per module, each in
   the order its own panel is in and under the panel's own group headings, so reading the manual and

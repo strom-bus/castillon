@@ -865,6 +865,13 @@ export const MANUAL: Section[] = [
             },
           },
           {
+            term: { en: 'Pitch, as a target', es: 'Pitch, como destino' },
+            text: {
+              en: 'Pointed at an oscillator, a MOD can bend its pitch — which is vibrato with an LFO, and the drop at the front of a percussive sound with a per-note envelope. At full depth it reaches a semitone either way, so the useful settings are low: a tenth is ten cents, which is the shimmer most patches want. It is built per note, so each one wobbles on its own rather than the whole oscillator sliding together. On the noise waveforms it shifts the grain instead of a pitch, which is a texture rather than a note.',
+              es: 'Apuntado a un oscilador, un MOD puede doblar su altura — que es vibrato con un LFO, y la caída del principio de un sonido percusivo con una envolvente por nota. A profundidad plena llega a un semitono a cada lado, así que los ajustes útiles son bajos: una décima son diez centésimas, que es el temblor que quiere casi todo patch. Se construye por nota, así que cada una tiembla por su cuenta en vez de deslizarse el oscilador entero. En las ondas de ruido desplaza el grano en lugar de una altura, que es una textura y no una nota.',
+            },
+          },
+          {
             term: { en: 'Target', es: 'Target' },
             text: {
               en: 'Which parameter it moves. The list is whatever the thing at the other end of the cable actually has, so a MOD on a reverb offers that reverb’s decay and one on a chorus offers its sweep. An entry that cannot work right now is shown greyed with the reason on it rather than hidden.',

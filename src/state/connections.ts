@@ -50,9 +50,34 @@ interface NodeLike {
   type?: string
 }
 
+/**
+ * A cable, as either half of the app keeps one.
+ *
+ * The canvas holds React Flow's shape, which puts everything of ours inside a `data` bag; a patch holds
+ * ours, where the same facts are fields. These rules are asked by both — `isValidConnection` during a
+ * drag, with the canvas's edges, and the store when it commits, with the same — so it has to read either.
+ *
+ * Which is a boundary and not a duplication, but it is exactly the shape of thing this codebase keeps
+ * getting wrong, so there is one accessor below and nothing reads the field directly.
+ */
 interface EdgeLike {
   source: string
   target: string
+  /** Set on a trigger cable that runs the cascade upward, so a pair can carry one of each. */
+  up?: boolean
+  data?: { up?: boolean }
+}
+
+/**
+ * Whether a cable runs the cascade upward, wherever the half of the app it came from keeps that.
+ *
+ * Read from one place because reading it from two is how this went wrong: the rules looked at `edge.up`
+ * and the canvas passes edges that carry it as `edge.data.up`, so every cable the canvas offered looked
+ * like a descent. The duplicate check then allowed a *second* climb to the same node — permissive rather
+ * than strict, which is the harder kind to notice.
+ */
+function isClimbing(edge: EdgeLike): boolean {
+  return edge.up === true || edge.data?.up === true
 }
 
 export interface ConnectionRules {
@@ -190,10 +215,22 @@ export function connectionFor(
   if (sideStart !== sideEnd) return null
 
   const typeOf = (id: string) => rules.nodes.find((node) => node.id === id)?.type
-  const already = (from: string, to: string) =>
-    // By node pair rather than by handle pair: a node has a side port at each end, and reaching the
-    // same destination from both would send it twice over.
-    rules.edges.some((edge) => edge.source === from && edge.target === to)
+  /*
+   * Whether this pair is already joined by a cable of the same *sort*.
+   *
+   * By node pair rather than by handle pair, because a node has a side port at each end and reaching the
+   * same destination from both would send it twice over.
+   *
+   * But the direction counts, and it was left out at first — which made the very first thing anybody
+   * would try impossible. One Ignite and one oscillator, wired down from the bottom port and then up
+   * from the top one, is two cables between the same pair that do entirely different things; refusing
+   * the second as a duplicate is refusing the feature on its simplest patch. A descent and a climb are
+   * not the same cable said twice.
+   */
+  const already = (from: string, to: string, climbing = false) =>
+    rules.edges.some(
+      (edge) => edge.source === from && edge.target === to && isClimbing(edge) === climbing,
+    )
 
   if (sideStart) {
     const decided = orient(typeOf(source), typeOf(target))
@@ -231,7 +268,7 @@ export function connectionFor(
     // null — which is what a patch code carries, since it stores which nodes a cable joins and not
     // which port — would otherwise be taken as a trigger port on any node at all, including one that
     // has none. That is the same fault as a warp on an Ignite, in the other direction.
-    return canTrigger(typeOf(source), typeOf(target)) && !already(source, target)
+    return canTrigger(typeOf(source), typeOf(target)) && !already(source, target, climbing)
       ? { source, target, sourceHandle, targetHandle, kind: 'event', up: climbing || undefined }
       : null
   }

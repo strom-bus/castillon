@@ -6,6 +6,7 @@ import {
   permits,
   EVENT_IN,
   EVENT_OUT,
+  EVENT_UP,
   SIGNAL_LEFT,
   SIGNAL_RIGHT,
 } from './connections'
@@ -287,5 +288,108 @@ describe('every rule lands on a port that exists', () => {
       (['event', 'audio', 'mod', 'warp'] as const).filter((kind) => permits(from, to, kind)),
     )
     expect(allowed.length).toBeGreaterThan(6)
+  })
+})
+
+describe('a cable from the Ignite’s upward port', () => {
+  /**
+   * The rules around the second trigger output, which shipped with the first thing anybody would try
+   * refused outright.
+   */
+  const nodes = [
+    { id: 'i', type: 'start' },
+    { id: 'o', type: 'osc' },
+    { id: 'p', type: 'osc' },
+  ]
+
+  it('lands on a trigger input, the same as every other trigger cable', () => {
+    const made = connectionFor(
+      { nodes, edges: [] },
+      { source: 'i', target: 'o', sourceHandle: EVENT_UP, targetHandle: EVENT_IN },
+    )
+    expect(made).toMatchObject({ source: 'i', target: 'o', kind: 'event', up: true })
+  })
+
+  it('does not land on a trigger output, however much the geometry suggests it should', () => {
+    /*
+     * The wave arrives from below, so the bottom port is where a hand reaches for — and it is the wrong
+     * answer. That port is an *output* on every node in the instrument, and a port that were both would
+     * be the one double meaning this codebase keeps paying for. Every trigger arrives at the top; what
+     * differs is where it goes next, which the chain knows and the port does not have to say twice.
+     */
+    expect(
+      connectionFor(
+        { nodes, edges: [] },
+        { source: 'i', target: 'o', sourceHandle: EVENT_UP, targetHandle: EVENT_OUT },
+      ),
+    ).toBeNull()
+  })
+
+  it('can sit beside a descending cable to the same node', () => {
+    /*
+     * **The bug this feature shipped with.** One Ignite and one oscillator, wired down from the bottom
+     * port and then up from the top one, is the simplest patch that shows what the port is for — and the
+     * duplicate check compared cables by node pair alone, so the second was refused as a repeat of the
+     * first. A descent and a climb are not the same cable said twice.
+     */
+    const withDescent = [{ source: 'i', target: 'o' }]
+    expect(
+      connectionFor(
+        { nodes, edges: withDescent },
+        { source: 'i', target: 'o', sourceHandle: EVENT_UP, targetHandle: EVENT_IN },
+      ),
+    ).toMatchObject({ up: true })
+  })
+
+  it('still refuses a second cable of its own kind', () => {
+    // Or the fix above would have traded one fault for another: two climbs to the same node would start
+    // the same wave twice, which is what the duplicate check is for.
+    const withClimb = [{ source: 'i', target: 'o', up: true }]
+    expect(
+      connectionFor(
+        { nodes, edges: withClimb },
+        { source: 'i', target: 'o', sourceHandle: EVENT_UP, targetHandle: EVENT_IN },
+      ),
+    ).toBeNull()
+    // And the descending one is still available, from the other direction of the same argument.
+    expect(
+      connectionFor(
+        { nodes, edges: withClimb },
+        { source: 'i', target: 'o', sourceHandle: EVENT_OUT, targetHandle: EVENT_IN },
+      ),
+    ).toMatchObject({ kind: 'event' })
+  })
+
+  it('reads the flag from either shape a cable comes in', () => {
+    /*
+     * The rules are asked by both halves of the app with two different objects: the canvas passes React
+     * Flow's edges, which keep everything of ours inside a `data` bag, and the store passes the same. Our
+     * own patches keep it as a field.
+     *
+     * Read from only one of those and every canvas cable looks like a descent — so a *second* climb to
+     * the same node was allowed, which is permissive and therefore the harder kind to notice. Both shapes
+     * have to answer the same.
+     */
+    const asPatch = [{ source: 'i', target: 'o', up: true }]
+    const asCanvas = [{ source: 'i', target: 'o', data: { kind: 'event', up: true } }]
+    const attempt = { source: 'i', target: 'o', sourceHandle: EVENT_UP, targetHandle: EVENT_IN }
+
+    expect(canConnect({ nodes, edges: asPatch }, attempt)).toBe(false)
+    expect(canConnect({ nodes, edges: asCanvas }, attempt)).toBe(false)
+    // And a descent is still available from either shape, or the fix would refuse the pair outright.
+    const descent = { source: 'i', target: 'o', sourceHandle: EVENT_OUT, targetHandle: EVENT_IN }
+    expect(canConnect({ nodes, edges: asPatch }, descent)).toBe(true)
+    expect(canConnect({ nodes, edges: asCanvas }, descent)).toBe(true)
+  })
+
+  it('is offered by nothing but an Ignite', () => {
+    // The handle only exists on one component, but a drag reports whatever handle it started from and a
+    // patch code carries no handle at all. Checked against the port declarations, as the rest are.
+    expect(
+      connectionFor(
+        { nodes, edges: [] },
+        { source: 'o', target: 'p', sourceHandle: EVENT_UP, targetHandle: EVENT_IN },
+      ),
+    ).toBeNull()
   })
 })

@@ -48,15 +48,65 @@
 .beta {
   align-self: center;
   margin-top: 1px;
-  padding: 2px 5px 1px;
+  /*
+   * Tight, and tighter at the sides than above. Two things pulled the same way: an even padding made a
+   * box far wider than it was tall, so the letters read as squashed into it — the fault being the box's
+   * proportion and not the type — and the whole chip wanted less air than a chip usually does, because
+   * it sits beside a 21 px wordmark and any bulk makes it look like a button.
+   *
+   * The last of the tracking is taken off the right edge below, since letter-spacing adds a gap after
+   * the final letter that the padding then doubles.
+   */
+  padding: 3px 2px 2px;
   background: var(--text);
   color: var(--surface);
-  font-family: var(--display);
+  /*
+   * The system sans, and the third face tried here — each one for a reason the one before it could not
+   * meet.
+   *
+   * **Unbounded** is the wordmark's face and belongs to nothing else. At nine pixels and weight 900 its
+   * flared stems read as serifs on the B: a display face used four times below its size stops being the
+   * shape it was drawn as.
+   *
+   * **The interface monospace** fixed the shapes and could not be made heavy. `ui-monospace` resolves to
+   * SF Mono, which ships Light through Bold and no Black — so `font-weight: 900` quietly rendered as
+   * 700 and no amount of asking made it thicker. A weight that does not exist is not a weight.
+   *
+   * **The system sans** has a real Black, so 900 is 900. It is also the only face here that is neither
+   * the mark nor the interface, which is right for a stamp: it belongs to neither and says so. And it
+   * costs nothing — no second woff2 for four letters, which would be a fifth of the wordmark's own
+   * download to label a version.
+   *
+   * §8's rule that the interface stays monospaced is about the inspector, where numbers line up in
+   * columns. Four letters have no column to break.
+   */
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    'Helvetica Neue',
+    Arial,
+    sans-serif;
   font-size: 9px;
+  /* Black, not bold. Dark letters on a light ground read lighter than the same weight the other way
+     round, so an inverted chip has to over-correct to sit as firmly as the wordmark beside it. */
   font-weight: 900;
-  letter-spacing: 0.14em;
+  /* Less than the display face wanted: a monospace already carries side bearings, so the same tracking
+     on top of them opens the word past reading as one. A hair more than it needed at bold, since heavier
+     letters close their own gaps. */
+  letter-spacing: 0.11em;
   line-height: 1;
   text-transform: uppercase;
+  /* A hair, and the one rounded thing in the interface (§8 forbids the rest). A stamp has a die that
+     never quite reaches its own corners, which is the only reason it earns the exception. */
+  border-radius: 2px;
+}
+
+/* See the padding above: the gap after the last letter belongs to the tracking, not to the box. */
+.beta::after {
+  content: '';
+  display: inline-block;
+  margin-right: -0.11em;
 }
 
 .brand-mark {
@@ -455,21 +505,11 @@ input[type='range'] {
   border: 1px solid var(--border-strong);
 }
 
-/* The Ignite's upward output, which runs the cascade the other way.
-
-   Told apart by shape rather than by colour: a triangle pointing up, where every other trigger port is
-   a square. Colour is already spoken for — the depth ramp runs through every node and cable, so a port
-   that meant something by being a different hue would be arguing with it. And a shape reads at a glance
-   when a patch is zoomed out far enough that nine pixels is a smudge. */
-.port-up {
-  background: var(--depth-top, var(--border-strong));
-  border: none;
-  width: 0;
-  height: 0;
-  border-left: 6px solid transparent;
-  border-right: 6px solid transparent;
-  border-bottom: 9px solid var(--depth-top, var(--border-strong));
-}
+/* The Ignite's upward output is drawn exactly like the one underneath, and the position is what says
+   which is which. A triangle was tried and it was the wrong answer: it made one port look like a
+   different *kind* of thing when it is the same kind pointing the other way, and every other port in
+   the interface is one square. Where a cable leaves from is already visible; the shape only had to not
+   argue with it. */
 
 /* A 9 px dot is a mean target for a mouse and a hopeless one for a finger. This grows the area
    that answers to a pointer without changing anything you can see: a pseudo-element counts as

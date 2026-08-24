@@ -71,12 +71,7 @@ export function StartNode({ id, data, selected }: NodeProps<FlowNode>) {
           The one at the top runs the cascade upward: what it fires climbs by following ordinary cables
           backwards. It is at the top because that is where the wave goes, which makes the direction
           readable without selecting anything — the same reasoning as a side port meaning signal. */}
-      <Handle
-        type="source"
-        id={EVENT_UP}
-        position={Position.Top}
-        className="port port-out port-up"
-      />
+      <Handle type="source" id={EVENT_UP} position={Position.Top} className="port port-out" />
       <Handle type="source" id={EVENT_OUT} position={Position.Bottom} className="port port-out" />
     </div>
   )

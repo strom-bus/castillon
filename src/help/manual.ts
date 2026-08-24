@@ -270,8 +270,37 @@ export const MANUAL: Section[] = [
         en: 'By default it fires when you press PLAY. Set it to a key or a note instead and PLAY leaves it alone: it waits for your finger. That is the difference between a patch you start and a patch you perform.',
         es: 'Por defecto dispara cuando pulsas PLAY. Ponlo en una tecla o una nota y PLAY lo deja en paz: espera a tu dedo. Esa es la diferencia entre un patch que arrancas y un patch que tocas.',
       },
+      {
+        en: 'It has **two** trigger ports. The one underneath is the cascade you know: what it fires plays, and when that finishes it fires whatever hangs below. The one on top — the small triangle — sends a wave the other way: what it fires plays, and then fires whatever points *at* it, climbing until nothing is above. Wire the bottom port to the top of a chain and the top port to the bottom of the same chain, and one trigger plays it in both directions at once. The preset called RISE is exactly that.',
+        es: 'Tiene **dos** puertos de disparo. El de abajo es la cascada que conoces: lo que dispara suena, y al terminar dispara lo que cuelga debajo. El de arriba — el triangulito — manda una ola al contrario: lo que dispara suena, y luego dispara lo que le *apunta*, trepando hasta que no hay nada encima. Cablea el puerto de abajo a lo alto de una cadena y el de arriba a lo bajo de la misma cadena, y un disparo la toca en las dos direcciones a la vez. El preset llamado RISE es exactamente eso.',
+      },
     ],
     detail: [
+      {
+        terms: [
+          {
+            term: { en: 'Both waves are one pass', es: 'Las dos olas son una pasada' },
+            text: {
+              en: 'Not two cascades that happen to start together — **one**, going both ways. Which matters because two IGNITEs would drift apart the moment their branches were different lengths, and these cannot: the pass ends when both waves have run out and lasts as long as the slower of them. So the descent and the climb are locked to the same instant for ever.',
+              es: 'No son dos cascadas que casualmente arrancan juntas — es **una**, en las dos direcciones. Importa porque dos IGNITE se separarían en cuanto sus ramas tuvieran duraciones distintas, y estas no pueden: la pasada termina cuando las dos olas se agotan y dura lo que la más lenta. Así el descenso y la subida quedan clavados al mismo instante para siempre.',
+            },
+          },
+          {
+            term: { en: 'Where the two waves meet', es: 'Donde se cruzan las dos olas' },
+            text: {
+              en: 'A node reached by both fires twice, which is the same thing that already happens to a node with two parents — no special case. But if the branches either side of it are the *same* length, both waves arrive at the same instant and it is simply louder: a doubling rather than a crossing. Make them different lengths and you hear the waves pass each other, which is the thing worth hearing.',
+              es: 'Un nodo al que llegan las dos dispara dos veces, que es lo mismo que ya le pasa a un nodo con dos padres — sin caso especial. Pero si las ramas a cada lado tienen la *misma* duración, las dos olas llegan en el mismo instante y solo suena más fuerte: un doblado, no un cruce. Dales duraciones distintas y oyes las olas pasarse una a otra, que es lo que merece oírse.',
+            },
+          },
+          {
+            term: { en: 'A climb never comes home', es: 'Una subida no vuelve a casa' },
+            text: {
+              en: 'The upward cable itself is not part of the climb — only its entrance. Otherwise a wave that reached the node at the far end would find that same cable pointing back at the IGNITE and follow it there, firing the whole thing again. So it is the one cable a climbing wave will not use.',
+              es: 'El cable ascendente no forma parte de la subida — solo es su entrada. Si no, una ola que llegara al nodo del otro extremo encontraría ese mismo cable apuntando al IGNITE y lo seguiría hasta allí, disparando todo otra vez. Así que es el único cable que una ola trepando no va a usar.',
+            },
+          },
+        ],
+      },
       {
         title: 'THE PANEL',
         terms: [

@@ -134,6 +134,12 @@ const wire = (source: string, target: string, kind: PatchEdge['kind'] = 'event')
   target,
 })
 
+/** A trigger cable from the Ignite's upward port: what it fires climbs the cascade instead of descending. */
+const climb = (source: string, target: string): PatchEdge => ({
+  ...wire(source, target),
+  up: true,
+})
+
 const patchOf = (bpm: number, nodes: PatchNode[], edges: PatchEdge[]): Patch => ({
   version: 1,
   bpm,
@@ -970,6 +976,102 @@ const reed: Preset = {
   ),
 }
 
+/**
+ * The same three voices, played downward and upward at once.
+ *
+ * One trigger, one chain of oscillators, and two cables out of the Ignite: the bottom port fires the top
+ * of the chain and the wave descends as it always has; the top port fires the *bottom* of it and a second
+ * wave climbs, following the same cables backwards. So every voice sounds twice a pass — once on the way
+ * down and once on the way up — and the two waves cross in the middle.
+ *
+ * Which is the whole point and cannot be built any other way. Two Ignites would give two passes that drift
+ * apart; this is one pass, so the descent and the climb are locked to the same instant for ever, and the
+ * pass is as long as the longer of them.
+ *
+ * The register falls down the chain, so the descent reads as an arrival and the climb as a departure —
+ * and they are the same three notes. Nothing about the sequences says which way anything is going.
+ *
+ * The outer voices are deliberately different lengths, four steps against six. With them equal, both waves
+ * reach the middle voice at the same instant and it is simply louder — a doubling rather than a crossing.
+ * Unequal, the two arrivals separate and you hear the waves pass each other, which is the thing on show.
+ */
+const rise: Preset = {
+  id: 'rise',
+  name: 'RISE',
+  about: 'One trigger, one chain, and two waves — one descending it and one climbing back up.',
+  patch: patchOf(
+    92,
+    [
+      ignite('i', 1, 1),
+      osc('high', 1, 2, {
+        ...IN_KEY,
+        waveform: 'triangle',
+        steps: steps([note(0, 2), note(4, 1), note(2, 2), null]),
+        division: '1/8',
+        gain: 0.24,
+        attack: 4,
+        decay: 220,
+        release: 200,
+        gate: 0.6,
+        filterType: 'lowpass',
+        cutoff: 3200,
+        resonance: 2,
+        keyTrack: 0.5,
+      }),
+      osc('mid', 1, 3, {
+        ...IN_KEY,
+        waveform: 'pulse',
+        pulseWidth: 0.4,
+        steps: steps([note(0, 1), null, note(3, 1), note(5, 0)]),
+        division: '1/8',
+        gain: 0.22,
+        attack: 5,
+        decay: 240,
+        release: 240,
+        gate: 0.6,
+        filterType: 'lowpass',
+        cutoff: 1700,
+        resonance: 5,
+        keyTrack: 0.6,
+      }),
+      osc('low', 1, 4, {
+        ...IN_KEY,
+        waveform: 'sawtooth',
+        /*
+         * Six steps against the top voice's four, and that is what stops the preset from sounding like
+         * one thing instead of two.
+         *
+         * The descent reaches the middle voice after the *top* one has finished; the climb reaches it
+         * after the *bottom* one has. Give those two the same length and both waves arrive at the same
+         * instant, so the middle voice is simply louder — a doubling, not a crossing. Different lengths
+         * and you hear two separate arrivals, which is the whole thing being demonstrated.
+         */
+        steps: steps([note(0, -1), null, note(4, -2), null, note(2, -1), null]),
+        division: '1/8',
+        gain: 0.28,
+        attack: 8,
+        decay: 0,
+        release: 420,
+        gate: 0.85,
+        filterType: 'lowpass',
+        cutoff: 720,
+        resonance: 4,
+      }),
+      fx('rv', 2, 3, { effect: 'reverb', mix: 0.26, decay: 3, cutoff: 3000 }),
+    ],
+    [
+      // Down the chain, as always.
+      wire('i', 'high'),
+      wire('high', 'mid'),
+      wire('mid', 'low'),
+      // And up it: this one goes to the *bottom*, and what it fires climbs the three cables above.
+      climb('i', 'low'),
+      wire('high', 'rv', 'audio'),
+      wire('low', 'rv', 'audio'),
+    ],
+  ),
+}
+
 export const PRESETS: Preset[] = [
   descent,
   drift,
@@ -979,6 +1081,7 @@ export const PRESETS: Preset[] = [
   sift,
   pluck,
   reed,
+  rise,
   duck,
   stress,
 ]

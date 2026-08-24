@@ -71,6 +71,24 @@ refused, since between an oscillator and an effect there is only one direction t
 - **Glide, split across two scopes.** Which notes slide belongs to the note and how long a slide lasts
   belongs to the oscillator. One value for a whole sequence could only say that every note glides or
   none does, and the line worth having is the one where some do.
+- **Two trigger ports on the IGNITE.** The one underneath is the cascade as it has always been. The one
+  on top sends a wave the **other way**: what it fires plays, then fires whatever points _at_ it,
+  climbing until nothing is above. Wire the bottom port to the top of a chain and the top port to the
+  bottom of the same chain, and one trigger plays it in both directions at once.
+
+  The direction is **which port the cable left from** — nothing computes a depth, nothing reverses a
+  graph, and nothing has a mode. That is the whole reason it is small: the cables already say what
+  happens, so this only had to be said the same way. And the two waves live in **one** pass, so they
+  cannot drift the way two IGNITEs would; the pass ends when both have run out and lasts as long as the
+  slower.
+
+  Two things it did not need. **No JOIN**: a node reached by both waves fires twice, which is already
+  what happens to a node with two parents — consistency rather than a special case, and a node that
+  _waited_ could not exist here anyway. **No cycle refusal**: a climb meeting a descent can close a loop,
+  and this is the event graph, so `MAX_DEPTH` bounds it as it bounds every other cycle. The one exclusion
+  is that a climbing wave will not follow an upward cable, or it would arrive straight back at the IGNITE
+  it came from.
+
 - **Sequence direction** — forward, reverse or ping-pong — and **only the notes turn round.** Where each
   slot falls, how long it lasts and which half of a swung pair it is are all decided by position in the
   pass; what moves is the content of the slot. So a reversed phrase still swings forward, which is what a
@@ -312,7 +330,7 @@ refused, since between an oscillator and an effect there is only one direction t
 - **A patch gallery**, a window over the canvas rather than a page — so choosing a patch loads it into
   the instrument already underneath. Cards draw their own cascade, and stars decay with age so the
   popular sort does not freeze on whatever was published first. Two tabs: the patches people have
-  shared, and **ten presets** that come with the machine.
+  shared, and **eleven presets** that come with the machine.
 
   Six are built around one idea that is hard to arrive at by rolling and small enough to read at a
   glance — the plain cascade, why there is no clock, one phrase driving another note by note, a figure
@@ -357,7 +375,7 @@ refused, since between an oscillator and an effect there is only one direction t
   it longer without making it clearer. Both languages live adjacent in one file so a half-finished
   edit shows up in the diff rather than as a blank paragraph months later.
 
-  Fourteen chapters and a hundred and forty-nine entries, written for whoever is using the instrument
+  Fourteen chapters and a hundred and fifty-two entries, written for whoever is using the instrument
   rather than for whoever built it: no entry explains how something is implemented, and every one says
   what a control does to the sound and when you would reach for it. One chapter per module, each in
   the order its own panel is in and under the panel's own group headings, so reading the manual and

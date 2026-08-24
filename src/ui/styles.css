@@ -434,6 +434,22 @@ input[type='range'] {
   border: 1px solid var(--border-strong);
 }
 
+/* The Ignite's upward output, which runs the cascade the other way.
+
+   Told apart by shape rather than by colour: a triangle pointing up, where every other trigger port is
+   a square. Colour is already spoken for — the depth ramp runs through every node and cable, so a port
+   that meant something by being a different hue would be arguing with it. And a shape reads at a glance
+   when a patch is zoomed out far enough that nine pixels is a smudge. */
+.port-up {
+  background: var(--depth-top, var(--border-strong));
+  border: none;
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-bottom: 9px solid var(--depth-top, var(--border-strong));
+}
+
 /* A 9 px dot is a mean target for a mouse and a hopeless one for a finger. This grows the area
    that answers to a pointer without changing anything you can see: a pseudo-element counts as
    part of the port for hit testing, so grabbing near it starts a cable. */

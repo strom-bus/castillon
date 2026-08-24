@@ -108,7 +108,20 @@ export interface NodeDefinition {
    * `both` passes a trigger on. `side` is the pair of signal ports — audio, modulation or a warp, which
    * of the three being decided by what is at the cable's other end rather than by the port.
    */
-  ports: { trigger?: 'in' | 'out' | 'both'; side?: boolean }
+  ports: {
+    trigger?: 'in' | 'out' | 'both'
+    side?: boolean
+    /**
+     * A second trigger output, at the top, whose cables run the cascade **upward**.
+     *
+     * Only the IGNITE has one, and the asymmetry is the point: a pass begins at an IGNITE, so that is the
+     * only place it makes sense to say which way it begins. Declared here rather than left to the
+     * component for the same reason the other ports are — two lists that must agree and cannot be derived
+     * from one another, where a disagreement is silent and a cable arriving from a patch code has no
+     * handle to hang on.
+     */
+    up?: boolean
+  }
   defaults(): NodeParams
   /**
    * Absent for nodes that are not in the event graph. An FX node has no event ports, so nothing
@@ -126,7 +139,7 @@ const start: NodeDefinition = {
   type: 'start',
   label: 'IGNITE',
   place: 'cascade',
-  ports: { trigger: 'out' },
+  ports: { trigger: 'out', up: true },
   defaults: () => ({}),
   schedule({ node, time, activity }) {
     activity.push({ kind: 'node', id: node.id, time, duration: FLASH })

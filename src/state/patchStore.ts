@@ -27,13 +27,20 @@ import type {
   WarpParams,
   SieveParams,
 } from '../types/patch'
-import { connectionFor, EVENT_IN, EVENT_OUT, SIGNAL_LEFT, SIGNAL_RIGHT } from './connections'
+import {
+  connectionFor,
+  EVENT_IN,
+  EVENT_OUT,
+  EVENT_UP,
+  SIGNAL_LEFT,
+  SIGNAL_RIGHT,
+} from './connections'
 import { decodePatch } from './patchCode'
 import { randomPatch } from './randomPatch'
 
 export type FlowNodeData = { params: NodeParams }
 export type FlowNode = Node<FlowNodeData>
-export type FlowEdge = Edge<{ kind: EdgeKind }>
+export type FlowEdge = Edge<{ kind: EdgeKind; up?: boolean }>
 
 /** Which component draws each kind of cable. One map, so the two cannot drift apart. */
 export const EDGE_COMPONENT: Record<EdgeKind, string> = {
@@ -202,10 +209,19 @@ function fromPatch(patch: Patch): {
           id: e.id,
           source: e.source,
           target: e.target,
-          sourceHandle: sideways ? (rightwards ? SIGNAL_RIGHT : SIGNAL_LEFT) : EVENT_OUT,
+          sourceHandle: sideways
+            ? rightwards
+              ? SIGNAL_RIGHT
+              : SIGNAL_LEFT
+            : // An upward cable has to come back out of the port it went in by, or it would be drawn
+              // from the bottom of the Ignite and look like every other cable while behaving unlike
+              // them. Which port it left from is the whole of how the direction is readable.
+              e.up
+              ? EVENT_UP
+              : EVENT_OUT,
           targetHandle: sideways ? (rightwards ? SIGNAL_LEFT : SIGNAL_RIGHT) : EVENT_IN,
           type: EDGE_COMPONENT[e.kind],
-          data: { kind: e.kind },
+          data: e.up ? { kind: e.kind, up: true } : { kind: e.kind },
         }
       }),
   }
@@ -282,9 +298,12 @@ export const usePatchStore = create<PatchState>((set, get) => ({
 
     // `decided` rather than `connection`: a cable drawn backwards has already been turned round, so
     // what gets stored is the direction the audio graph needs rather than the direction of the drag.
-    const { kind, ...ends } = decided
+    const { kind, up, ...ends } = decided
     set({
-      edges: addEdge({ ...ends, type: EDGE_COMPONENT[kind], data: { kind } }, edges) as FlowEdge[],
+      edges: addEdge(
+        { ...ends, type: EDGE_COMPONENT[kind], data: up ? { kind, up } : { kind } },
+        edges,
+      ) as FlowEdge[],
     })
   },
 
@@ -563,6 +582,9 @@ export function toPatch(state: PatchSnapshot = usePatchStore.getState()): Patch 
       kind: e.data?.kind ?? 'event',
       source: e.source,
       target: e.target,
+      // Only where it is set, so an ordinary cable carries no field and every existing comparison of
+      // two patches goes on meaning what it meant.
+      ...(e.data?.up ? { up: true as const } : {}),
     })),
   }
 }

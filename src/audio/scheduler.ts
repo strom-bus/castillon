@@ -33,6 +33,13 @@ const EDGE_FLASH = 0.2
 /** Fallback flash for an effect fed by a node with no duration of its own. */
 const FX_FLASH = 0.12
 
+/** One rung of the traversal: the cable, where it leads, and whether it switches the wave upward. */
+interface Step {
+  id: string
+  target: NodeId
+  up: boolean
+}
+
 export interface TriggerEvent {
   nodeId: NodeId
   time: number
@@ -46,6 +53,19 @@ export interface TriggerEvent {
    * since a patch may loop back on itself and a total would add the same transform on every lap.
    */
   shifts: readonly NodeId[]
+  /**
+   * Whether this trigger is climbing rather than descending.
+   *
+   * Alongside the depth and the warp set, and for the same reason: it is a fact about the path taken to
+   * get here rather than about the node that arrived. A node has no idea which way the wave is going and
+   * should not need one — it plays its sequence and says it has finished, and the chain decides where
+   * "next" is.
+   *
+   * Both directions live in **one** chain, so a pass ends when both waves have drained and its length is
+   * the longer of the two. That needs no new logic anywhere, which is most of the argument for doing it
+   * this way.
+   */
+  up: boolean
 }
 
 interface Chain {
@@ -289,13 +309,29 @@ export class CascadeScheduler {
   drain(horizon: number): void {
     const patch = this.deps.getPatch()
     const nodeById = new Map<NodeId, PatchNode>(patch.nodes.map((n) => [n.id, n]))
-    const edgesBySource = new Map<NodeId, { id: string; target: NodeId }[]>()
+    const edgesBySource = new Map<NodeId, Step[]>()
+    /*
+     * The same cables indexed the other way, for a wave that is climbing.
+     *
+     * Upward cables are left out of it on purpose. One of those is how a climbing wave *starts*, not a
+     * rung it can use — followed backwards it would take the wave straight to the IGNITE it came from,
+     * firing it a second time and flashing the cable the wrong way.
+     */
+    const edgesByTarget = new Map<NodeId, Step[]>()
     const fxBySource = new Map<NodeId, NodeId[]>()
     for (const edge of patch.edges) {
       if (edge.kind === 'event') {
+        const down = { id: edge.id, target: edge.target, up: edge.up === true }
         const list = edgesBySource.get(edge.source)
-        if (list) list.push({ id: edge.id, target: edge.target })
-        else edgesBySource.set(edge.source, [{ id: edge.id, target: edge.target }])
+        if (list) list.push(down)
+        else edgesBySource.set(edge.source, [down])
+
+        if (!down.up) {
+          const climbing = { id: edge.id, target: edge.source, up: false }
+          const above = edgesByTarget.get(edge.target)
+          if (above) above.push(climbing)
+          else edgesByTarget.set(edge.target, [climbing])
+        }
       } else if (edge.kind === 'audio') {
         const list = fxBySource.get(edge.source)
         if (list) list.push(edge.target)
@@ -307,7 +343,7 @@ export class CascadeScheduler {
     while (this.queue.length > 0 && this.queue[0].time <= horizon) {
       if (++processed > (this.deps.maxEventsPerDrain ?? MAX_EVENTS_PER_TICK)) break
       const event = this.queue.shift() as TriggerEvent
-      this.process(event, patch, nodeById, edgesBySource, fxBySource)
+      this.process(event, patch, nodeById, edgesBySource, edgesByTarget, fxBySource)
     }
   }
 
@@ -315,7 +351,8 @@ export class CascadeScheduler {
     event: TriggerEvent,
     patch: Patch,
     nodeById: Map<NodeId, PatchNode>,
-    edgesBySource: Map<NodeId, { id: string; target: NodeId }[]>,
+    edgesBySource: Map<NodeId, Step[]>,
+    edgesByTarget: Map<NodeId, Step[]>,
     fxBySource: Map<NodeId, NodeId[]>,
   ): void {
     const chain = this.chains.get(event.chainId)
@@ -383,9 +420,10 @@ export class CascadeScheduler {
     }
 
     if (event.depth < MAX_DEPTH) {
-      const children = edgesBySource.get(node.id)
-      if (children) {
-        for (const edge of children) {
+      // Down the cascade, or up it. Which one is a fact about this trigger, not about this node.
+      const onward = event.up ? edgesByTarget.get(node.id) : edgesBySource.get(node.id)
+      if (onward) {
+        for (const edge of onward) {
           for (const at of result.outgoing) {
             this.deps.activity.push({ kind: 'edge', id: edge.id, time: at, duration: EDGE_FLASH })
             this.enqueue({
@@ -394,6 +432,12 @@ export class CascadeScheduler {
               depth: event.depth + 1,
               chainId: event.chainId,
               shifts: carried,
+              /*
+               * An upward cable switches the wave; anything else keeps it going the way it was. Which
+               * means the flag only ever does something when read *forward*, and a climbing wave — whose
+               * index has none of them in it — simply stays climbing.
+               */
+              up: event.up || edge.up,
             })
           }
         }
@@ -442,7 +486,7 @@ export class CascadeScheduler {
       withheld: false,
     })
     // A cascade begins in the key it was written in; only a WARP in the branch moves it.
-    this.enqueue({ nodeId: startNodeId, time, depth: 0, chainId, shifts: [] })
+    this.enqueue({ nodeId: startNodeId, time, depth: 0, chainId, shifts: [], up: false })
   }
 
   private enqueue(event: TriggerEvent): void {

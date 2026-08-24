@@ -122,6 +122,17 @@ const FLAG_IGNITE_TRIGGER = 1
  */
 const FLAG_MODULATION = 2
 
+/**
+ * Header flag 4: some cable runs the cascade upward, so every cable carries a bit saying whether it is
+ * that one.
+ *
+ * The third use of the reserved flags and the same argument as the second: a bit per cable is cheap and
+ * a bit per cable in every patch that has no upward cable in it is a waste — most patches will not. With
+ * the flag clear, nothing is written and nothing is read, so every code already published decodes to the
+ * bytes it always did.
+ */
+const FLAG_CLIMBING = 4
+
 /** Cable kinds, in the order their index is written. Appended to, never reordered. */
 /** Widths for a warp's fields. Wide enough that each table can grow without a format change. */
 const WARP_SPEED_BITS = 4
@@ -839,8 +850,11 @@ export function encodePatch(patch: Patch): string {
   const anyModulation =
     patch.nodes.some((node) => node.type === 'mod' || node.type === 'warp') ||
     patch.edges.some((e) => e.kind === 'mod' || e.kind === 'warp')
+  const anyClimbing = patch.edges.some((e) => e.kind === 'event' && e.up === true)
   writer.write(
-    (anyBound ? FLAG_IGNITE_TRIGGER : 0) | (anyModulation ? FLAG_MODULATION : 0),
+    (anyBound ? FLAG_IGNITE_TRIGGER : 0) |
+      (anyModulation ? FLAG_MODULATION : 0) |
+      (anyClimbing ? FLAG_CLIMBING : 0),
     HEADER_FLAG_BITS,
   )
 
@@ -890,6 +904,10 @@ export function encodePatch(patch: Patch): string {
     writer.write(Math.max(0, EDGE_KINDS.indexOf(edge.kind)), kindBits)
     writer.write(indexOf.get(edge.source) as number, bits)
     writer.write(indexOf.get(edge.target) as number, bits)
+    // Only in a patch that has one, and then on every cable rather than only the event ones — the
+    // reader has the kind by now, but keeping the width unconditional is one fewer thing to get wrong
+    // between the two halves of a format.
+    if (anyClimbing) writer.write(edge.up === true ? 1 : 0, 1)
   }
 
   return toBase64Url(writer.finish())
@@ -908,6 +926,7 @@ export function decodePatch(code: string): Patch | null {
     const flags = reader.read(HEADER_FLAG_BITS)
     const ignitesCarryTrigger = (flags & FLAG_IGNITE_TRIGGER) !== 0
     const hasModulation = (flags & FLAG_MODULATION) !== 0
+    const hasClimbing = (flags & FLAG_CLIMBING) !== 0
 
     const nodeCount = reader.readVarint()
     if (nodeCount > 5000) return null
@@ -953,12 +972,16 @@ export function decodePatch(code: string): Patch | null {
       const kind: EdgeKind = EDGE_KINDS[reader.read(hasModulation ? 2 : 1)] ?? 'event'
       const source = reader.read(bits)
       const target = reader.read(bits)
+      const climbing = hasClimbing && reader.read(1) === 1
       if (source >= nodes.length || target >= nodes.length) return null
       edges.push({
         id: `e${i}`,
         kind,
         source: nodes[source].id,
         target: nodes[target].id,
+        // Left off entirely when it is not set, so an ordinary cable decodes to the object it always
+        // did and every test comparing two patches goes on meaning what it meant.
+        ...(climbing ? { up: true } : {}),
       })
     }
 

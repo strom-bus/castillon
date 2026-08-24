@@ -2,7 +2,14 @@ import { describe, expect, it } from 'vitest'
 import { render } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { nodeTypes } from './flowTypes'
-import { EVENT_IN, EVENT_OUT, SIGNAL_LEFT, SIGNAL_RIGHT, WARPABLE } from '../state/connections'
+import {
+  EVENT_IN,
+  EVENT_OUT,
+  EVENT_UP,
+  SIGNAL_LEFT,
+  SIGNAL_RIGHT,
+  WARPABLE,
+} from '../state/connections'
 import { NODE_DEFINITIONS } from '../nodes/registry'
 
 /**
@@ -102,6 +109,21 @@ describe('the ports on a node', () => {
     expect(ports.has(SIGNAL_RIGHT)).toBe(true)
     expect(ports.has(EVENT_IN), 'a warp can be fired').toBe(false)
     expect(ports.has(EVENT_OUT), 'a warp can fire the cascade').toBe(false)
+  })
+
+  it('gives the upward port to exactly the nodes that declare one', () => {
+    /*
+     * Both directions of the same claim, which is what this file is for. A node declaring the port and
+     * not drawing it means a cable a patch code can carry and the canvas cannot show — the WARP fault
+     * again. A node drawing one it has not declared means a cable the rules will refuse the moment it
+     * is let go of, which reads as the canvas being broken.
+     */
+    for (const definition of NODE_DEFINITIONS) {
+      const drawn = portsOn(definition.type).has(EVENT_UP)
+      expect(drawn, `${definition.type}: declares ${definition.ports.up}, draws ${drawn}`).toBe(
+        definition.ports.up === true,
+      )
+    }
   })
 
   it('found ports at all, so a broken query cannot pass by finding none', () => {

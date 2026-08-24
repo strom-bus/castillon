@@ -24,6 +24,14 @@ export const SIGNAL_LEFT = 'signal-l'
 export const SIGNAL_RIGHT = 'signal-r'
 export const EVENT_IN = 'in'
 export const EVENT_OUT = 'out'
+/**
+ * The Ignite's second trigger output, at the top, whose cables run the cascade upward.
+ *
+ * Its own handle rather than a setting on the cable, because that is what makes the direction *visible*:
+ * which port a cable left from is readable on the canvas without selecting anything, the same way a side
+ * port says a cable carries signal rather than a trigger.
+ */
+export const EVENT_UP = 'up'
 
 /** Whether a handle is on the side of a node, as opposed to its top or bottom. */
 export function isSignalHandle(handle: string | null | undefined): boolean {
@@ -94,6 +102,11 @@ const triggerOf = (type: string | undefined) =>
   NODE_DEFINITIONS.find((one) => one.type === type)?.ports.trigger
 
 /** Whether a trigger can run from one node type into another: one has a way out, the other a way in. */
+/** Whether this kind of node has the upward trigger output at all. Only the Ignite does. */
+function hasUpPort(type: string | undefined): boolean {
+  return NODE_DEFINITIONS.find((definition) => definition.type === type)?.ports.up === true
+}
+
 function canTrigger(from: string | undefined, to: string | undefined): boolean {
   const out = triggerOf(from)
   const into = triggerOf(to)
@@ -107,6 +120,8 @@ export interface Connected {
   sourceHandle: string | null
   targetHandle: string | null
   kind: EdgeKind
+  /** Set on a trigger cable drawn from the Ignite's upward port. Absent means the ordinary way. */
+  up?: boolean
 }
 
 /** Which end of a signal cable is which, decided by the node types rather than by the drag. */
@@ -202,7 +217,14 @@ export function connectionFor(
 
   // Triggers run down the cascade: out of a bottom port and into a top one. Drawn the other way, it
   // is turned round rather than refused.
-  const startsAtOutput = sourceHandle === EVENT_OUT || sourceHandle === null
+  /*
+   * An upward cable is an ordinary trigger cable that happens to leave from the other port, so it obeys
+   * every rule below unchanged — what may be joined to what does not depend on which way the wave runs.
+   * Only nodes that declare the port may offer one, checked against the registry rather than the handle
+   * name for the same reason the trigger ports are.
+   */
+  const climbing = sourceHandle === EVENT_UP && hasUpPort(typeOf(source))
+  const startsAtOutput = sourceHandle === EVENT_OUT || sourceHandle === null || climbing
   const endsAtInput = targetHandle === EVENT_IN || targetHandle === null
   if (startsAtOutput && endsAtInput) {
     // Checked against the port declarations and not only against the handle names. A handle that is
@@ -210,7 +232,7 @@ export function connectionFor(
     // which port — would otherwise be taken as a trigger port on any node at all, including one that
     // has none. That is the same fault as a warp on an Ignite, in the other direction.
     return canTrigger(typeOf(source), typeOf(target)) && !already(source, target)
-      ? { source, target, sourceHandle, targetHandle, kind: 'event' }
+      ? { source, target, sourceHandle, targetHandle, kind: 'event', up: climbing || undefined }
       : null
   }
   if (sourceHandle === EVENT_IN && targetHandle === EVENT_OUT) {

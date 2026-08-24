@@ -4,7 +4,7 @@ import { FILTER_LABELS } from '../audio/filter'
 import { WAVEFORM_LABELS } from '../audio/waveforms'
 import { EFFECTS } from '../audio/effects'
 import { DEFAULT_DELAY_MS } from '../nodes/registry'
-import { EVENT_IN, EVENT_OUT, SIGNAL_LEFT, SIGNAL_RIGHT } from '../state/connections'
+import { EVENT_IN, EVENT_OUT, EVENT_UP, SIGNAL_LEFT, SIGNAL_RIGHT } from '../state/connections'
 import { formatOrdinal, nodeOrdinal } from '../state/ordinals'
 import { usePatchStore, type FlowNode } from '../state/patchStore'
 import { targetOf } from '../audio/modulation'
@@ -64,9 +64,19 @@ export function StartNode({ id, data, selected }: NodeProps<FlowNode>) {
         IGNITE <span className="node-ordinal">{ordinal}</span>
         {key && <span className="node-key">{key}</span>}
       </div>
-      {/* One port, and no side ports: an Ignite says *now* and carries nothing else. A WARP briefly
-          attached here, which meant two signal ports on a node that has nothing to do with signal —
-          see WARPABLE in state/connections for why the rule changed instead. */}
+      {/* Two trigger outputs and no side ports: an Ignite says *now*, and carries nothing else. A WARP
+          briefly attached here, which meant two signal ports on a node that has nothing to do with
+          signal — see WARPABLE in state/connections for why the rule changed instead.
+
+          The one at the top runs the cascade upward: what it fires climbs by following ordinary cables
+          backwards. It is at the top because that is where the wave goes, which makes the direction
+          readable without selecting anything — the same reasoning as a side port meaning signal. */}
+      <Handle
+        type="source"
+        id={EVENT_UP}
+        position={Position.Top}
+        className="port port-out port-up"
+      />
       <Handle type="source" id={EVENT_OUT} position={Position.Bottom} className="port port-out" />
     </div>
   )

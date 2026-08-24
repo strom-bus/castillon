@@ -35,7 +35,7 @@ interface NodeLike {
 interface EdgeLike {
   source: string
   target: string
-  data?: { kind?: string }
+  data?: { kind?: string; up?: boolean }
 }
 
 export function computeDepths(nodes: NodeLike[], edges: EdgeLike[]): DepthInfo {
@@ -45,6 +45,16 @@ export function computeDepths(nodes: NodeLike[], edges: EdgeLike[]): DepthInfo {
     // `max` and compressing the ramp across the whole patch — which is exactly what an audio cable
     // did once before this line existed. A modulation cable is the same trap wearing a new name.
     if (edge.data?.kind === 'audio' || edge.data?.kind === 'mod') continue
+    /*
+     * And not a cable that runs the cascade upward. Depth here means *distance down the cascade*, and an
+     * upward cable is not a step down it — it is where a wave going the other way gets in. Counting it
+     * would give its target the depth of a first-level node, recolouring a whole branch and flattening
+     * the ramp across the patch, which is the same trap an audio cable fell into above.
+     *
+     * The cable itself still takes its colours from its two ends, so it sweeps the entire ramp from the
+     * source hue to the deepest one — which is exactly the distance it covers.
+     */
+    if (edge.data?.up) continue
     const list = children.get(edge.source)
     if (list) list.push(edge.target)
     else children.set(edge.source, [edge.target])

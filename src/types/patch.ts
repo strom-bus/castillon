@@ -706,6 +706,19 @@ export interface PatchEdge {
   kind: EdgeKind
   source: NodeId
   target: NodeId
+  /**
+   * An event cable that starts a wave running **up** the cascade instead of down it.
+   *
+   * Only an IGNITE has a port for one, and only that first cable carries the flag: what it triggers then
+   * climbs by following ordinary cables *backwards*, from a node to whatever points at it, until it runs
+   * out of anything above. So one IGNITE can play the same tree in both directions at once from the same
+   * trigger, and the shape of the graph never has to be computed — the direction is which port the cable
+   * left from, which is how everything else here is said.
+   *
+   * A climbing wave never follows one of these, or it would arrive straight back at the IGNITE it came
+   * from. They are the entry to an upward wave, not a part of one.
+   */
+  up?: boolean
 }
 
 export interface Patch {

@@ -823,6 +823,79 @@ describe('modulation in the code', () => {
     })
   })
 
+  describe('a cable that runs the cascade upward', () => {
+    /*
+     * One bit, and only in a patch that has one. Worth its own tests because it is the first thing an
+     * *edge* has ever carried besides its two ends and its kind — every other field in this format
+     * belongs to a node — so the two halves of the reader could disagree about the width of a cable and
+     * every existing test would go on passing.
+     */
+    const climbing = (up: boolean) =>
+      patchOf(
+        [
+          { id: 's', type: 'start', position: { x: 0, y: 0 }, params: {} },
+          oscNode('a'),
+          oscNode('b'),
+        ],
+        [
+          { id: 'e1', kind: 'event', source: 'a', target: 'b' },
+          { id: 'e2', kind: 'event', source: 's', target: 'b', ...(up ? { up: true } : {}) },
+        ],
+      )
+
+    it('comes back as one, on the cable it was on', () => {
+      const back = decodePatch(encodePatch(climbing(true)))!
+      // Ids do not travel — the format stores each cable as two positions in the node list — so the
+      // ends are checked by position, which is what the reader actually reconstructs.
+      const at = (index: number) => back.nodes[index].id
+      const upward = back.edges.filter((edge) => edge.up === true)
+      expect(upward).toHaveLength(1)
+      expect(upward[0].source).toBe(at(0))
+      expect(upward[0].target).toBe(at(2))
+      // And the ordinary cable beside it is untouched, which is the half a per-cable bit gets wrong.
+      expect(back.edges.find((edge) => edge.source === at(1))?.up).toBeUndefined()
+    })
+
+    it('costs nothing at all in a patch that has none', () => {
+      /*
+       * The reason it is behind a header flag. Most patches will never contain one, and a bit per cable
+       * on every patch in the gallery to serve the few that do is the wrong trade — the same argument
+       * that put the third cable kind behind a flag rather than widening every code ever written.
+       */
+      const plain = encodePatch(climbing(false))
+      const withOne = encodePatch(climbing(true))
+      expect(plain.length).toBeLessThanOrEqual(withOne.length)
+      // Byte for byte what it was before the field existed: no flag, no bits, nothing.
+      expect(decodePatch(plain)!.edges.every((edge) => edge.up === undefined)).toBe(true)
+    })
+
+    it('keeps several apart, and keeps them on the right cables', () => {
+      // A bit per cable read one cable out of step would put the flag on the wrong one, which is a patch
+      // that plays a different piece and looks identical in every count.
+      const patch = patchOf(
+        [
+          { id: 's', type: 'start', position: { x: 0, y: 0 }, params: {} },
+          oscNode('a'),
+          oscNode('b'),
+          oscNode('c'),
+        ],
+        [
+          { id: 'e1', kind: 'event', source: 'a', target: 'b' },
+          { id: 'e2', kind: 'event', source: 's', target: 'b', up: true },
+          { id: 'e3', kind: 'event', source: 'b', target: 'c' },
+          { id: 'e4', kind: 'event', source: 's', target: 'c', up: true },
+        ],
+      )
+      const back = decodePatch(encodePatch(patch))!
+      const index = new Map(back.nodes.map((node, i) => [node.id, i]))
+      const flagged = back.edges
+        .filter((edge) => edge.up === true)
+        .map((edge) => index.get(edge.target))
+      // Positions two and three, which are `b` and `c` — and *not* the cables between them.
+      expect(flagged.sort()).toEqual([2, 3])
+    })
+  })
+
   describe('a code that travelled', () => {
     /*
      * A long code is a hundred to three hundred characters of base64url, and it goes wherever somebody

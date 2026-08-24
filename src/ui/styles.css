@@ -38,6 +38,27 @@
   color: var(--text);
 }
 
+/* Knocked out rather than coloured: white ground, letters in the titlebar's own colour, so the word
+   reads as a stamp on the chrome instead of a fourth accent competing with the brand's orange and the
+   gallery button's. Nothing else in the interface is inverted, which is what makes it carry at this
+   size — nine pixels of ordinary text beside a 21 px display face would simply disappear.
+
+   Aligned to the middle of the flex row, then nudged: small caps in a tall row sit optically low
+   because the line box is taller than the letters, and the eye reads the letters. */
+.beta {
+  align-self: center;
+  margin-top: 1px;
+  padding: 2px 5px 1px;
+  background: var(--text);
+  color: var(--surface);
+  font-family: var(--display);
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
 .brand-mark {
   width: 0.95em;
   height: 0.95em;

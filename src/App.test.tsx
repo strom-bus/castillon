@@ -16,6 +16,10 @@ describe('App', () => {
     // is the name it spells rather than any one text node. Mixed case on purpose: the capitals are
     // presentation, applied by `text-transform`, and the document should still carry the real name.
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Castill_ÓN')
+    // Beside the heading and not inside it, so the page's accessible name stays the instrument's name
+    // rather than becoming a version of it — but still real text, so a reader says it out loud.
+    expect(screen.getByText('BETA')).toBeDefined()
+    expect(screen.getByRole('heading', { level: 1 }).textContent).not.toContain('BETA')
     expect(screen.getByText('COLMENA / STROMBUS')).toBeDefined()
     // AGPL §13: anyone using the hosted app has to be able to reach its source.
     expect(screen.getByText('source')).toBeDefined()

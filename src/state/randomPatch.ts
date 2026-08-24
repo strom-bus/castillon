@@ -304,6 +304,18 @@ function randomOsc(
     // Only means anything with a filter, and mostly on: without it the top of a wide sequence goes dull
     // while the bottom stays open, which reads as a patch that runs out of energy as it climbs.
     keyTrack: filtered ? c.range(0, 90) / 100 : 0,
+    /*
+     * Mostly forward. A patch where half the lines run backwards has no through-line to hear the
+     * backwards ones against — the same reason the step scopes are rolled below a half.
+     *
+     * Ping-pong is rarest because it is the one that needs listening *across* passes to notice: a
+     * reversed line is audible immediately, an alternating one only on the second time round.
+     */
+    direction: c.weighted([
+      ['forward', 8],
+      ['reverse', 2],
+      ['pingpong', 1],
+    ]),
     propagateMode: c.weighted([
       ['onEnd', 8],
       ['onStart', 2],

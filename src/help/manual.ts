@@ -354,6 +354,20 @@ export const MANUAL: Section[] = [
             },
           },
           {
+            term: { en: 'Direction', es: 'Direction' },
+            text: {
+              en: 'Which way the steps are read. Reverse plays the phrase backwards; Ping-pong runs forward one pass and back the next. Only the *notes* turn round — where each slot falls, how long it lasts and which half of a swung pair it is all stay exactly where they were, so a reversed phrase still swings forward. That is what a musician means by playing something backwards, and it is not what a tape running the wrong way does.',
+              es: 'Hacia dónde se leen los pasos. Reverse toca la frase al revés; Ping-pong va hacia delante una pasada y hacia atrás la siguiente. Solo dan la vuelta las *notas* — dónde cae cada hueco, cuánto dura y de qué mitad del par con swing es se quedan exactamente donde estaban, así que una frase invertida sigue swingueando hacia delante. Eso es lo que un músico quiere decir con tocar algo al revés, y no es lo que hace una cinta girando al contrario.',
+            },
+          },
+          {
+            term: { en: 'Ping-pong', es: 'Ping-pong' },
+            text: {
+              en: 'Turns round once per **pass**, not inside one — an oscillator commits its whole sequence the moment it is triggered, so there is nowhere in the middle to change its mind. Which means the ends repeat: four steps give 1 2 3 4 then 4 3 2 1. On an odd number of steps it is worth more, because the turn lands on a different beat every time round.',
+              es: 'Da la vuelta una vez por **pasada**, no dentro de una — un oscilador compromete su secuencia entera en el momento en que se dispara, así que no hay sitio en medio para cambiar de idea. Eso significa que los extremos se repiten: cuatro pasos dan 1 2 3 4 y luego 4 3 2 1. Con un número impar de pasos vale más, porque el giro cae en un pulso distinto cada vuelta.',
+            },
+          },
+          {
             term: { en: 'Gate', es: 'Gate' },
             text: {
               en: 'What share of its step each note holds. Low is short and detached, one is a note that lasts until the next one begins. It is the difference between a plucked line and a legato one, and on a slow division a low gate leaves audible silence between notes.',

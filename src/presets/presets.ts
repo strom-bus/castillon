@@ -214,11 +214,17 @@ const descent: Preset = {
  * One trigger, two branches, a delay on one of them. They start together, come apart, and never quite
  * line up again, because the branches are different lengths and nothing forces them into a bar. Shorten
  * the delay to hear them lock; lengthen it to hear them separate further.
+ *
+ * The two also read their steps differently, which is a second axis of the same idea and the reason this
+ * is where direction is shown. One plays its five-step phrase **backwards**, fixed; the other turns round
+ * every pass across seven steps. So the delay pulls them apart in time, the lengths pull them apart in
+ * phase, and the directions pull them apart in shape — and none of the three is a clock.
  */
 const drift: Preset = {
   id: 'drift',
   name: 'DRIFT',
-  about: 'Two branches from one trigger, one held back, sliding against each other.',
+  about:
+    'Two branches from one trigger, one held back, one reversed and one turning round, sliding against each other.',
   patch: patchOf(
     104,
     [
@@ -229,6 +235,9 @@ const drift: Preset = {
         detune: -8,
         steps: steps([note(0, 1), note(2, 1), note(4, 1), note(2, 1), note(6, 0)]),
         division: '1/16',
+        // Backwards, and only the notes are: the groove and the step lengths stay forward, so this reads
+        // as the same phrase played in reverse rather than as a recording running the wrong way.
+        direction: 'reverse',
         gain: 0.2,
         attack: 3,
         decay: 90,
@@ -248,6 +257,15 @@ const drift: Preset = {
         detune: 8,
         steps: steps([note(0, 1), note(3, 1), note(4, 1), null, note(2, 1), note(5, 0), null]),
         division: '1/16',
+        /*
+         * And this one turns round every pass, which is a third way for the two to come apart. Its twin
+         * plays one fixed phrase backwards for ever; this one alternates, so the relationship between
+         * them is different on every other time round even before the delay is counted.
+         *
+         * Seven steps against the twin's five, so the two never agree about where the phrase starts
+         * either — the pass length differs and the ping-pong turns on a different beat each time.
+         */
+        direction: 'pingpong',
         gain: 0.2,
         attack: 3,
         decay: 90,

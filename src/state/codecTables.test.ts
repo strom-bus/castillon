@@ -4,7 +4,7 @@ import { LFO_SHAPES } from '../audio/modulation'
 import { SCALES } from '../audio/scales'
 import { WAVEFORMS } from '../audio/waveforms'
 import { NODE_DEFINITIONS } from '../nodes/registry'
-import { DIVISIONS, EDGE_KINDS, PROPAGATE_MODES } from '../types/patch'
+import { DIRECTIONS, DIVISIONS, EDGE_KINDS, PROPAGATE_MODES } from '../types/patch'
 import { indexedTables } from './patchCode'
 
 /**
@@ -45,6 +45,7 @@ const COVERS: Record<string, readonly unknown[] | null> = {
   // The echo's time, which borrows the same table: a beat division either way.
   time: DIVISIONS,
   propagateMode: PROPAGATE_MODES,
+  direction: DIRECTIONS,
   /*
    * The ones whose values are the format's own vocabulary and live nowhere else. `null` means "there is
    * nothing to compare it with", which is a claim worth making explicitly: it is the difference between a

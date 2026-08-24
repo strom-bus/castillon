@@ -18,6 +18,7 @@ import { permits } from '../state/connections'
 import { defaultFxParams, NODE_DEFINITIONS } from '../nodes/registry'
 import { decodePatch, encodePatch, STEP_COLUMN_USAGE } from '../state/patchCode'
 import { warpDoingNothing } from '../state/transpose'
+import { DIRECTIONS } from '../types/patch'
 import type {
   ModParams,
   OscParams,
@@ -316,6 +317,17 @@ describe('the presets', () => {
       .map((n) => n.params as OscParams)
 
     const shown: Record<string, boolean> = {
+      /*
+       * Each direction, for the same reason as the propagation modes below: one field, three values, and
+       * moving it once shows one of them. Reverse is audible on the first pass and ping-pong only on the
+       * second, so a preset showing one is not showing the other.
+       */
+      ...Object.fromEntries(
+        DIRECTIONS.map((direction) => [
+          `direction:${direction}`,
+          oscillators.some((params) => (params.direction ?? 'forward') === direction),
+        ]),
+      ),
       // Each propagation mode, since it is one field and the control the whole instrument turns on.
       // Moving it off its default once shows one of the three; this asks for all of them.
       onEnd: oscillators.some((params) => params.propagateMode === 'onEnd'),

@@ -38,6 +38,7 @@ import {
   MIN_SWEEP,
   type DelayParams,
   type WarpParams,
+  type Direction,
   type DistortionShape,
   type Division,
   type EdgeKind,
@@ -201,6 +202,8 @@ const WAVEFORM_CODES: Waveform[] = [
 
 const DIVISION_CODES: Division[] = ['1/4', '1/8', '1/16']
 
+const DIRECTION_CODES: Direction[] = ['forward', 'reverse', 'pingpong']
+
 const PROPAGATE_CODES: PropagateMode[] = ['onEnd', 'onStart', 'onStep']
 
 /** Node coordinates are stored on a 4 px grid; nothing in this UI is placed finer than that. */
@@ -329,6 +332,8 @@ const OSC_FIELDS: Field<OscParams>[] = [
   flagField('useSwing'),
   scaledField('slop', 6, 100, 0, MAX_SLOP * 100),
   flagField('useSlop'),
+  // On the end, where a new field goes: the order here is the wire format.
+  indexField('direction', 2, DIRECTION_CODES),
 ]
 
 const FX_FIELDS: Field<FxParams>[] = [
@@ -413,6 +418,7 @@ const OSC_REFERENCE: OscParams = {
   scale: 'free',
   scaleRoot: 0,
   propagateMode: 'onEnd',
+  direction: 'forward',
 }
 
 const FX_REFERENCE: FxParams = {

@@ -71,6 +71,13 @@ refused, since between an oscillator and an effect there is only one direction t
 - **Glide, split across two scopes.** Which notes slide belongs to the note and how long a slide lasts
   belongs to the oscillator. One value for a whole sequence could only say that every note glides or
   none does, and the line worth having is the one where some do.
+- **Sequence direction** — forward, reverse or ping-pong — and **only the notes turn round.** Where each
+  slot falls, how long it lasts and which half of a swung pair it is are all decided by position in the
+  pass; what moves is the content of the slot. So a reversed phrase still swings forward, which is what a
+  musician means by playing something backwards and not what a tape running the wrong way does. Ping-pong
+  alternates by _pass_ rather than turning round inside one, because an oscillator commits its whole
+  sequence the moment it is triggered — so the ends repeat, and it is worth most on an odd number of
+  steps, where the turn lands on a different beat every time round.
 - **Delay node** that holds a trigger and passes it on later, so branches drift out of step.
 - **A SIEVE node**, its sibling: it holds a trigger and passes it on _sometimes_. There is no bar here,
   so a pass is the only thing that recurs — and a sieve set to the first of every two lets its branch
@@ -350,7 +357,7 @@ refused, since between an oscillator and an effect there is only one direction t
   it longer without making it clearer. Both languages live adjacent in one file so a half-finished
   edit shows up in the diff rather than as a blank paragraph months later.
 
-  Fourteen chapters and a hundred and forty-seven entries, written for whoever is using the instrument
+  Fourteen chapters and a hundred and forty-nine entries, written for whoever is using the instrument
   rather than for whoever built it: no entry explains how something is implemented, and every one says
   what a control does to the sound and when you would reach for it. One chapter per module, each in
   the order its own panel is in and under the panel's own group headings, so reading the manual and
@@ -367,7 +374,7 @@ refused, since between an oscillator and an effect there is only one direction t
   patch changes it. **Generate** publishes and puts the code in the field; the field is empty until
   it does, because a code shown before it exists is a code somebody writes down. Copy copies what is
   there and nothing else. The field takes either kind of code.
-  The eight nodes it starts with come to 131 characters, against 3243 as JSON.
+  The eight nodes it starts with come to 132 characters, against 3353 as JSON.
 
 - **A synced stutter**, which takes a slice and plays it again _instead of_ what happened next. That is
   the whole difference from an echo — an echo adds a copy later while the original carries on underneath,

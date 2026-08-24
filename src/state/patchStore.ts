@@ -142,7 +142,7 @@ function makeNode(type: string, position: { x: number; y: number }, id = newId(t
  * error. The test beside this one is what notices.
  */
 export const INITIAL_PATCH_CODE =
-  'FGK6IBAJBSMEAoUjgACuuaDs5mq9UAJ5QAMfgADd-slBjwdPlj66wDpANAA0AAAGHMpzKICggKGAhkPEBdwFAwAA64Z2IGnAALICMRkgIuicAAJqtoJ52MF-wAGAihZxK3A'
+  'FGLC4BAJBSMEAoUjgABXXNB2czVeqAE8oAGPwAA3frJQY8HT5Y-usA6QDQANAAAAw5lOZRAUEBQwEMh4gLuAoGAADrhnYgacAAsgIxGSAi6JwAATVbQTzsYL9gAMBFCziVuA'
 
 /** Types that have been renamed. A patch saved under the old name still loads. */
 const RENAMED_TYPES: Record<string, string> = {

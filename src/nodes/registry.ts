@@ -7,6 +7,7 @@ import { LAYER_THRESHOLD, MAX_LOAD } from '../audio/load'
 import type {
   SieveParams,
   DelayParams,
+  Direction,
   FxParams,
   ModParams,
   NodeParams,
@@ -342,6 +343,25 @@ export function normaliseStepCount(count: number): StepCount {
 }
 
 /**
+ * Which step is read in the slot at `index`, given a direction and which pass this is.
+ *
+ * Counting from zero, and pure over its arguments so the whole of direction is one testable expression
+ * rather than a branch inside the scheduling loop.
+ *
+ * `pingpong` alternates by **pass**, since a pass is one traversal of the sequence and there is nowhere
+ * inside it to turn round — the scheduler commits the lot the moment it is triggered. Odd passes run
+ * forward and even ones back, so the endpoints repeat: 1 2 3 4 then 4 3 2 1.
+ */
+export function stepAt(index: number, count: number, direction: Direction, lap: number): number {
+  if (count <= 0) return 0
+  const back =
+    direction === 'reverse' ||
+    // Counting from one, so the first pass is the outward one.
+    (direction === 'pingpong' && (((lap - 1) % 2) + 2) % 2 === 1)
+  return back ? count - 1 - index : index
+}
+
+/**
  * Grows or shrinks a sequence by repeating it rather than padding with defaults. Doubling a
  * four-step phrase gives the same phrase twice, which is what a hardware sequencer does and
  * what you almost always want before editing the new half.
@@ -382,6 +402,7 @@ export function defaultOscParams(): OscParams {
     scale: 'free',
     scaleRoot: 0,
     propagateMode: 'onEnd',
+    direction: 'forward',
   }
 }
 
@@ -488,8 +509,17 @@ const osc: NodeDefinition = {
       const nudge = wobble > 0 ? (engine.chance() * 2 - 1) * wobble : 0
       const at = Math.max(time, time + startOf(i) + nudge)
       const held = lengthOf(i)
-      const s = params.steps[i]
-      activity.push({ kind: 'step', id: node.id, step: i, time: at, duration: held })
+      /*
+       * Which step's *content* plays in this slot. The slot itself — when it starts, how long it lasts,
+       * which half of a swung pair it is — belongs to `i` and does not move, which is what keeps a
+       * reversed sequence swinging forward instead of running its groove backwards too.
+       *
+       * The lit bar follows the content rather than the slot: what you want to see is the step you are
+       * hearing, and on the way back those are not the same number.
+       */
+      const from = stepAt(i, count, params.direction ?? 'forward', lap)
+      const s = params.steps[from]
+      activity.push({ kind: 'step', id: node.id, step: from, time: at, duration: held })
       if (!s || !s.active) continue
 
       /*

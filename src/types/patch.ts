@@ -48,6 +48,25 @@ export const PROPAGATE_MODES = ['onEnd', 'onStart', 'onStep'] as const
 export type PropagateMode = (typeof PROPAGATE_MODES)[number]
 
 /**
+ * Which way an oscillator reads its own steps.
+ *
+ * `pingpong` alternates by pass rather than turning round inside one, because the scheduler commits a
+ * whole sequence the moment it is triggered — a pass *is* one traversal, so there is nowhere inside it to
+ * change direction. Which means the endpoints repeat: four steps give 1 2 3 4 then 4 3 2 1. Some hardware
+ * calls the non-repeating version pingpong and this one pendulum; the non-repeating one would need a
+ * return pass one step shorter than the outward one, and a pass here is as long as its sequence.
+ */
+export const DIRECTIONS = ['forward', 'reverse', 'pingpong'] as const
+export type Direction = (typeof DIRECTIONS)[number]
+
+/** What the panel calls each of them. `pingpong` is one word in code and two on screen. */
+export const DIRECTION_LABELS: Record<Direction, string> = {
+  forward: 'Forward',
+  reverse: 'Reverse',
+  pingpong: 'Ping-pong',
+}
+
+/**
  * `pulse` is not a native Web Audio type: it is synthesised with a `PeriodicWave`
  * (see audio/waveforms.ts). The noise colours are played back from generated buffers
  * (see audio/noise.ts). The rest are native oscillator types.
@@ -222,6 +241,17 @@ export interface OscParams {
    */
   keyTrack: number
   propagateMode: PropagateMode
+  /**
+   * Which way the steps are read — and **only** which way they are read.
+   *
+   * The timing does not reverse with them. Where each slot falls, how long it lasts and which half of a
+   * swung pair it is are all decided by position in the pass; what moves is the *content* of the slot —
+   * the note, its velocity, its chance, its roll, its slide. So a reversed sequence still swings forward
+   * and still slops the same way, which is what a musician means by playing a phrase backwards. Reversing
+   * the time as well would run the groove backwards too, and a backwards groove is a different feature
+   * nobody asked for.
+   */
+  direction: Direction
 }
 
 /**

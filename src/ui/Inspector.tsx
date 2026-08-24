@@ -84,8 +84,11 @@ import {
   MIN_RATE,
   MIN_SWEEP,
   MIN_DECAY,
+  DIRECTIONS,
+  DIRECTION_LABELS,
   MIN_DELAY_MS,
   type DelayParams,
+  type Direction,
   type DistortionShape,
   type Division,
   type EffectKind,
@@ -1462,6 +1465,23 @@ export function Inspector() {
             {DIVISIONS.map((d) => (
               <option key={d} value={d}>
                 {d}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        {/* Which way the steps are read, beside Division because both are about how the sequence is
+            traversed rather than what is in it. Only the *content* reverses: the groove stays forward,
+            which is what playing a phrase backwards means. */}
+        <label className="inspector-field">
+          <span className="inspector-label">Direction</span>
+          <select
+            value={params.direction ?? 'forward'}
+            onChange={(e) => set({ direction: e.target.value as Direction })}
+          >
+            {DIRECTIONS.map((d) => (
+              <option key={d} value={d}>
+                {DIRECTION_LABELS[d]}
               </option>
             ))}
           </select>

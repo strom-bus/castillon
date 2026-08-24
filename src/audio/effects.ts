@@ -1,5 +1,6 @@
 import {
   MAX_DECAY,
+  MAX_EQ_DB,
   MAX_SWEEP,
   MIN_DECAY,
   MIN_SWEEP,
@@ -1061,6 +1062,95 @@ const fold: EffectDescriptor = {
   },
 }
 
+/**
+ * Where the two shelves hinge, and how broad the bell is.
+ *
+ * Fixed rather than settings. Two hundred and fifty hertz is under the body of almost everything and
+ * above the rumble; three kilohertz is where air and edge live. Those are where a shelf belongs, and
+ * exposing them would double the controls to let somebody build a worse EQ. The bell moves, because a mid
+ * band that cannot be aimed is not a mid band.
+ *
+ * A Q of 0.9 is broad on purpose — wide enough that a boost sounds like a tone change rather than a
+ * resonance, which is what separates an EQ from the filter effect sitting three rows above it.
+ */
+const EQ_LOW_HINGE = 250
+const EQ_HIGH_HINGE = 3000
+const EQ_MID_Q = 0.9
+
+const eq: EffectDescriptor = {
+  kind: 'eq',
+  /*
+   * Three biquads and the wet/dry pair. Derived from the filter effect rather than guessed: that one is
+   * *one* biquad plus the same two gains and measures 1.8, and the identical node costs `FILTER_COST` —
+   * 1.05 — sitting on a voice. So two more of them is 1.8 + 2.1.
+   *
+   * The strongest prior of the three unmeasured effects, because it reuses a figure that was itself
+   * corroborated two independent ways (PLAN §24). It still wants a sweep.
+   */
+  cost: () => 3.9,
+  label: 'EQ',
+  params: ['low', 'mid', 'high', 'cutoff'],
+  // Here the cutoff is where the bell sits, not a shaping stage after the effect.
+  labels: { cutoff: 'Mid Hz' },
+  defaults: { low: 0, mid: 0, high: 0, cutoff: 1200 },
+  releaseTime: 0.02,
+  create(ctx) {
+    /*
+     * A shelf, a bell and a shelf in series, and **no tone stage after them** — unlike every other effect
+     * here, which borrows `cutoff` for a low-pass on the way out. An EQ *is* the tone stage; adding
+     * another would be a fourth band nobody asked for and a control that says two things.
+     */
+    const low = ctx.createBiquadFilter()
+    low.type = 'lowshelf'
+    low.frequency.value = EQ_LOW_HINGE
+
+    const mid = ctx.createBiquadFilter()
+    mid.type = 'peaking'
+    mid.Q.value = EQ_MID_Q
+
+    const high = ctx.createBiquadFilter()
+    high.type = 'highshelf'
+    high.frequency.value = EQ_HIGH_HINGE
+
+    low.connect(mid)
+    mid.connect(high)
+
+    const dbOf = (value: number | undefined) =>
+      Math.max(-MAX_EQ_DB, Math.min(MAX_EQ_DB, value ?? 0))
+
+    return {
+      input: low,
+      output: high,
+      update(params, { at }) {
+        // Ramped rather than set, because a band being moved by hand or by a MOD is a gain change and a
+        // stepped gain change clicks.
+        low.gain.setTargetAtTime(dbOf(params.low), at, RAMP)
+        mid.gain.setTargetAtTime(dbOf(params.mid), at, RAMP)
+        high.gain.setTargetAtTime(dbOf(params.high), at, RAMP)
+        mid.frequency.setTargetAtTime(
+          Math.min(MAX_CUTOFF, Math.max(MIN_CUTOFF, params.cutoff ?? 1200)),
+          at,
+          RAMP,
+        )
+      },
+      paramFor(key) {
+        // All four reachable. Every one of these is a real `AudioParam` on a biquad, so a MOD on a band
+        // is a signal added to a gain rather than a table rebuilt on a tick — the cheap kind.
+        if (key === 'low') return low.gain
+        if (key === 'mid') return mid.gain
+        if (key === 'high') return high.gain
+        if (key === 'cutoff') return mid.frequency
+        return null
+      },
+      dispose() {
+        low.disconnect()
+        mid.disconnect()
+        high.disconnect()
+      },
+    }
+  },
+}
+
 export const EFFECTS: EffectDescriptor[] = [
   reverb,
   echo,
@@ -1075,6 +1165,7 @@ export const EFFECTS: EffectDescriptor[] = [
   octave,
   comb,
   fold,
+  eq,
 ]
 
 const byKind = new Map(EFFECTS.map((e) => [e.kind, e]))

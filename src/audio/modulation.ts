@@ -16,6 +16,7 @@ import { effectOr } from './effects'
 import { MAX_CUTOFF, MAX_RESONANCE, MIN_CUTOFF, MIN_RESONANCE } from './filter'
 import {
   MAX_DECAY,
+  MAX_EQ_DB,
   MAX_FEEDBACK,
   MAX_RATE as MAX_RATE_FX,
   MAX_SWEEP,
@@ -318,6 +319,30 @@ const FX_PARAM_TARGETS: Record<string, ModTarget> = {
    * on the modulation tick and there is no `AudioParam` behind a table.
    */
   bias: { key: 'bias', label: 'Bias', min: -1, max: 1, via: 'value', surcharge: 0 },
+  /*
+   * The EQ's three bands, in decibels.
+   *
+   * Connected rather than recomputed — each is a real `AudioParam` on a biquad — which makes these the
+   * cheapest destinations in the whole table and the only place a *gain in decibels* is one. A MOD on the
+   * top band is a tremolo that only touches the air; on the mid it is a wah that does not resonate.
+   *
+   * Priced at nothing on the argument the cutoffs established: automating a biquad's gain does not make
+   * it recompute its coefficients per sample the way its frequency does, so this is nearer a gain than a
+   * filter sweep. Unmeasured deliberately, being under what a sweep resolves (PLAN §24.6).
+   */
+  ...Object.fromEntries(
+    (['low', 'mid', 'high'] as const).map((band) => [
+      band,
+      {
+        key: band,
+        label: `${band[0].toUpperCase()}${band.slice(1)}`,
+        min: -MAX_EQ_DB,
+        max: MAX_EQ_DB,
+        via: 'audio' as const,
+        surcharge: 0,
+      },
+    ]),
+  ),
   bits: { key: 'bits', label: 'Bits', min: MIN_BITS, max: MAX_BITS, via: 'value', surcharge: 0 },
   /**
    * The resonator's tuning, in semitones.

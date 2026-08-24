@@ -50,6 +50,39 @@ const DEMO = patchOf(
   ],
 )
 
+/**
+ * One distinctly-not-default value for every field an FX node has, with how close it has to come back.
+ *
+ * Shared by the two tests below, which ask different things of the same table: that every field survives
+ * a round trip, and that leaving them all alone costs a small fraction of setting them all. Two copies of
+ * this list would be two places to forget a field, which is the mistake the round-trip test used to make.
+ */
+const FX_CASES: Record<string, [unknown, number]> = {
+  effect: ['chorus', 0],
+  mix: [0.42, 0.01],
+  decay: [6.3, 0.1],
+  drive: [0.77, 0.01],
+  shape: ['fuzz', 0],
+  time: ['1/16', 0],
+  feedback: [0.9, 0.01],
+  filterType: ['highpass', 0],
+  // Log-scaled over ten bits, so it is compared as a ratio further down rather than as a difference.
+  cutoff: [800, 20],
+  resonance: [11.5, 0.1],
+  rate: [7.2, 0.1],
+  depth: [0.66, 0.01],
+  sweep: [22, 0.1],
+  bits: [5, 0],
+  reduction: [6, 0],
+  pan: [-0.6, 0.01],
+  width: [0.85, 0.01],
+  pitch: [72, 0],
+  bias: [-0.45, 0.01],
+  low: [-7.5, 0.25],
+  mid: [4.5, 0.25],
+  high: [11, 0.25],
+}
+
 describe('patch code', () => {
   it('round-trips the shape of a patch', () => {
     const decoded = decodePatch(encodePatch(DEMO))
@@ -190,12 +223,35 @@ describe('patch code', () => {
   })
 
   it('costs an FX node little when its effect leaves most fields at rest', () => {
-    const reverb = encodePatch(
+    /*
+     * The claim the mask exists for, said as a comparison rather than as a number. It used to assert
+     * "under twenty characters" beside a comment saying sixteen parameters exist — both of which have to
+     * be edited every time a parameter lands, and the number was already stale by three effects.
+     *
+     * Comparing an untouched node with one whose every field is moved says the same thing and cannot
+     * fall behind: a fixed layout would make those two the same length.
+     */
+    const atRest = encodePatch(
       patchOf([{ id: 'f', type: 'fx', position: { x: 0, y: 0 }, params: defaultFxParams() }]),
     )
-    // Sixteen parameters exist; a reverb that has not been touched should not pay for fifteen of
-    // them. Under a fixed layout this was a hundred bits whatever the effect was.
-    expect(reverb.length).toBeLessThan(20)
+    const moved = encodePatch(
+      patchOf([
+        {
+          id: 'f',
+          type: 'fx',
+          position: { x: 0, y: 0 },
+          params: {
+            ...defaultFxParams(),
+            ...Object.fromEntries(Object.entries(FX_CASES).map(([key, [value]]) => [key, value])),
+          } as FxParams,
+        },
+      ]),
+    )
+
+    expect(atRest.length).toBeLessThan(moved.length * 0.6)
+    // And the comparison has to be against something substantial, or a shrinking format would satisfy
+    // it by both sides being tiny.
+    expect(moved.length).toBeGreaterThan(30)
   })
 
   it('still round-trips a parameter set back to the reference value', () => {
@@ -367,42 +423,20 @@ describe('patch code', () => {
      * Now a new parameter fails here until somebody says what it should round-trip to, and that is the
      * right moment to be asked.
      */
-    const cases: Record<string, [unknown, number]> = {
-      effect: ['chorus', 0],
-      mix: [0.42, 0.01],
-      decay: [6.3, 0.1],
-      drive: [0.77, 0.01],
-      shape: ['fuzz', 0],
-      time: ['1/16', 0],
-      feedback: [0.9, 0.01],
-      filterType: ['highpass', 0],
-      // Log-scaled over ten bits, so it is compared as a ratio further down rather than as a difference.
-      cutoff: [800, 20],
-      resonance: [11.5, 0.1],
-      rate: [7.2, 0.1],
-      depth: [0.66, 0.01],
-      sweep: [22, 0.1],
-      bits: [5, 0],
-      reduction: [6, 0],
-      pan: [-0.6, 0.01],
-      width: [0.85, 0.01],
-      pitch: [72, 0],
-      bias: [-0.45, 0.01],
-    }
 
-    const missing = Object.keys(defaultFxParams()).filter((key) => !(key in cases))
+    const missing = Object.keys(defaultFxParams()).filter((key) => !(key in FX_CASES))
     expect(missing, `no round-trip case for: ${missing.join(', ')}`).toEqual([])
 
     const params = {
       ...defaultFxParams(),
-      ...Object.fromEntries(Object.entries(cases).map(([key, [value]]) => [key, value])),
+      ...Object.fromEntries(Object.entries(FX_CASES).map(([key, [value]]) => [key, value])),
     } as FxParams
     const decoded = decodePatch(
       encodePatch(patchOf([{ id: 'f', type: 'fx', position: { x: 0, y: 0 }, params }])),
     )!
     const back = decoded.nodes[0].params as unknown as Record<string, unknown>
 
-    for (const [key, [value, tolerance]] of Object.entries(cases)) {
+    for (const [key, [value, tolerance]] of Object.entries(FX_CASES)) {
       if (typeof value !== 'number') {
         expect(back[key], key).toBe(value)
       } else if (tolerance === 0) {

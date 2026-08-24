@@ -791,7 +791,7 @@ export const MANUAL: Section[] = [
   },
   {
     id: 'fx',
-    title: { en: 'FX — the thirteen effects', es: 'FX — los trece efectos' },
+    title: { en: 'FX — the fourteen effects', es: 'FX — los catorce efectos' },
     body: [
       {
         en: 'Wire an oscillator’s side port into an FX to feed it. Several oscillators can share one effect and one oscillator can feed several, because an effect is a send off the output rather than a stage in a chain — which is also why it does not matter where on the canvas you put it.',
@@ -809,8 +809,8 @@ export const MANUAL: Section[] = [
           {
             term: { en: 'Effect', es: 'Effect' },
             text: {
-              en: 'Which of the thirteen this node is. Changing it replaces the controls below with that effect’s own, and the Mix above stays where it was — which is why Mix is above them rather than below, where it would slide up and down the panel every time you changed your mind.',
-              es: 'Cuál de los trece es este nodo. Cambiarlo reemplaza los controles de abajo por los de ese efecto, y el Mix de arriba se queda donde estaba — por eso el Mix va encima y no debajo, donde se desplazaría por el panel cada vez que cambiaras de idea.',
+              en: 'Which of the fourteen this node is. Changing it replaces the controls below with that effect’s own, and the Mix above stays where it was — which is why Mix is above them rather than below, where it would slide up and down the panel every time you changed your mind.',
+              es: 'Cuál de los catorce es este nodo. Cambiarlo reemplaza los controles de abajo por los de ese efecto, y el Mix de arriba se queda donde estaba — por eso el Mix va encima y no debajo, donde se desplazaría por el panel cada vez que cambiaras de idea.',
             },
           },
           {
@@ -921,6 +921,27 @@ export const MANUAL: Section[] = [
             text: {
               en: 'How long it goes on sounding after it is struck, in seconds. A time and not an amount of feedback, which is not the same thing: one trip round a resonator is one cycle of the note, so a fixed feedback would ring eight times longer at the bottom of the range than at the top. Asking for a time means retuning it does not change the length of the note.',
               es: 'Cuánto sigue sonando después del golpe, en segundos. Un tiempo y no una cantidad de realimentación, que no es lo mismo: una vuelta al resonador es un ciclo de la nota, así que una realimentación fija sonaría ocho veces más en la parte baja del rango que en la alta. Pedir un tiempo hace que reafinarlo no cambie la duración de la nota.',
+            },
+          },
+          {
+            term: { en: 'EQ', es: 'EQ' },
+            text: {
+              en: 'Three bands: a shelf below, a bell in the middle and a shelf above. Not a filter — a filter takes something away from one end, and this pushes or pulls any of the three without touching the others, which is what you want when a patch is nearly right and one part of it is too much. It is the one effect here with no Tone control, because an EQ *is* the tone control.',
+              es: 'Tres bandas: un estante abajo, una campana en medio y un estante arriba. No es un filtro — un filtro quita algo de un extremo, y esto empuja o tira de cualquiera de las tres sin tocar las otras, que es lo que quieres cuando un patch está casi bien y una parte suena de más. Es el único efecto de aquí sin control de Tone, porque un EQ *es* el control de tono.',
+            },
+          },
+          {
+            term: { en: 'Low · Mid · High', es: 'Low · Mid · High' },
+            text: {
+              en: 'Each band in decibels, nought being flat — and flat is exactly a wire, so an EQ dropped into a patch is not a change until you ask it to be. Fifteen either way, which is more than an EQ usually offers: the extra few are what let it be used as a blunt filter rather than only as a correction. All three take a MOD, and they are the cheapest destinations in the instrument — a slow shape on the top band is a tremolo that touches only the air.',
+              es: 'Cada banda en decibelios, cero es plano — y plano es exactamente un cable, así que un EQ metido en un patch no es un cambio hasta que se lo pidas. Quince a cada lado, que es más de lo que suele ofrecer un EQ: esos de más son los que permiten usarlo como filtro bruto y no solo como corrección. Las tres aceptan un MOD, y son los destinos más baratos del instrumento — una forma lenta en la banda alta es un trémolo que solo toca el aire.',
+            },
+          },
+          {
+            term: { en: 'Mid Hz', es: 'Mid Hz' },
+            text: {
+              en: 'Where the middle band sits. The two shelves do not move — they hinge at 250 Hz and 3 kHz, which is where a shelf belongs — and this one does, because a mid band you cannot aim is not a mid band. It is deliberately broad rather than sharp: wide enough that a boost sounds like a tone change instead of a resonance, which is the difference between this and the Filter three rows up.',
+              es: 'Dónde está la banda del medio. Los dos estantes no se mueven — bisagran en 250 Hz y 3 kHz, que es donde va un estante — y esta sí, porque una banda media que no puedes apuntar no es una banda media. Es ancha a propósito y no afilada: lo bastante ancha para que un realce suene a cambio de timbre y no a resonancia, que es la diferencia entre esto y el Filter tres filas arriba.',
             },
           },
           {

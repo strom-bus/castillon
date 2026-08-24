@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
+import { EFFECTS as EFFECT_TABLE } from '../audio/effects'
 import { NODE_DEFINITIONS } from '../nodes/registry'
 import { detailTerms, MANUAL } from './manual'
 
@@ -101,6 +102,32 @@ describe('the manual against the panel', () => {
     const osc = MANUAL.find((section) => section.id === 'osc')!
     const titled = (osc.detail ?? []).map((group) => group.title).filter(Boolean)
     expect(titled).toEqual(['SEQUENCE', 'VOICE', 'SHAPE', 'FILTER', 'NEXT'])
+  })
+
+  it('renders a control for every parameter an effect declares', () => {
+    /*
+     * The mirror of the manual check above, and the direction nothing was looking in. That one asks
+     * *panel → manual*: every label on screen must be written up. Nothing asked *effect → panel*, so a
+     * parameter could be declared, stored in the patch code, reachable by a MOD and have **no control at
+     * all** — which is exactly what the EQ's three bands shipped as, and the whole suite stayed green
+     * because a control that does not exist renders no label to check.
+     *
+     * Read out of the source for the same reason the labels are: the panel only renders the parameters
+     * the current effect declares, and the ones that matter here are all of them.
+     */
+    const missing: string[] = []
+    for (const descriptor of EFFECT_TABLE) {
+      for (const param of descriptor.params) {
+        if (!new RegExp(`case '${String(param)}':`).test(PANEL)) {
+          missing.push(`${descriptor.kind}.${String(param)}`)
+        }
+      }
+    }
+    expect(missing, `declared but not shown: ${missing.join(', ')}`).toEqual([])
+  })
+
+  it('found effects with parameters to check, so an empty table cannot pass', () => {
+    expect(EFFECT_TABLE.flatMap((descriptor) => descriptor.params).length).toBeGreaterThan(20)
   })
 
   it('has a chapter for every kind of node, asked of the registry and not of a list', () => {

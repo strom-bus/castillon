@@ -221,7 +221,15 @@ export function fakeAudio(): FakeAudio {
     destination: node('destination'),
     createGain: () => node('gain', { gain: param('gain', 1) }),
     createBiquadFilter: () =>
-      node('biquad', { frequency: param('frequency', 350), Q: param('Q', 1), type: 'lowpass' }),
+      node('biquad', {
+        frequency: param('frequency', 350),
+        Q: param('Q', 1),
+        // A real biquad has one, and only the shelving and peaking types read it — which is why it was
+        // missing until an EQ arrived and every one of its bands failed on `undefined`. A fake that is
+        // short of a parameter is a test that cannot reach it.
+        gain: param('biquadGain', 0),
+        type: 'lowpass',
+      }),
     createDelay: () => node('delay', { delayTime: param('delayTime') }),
     createConvolver: () => node('convolver', { buffer: null, normalize: true }),
     createWaveShaper: () => node('shaper', { curve: null, oversample: 'none' }),

@@ -74,6 +74,7 @@ import { usePatchStore } from '../state/patchStore'
 import { NumberInput } from './NumberInput'
 import {
   MAX_DECAY,
+  MAX_EQ_DB,
   MAX_DELAY_MS,
   MAX_FEEDBACK,
   MAX_RATE,
@@ -387,6 +388,25 @@ function EffectControl({
           // both work: you cannot type A3 into a number field, and 57 on its own says nothing.
           suffix={` ${noteName(Math.round(params.pitch ?? 57))}`}
           onChange={(pitch) => onChange({ pitch })}
+        />
+      )
+    /*
+     * The three bands, which share one control shape because they are one idea three times over. Written
+     * as a fallthrough rather than three near-identical blocks: three copies is where one of them ends up
+     * reading the wrong field, which is the mistake the EQ's own test is built to catch.
+     */
+    case 'low':
+    case 'mid':
+    case 'high':
+      return (
+        <TypedSlider
+          label={name(`${param[0].toUpperCase()}${param.slice(1)}`)}
+          value={params[param] ?? 0}
+          min={-MAX_EQ_DB}
+          max={MAX_EQ_DB}
+          step={0.5}
+          suffix=" dB"
+          onChange={(value) => onChange({ [param]: value })}
         />
       )
     case 'bias':

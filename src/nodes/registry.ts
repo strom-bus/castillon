@@ -618,6 +618,11 @@ export function defaultFxParams(): FxParams {
     pitch: 57,
     // Centred, so a wavefolder added and not touched makes odd harmonics only.
     bias: 0,
+    // Flat, so an EQ added and not touched is a wire. A shelf or a bell at nought decibels is exactly
+    // unity, which is what makes that true of the nodes and not only of the numbers.
+    low: 0,
+    mid: 0,
+    high: 0,
   }
 }
 

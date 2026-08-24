@@ -120,8 +120,9 @@ refused, since between an oscillator and an effect there is only one direction t
 
 - **Whole-cascade loop.** When every branch has drained, the cascade fires again. Each pass lasts
   as long as its longest branch, so the cycle breathes rather than holding a fixed pulse.
-- **An FX node** with thirteen effects: reverb, distortion, bitcrush, echo, filter, chorus, phaser,
-  tremolo, ring modulation, stereo pan, an octave divider, a comb resonator and a wavefolder. The bitcrusher does both halves: bit depth through a
+- **An FX node** with fourteen effects: reverb, distortion, bitcrush, echo, filter, chorus, phaser,
+  tremolo, ring modulation, stereo pan, an octave divider, a comb resonator, a wavefolder and a
+  three-band EQ. The bitcrusher does both halves: bit depth through a
   waveshaper, and sample rate through an `AudioWorklet`, since holding a sample between outputs is
   memory and a curve has none. No filtering on the way down — the aliasing is the sound. The **octave
   divider** is the other one that needs memory: a flip-flop clocked by the signal's own zero crossings
@@ -349,7 +350,7 @@ refused, since between an oscillator and an effect there is only one direction t
   it longer without making it clearer. Both languages live adjacent in one file so a half-finished
   edit shows up in the diff rather than as a blank paragraph months later.
 
-  Fourteen chapters and a hundred and forty-one entries, written for whoever is using the instrument
+  Fourteen chapters and a hundred and forty-four entries, written for whoever is using the instrument
   rather than for whoever built it: no entry explains how something is implemented, and every one says
   what a control does to the sound and when you would reach for it. One chapter per module, each in
   the order its own panel is in and under the panel's own group headings, so reading the manual and
@@ -367,6 +368,15 @@ refused, since between an oscillator and an effect there is only one direction t
   it does, because a code shown before it exists is a code somebody writes down. Copy copies what is
   there and nothing else. The field takes either kind of code.
   The eight nodes it starts with come to 131 characters, against 3243 as JSON.
+
+- **A three-band EQ**, which is the dull one and probably the most used. A shelf at 250 Hz, a broad bell
+  wherever you aim it, a shelf at 3 kHz, fifteen decibels either way on each. The hinges are fixed and
+  the bell moves, because exposing all three frequencies would double the controls to let somebody build
+  a worse EQ — and the bell's Q is deliberately broad, so a boost reads as a tone change rather than a
+  resonance, which is what separates it from the filter. It is the only effect with no Tone control,
+  since an EQ is the tone control. All three bands are real `AudioParam`s on biquads, so they are the
+  cheapest modulation destinations here: a slow shape on the top band is a tremolo that touches only the
+  air.
 
 - **A wavefolder**, where a distortion squashes a signal that gets too loud and this **reflects** it —
   the peak turns round and comes back down. So a louder note is not the same tone louder, it is a

@@ -242,6 +242,7 @@ export type EffectKind =
   | 'octave'
   | 'comb'
   | 'fold'
+  | 'eq'
 
 /**
  * One flat parameter set for every effect, with the inspector showing only the fields the current
@@ -282,6 +283,21 @@ export interface FxParams {
    * bias is not a stereo position, and one appended field costs about a bit in a patch that uses it.
    */
   bias: number
+  /**
+   * The three bands of the EQ, in decibels, nought being flat.
+   *
+   * Their own fields rather than borrowing three of the signed ones lying around — a fold's bias, a pan's
+   * position, a chorus depth all happen to have a usable range and none of them means a gain. The day a
+   * name meant two things it cost every vibrato in the instrument, so three appended fields it is; each
+   * costs about a bit in a patch that leaves its band flat.
+   *
+   * The frequencies they hinge on are fixed and not settings: 250 Hz and 3 kHz, which is where a shelf
+   * belongs, and the mid sits wherever `cutoff` is put. Exposing all three would double the controls to
+   * let somebody build a worse EQ.
+   */
+  low: number
+  mid: number
+  high: number
   /** Which flavour of distortion. */
   shape: DistortionShape
   /** Echo time, as a beat division. */
@@ -325,6 +341,15 @@ export interface FxParams {
 }
 
 export type DistortionShape = 'overdrive' | 'distortion' | 'fuzz' | 'octave'
+
+/**
+ * How far a band of the EQ can be pushed, in decibels.
+ *
+ * Fifteen is generous for an EQ — twelve is the usual — and the extra three are what let it be used as a
+ * crude filter rather than only as a correction. Symmetrical, because a cut is as musical as a boost and
+ * more often the right answer.
+ */
+export const MAX_EQ_DB = 15
 
 export const MIN_DECAY = 0.1
 export const MAX_DECAY = 10

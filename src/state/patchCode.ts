@@ -15,6 +15,7 @@ import { FILTER_TYPES } from '../audio/filter'
 import {
   MAX_BPM,
   MAX_DECAY,
+  MAX_EQ_DB,
   MAX_DELAY_MS,
   MAX_EVERY,
   MAX_SLOP,
@@ -176,6 +177,7 @@ const EFFECT_CODES: EffectKind[] = [
   'octave',
   'comb',
   'fold',
+  'eq',
 ]
 
 const SHAPE_CODES: DistortionShape[] = ['overdrive', 'distortion', 'fuzz', 'octave']
@@ -366,6 +368,15 @@ const FX_FIELDS: Field<FxParams>[] = [
     (value) => quantise((value as unknown as number) + 1, 100, 0, 200),
     (stored) => stored / 100 - 1,
   ),
+  // Half a decibel is finer than anybody sets an EQ by hand, and shifted for the same reason as above.
+  ...(['low', 'mid', 'high'] as const).map((band) =>
+    field<FxParams>(
+      band,
+      6,
+      (value) => quantise((value as unknown as number) + MAX_EQ_DB, 2, 0, MAX_EQ_DB * 4),
+      (stored) => stored / 2 - MAX_EQ_DB,
+    ),
+  ),
 ]
 
 /**
@@ -418,6 +429,9 @@ const FX_REFERENCE: FxParams = {
   // A3, the middle of the resonator's range. Frozen like everything else here.
   pitch: 57,
   bias: 0,
+  low: 0,
+  mid: 0,
+  high: 0,
 }
 
 /**

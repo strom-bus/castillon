@@ -5,9 +5,11 @@ import {
   MAX_BITS,
   MAX_COMB_NOTE,
   MAX_REDUCTION,
+  MAX_REPEATS,
   MIN_BITS,
   MIN_COMB_NOTE,
   MIN_REDUCTION,
+  MIN_REPEATS,
 } from '../audio/dsp'
 import { EFFECTS, effectOr } from '../audio/effects'
 import {
@@ -407,6 +409,22 @@ function EffectControl({
           step={0.5}
           suffix=" dB"
           onChange={(value) => onChange({ [param]: value })}
+        />
+      )
+    case 'repeats':
+      /*
+       * Whole numbers, because a repeat count between two of them is not a sound — and one is labelled as
+       * doing nothing rather than being hidden, since that is the setting somebody will want back.
+       */
+      return (
+        <TypedSlider
+          label={name('Repeats')}
+          value={params.repeats ?? MIN_REPEATS}
+          min={MIN_REPEATS}
+          max={MAX_REPEATS}
+          step={1}
+          suffix={(params.repeats ?? MIN_REPEATS) <= MIN_REPEATS ? ' · off' : '×'}
+          onChange={(repeats) => onChange({ repeats })}
         />
       )
     case 'bias':

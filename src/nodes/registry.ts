@@ -2,7 +2,7 @@ import { detuneRatio, midiToFreq, stepDuration } from '../audio/clock'
 import { trackedCutoff } from '../audio/filter'
 import { transposeBy } from '../audio/scales'
 import type { Engine } from '../audio/engine'
-import { MIN_REDUCTION } from '../audio/dsp'
+import { MIN_REDUCTION, MIN_REPEATS } from '../audio/dsp'
 import { LAYER_THRESHOLD, MAX_LOAD } from '../audio/load'
 import type {
   SieveParams,
@@ -623,6 +623,8 @@ export function defaultFxParams(): FxParams {
     low: 0,
     mid: 0,
     high: 0,
+    // One, which is a wire: every slice live, nothing repeated.
+    repeats: MIN_REPEATS,
   }
 }
 

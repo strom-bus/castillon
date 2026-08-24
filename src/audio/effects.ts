@@ -18,8 +18,11 @@ import {
   distortionCurve,
   fillImpulse,
   foldCurve,
+  MAX_REPEATS,
+  MAX_SLICE_SECONDS,
+  MIN_REPEATS,
 } from './dsp'
-import { COMB, DECIMATOR, OCTAVE } from './worklets/names'
+import { COMB, DECIMATOR, OCTAVE, STUTTER } from './worklets/names'
 import type { Random } from './random'
 import { MAX_CUTOFF, MIN_CUTOFF } from './filter'
 
@@ -1151,6 +1154,82 @@ const eq: EffectDescriptor = {
   },
 }
 
+const stutterFx: EffectDescriptor = {
+  kind: 'stutter',
+  /*
+   * A worklet, so priced with the other three rather than with the native nodes. The work per sample is
+   * the least of any of them — one buffer read or write and a counter, against the resonator's
+   * interpolation and two one-poles — so it starts under the divider's measured 4.8 rather than at it.
+   *
+   * A prior. Four effects now carry one and they all want the same sweep.
+   */
+  cost: () => 4,
+  label: 'Stutter',
+  params: ['time', 'repeats', 'cutoff'],
+  // The division is the length of the slice here rather than the gap between echoes.
+  labels: { time: 'Slice' },
+  defaults: { time: '1/8', repeats: 2, cutoff: 8000 },
+  releaseTime: 0.02,
+  // One slice at the slowest tempo, which is the longest it can be holding when it is removed.
+  tail: (params, bpm) => Math.max(0.02, stepDuration(bpm, params.time ?? '1/8')),
+  create(ctx) {
+    const input = ctx.createGain()
+    const post = tone(ctx)
+
+    /**
+     * Attempted rather than checked, as with the other three: constructing the node is the only reliable
+     * test of whether the processor is registered on *this* context.
+     *
+     * Without one it passes the signal through and the tone control still works. A slice held between
+     * blocks is memory and a `DelayNode` has none — you cannot repeat something with a delay line, you
+     * can only hear it again *as well*, which is an echo and is already three rows up.
+     */
+    let repeater: AudioWorkletNode | null = null
+    try {
+      repeater = new AudioWorkletNode(ctx, STUTTER)
+    } catch {
+      repeater = null
+    }
+
+    if (repeater) input.connect(repeater).connect(post)
+    else input.connect(post)
+
+    const slice = repeater?.parameters.get('slice') ?? null
+    const repeats = repeater?.parameters.get('repeats') ?? null
+
+    return {
+      input,
+      output: post,
+      update(params, { at, bpm }) {
+        setTone(post, params, at)
+        // Seconds, because the processor has no idea what the tempo is and this is the one side that
+        // does. It follows a tempo change for the same reason the echo does.
+        slice?.setTargetAtTime(
+          Math.min(MAX_SLICE_SECONDS, stepDuration(bpm, params.time ?? '1/8')),
+          at,
+          RAMP,
+        )
+        repeats?.setTargetAtTime(
+          Math.max(MIN_REPEATS, Math.min(MAX_REPEATS, Math.round(params.repeats ?? MIN_REPEATS))),
+          at,
+          RAMP,
+        )
+      },
+      paramFor(key) {
+        // The repeat count, which is the effect's switch as well as its depth, and the tone.
+        if (key === 'repeats') return repeats
+        if (key === 'cutoff') return post.frequency
+        return null
+      },
+      dispose() {
+        input.disconnect()
+        repeater?.disconnect()
+        post.disconnect()
+      },
+    }
+  },
+}
+
 export const EFFECTS: EffectDescriptor[] = [
   reverb,
   echo,
@@ -1166,6 +1245,7 @@ export const EFFECTS: EffectDescriptor[] = [
   comb,
   fold,
   eq,
+  stutterFx,
 ]
 
 const byKind = new Map(EFFECTS.map((e) => [e.kind, e]))

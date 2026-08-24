@@ -13,12 +13,21 @@
  * stands in for makes the test around it answer a question about the stub.
  */
 
-import { MAX_COMB_NOTE, MAX_REDUCTION, MIN_COMB_NOTE, MIN_REDUCTION } from '../dsp'
+import {
+  MAX_COMB_NOTE,
+  MAX_REDUCTION,
+  MAX_REPEATS,
+  MAX_SLICE_SECONDS,
+  MIN_COMB_NOTE,
+  MIN_REDUCTION,
+  MIN_REPEATS,
+} from '../dsp'
 import { MAX_DECAY } from '../../types/patch'
 
 export const DECIMATOR = 'castillon-decimator'
 export const OCTAVE = 'castillon-octave'
 export const COMB = 'castillon-comb'
+export const STUTTER = 'castillon-stutter'
 
 /** One parameter of one processor, in the shape `parameterDescriptors` wants it. */
 export interface WorkletParam {
@@ -65,6 +74,31 @@ export const WORKLET_PARAMS: Record<string, WorkletParam[]> = {
       // Above Nyquist on purpose: that is what "no damping at all" is, and the top of the control has to
       // be able to reach it. `combDamping` returns nothing rather than almost nothing there.
       maxValue: 96000,
+      automationRate: 'k-rate',
+    },
+  ],
+  [STUTTER]: [
+    // The slice in *seconds*, not in beats: a processor has no idea what the tempo is, and the one place
+    // that does is the main thread, which computes it from the division and hands it over.
+    {
+      name: 'slice',
+      defaultValue: 0.25,
+      minValue: 0.001,
+      maxValue: MAX_SLICE_SECONDS,
+      automationRate: 'k-rate',
+    },
+    /*
+     * How many times each slice is played before the next is taken. One is a wire.
+     *
+     * Which is also the effect's on-and-off: a MOD on this *is* the momentary switch, and a slow shape on
+     * it is a stutter that comes and goes — so there is no need for a control that only says whether the
+     * effect is doing anything.
+     */
+    {
+      name: 'repeats',
+      defaultValue: MIN_REPEATS,
+      minValue: MIN_REPEATS,
+      maxValue: MAX_REPEATS,
       automationRate: 'k-rate',
     },
   ],

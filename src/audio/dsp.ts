@@ -128,6 +128,101 @@ export function foldCurve(
 }
 
 /**
+ * The longest slice a stutter can hold, in seconds.
+ *
+ * A quarter note at the slowest tempo the transport allows: three seconds. Allocated for the worst case
+ * rather than grown on demand, because a buffer that reallocates mid-loop is a click, and because the
+ * worst case is one three-second array per channel — less than a reverb's impulse response.
+ */
+export const MAX_SLICE_SECONDS = 3
+
+/** How many times a slice may be repeated before the next one is taken. One is a wire. */
+export const MIN_REPEATS = 1
+export const MAX_REPEATS = 8
+
+/**
+ * What a stutter has to remember: the slice it captured, where it is in playing it, and which repeat.
+ */
+export interface StutterState {
+  line: Float32Array
+  /** Position within the current slice, counted in samples. */
+  at: number
+  /**
+   * Which repeat of the group this is. Nought is the live one — passed through *and* recorded — and every
+   * other value plays back what nought captured.
+   */
+  repeat: number
+  /**
+   * The slice length in use, which is only read at a boundary.
+   *
+   * Changing it mid-slice would jump the read head into the middle of the recorded waveform, which is a
+   * click; and a stutter's slice is a *musical* length, so the only sensible moment for a new one to take
+   * effect is when the current one ends.
+   */
+  length: number
+}
+
+export function stutterState(sampleRate: number): StutterState {
+  return {
+    line: new Float32Array(Math.max(1, Math.ceil(sampleRate * MAX_SLICE_SECONDS))),
+    at: 0,
+    repeat: 0,
+    length: 0,
+  }
+}
+
+/**
+ * One block through a beat-repeat.
+ *
+ * A stutter is not an echo, and the difference is worth stating because they are one control apart in a
+ * list. An echo *adds* a decaying copy some time later and the original keeps going underneath. A stutter
+ * **replaces** the signal: it takes a slice, plays it again in place of what actually happened next, and
+ * nothing decays. What you hear is a bar that stops advancing.
+ *
+ * The model is one number: how many times each slice is played before the next is taken. At one it is a
+ * wire — the live slice is passed through and recorded, and there is never a repeat — which is the
+ * promise every effect here makes. At two, every other slice is the one before it. At eight, a bar of the
+ * cascade turns into one eighth of itself.
+ *
+ * Which also means it needs no on/off of its own: a MOD on the repeat count *is* the momentary switch,
+ * and a slow shape on it is a stutter that comes and goes.
+ *
+ * Pure over its arguments, state included, so it can be tested with two arrays and no audio thread.
+ */
+export function stutter(
+  input: Float32Array,
+  output: Float32Array,
+  sliceSamples: number,
+  repeats: number,
+  state: StutterState,
+): void {
+  const size = state.line.length
+  const wanted = Math.max(1, Math.min(size, Math.round(sliceSamples)))
+  const groups = Math.max(MIN_REPEATS, Math.min(MAX_REPEATS, Math.round(repeats)))
+  // A resonator built this block starts at the length it was told rather than at nothing.
+  if (state.length === 0) state.length = wanted
+
+  for (let i = 0; i < input.length; i++) {
+    if (state.at >= state.length) {
+      state.at = 0
+      state.repeat = (state.repeat + 1) % groups
+      // A new slice length only ever lands here, between slices.
+      if (state.repeat === 0) state.length = wanted
+    }
+
+    if (state.repeat === 0) {
+      // The live pass: heard as it happens and kept for the repeats that follow.
+      state.line[state.at] = input[i]
+      output[i] = input[i]
+    } else {
+      output[i] = state.line[state.at]
+    }
+
+    state.at++
+  }
+}
+
+/**
  * A staircase that rounds the signal to `bits` of resolution.
  *
  * This is bit-depth reduction only. The other half of a bitcrusher — decimating the sample rate — is

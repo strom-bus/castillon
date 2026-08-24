@@ -58,10 +58,12 @@ import {
 } from '../types/patch'
 import {
   MAX_BITS,
+  MAX_REPEATS,
   MAX_COMB_NOTE,
   MAX_REDUCTION,
   MIN_BITS,
   MIN_COMB_NOTE,
+  MIN_REPEATS,
   MIN_REDUCTION,
 } from '../audio/dsp'
 import { BitReader, BitWriter } from './bits'
@@ -178,6 +180,7 @@ const EFFECT_CODES: EffectKind[] = [
   'comb',
   'fold',
   'eq',
+  'stutter',
 ]
 
 const SHAPE_CODES: DistortionShape[] = ['overdrive', 'distortion', 'fuzz', 'octave']
@@ -377,6 +380,10 @@ const FX_FIELDS: Field<FxParams>[] = [
       (stored) => stored / 2 - MAX_EQ_DB,
     ),
   ),
+  // A whole count, and eight fits in three bits with nothing over. On the end, where a new field goes:
+  // slotting it in beside the others would have shifted their positions, which is the one thing this
+  // table is not allowed to do.
+  scaledField('repeats', 3, 1, MIN_REPEATS, MAX_REPEATS),
 ]
 
 /**
@@ -432,6 +439,7 @@ const FX_REFERENCE: FxParams = {
   low: 0,
   mid: 0,
   high: 0,
+  repeats: MIN_REPEATS,
 }
 
 /**

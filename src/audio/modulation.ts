@@ -11,7 +11,7 @@
  * bus, an effect's level, and the pair of gains that make up its mix.
  */
 
-import { MAX_BITS, MAX_REDUCTION, MIN_BITS, MIN_REDUCTION } from './dsp'
+import { MAX_BITS, MAX_REDUCTION, MAX_REPEATS, MIN_BITS, MIN_REDUCTION, MIN_REPEATS } from './dsp'
 import { effectOr } from './effects'
 import { MAX_CUTOFF, MAX_RESONANCE, MIN_CUTOFF, MIN_RESONANCE } from './filter'
 import {
@@ -368,6 +368,24 @@ const FX_PARAM_TARGETS: Record<string, ModTarget> = {
     hint: 'Bends the pitch the resonator rings at. Wired to an envelope it is a string being pulled; wired to an LFO it is one being wobbled.',
   },
   /**
+   * A stutter's repeat count, which is the effect's switch as much as its depth.
+   *
+   * One is a wire and eight is a bar of the cascade turned into an eighth of itself, so a MOD here is the
+   * momentary control every beat-repeat has — and a slow shape on it is a stutter that comes and goes,
+   * which no other arrangement of controls here can produce. A square LFO is the classic.
+   *
+   * A real `AudioParam` on the worklet, read once a block. A repeat count between two whole numbers is
+   * not a sound anyway, so nothing is lost by it being coarse — the same argument as the decimator's.
+   */
+  repeats: {
+    key: 'repeats',
+    label: 'Repeats',
+    min: MIN_REPEATS,
+    max: MAX_REPEATS,
+    via: 'audio',
+    surcharge: 0,
+  },
+  /**
    * The decimator's hold count, which lives on a worklet.
    *
    * Connected rather than recomputed, unlike the rest of the bitcrusher's parameters: it is a real
@@ -396,7 +414,7 @@ const FX_PARAM_TARGETS: Record<string, ModTarget> = {
  * merely cheaper, it is reached a different way. So an override patches the entry rather than only its
  * price, which is what the surcharge-only version of this could not express.
  */
-const TARGET_OVERRIDES: Partial<Record<EffectKind, Record<string, Partial<ModTarget>>>> = {
+const TARGET_OVERRIDES: Partial<Record<EffectKind, Record<string, Partial<ModTarget> | null>>> = {
   // A ring modulator's Freq borrows the cutoff field for its range, but what it sets is the carrier —
   // an oscillator's frequency, which is free to automate.
   ring: { cutoff: { surcharge: 0 } },
@@ -417,6 +435,16 @@ const TARGET_OVERRIDES: Partial<Record<EffectKind, Record<string, Partial<ModTar
     decay: { via: 'audio', surcharge: 0, rebuildEvery: undefined },
     cutoff: { surcharge: 0 },
   },
+  /*
+   * A stutter's Slice borrows the echo's `time` field, and on the echo that is a `delayTime` — a real
+   * parameter a signal can be added to. Here it is a *choice* of three divisions that decides how much
+   * audio is captured, so there is nothing to connect to and nothing between two of them to reach.
+   *
+   * `null` withdraws it rather than repricing it, which is the first time the mechanism has had to. The
+   * alternative was leaving it offered and unreachable — a cable a MOD would let you draw and that would
+   * do nothing, which from the outside is indistinguishable from a bug.
+   */
+  stutter: { time: null },
 }
 
 /**
@@ -513,14 +541,19 @@ export function targetsFor(
   if (!effect) return [LEVEL, MIX]
 
   const descriptor = effectOr(effect)
+  const overrides = TARGET_OVERRIDES[effect]
   const own = descriptor.params
+    // A `null` override withdraws the target on this effect — see `TARGET_OVERRIDES`. Filtered before the
+    // lookup rather than after, so a withdrawn one costs nothing and reads as absent rather than as
+    // present-and-broken.
+    .filter((key) => overrides?.[key] !== null)
     .map((key) => FX_PARAM_TARGETS[key])
     .filter((target): target is ModTarget => target !== undefined)
     .map((target) => ({
       ...target,
       // The effect's own name for it, where it has renamed one: a phaser calls its cutoff Centre.
       label: descriptor.labels?.[target.key as keyof FxParams] ?? target.label,
-      ...TARGET_OVERRIDES[effect]?.[target.key],
+      ...overrides?.[target.key],
     }))
 
   return [LEVEL, MIX, ...own]

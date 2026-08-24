@@ -791,7 +791,7 @@ export const MANUAL: Section[] = [
   },
   {
     id: 'fx',
-    title: { en: 'FX — the fourteen effects', es: 'FX — los catorce efectos' },
+    title: { en: 'FX — the fifteen effects', es: 'FX — los quince efectos' },
     body: [
       {
         en: 'Wire an oscillator’s side port into an FX to feed it. Several oscillators can share one effect and one oscillator can feed several, because an effect is a send off the output rather than a stage in a chain — which is also why it does not matter where on the canvas you put it.',
@@ -809,8 +809,8 @@ export const MANUAL: Section[] = [
           {
             term: { en: 'Effect', es: 'Effect' },
             text: {
-              en: 'Which of the fourteen this node is. Changing it replaces the controls below with that effect’s own, and the Mix above stays where it was — which is why Mix is above them rather than below, where it would slide up and down the panel every time you changed your mind.',
-              es: 'Cuál de los catorce es este nodo. Cambiarlo reemplaza los controles de abajo por los de ese efecto, y el Mix de arriba se queda donde estaba — por eso el Mix va encima y no debajo, donde se desplazaría por el panel cada vez que cambiaras de idea.',
+              en: 'Which of the fifteen this node is. Changing it replaces the controls below with that effect’s own, and the Mix above stays where it was — which is why Mix is above them rather than below, where it would slide up and down the panel every time you changed your mind.',
+              es: 'Cuál de los quince es este nodo. Cambiarlo reemplaza los controles de abajo por los de ese efecto, y el Mix de arriba se queda donde estaba — por eso el Mix va encima y no debajo, donde se desplazaría por el panel cada vez que cambiaras de idea.',
             },
           },
           {
@@ -921,6 +921,27 @@ export const MANUAL: Section[] = [
             text: {
               en: 'How long it goes on sounding after it is struck, in seconds. A time and not an amount of feedback, which is not the same thing: one trip round a resonator is one cycle of the note, so a fixed feedback would ring eight times longer at the bottom of the range than at the top. Asking for a time means retuning it does not change the length of the note.',
               es: 'Cuánto sigue sonando después del golpe, en segundos. Un tiempo y no una cantidad de realimentación, que no es lo mismo: una vuelta al resonador es un ciclo de la nota, así que una realimentación fija sonaría ocho veces más en la parte baja del rango que en la alta. Pedir un tiempo hace que reafinarlo no cambie la duración de la nota.',
+            },
+          },
+          {
+            term: { en: 'Stutter', es: 'Stutter' },
+            text: {
+              en: 'Takes a slice and plays it again *instead of* what happened next. That is the whole difference from an echo: an echo adds a copy later while the original carries on underneath, and this replaces the music with itself. What you hear is a bar that stops advancing — and what actually happened during the repeat is gone, not queued.',
+              es: 'Toma una porción y la vuelve a tocar *en lugar de* lo que pasó después. Esa es toda la diferencia con un eco: un eco añade una copia más tarde y el original sigue debajo, y esto reemplaza la música por sí misma. Lo que oyes es un compás que deja de avanzar — y lo que de verdad ocurrió durante la repetición se pierde, no se guarda en cola.',
+            },
+          },
+          {
+            term: { en: 'Slice', es: 'Slice' },
+            text: {
+              en: 'How much is captured, as a beat division. It follows the tempo, so moving the BPM does not put the repeats out of step — and since it is a length of *audio* rather than a gap, the shorter divisions are where it stops sounding like a repeat and starts sounding like a pitch.',
+              es: 'Cuánto se captura, como división del pulso. Sigue al tempo, así que mover el BPM no descoloca las repeticiones — y como es una duración de *audio* y no un hueco, en las divisiones más cortas deja de sonar a repetición y empieza a sonar a altura.',
+            },
+          },
+          {
+            term: { en: 'Repeats', es: 'Repeats' },
+            text: {
+              en: 'How many times each slice is played before the next one is taken, and the whole model of the effect. At one it is a wire — every slice live, nothing repeated — which is also why it needs no on-off switch of its own: wire a MOD here and *that* is the momentary control every beat-repeat has. A square LFO turns it on and off in time; a slow shape makes it come and go.',
+              es: 'Cuántas veces se toca cada porción antes de tomar la siguiente, y todo el modelo del efecto. En uno es un cable — cada porción en directo, nada repetido — que es también por qué no necesita interruptor propio: cablea un MOD aquí y *ese* es el control momentáneo que tiene todo beat-repeat. Un LFO cuadrado lo enciende y apaga a tiempo; una forma lenta lo hace ir y venir.',
             },
           },
           {

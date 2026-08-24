@@ -243,6 +243,7 @@ export type EffectKind =
   | 'comb'
   | 'fold'
   | 'eq'
+  | 'stutter'
 
 /**
  * One flat parameter set for every effect, with the inspector showing only the fields the current
@@ -298,6 +299,14 @@ export interface FxParams {
   low: number
   mid: number
   high: number
+  /**
+   * How many times a stutter plays each slice before it takes the next one. One is a wire.
+   *
+   * The whole model of the effect in one number, and its on-and-off as well: a MOD on this is the
+   * momentary switch every beat-repeat has, and a slow shape on it is a stutter that comes and goes. A
+   * control that only said whether the effect was doing anything would be that number spelt twice.
+   */
+  repeats: number
   /** Which flavour of distortion. */
   shape: DistortionShape
   /** Echo time, as a beat division. */

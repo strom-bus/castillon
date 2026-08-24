@@ -306,6 +306,18 @@ const FX_PARAM_TARGETS: Record<string, ModTarget> = {
   },
   // A curve, not a buffer: a few hundred floats rather than a few hundred thousand.
   drive: { key: 'drive', label: 'Drive', min: 0, max: 1, via: 'value', surcharge: 0 },
+  /**
+   * The wavefolder's offset, and the reason the effect is worth having.
+   *
+   * A centred fold reflects both halves alike, which makes odd harmonics only and one hollow tone however
+   * hard it is driven. Sweeping the offset moves *which* harmonics are there rather than how loud or how
+   * bright the sound is — the one thing in this instrument that changes timbre without changing level or
+   * filter. An effect whose best control could not be automated would be a control nobody found.
+   *
+   * Recomputed rather than connected, like every curve here: a thousand points is cheap enough to rebuild
+   * on the modulation tick and there is no `AudioParam` behind a table.
+   */
+  bias: { key: 'bias', label: 'Bias', min: -1, max: 1, via: 'value', surcharge: 0 },
   bits: { key: 'bits', label: 'Bits', min: MIN_BITS, max: MAX_BITS, via: 'value', surcharge: 0 },
   /**
    * The resonator's tuning, in semitones.

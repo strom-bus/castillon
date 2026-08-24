@@ -389,6 +389,21 @@ function EffectControl({
           onChange={(pitch) => onChange({ pitch })}
         />
       )
+    case 'bias':
+      /*
+       * Centred in the middle, which is where it does nothing — so the control looks like what it is: an
+       * offset either way rather than an amount of something. The same shape as Pan and Detune.
+       */
+      return (
+        <TypedSlider
+          label={name('Bias')}
+          value={params.bias ?? 0}
+          min={-1}
+          max={1}
+          step={0.01}
+          onChange={(bias) => onChange({ bias })}
+        />
+      )
     case 'drive':
       return (
         <TypedSlider

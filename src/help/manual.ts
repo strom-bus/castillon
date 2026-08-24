@@ -791,7 +791,7 @@ export const MANUAL: Section[] = [
   },
   {
     id: 'fx',
-    title: { en: 'FX — the twelve effects', es: 'FX — los doce efectos' },
+    title: { en: 'FX — the thirteen effects', es: 'FX — los trece efectos' },
     body: [
       {
         en: 'Wire an oscillator’s side port into an FX to feed it. Several oscillators can share one effect and one oscillator can feed several, because an effect is a send off the output rather than a stage in a chain — which is also why it does not matter where on the canvas you put it.',
@@ -809,8 +809,8 @@ export const MANUAL: Section[] = [
           {
             term: { en: 'Effect', es: 'Effect' },
             text: {
-              en: 'Which of the twelve this node is. Changing it replaces the controls below with that effect’s own, and the Mix above stays where it was — which is why Mix is above them rather than below, where it would slide up and down the panel every time you changed your mind.',
-              es: 'Cuál de los doce es este nodo. Cambiarlo reemplaza los controles de abajo por los de ese efecto, y el Mix de arriba se queda donde estaba — por eso el Mix va encima y no debajo, donde se desplazaría por el panel cada vez que cambiaras de idea.',
+              en: 'Which of the thirteen this node is. Changing it replaces the controls below with that effect’s own, and the Mix above stays where it was — which is why Mix is above them rather than below, where it would slide up and down the panel every time you changed your mind.',
+              es: 'Cuál de los trece es este nodo. Cambiarlo reemplaza los controles de abajo por los de ese efecto, y el Mix de arriba se queda donde estaba — por eso el Mix va encima y no debajo, donde se desplazaría por el panel cada vez que cambiaras de idea.',
             },
           },
           {
@@ -921,6 +921,20 @@ export const MANUAL: Section[] = [
             text: {
               en: 'How long it goes on sounding after it is struck, in seconds. A time and not an amount of feedback, which is not the same thing: one trip round a resonator is one cycle of the note, so a fixed feedback would ring eight times longer at the bottom of the range than at the top. Asking for a time means retuning it does not change the length of the note.',
               es: 'Cuánto sigue sonando después del golpe, en segundos. Un tiempo y no una cantidad de realimentación, que no es lo mismo: una vuelta al resonador es un ciclo de la nota, así que una realimentación fija sonaría ocho veces más en la parte baja del rango que en la alta. Pedir un tiempo hace que reafinarlo no cambie la duración de la nota.',
+            },
+          },
+          {
+            term: { en: 'Fold', es: 'Fold' },
+            text: {
+              en: 'Where a distortion squashes a signal that gets too loud, this **reflects** it — the peak turns round and comes back down. So a louder note is not the same tone louder, it is a *different* tone, because how far into the folds it reaches depends on how hard it arrived. It is the one effect here whose timbre follows the playing rather than a control, which makes it the one that gets something out of step velocities for free.',
+              es: 'Donde una distorsión achata una señal que se pasa de fuerte, esto la **refleja** — el pico da la vuelta y baja otra vez. Así que una nota más fuerte no es el mismo timbre más fuerte, es *otro* timbre, porque hasta dónde entra en los pliegues depende de con cuánta fuerza llegó. Es el único efecto de aquí cuyo timbre sigue a la interpretación y no a un control, lo que lo hace el único que le saca algo a las velocidades de los pasos gratis.',
+            },
+          },
+          {
+            term: { en: 'Bias', es: 'Bias' },
+            text: {
+              en: 'How far off centre the signal is pushed before it folds, and the reason the effect is worth having. Folded down the middle, both halves reflect alike and you get odd harmonics only — hollow, reedy, the same tone however hard you drive it. Off centre they fold differently, and that difference is even harmonics. Wire a MOD to it and you are moving *which* harmonics are there rather than how loud or how bright the sound is, which nothing else here does.',
+              es: 'Cuánto se desplaza la señal del centro antes de plegarse, y la razón por la que el efecto merece la pena. Plegada por el medio, las dos mitades se reflejan igual y salen solo armónicos impares — hueco, de caña, el mismo timbre por mucho que lo empujes. Descentrada se pliegan distinto, y esa diferencia son armónicos pares. Cablea un MOD y estás moviendo *qué* armónicos hay, no cuánto suena ni cuán brillante es, que no lo hace nada más aquí.',
             },
           },
           {

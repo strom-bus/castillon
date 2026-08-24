@@ -16,6 +16,7 @@ import {
   crushCurve,
   distortionCurve,
   fillImpulse,
+  foldCurve,
 } from './dsp'
 import { COMB, DECIMATOR, OCTAVE } from './worklets/names'
 import type { Random } from './random'
@@ -993,6 +994,73 @@ const comb: EffectDescriptor = {
   },
 }
 
+const fold: EffectDescriptor = {
+  kind: 'fold',
+  /*
+   * The same parts as the distortion — a shaper at four-times oversampling, a high-pass and the tone
+   * filter — so it starts at the distortion's measured 10.9 rather than at a guess. Folding aliases
+   * harder than clipping does, but the oversampling is what costs, not what is being oversampled.
+   *
+   * A prior, like the resonator's, and it wants a sweep of its own before it is trusted.
+   */
+  cost: () => 10.9,
+  label: 'Fold',
+  params: ['drive', 'bias', 'cutoff'],
+  defaults: { drive: 0.4, bias: 0, cutoff: 5000 },
+  releaseTime: 0.02,
+  create(ctx) {
+    const shaper = ctx.createWaveShaper()
+    /*
+     * Folding is where oversampling earns its keep more than anywhere else here. A clipper's corners
+     * make harmonics that fall away; a fold makes a corner every time it turns over, four times at full
+     * drive, and every one of those puts energy far above Nyquist. Without this it is not a folder, it
+     * is a hiss that follows the note.
+     */
+    shaper.oversample = '4x'
+    /*
+     * A biased fold is asymmetric by construction, and an asymmetric curve leaves a direct current. The
+     * distortion has this filter for the same reason — rectifying and fuzz both offset — and it matters
+     * more here, because bias is a control somebody will sweep rather than a flavour they pick once.
+     */
+    const dcBlock = ctx.createBiquadFilter()
+    dcBlock.type = 'highpass'
+    dcBlock.frequency.value = 20
+    const post = tone(ctx)
+    shaper.connect(dcBlock)
+    dcBlock.connect(post)
+    let built = ''
+
+    return {
+      input: shaper,
+      output: post,
+      update(params, { at }) {
+        setTone(post, params, at)
+        // Rounded to a hundredth before it becomes a key, so dragging a slider rebuilds the table when
+        // the sound would change rather than on every frame. Same guard as the distortion's.
+        const drive = Math.round(Math.min(1, Math.max(0, params.drive ?? 0)) * 100) / 100
+        const bias = Math.round(Math.min(1, Math.max(-1, params.bias ?? 0)) * 100) / 100
+        const key = `${drive}:${bias}`
+        if (key === built) return
+        built = key
+        shaper.curve = foldCurve(drive, bias)
+      },
+      paramFor(key) {
+        /*
+         * Only the tone. Drive and bias rebuild a thousand-point table, so neither is an `AudioParam` a
+         * signal can be added to — they are driven by recomputation instead, which is what the modulation
+         * table means by `via: 'value'`.
+         */
+        return key === 'cutoff' ? post.frequency : null
+      },
+      dispose() {
+        shaper.disconnect()
+        dcBlock.disconnect()
+        post.disconnect()
+      },
+    }
+  },
+}
+
 export const EFFECTS: EffectDescriptor[] = [
   reverb,
   echo,
@@ -1006,6 +1074,7 @@ export const EFFECTS: EffectDescriptor[] = [
   pan,
   octave,
   comb,
+  fold,
 ]
 
 const byKind = new Map(EFFECTS.map((e) => [e.kind, e]))

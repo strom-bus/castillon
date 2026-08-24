@@ -3,6 +3,7 @@ import { defaultFxParams, defaultOscParams, defaultSieveParams } from '../nodes/
 import { MAX_EVERY } from '../types/patch'
 import type {
   WarpParams,
+  FxParams,
   ModParams,
   SieveParams,
   Patch,
@@ -357,37 +358,62 @@ describe('patch code', () => {
   })
 
   it('round-trips every FX parameter, including ones the current effect ignores', () => {
-    // They are all encoded on purpose: it is what stops the format changing when an effect lands.
+    /*
+     * They are all encoded on purpose: it is what stops the format changing when an effect lands.
+     *
+     * The list below is checked **against the type**, which it was not before. It said "every FX
+     * parameter" while naming eleven of eighteen, and a field added to `FxParams` and forgotten in the
+     * codec would have sailed past it — which is exactly how the WARP lost three of its four dimensions.
+     * Now a new parameter fails here until somebody says what it should round-trip to, and that is the
+     * right moment to be asked.
+     */
+    const cases: Record<string, [unknown, number]> = {
+      effect: ['chorus', 0],
+      mix: [0.42, 0.01],
+      decay: [6.3, 0.1],
+      drive: [0.77, 0.01],
+      shape: ['fuzz', 0],
+      time: ['1/16', 0],
+      feedback: [0.9, 0.01],
+      filterType: ['highpass', 0],
+      // Log-scaled over ten bits, so it is compared as a ratio further down rather than as a difference.
+      cutoff: [800, 20],
+      resonance: [11.5, 0.1],
+      rate: [7.2, 0.1],
+      depth: [0.66, 0.01],
+      sweep: [22, 0.1],
+      bits: [5, 0],
+      reduction: [6, 0],
+      pan: [-0.6, 0.01],
+      width: [0.85, 0.01],
+      pitch: [72, 0],
+      bias: [-0.45, 0.01],
+    }
+
+    const missing = Object.keys(defaultFxParams()).filter((key) => !(key in cases))
+    expect(missing, `no round-trip case for: ${missing.join(', ')}`).toEqual([])
+
     const params = {
       ...defaultFxParams(),
-      effect: 'reverb' as const,
-      mix: 0.42,
-      decay: 6.3,
-      drive: 0.77,
-      time: '1/16' as const,
-      feedback: 0.9,
-      filterType: 'highpass' as const,
-      cutoff: 800,
-      resonance: 11.5,
-      rate: 7.2,
-      depth: 0.66,
-    }
+      ...Object.fromEntries(Object.entries(cases).map(([key, [value]]) => [key, value])),
+    } as FxParams
     const decoded = decodePatch(
       encodePatch(patchOf([{ id: 'f', type: 'fx', position: { x: 0, y: 0 }, params }])),
     )!
-    const back = decoded.nodes[0].params as typeof params
+    const back = decoded.nodes[0].params as unknown as Record<string, unknown>
 
-    expect(back.effect).toBe('reverb')
-    expect(back.mix).toBeCloseTo(0.42, 2)
-    expect(back.decay).toBeCloseTo(6.3, 1)
-    expect(back.drive).toBeCloseTo(0.77, 2)
-    expect(back.time).toBe('1/16')
-    expect(back.feedback).toBeCloseTo(0.9, 2)
-    expect(back.filterType).toBe('highpass')
-    expect(back.cutoff / 800).toBeCloseTo(1, 2)
-    expect(back.resonance).toBeCloseTo(11.5, 1)
-    expect(back.rate).toBeCloseTo(7.2, 1)
-    expect(back.depth).toBeCloseTo(0.66, 2)
+    for (const [key, [value, tolerance]] of Object.entries(cases)) {
+      if (typeof value !== 'number') {
+        expect(back[key], key).toBe(value)
+      } else if (tolerance === 0) {
+        expect(back[key], key).toBe(value)
+      } else {
+        expect(
+          Math.abs((back[key] as number) - value),
+          `${key} came back ${back[key]}`,
+        ).toBeLessThanOrEqual(tolerance)
+      }
+    }
   })
 
   it('round-trips the sweep, which the chorus needs to reach flanging', () => {

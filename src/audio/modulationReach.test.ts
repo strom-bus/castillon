@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { EFFECTS, effectOr } from './effects'
 import { fakeAudio } from './fakeAudio'
 import { targetsFor } from './modulation'
+import { indexedTables } from '../state/patchCode'
 import type { EffectKind, FxParams } from '../types/patch'
 
 /**
@@ -16,6 +17,43 @@ import type { EffectKind, FxParams } from '../types/patch'
 
 const paramsFor = (kind: EffectKind): FxParams =>
   ({ effect: kind, mix: 0.8, ...effectOr(kind).defaults }) as FxParams
+
+/**
+ * Every control an effect shows, against every target a MOD offers on it.
+ *
+ * The gap this closes is the one the SIEVE had and the presets' coverage map had: a thing can exist,
+ * be shown, and be unreachable, and every test around it passes because they all iterate the list that
+ * does not mention it. The wavefolder shipped its Bias control with no entry in the parameter table, so
+ * `targetsFor` quietly dropped it and no case was ever generated for it — an effect whose best control
+ * could not be automated, and 1412 green tests.
+ *
+ * Which parameters are exempt is **derived**: a value stored as an index into a table is a choice from a
+ * fixed set, and a choice is not something a signal can be added to. The wire format already records
+ * exactly which fields those are, so nothing has to be listed here.
+ */
+describe('every control an effect shows', () => {
+  const enumerated = new Set(indexedTables().map((table) => table.key))
+
+  it('is a parameter a MOD can point at, unless it is a choice from a fixed set', () => {
+    const unreachable: string[] = []
+    for (const descriptor of EFFECTS) {
+      const offered = new Set(targetsFor('fx', descriptor.kind).map((target) => target.key))
+      for (const key of descriptor.params) {
+        if (enumerated.has(key)) continue
+        if (!offered.has(key)) unreachable.push(`${descriptor.kind}.${String(key)}`)
+      }
+    }
+    expect(unreachable, `shown but unmodulatable: ${unreachable.join(', ')}`).toEqual([])
+  })
+
+  it('leaves the choices out, which is the other half of the same claim', () => {
+    // Or the check above would pass by exempting everything. A filter's type and a distortion's shape are
+    // switches, and offering them as modulation destinations would be offering a nonsense.
+    expect(targetsFor('fx', 'filter').map((t) => t.key)).not.toContain('filterType')
+    expect(targetsFor('fx', 'distortion').map((t) => t.key)).not.toContain('shape')
+    expect(enumerated.size).toBeGreaterThan(5)
+  })
+})
 
 describe('every offered target is reachable', () => {
   for (const descriptor of EFFECTS) {

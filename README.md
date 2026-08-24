@@ -120,8 +120,8 @@ refused, since between an oscillator and an effect there is only one direction t
 
 - **Whole-cascade loop.** When every branch has drained, the cascade fires again. Each pass lasts
   as long as its longest branch, so the cycle breathes rather than holding a fixed pulse.
-- **An FX node** with twelve effects: reverb, distortion, bitcrush, echo, filter, chorus, phaser,
-  tremolo, ring modulation, stereo pan, an octave divider and a comb resonator. The bitcrusher does both halves: bit depth through a
+- **An FX node** with thirteen effects: reverb, distortion, bitcrush, echo, filter, chorus, phaser,
+  tremolo, ring modulation, stereo pan, an octave divider, a comb resonator and a wavefolder. The bitcrusher does both halves: bit depth through a
   waveshaper, and sample rate through an `AudioWorklet`, since holding a sample between outputs is
   memory and a curve has none. No filtering on the way down — the aliasing is the sound. The **octave
   divider** is the other one that needs memory: a flip-flop clocked by the signal's own zero crossings
@@ -304,7 +304,7 @@ refused, since between an oscillator and an effect there is only one direction t
 - **A patch gallery**, a window over the canvas rather than a page — so choosing a patch loads it into
   the instrument already underneath. Cards draw their own cascade, and stars decay with age so the
   popular sort does not freeze on whatever was published first. Two tabs: the patches people have
-  shared, and **nine presets** that come with the machine.
+  shared, and **ten presets** that come with the machine.
 
   Six are built around one idea that is hard to arrive at by rolling and small enough to read at a
   glance — the plain cascade, why there is no clock, one phrase driving another note by note, a figure
@@ -349,7 +349,7 @@ refused, since between an oscillator and an effect there is only one direction t
   it longer without making it clearer. Both languages live adjacent in one file so a half-finished
   edit shows up in the diff rather than as a blank paragraph months later.
 
-  Fourteen chapters and a hundred and thirty-nine entries, written for whoever is using the instrument
+  Fourteen chapters and a hundred and forty-one entries, written for whoever is using the instrument
   rather than for whoever built it: no entry explains how something is implemented, and every one says
   what a control does to the sound and when you would reach for it. One chapter per module, each in
   the order its own panel is in and under the panel's own group headings, so reading the manual and
@@ -367,6 +367,26 @@ refused, since between an oscillator and an effect there is only one direction t
   it does, because a code shown before it exists is a code somebody writes down. Copy copies what is
   there and nothing else. The field takes either kind of code.
   The eight nodes it starts with come to 131 characters, against 3243 as JSON.
+
+- **A wavefolder**, where a distortion squashes a signal that gets too loud and this **reflects** it —
+  the peak turns round and comes back down. So a louder note is not the same tone louder, it is a
+  different tone, because how far into the folds it reaches depends on how hard it arrived. It is the
+  only effect here whose timbre follows the playing rather than a control, and the only one that gets
+  something out of step velocities without being wired to them.
+
+  **Bias** is the control worth having, and it is why this is not a fourteenth distortion shape.
+  Folded down the middle, both halves reflect alike and the result is an odd function — odd harmonics
+  only, hollow and reedy however hard it is driven. Off centre they fold differently, and that asymmetry
+  is where the even harmonics come from. Swept, it moves _which_ harmonics are present rather than how
+  loud or how bright the sound is, which nothing else here does. A shape could not have carried a second
+  control, and this one is the effect.
+
+  The fold is `asin(sin(·))` rather than an arithmetic reflection: exact at the corners, with no modulo
+  to get the sign of wrong, and the identity between -1 and 1 so a folder at rest is a wire. It gets
+  four-times oversampling because a fold makes a corner every time it turns over — four of them at full
+  drive — and every corner puts energy above Nyquist. And a 20 Hz high-pass after it, because a biased
+  fold is asymmetric by construction and an asymmetric curve leaves a direct current, which is
+  inaudible and eats headroom all the way to the limiter.
 
 ## Sharing
 

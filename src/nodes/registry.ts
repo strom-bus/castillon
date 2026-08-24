@@ -616,6 +616,8 @@ export function defaultFxParams(): FxParams {
     sweep: 6,
     // A3, which is in the middle of the range and in the key most of the presets are in.
     pitch: 57,
+    // Centred, so a wavefolder added and not touched makes odd harmonics only.
+    bias: 0,
   }
 }
 

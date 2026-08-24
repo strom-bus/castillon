@@ -241,6 +241,7 @@ export type EffectKind =
   | 'pan'
   | 'octave'
   | 'comb'
+  | 'fold'
 
 /**
  * One flat parameter set for every effect, with the inspector showing only the fields the current
@@ -269,8 +270,18 @@ export interface FxParams {
    * a resonator to the key, not to 437.
    */
   pitch: number
-  /** Distortion amount, 0–1. */
+  /** Distortion amount, 0–1. Also how far a wavefolder drives the signal into its folds. */
   drive: number
+  /**
+   * How far off centre a wavefolder pushes the signal before folding it, -1 to 1.
+   *
+   * Its own field rather than borrowing `pan`, whose range is the same and whose meaning is not. Reuse is
+   * the house style here — a ring modulator's Freq borrows `cutoff`, a resonator's Ring borrows `decay` —
+   * and it earned a bug on the day this was written: an oscillator's vibrato and a resonator's tuning
+   * both being called `pitch` made every vibrato in the instrument eight times too small, silently. A
+   * bias is not a stereo position, and one appended field costs about a bit in a patch that uses it.
+   */
+  bias: number
   /** Which flavour of distortion. */
   shape: DistortionShape
   /** Echo time, as a beat division. */

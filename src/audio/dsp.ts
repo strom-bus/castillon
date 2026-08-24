@@ -71,6 +71,63 @@ export function distortionCurve(
 }
 
 /**
+ * How far a wavefolder drives the signal into the folds at full amount.
+ *
+ * Eight means a peak-level input travels two whole periods of the folding function, which is four
+ * reflections — enough that the fundamental is no longer the loudest thing in the output, which is the
+ * point of the effect. Higher gets denser and stops being a note; lower never leaves the first fold and
+ * is just a triangle-shaped distortion.
+ */
+const MAX_FOLD_GAIN = 8
+
+/**
+ * The folding function: a triangle that is the **identity** between -1 and 1 and reflects outside it.
+ *
+ * `asin(sin(·))` rather than an arithmetic reflection, because it is exact at the corners and there is no
+ * modulo to get the sign of wrong. Period 4, slope 1 through the origin, so a signal inside the range
+ * passes through untouched and one driven past it comes back down instead of stopping.
+ *
+ * That coming-back-down is the whole difference from a clipper, and it is why this is a *waveshape* and
+ * not an amount of dirt: a clipper's curve never decreases, so its output is always a squashed version of
+ * its input. A folder's turns over, so a louder input can be a *quieter* output and the harmonics move
+ * as the level does. Nothing else here changes timbre with dynamics.
+ */
+function foldOnce(value: number): number {
+  return (2 / Math.PI) * Math.asin(Math.sin((value * Math.PI) / 2))
+}
+
+/**
+ * The curve for a wavefolder: drive pushes the signal into the folds, bias pushes it off centre.
+ *
+ * **Bias is the control worth having.** Folding a centred signal reflects it identically above and below,
+ * which produces odd harmonics only — a hollow, clarinet-like tone however hard it is driven. Offsetting
+ * it first makes the two halves fold differently, and that asymmetry is what puts *even* harmonics in.
+ * Swept, it is the west-coast timbre: one control moving the harmonic content rather than the volume or
+ * the filter, which is a thing nothing else in this instrument can do.
+ *
+ * Transparent at rest by construction, like every effect here: at drive nought and bias nought the gain
+ * is one, the offset is nothing, and the fold is the identity over the whole domain.
+ */
+export function foldCurve(
+  drive: number,
+  bias: number,
+  points = CURVE_POINTS,
+): Float32Array<ArrayBuffer> {
+  const amount = Math.min(1, Math.max(0, drive))
+  const offset = Math.min(1, Math.max(-1, bias))
+  const gain = 1 + amount * (MAX_FOLD_GAIN - 1)
+
+  const curve = new Float32Array(points)
+  for (let i = 0; i < points; i++) {
+    const x = (i / (points - 1)) * 2 - 1
+    // The offset is added *after* the gain, so it stays a quarter of a fold whatever the drive is. Added
+    // before, a bias would be multiplied into whole periods and come back round to no asymmetry at all.
+    curve[i] = foldOnce(x * gain + offset)
+  }
+  return curve
+}
+
+/**
  * A staircase that rounds the signal to `bits` of resolution.
  *
  * This is bit-depth reduction only. The other half of a bitcrusher — decimating the sample rate — is

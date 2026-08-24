@@ -175,6 +175,7 @@ const EFFECT_CODES: EffectKind[] = [
   'tremolo',
   'octave',
   'comb',
+  'fold',
 ]
 
 const SHAPE_CODES: DistortionShape[] = ['overdrive', 'distortion', 'fuzz', 'octave']
@@ -358,6 +359,13 @@ const FX_FIELDS: Field<FxParams>[] = [
   scaledField('sweep', 9, 10, MIN_SWEEP * 10, MAX_SWEEP * 10),
   // Whole semitones over six octaves, which is seven bits with room over. Appended, as everything is.
   scaledField('pitch', 7, 1, MIN_COMB_NOTE, MAX_COMB_NOTE),
+  // Shifted, so a signed offset needs no sign bit of its own — the same shape as `pan` above.
+  field<FxParams>(
+    'bias',
+    8,
+    (value) => quantise((value as unknown as number) + 1, 100, 0, 200),
+    (stored) => stored / 100 - 1,
+  ),
 ]
 
 /**
@@ -409,6 +417,7 @@ const FX_REFERENCE: FxParams = {
   sweep: 6,
   // A3, the middle of the resonator's range. Frozen like everything else here.
   pitch: 57,
+  bias: 0,
 }
 
 /**

@@ -880,4 +880,87 @@ const pluck: Preset = {
   ),
 }
 
-export const PRESETS: Preset[] = [descent, drift, hive, chance, bend, sift, pluck, duck, stress]
+/**
+ * A sine, and everything you hear is the folder.
+ *
+ * A sine has nothing in it but its fundamental, so putting one through a wavefolder is the least
+ * ambiguous demonstration there is: every harmonic in the output was made by the effect. Folding a
+ * sawtooth would sound thicker and explain nothing.
+ *
+ * Two things are on show and neither is obvious from the panel.
+ *
+ * **The timbre follows the playing.** The step velocities run from a third to full, and because how far
+ * into the folds a note reaches depends on how loud it arrived, each one comes out a different tone
+ * rather than the same tone at a different volume. Nothing else here gets anything out of velocity but
+ * loudness, and this needed no wiring at all — it is what a folder *is*.
+ *
+ * **The LFO is on Bias, not on the filter.** Sweeping the offset moves which harmonics are present, so
+ * the sound opens and closes without getting brighter or louder. That is the west-coast gesture, and it
+ * is the one modulation destination in this instrument that changes a timbre and nothing else.
+ */
+const reed: Preset = {
+  id: 'reed',
+  name: 'REED',
+  about: 'A sine folded into a reed, its timbre following the velocities and an LFO on the Bias.',
+  patch: patchOf(
+    96,
+    [
+      ignite('i', 1, 0),
+      osc('voice', 1, 1, {
+        ...IN_KEY,
+        // A sine, so that everything audible was made by the folder and nothing came in with the note.
+        waveform: 'sine',
+        steps: steps(
+          [note(0, 0), note(4, 0), null, note(2, 0), note(0, 1), null, note(4, 0), note(2, 0)],
+          // A third to full. Through a folder this is a line of different tones, not one tone at
+          // different volumes — which is the whole reason the range is this wide.
+          [1, 0.42, 1, 0.66, 0.88, 1, 0.35, 0.55],
+        ),
+        division: '1/8',
+        gain: 0.34,
+        attack: 3,
+        decay: 0,
+        release: 180,
+        gate: 0.7,
+        filterType: 'off',
+        cutoff: 6000,
+        resonance: 1,
+      }),
+      /*
+       * Driven past the first fold, and biased off centre to start with — so the LFO below sweeps through
+       * the middle rather than sitting on it, and the even harmonics come and go instead of only ever
+       * arriving.
+       */
+      fx('folder', 0, 2, { effect: 'fold', mix: 1, drive: 0.58, bias: 0.2, cutoff: 6500 }),
+      fx('rv', 2, 2, { effect: 'reverb', mix: 0.22, decay: 2.6, cutoff: 3400 }),
+      mod('sweep', 0, 3, {
+        kind: 'lfo',
+        wave: 'triangle',
+        rate: 0.18,
+        depth: 0.4,
+        target: 'bias',
+      }),
+    ],
+    [
+      wire('i', 'voice'),
+      // All of it through the folder: half a wavefolder is the unfolded sine sitting underneath, which
+      // is the same argument as a filter wanting its whole mix.
+      wire('voice', 'folder', 'audio'),
+      wire('voice', 'rv', 'audio'),
+      wire('sweep', 'folder', 'mod'),
+    ],
+  ),
+}
+
+export const PRESETS: Preset[] = [
+  descent,
+  drift,
+  hive,
+  chance,
+  bend,
+  sift,
+  pluck,
+  reed,
+  duck,
+  stress,
+]

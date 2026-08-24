@@ -271,8 +271,8 @@ export const MANUAL: Section[] = [
         es: 'Por defecto dispara cuando pulsas PLAY. Ponlo en una tecla o una nota y PLAY lo deja en paz: espera a tu dedo. Esa es la diferencia entre un patch que arrancas y un patch que tocas.',
       },
       {
-        en: 'It has **two** trigger ports. The one underneath is the cascade you know: what it fires plays, and when that finishes it fires whatever hangs below. The one on top — the small triangle — sends a wave the other way: what it fires plays, and then fires whatever points *at* it, climbing until nothing is above. Wire the bottom port to the top of a chain and the top port to the bottom of the same chain, and one trigger plays it in both directions at once. The preset called RISE is exactly that.',
-        es: 'Tiene **dos** puertos de disparo. El de abajo es la cascada que conoces: lo que dispara suena, y al terminar dispara lo que cuelga debajo. El de arriba — el triangulito — manda una ola al contrario: lo que dispara suena, y luego dispara lo que le *apunta*, trepando hasta que no hay nada encima. Cablea el puerto de abajo a lo alto de una cadena y el de arriba a lo bajo de la misma cadena, y un disparo la toca en las dos direcciones a la vez. El preset llamado RISE es exactamente eso.',
+        en: 'It has **two** trigger ports. The one underneath is the cascade you know: what it fires plays, and when that finishes it fires whatever hangs below. The one on top sends a wave the other way — what it fires plays, and then fires whatever points *at* it, climbing until nothing is above. Put an IGNITE in the middle of a chain and everything off the bottom port flows down while everything off the top port flows up. Wire both to the same chain and one trigger plays it in both directions at once; the preset called RISE is that.',
+        es: 'Tiene **dos** puertos de disparo. El de abajo es la cascada que conoces: lo que dispara suena, y al terminar dispara lo que cuelga debajo. El de arriba manda una ola al contrario — lo que dispara suena, y luego dispara lo que le *apunta*, trepando hasta que no hay nada encima. Pon un IGNITE en medio de una cadena y todo lo del puerto de abajo fluye hacia abajo mientras todo lo del de arriba fluye hacia arriba. Cablea los dos a la misma cadena y un disparo la toca en las dos direcciones a la vez; el preset llamado RISE es eso.',
       },
     ],
     detail: [
@@ -290,6 +290,23 @@ export const MANUAL: Section[] = [
             text: {
               en: 'A node reached by both fires twice, which is the same thing that already happens to a node with two parents — no special case. But if the branches either side of it are the *same* length, both waves arrive at the same instant and it is simply louder: a doubling rather than a crossing. Make them different lengths and you hear the waves pass each other, which is the thing worth hearing.',
               es: 'Un nodo al que llegan las dos dispara dos veces, que es lo mismo que ya le pasa a un nodo con dos padres — sin caso especial. Pero si las ramas a cada lado tienen la *misma* duración, las dos olas llegan en el mismo instante y solo suena más fuerte: un doblado, no un cruce. Dales duraciones distintas y oyes las olas pasarse una a otra, que es lo que merece oírse.',
+            },
+          },
+          {
+            term: { en: 'A climb lands on the bottom', es: 'Una subida entra por abajo' },
+            text: {
+              en: 'An upward cable arrives at the **bottom** of what it fires, which is the opposite end from every other trigger cable. A trigger enters a node at the end the wave is coming from: descending that is the top, climbing it is the bottom — and then it leaves through the top, into whatever is above. So a climb is the whole picture mirrored, and the cable can be drawn from either end.',
+              es: 'Un cable ascendente llega a la parte de **abajo** de lo que dispara, que es el extremo contrario al de cualquier otro cable de disparo. Un disparo entra en un nodo por el extremo del que viene la ola: bajando es arriba, trepando es abajo — y luego sale por arriba, hacia lo que haya encima. Una subida es el dibujo entero espejado, y el cable se puede trazar desde cualquiera de los dos extremos.',
+            },
+          },
+          {
+            term: {
+              en: 'The pulse runs the way the trigger went',
+              es: 'El pulso corre por donde fue el disparo',
+            },
+            text: {
+              en: 'On a cable a climb is using, the light travels from the bottom upward — backwards along the cable, because that is the way the trigger actually went. Which matters because in a patch wired from both ports the *same* cable carries a descent and a climb in one pass, so the direction belongs to the trigger and not to the cable. Watching a patch is how you read it, and a pulse running the wrong way would be telling you the opposite of what happened.',
+              es: 'En un cable que usa una subida, la luz viaja de abajo hacia arriba — al revés del cable, porque es por donde fue el disparo de verdad. Importa porque en un patch cableado desde los dos puertos el *mismo* cable lleva un descenso y una subida en una pasada, así que la dirección es del disparo y no del cable. Mirar un patch es cómo se lee, y un pulso corriendo al revés te estaría contando lo contrario de lo que pasó.',
             },
           },
           {

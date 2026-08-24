@@ -425,7 +425,19 @@ export class CascadeScheduler {
       if (onward) {
         for (const edge of onward) {
           for (const at of result.outgoing) {
-            this.deps.activity.push({ kind: 'edge', id: edge.id, time: at, duration: EDGE_FLASH })
+            this.deps.activity.push({
+              kind: 'edge',
+              id: edge.id,
+              time: at,
+              duration: EDGE_FLASH,
+              /*
+               * Which way the trigger crossed, which is not the same as which kind of cable it is. A
+               * climb crosses ordinary cables from their target to their source, so its pulse has to run
+               * backwards along them; the upward cable that *starts* a climb is crossed the ordinary way,
+               * source to target, so it does not. Hence `event.up` and not `edge.up`.
+               */
+              up: event.up || undefined,
+            })
             this.enqueue({
               nodeId: edge.target,
               time: at,

@@ -38,44 +38,72 @@ interface EdgeLike {
   data?: { kind?: string; up?: boolean }
 }
 
+/**
+ * Where a wave can go from a node, and which way it is going when it gets there.
+ *
+ * Depth is *distance from the Ignite along the wave*, and a wave can run either way — so this walks the
+ * ordinary cables forward for a descent and backward for a climb. Written as one traversal carrying a
+ * direction rather than two, because the two would have to agree about what a step is and there is only
+ * one answer.
+ *
+ * The first version of this simply skipped upward cables, which was wrong twice over: an Ignite whose
+ * only cable was an upward one had no children at all, so it fell out of the map and read as
+ * *disconnected*; and the branch it fires had no path from any start, so a whole working cascade came
+ * out grey.
+ */
+interface Reach {
+  id: string
+  up: boolean
+}
+
 export function computeDepths(nodes: NodeLike[], edges: EdgeLike[]): DepthInfo {
-  const children = new Map<string, string[]>()
+  const children = new Map<string, Reach[]>()
+  const parents = new Map<string, Reach[]>()
+
+  const add = (map: Map<string, Reach[]>, key: string, value: Reach) => {
+    const list = map.get(key)
+    if (list) list.push(value)
+    else map.set(key, [value])
+  }
+
   for (const edge of edges) {
     // Event cables only. Anything else would be read as another level of cascade, counting towards
     // `max` and compressing the ramp across the whole patch — which is exactly what an audio cable
     // did once before this line existed. A modulation cable is the same trap wearing a new name.
     if (edge.data?.kind === 'audio' || edge.data?.kind === 'mod') continue
-    /*
-     * And not a cable that runs the cascade upward. Depth here means *distance down the cascade*, and an
-     * upward cable is not a step down it — it is where a wave going the other way gets in. Counting it
-     * would give its target the depth of a first-level node, recolouring a whole branch and flattening
-     * the ramp across the patch, which is the same trap an audio cable fell into above.
-     *
-     * The cable itself still takes its colours from its two ends, so it sweeps the entire ramp from the
-     * source hue to the deepest one — which is exactly the distance it covers.
-     */
-    if (edge.data?.up) continue
-    const list = children.get(edge.source)
-    if (list) list.push(edge.target)
-    else children.set(edge.source, [edge.target])
+
+    if (edge.data?.up) {
+      // An upward cable is one step, into a wave that then climbs. It is not a rung of the climb, which
+      // is the same exclusion the scheduler makes and for the same reason.
+      add(children, edge.source, { id: edge.target, up: true })
+    } else {
+      add(children, edge.source, { id: edge.target, up: false })
+      add(parents, edge.target, { id: edge.source, up: true })
+    }
   }
 
   const depths = new Map<string, number>()
-  // An Ignite with nothing wired below it is seeded as no root at all, so it falls out of the map
-  // and reads as disconnected — the same way an orphaned oscillator already does.
-  let queue = nodes.filter((n) => n.type === 'start' && children.has(n.id)).map((n) => n.id)
-  for (const id of queue) depths.set(id, 0)
+  // An Ignite with nothing wired to it either way is seeded as no root at all, so it falls out of the
+  // map and reads as disconnected — the same way an orphaned oscillator already does.
+  let queue: Reach[] = nodes
+    .filter((n) => n.type === 'start' && children.has(n.id))
+    .map((n) => ({ id: n.id, up: false }))
+  for (const one of queue) depths.set(one.id, 0)
 
   let depth = 0
   while (queue.length > 0) {
     depth++
-    const next: string[] = []
-    for (const id of queue) {
-      for (const child of children.get(id) ?? []) {
-        // First path to arrive wins: a node is coloured by its shortest branch.
-        if (depths.has(child)) continue
-        depths.set(child, depth)
-        next.push(child)
+    const next: Reach[] = []
+    for (const one of queue) {
+      // Down the cascade or up it, which is a fact about the wave and not about the node.
+      for (const onward of (one.up ? parents.get(one.id) : children.get(one.id)) ?? []) {
+        // First path to arrive wins: a node is coloured by its shortest branch, whichever way it ran.
+        if (depths.has(onward.id)) continue
+        depths.set(onward.id, depth)
+        // `onward.up` alone: every entry in `parents` carries true and every downward entry in `children`
+        // carries false, so the direction a wave is already going is already in the step it takes. An
+        // `||` here read as defensive and was dead — nothing could reach a downward child while climbing.
+        next.push({ id: onward.id, up: onward.up })
       }
     }
     queue = next

@@ -47,13 +47,22 @@ export function useNodeActivity(id: string): NodeActivity {
   return { pulsing, currentStep, runId: run.id, duration: run.duration }
 }
 
-export function useEdgeActivity(id: string): boolean {
+/**
+ * Whether a cable is carrying a trigger right now, and which way it is going.
+ *
+ * The direction is part of the reading rather than a decoration: the same cable carries a descent and a
+ * climb in any patch wired from both of the Ignite's ports, so a pulse that always ran source to target
+ * would be telling the opposite of the truth half the time.
+ */
+export function useEdgeActivity(id: string): { active: boolean; up: boolean } {
   const [active, setActive] = useState(false)
+  const [up, setUp] = useState(false)
 
   useEffect(() => {
     let timer: number | undefined
     const unsubscribe = activity.subscribe(edgeKey(id), (event) => {
       setActive(true)
+      setUp(event.kind === 'edge' && event.up === true)
       window.clearTimeout(timer)
       timer = window.setTimeout(() => setActive(false), event.duration * 1000)
     })
@@ -63,7 +72,7 @@ export function useEdgeActivity(id: string): boolean {
     }
   }, [id])
 
-  return active
+  return { active, up }
 }
 
 /**

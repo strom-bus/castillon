@@ -97,6 +97,72 @@ describe('what counts as part of the cascade', () => {
     expect(depths.get('a')).toBe(1)
   })
 
+  it('follows a climbing wave, so an upward branch is coloured too', () => {
+    /*
+     * Depth is distance from the Ignite **along the wave**, and a wave can run either way. Skipping
+     * upward cables — which the first version did, on the grounds that a climb is not a step down — was
+     * wrong twice: the Ignite had no children at all, so it fell out of the map and read as
+     * *disconnected*, and the branch it fires had no path from any start, so a whole working cascade
+     * came out grey.
+     */
+    const { depths, max } = computeDepths(
+      [start, osc('a'), osc('b'), osc('c')],
+      [
+        // A chain drawn downward, with nothing joining the Ignite to the top of it.
+        { source: 'a', target: 'b' },
+        { source: 'b', target: 'c' },
+        // And the Ignite firing the bottom, so the wave climbs c → b → a.
+        { source: 's', target: 'c', data: { kind: 'event', up: true } },
+      ],
+    )
+    expect(depths.get('s'), 'the Ignite reads as disconnected').toBe(0)
+    expect(depths.get('c')).toBe(1)
+    expect(depths.get('b')).toBe(2)
+    expect(depths.get('a')).toBe(3)
+    expect(max).toBe(3)
+  })
+
+  it('does not let a climb use an upward cable as a rung', () => {
+    /*
+     * The same exclusion the scheduler makes: an upward cable is the entrance to a climb, not a step in
+     * one. Counted as a rung it would give the Ignite a second depth through the back door and the ramp
+     * would run out of one end of itself.
+     */
+    const { depths } = computeDepths(
+      [start, osc('a'), osc('b')],
+      [
+        { source: 's', target: 'a' },
+        { source: 'a', target: 'b' },
+        { source: 's', target: 'b', data: { kind: 'event', up: true } },
+      ],
+    )
+    // Reached both ways and coloured by the shorter, which is the rule everywhere else here.
+    expect(depths.get('b')).toBe(1)
+    expect(depths.get('s')).toBe(0)
+    expect(depths.size).toBe(3)
+  })
+
+  it('does not let a climb walk back down an ordinary cable', () => {
+    /*
+     * The other half of the same rule, and the half a small graph cannot show. A climb follows a cable
+     * from its *target* to its *source*; indexing it the other way as well would let the wave turn round
+     * and descend again, so anything hanging below the node a climb starts at would light up as part of
+     * it.
+     *
+     * `d` hangs below `c` and nothing points at `c`, so the climb has nowhere to go and `d` is unreached.
+     */
+    const { depths } = computeDepths(
+      [start, osc('c'), osc('d')],
+      [
+        { source: 'c', target: 'd' },
+        { source: 's', target: 'c', data: { kind: 'event', up: true } },
+      ],
+    )
+    expect(depths.get('s')).toBe(0)
+    expect(depths.get('c')).toBe(1)
+    expect(depths.has('d'), 'a climb walked back down').toBe(false)
+  })
+
   it('does not treat an audio cable as another level of cascade', () => {
     // Without this, an effect wired to an oscillator became a cascade level of its own, pushing
     // `max` up and compressing the colour ramp across the whole patch.

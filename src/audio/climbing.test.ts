@@ -217,6 +217,67 @@ describe('the Ignite’s upward port', () => {
     expect(engine.order.length).toBeLessThan(MAX_DEPTH * 4)
   })
 
+  it('says which way each pulse ran, so the canvas can animate it', () => {
+    /*
+     * The direction belongs to the **trigger**, not to the cable. In a patch wired from both ports the
+     * same cable carries a descent and a climb, and a pulse that always ran source to target would be
+     * telling the opposite of the truth half the time — on a canvas that is how a patch is read.
+     *
+     * The upward cable itself is crossed the ordinary way, source to target, because it is where a climb
+     * *starts*. Only the cables a climb then uses are crossed backwards.
+     */
+    const { events } = run(CHAIN.nodes, [...CHAIN.edges, climb('i', 'c')])
+    const crossings = events.filter((e) => e.kind === 'edge')
+    const ways = new Map<string, Set<boolean>>()
+    for (const one of crossings) {
+      const seen = ways.get(one.id) ?? new Set<boolean>()
+      seen.add(one.kind === 'edge' && one.up === true)
+      ways.set(one.id, seen)
+    }
+
+    // The cable that starts the climb: forward, and only ever forward. It is the entrance, not a rung.
+    expect([...(ways.get('i->c') ?? [])]).toEqual([false])
+    /*
+     * Every other cable in this patch is crossed both ways in one pass, the Ignite's own descending one
+     * included — the climb finishes by arriving at the Ignite *through* it, which is what "the wave runs
+     * out of anything above" looks like from the cable's side. Asserted rather than assumed: the first
+     * version of this test expected that one to be forward only, and the code was right.
+     */
+    for (const id of ['i->a', 'a->b', 'b->c']) {
+      expect([...(ways.get(id) ?? [])].sort(), id).toEqual([false, true])
+    }
+  })
+
+  it('runs one direction each way when the Ignite sits in the middle', () => {
+    /*
+     * The arrangement this is for, said as Wilhelm put it: with the Ignite in the middle of a cascade,
+     * everything off the bottom port flows down and everything off the top port flows up. Two separate
+     * branches, one wave each, no cable shared.
+     */
+    const nodes = [ignite('i'), osc('below'), osc('deeper'), osc('above'), osc('higher')]
+    const { engine, events } = run(nodes, [
+      // Down from the bottom port.
+      down('i', 'below'),
+      down('below', 'deeper'),
+      // And up from the top one: the chain above is drawn downward, as every chain is, and the wave
+      // climbs it — so the Ignite fires its *bottom* and the trigger travels to `higher`.
+      down('higher', 'above'),
+      climb('i', 'above'),
+    ])
+
+    expect(entered(engine)).toEqual(['below', 'above', 'deeper', 'higher'])
+
+    const wayOf = (id: string) =>
+      events
+        .filter((e) => e.kind === 'edge' && e.id === id)
+        .map((e) => e.kind === 'edge' && e.up === true)
+    // The descending branch never carries a climb, and the climbing branch never carries a descent.
+    expect(wayOf('i->below')).toEqual([false])
+    expect(wayOf('below->deeper')).toEqual([false])
+    expect(wayOf('i->above')).toEqual([false])
+    expect(wayOf('higher->above')).toEqual([true])
+  })
+
   it('changes nothing about a patch that has no upward cable in it', () => {
     // The whole of the old behaviour, unmoved. Worth its own test because the traversal now branches on a
     // flag, and a default read the wrong way would invert every cascade in the instrument at once.

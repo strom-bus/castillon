@@ -702,6 +702,12 @@ input[type='range'] {
   animation: travel 0.45s linear infinite;
 }
 
+/* A climb crosses an ordinary cable from its target back to its source, so the same dashes run the other
+   way. One property rather than a second keyframe set, which would be the same animation written twice. */
+.edge-pulse.active.climbing {
+  animation-direction: reverse;
+}
+
 @keyframes travel {
   to {
     stroke-dashoffset: -32;

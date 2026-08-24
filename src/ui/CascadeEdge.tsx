@@ -21,7 +21,7 @@ export function CascadeEdge({
   sourcePosition,
   targetPosition,
 }: EdgeProps) {
-  const active = useEdgeActivity(id)
+  const { active, up } = useEdgeActivity(id)
   const { from, to } = useEdgeColors(source, target)
   const [path] = getBezierPath({
     sourceX,
@@ -57,9 +57,12 @@ export function CascadeEdge({
       </path>
       {/* Inline styles, not attributes: a stylesheet rule would win over an attribute. */}
       <path d={path} className="edge-base" style={{ stroke: `url(#${gradientId})` }} fill="none" />
+      {/* `climbing` runs the same dash animation in reverse, so the pulse travels from the target back to
+          the source — which is the way the trigger actually went. The class is on the pulse and not on
+          the cable because the same cable carries both waves in a patch wired from both Ignite ports. */}
       <path
         d={path}
-        className={`edge-pulse${active ? ' active' : ''}`}
+        className={`edge-pulse${active ? ' active' : ''}${up ? ' climbing' : ''}`}
         style={{ stroke: `url(#${gradientId})` }}
         fill="none"
       />

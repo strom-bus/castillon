@@ -302,25 +302,30 @@ describe('a cable from the Ignite’s upward port', () => {
     { id: 'p', type: 'osc' },
   ]
 
-  it('lands on a trigger input, the same as every other trigger cable', () => {
+  it('lands on the bottom of what it fires, which is the end the wave arrives from', () => {
+    /*
+     * The opposite end from every other trigger cable, and the right one. A trigger enters a node at the
+     * end the wave is coming from: descending that is the top, climbing it is the bottom — and then the
+     * wave leaves through the top, into whatever is above.
+     *
+     * Built the other way first, on the argument that every trigger should arrive at the same port. That
+     * argument is about the port; this one is about the wave, and the wave is what somebody is reading
+     * when they look at a patch.
+     */
     const made = connectionFor(
       { nodes, edges: [] },
-      { source: 'i', target: 'o', sourceHandle: EVENT_UP, targetHandle: EVENT_IN },
+      { source: 'i', target: 'o', sourceHandle: EVENT_UP, targetHandle: EVENT_OUT },
     )
     expect(made).toMatchObject({ source: 'i', target: 'o', kind: 'event', up: true })
   })
 
-  it('does not land on a trigger output, however much the geometry suggests it should', () => {
-    /*
-     * The wave arrives from below, so the bottom port is where a hand reaches for — and it is the wrong
-     * answer. That port is an *output* on every node in the instrument, and a port that were both would
-     * be the one double meaning this codebase keeps paying for. Every trigger arrives at the top; what
-     * differs is where it goes next, which the chain knows and the port does not have to say twice.
-     */
+  it('does not land on the top, which is where the wave leaves by', () => {
+    // Arriving there would draw a cable into the end the trigger is meant to go out of — the picture
+    // saying the opposite of what happens.
     expect(
       connectionFor(
         { nodes, edges: [] },
-        { source: 'i', target: 'o', sourceHandle: EVENT_UP, targetHandle: EVENT_OUT },
+        { source: 'i', target: 'o', sourceHandle: EVENT_UP, targetHandle: EVENT_IN },
       ),
     ).toBeNull()
   })
@@ -336,7 +341,7 @@ describe('a cable from the Ignite’s upward port', () => {
     expect(
       connectionFor(
         { nodes, edges: withDescent },
-        { source: 'i', target: 'o', sourceHandle: EVENT_UP, targetHandle: EVENT_IN },
+        { source: 'i', target: 'o', sourceHandle: EVENT_UP, targetHandle: EVENT_OUT },
       ),
     ).toMatchObject({ up: true })
   })
@@ -348,7 +353,7 @@ describe('a cable from the Ignite’s upward port', () => {
     expect(
       connectionFor(
         { nodes, edges: withClimb },
-        { source: 'i', target: 'o', sourceHandle: EVENT_UP, targetHandle: EVENT_IN },
+        { source: 'i', target: 'o', sourceHandle: EVENT_UP, targetHandle: EVENT_OUT },
       ),
     ).toBeNull()
     // And the descending one is still available, from the other direction of the same argument.
@@ -358,6 +363,22 @@ describe('a cable from the Ignite’s upward port', () => {
         { source: 'i', target: 'o', sourceHandle: EVENT_OUT, targetHandle: EVENT_IN },
       ),
     ).toMatchObject({ kind: 'event' })
+  })
+
+  it('is the same cable dragged either way', () => {
+    /*
+     * With the canvas in loose mode a hand can start at either end, and starting at the node and pulling
+     * up to the Ignite is the natural gesture when the wave in mind is going that way. Turned round
+     * rather than refused, exactly as an ordinary trigger cable drawn backwards already is.
+     */
+    const drawnUpward = connectionFor(
+      { nodes, edges: [] },
+      { source: 'o', target: 'i', sourceHandle: EVENT_OUT, targetHandle: EVENT_UP },
+    )
+    expect(drawnUpward).toMatchObject({ source: 'i', target: 'o', kind: 'event', up: true })
+    // And it is stored with the ports the drawing needs, not the ports the drag happened to use.
+    expect(drawnUpward?.sourceHandle).toBe(EVENT_UP)
+    expect(drawnUpward?.targetHandle).toBe(EVENT_OUT)
   })
 
   it('reads the flag from either shape a cable comes in', () => {
@@ -372,7 +393,7 @@ describe('a cable from the Ignite’s upward port', () => {
      */
     const asPatch = [{ source: 'i', target: 'o', up: true }]
     const asCanvas = [{ source: 'i', target: 'o', data: { kind: 'event', up: true } }]
-    const attempt = { source: 'i', target: 'o', sourceHandle: EVENT_UP, targetHandle: EVENT_IN }
+    const attempt = { source: 'i', target: 'o', sourceHandle: EVENT_UP, targetHandle: EVENT_OUT }
 
     expect(canConnect({ nodes, edges: asPatch }, attempt)).toBe(false)
     expect(canConnect({ nodes, edges: asCanvas }, attempt)).toBe(false)
@@ -388,7 +409,7 @@ describe('a cable from the Ignite’s upward port', () => {
     expect(
       connectionFor(
         { nodes, edges: [] },
-        { source: 'o', target: 'p', sourceHandle: EVENT_UP, targetHandle: EVENT_IN },
+        { source: 'o', target: 'p', sourceHandle: EVENT_UP, targetHandle: EVENT_OUT },
       ),
     ).toBeNull()
   })

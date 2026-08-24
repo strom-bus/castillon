@@ -76,6 +76,13 @@ refused, since between an oscillator and an effect there is only one direction t
   climbing until nothing is above. Wire the bottom port to the top of a chain and the top port to the
   bottom of the same chain, and one trigger plays it in both directions at once.
 
+  Put an IGNITE in the middle of a chain and everything off the bottom port flows down while everything
+  off the top port flows up. An upward cable arrives at the **bottom** of what it fires, which is the
+  opposite end from every other trigger cable and the right one: a trigger enters a node at the end the
+  wave is coming from, and leaves by the other. And the pulse on a cable a climb is using travels
+  backwards along it, because the direction belongs to the trigger rather than to the cable — the same
+  cable carries both waves in a patch wired from both ports.
+
   The direction is **which port the cable left from** — nothing computes a depth, nothing reverses a
   graph, and nothing has a mode. That is the whole reason it is small: the cables already say what
   happens, so this only had to be said the same way. And the two waves live in **one** pass, so they
@@ -375,7 +382,7 @@ refused, since between an oscillator and an effect there is only one direction t
   it longer without making it clearer. Both languages live adjacent in one file so a half-finished
   edit shows up in the diff rather than as a blank paragraph months later.
 
-  Fourteen chapters and a hundred and fifty-two entries, written for whoever is using the instrument
+  Fourteen chapters and a hundred and fifty-four entries, written for whoever is using the instrument
   rather than for whoever built it: no entry explains how something is implemented, and every one says
   what a control does to the sound and when you would reach for it. One chapter per module, each in
   the order its own panel is in and under the panel's own group headings, so reading the manual and

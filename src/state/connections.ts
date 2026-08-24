@@ -255,21 +255,55 @@ export function connectionFor(
   // Triggers run down the cascade: out of a bottom port and into a top one. Drawn the other way, it
   // is turned round rather than refused.
   /*
-   * An upward cable is an ordinary trigger cable that happens to leave from the other port, so it obeys
-   * every rule below unchanged — what may be joined to what does not depend on which way the wave runs.
+   * An upward cable leaves the Ignite's top port and lands on the **bottom** of what it fires, which is
+   * the opposite end from every other trigger cable and the right one.
+   *
+   * A trigger enters a node at the end the wave is coming from. Descending, that is the top; climbing,
+   * it is the bottom — and then the wave leaves through the top, into whatever is above. So a climb is
+   * the whole picture mirrored, and drawing it into the top port would have the cable arriving at the
+   * end the wave is meant to leave by. It was built that way first, on the argument that every trigger
+   * should arrive at the same port; that argument is about the *port* and this one is about the *wave*,
+   * and the wave is what somebody is reading when they look at the patch.
+   *
    * Only nodes that declare the port may offer one, checked against the registry rather than the handle
    * name for the same reason the trigger ports are.
    */
   const climbing = sourceHandle === EVENT_UP && hasUpPort(typeOf(source))
-  const startsAtOutput = sourceHandle === EVENT_OUT || sourceHandle === null || climbing
+  if (climbing) {
+    return canTrigger(typeOf(source), typeOf(target)) &&
+      (targetHandle === EVENT_OUT || targetHandle === null) &&
+      !already(source, target, true)
+      ? { source, target, sourceHandle, targetHandle, kind: 'event', up: true }
+      : null
+  }
+
+  /*
+   * The same cable dragged the other way — from the bottom of the node up to the Ignite's port, which is
+   * the direction a hand takes when the wave in mind is going that way. Turned round rather than refused,
+   * exactly as an ordinary trigger cable drawn backwards already is.
+   */
+  if (targetHandle === EVENT_UP && hasUpPort(typeOf(target)) && sourceHandle === EVENT_OUT) {
+    return canTrigger(typeOf(target), typeOf(source)) && !already(target, source, true)
+      ? {
+          source: target,
+          target: source,
+          sourceHandle: targetHandle,
+          targetHandle: sourceHandle,
+          kind: 'event',
+          up: true,
+        }
+      : null
+  }
+
+  const startsAtOutput = sourceHandle === EVENT_OUT || sourceHandle === null
   const endsAtInput = targetHandle === EVENT_IN || targetHandle === null
   if (startsAtOutput && endsAtInput) {
     // Checked against the port declarations and not only against the handle names. A handle that is
     // null — which is what a patch code carries, since it stores which nodes a cable joins and not
     // which port — would otherwise be taken as a trigger port on any node at all, including one that
     // has none. That is the same fault as a warp on an Ignite, in the other direction.
-    return canTrigger(typeOf(source), typeOf(target)) && !already(source, target, climbing)
-      ? { source, target, sourceHandle, targetHandle, kind: 'event', up: climbing || undefined }
+    return canTrigger(typeOf(source), typeOf(target)) && !already(source, target)
+      ? { source, target, sourceHandle, targetHandle, kind: 'event' }
       : null
   }
   if (sourceHandle === EVENT_IN && targetHandle === EVENT_OUT) {

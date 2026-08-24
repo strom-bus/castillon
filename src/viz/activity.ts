@@ -9,7 +9,15 @@
 export type ActivityEvent =
   | { kind: 'node'; id: string; time: number; duration: number }
   | { kind: 'step'; id: string; step: number; time: number; duration: number }
-  | { kind: 'edge'; id: string; time: number; duration: number }
+  /**
+   * A trigger crossing a cable.
+   *
+   * `up` is which way it crossed, not which kind of cable it is — the same cable carries a descent and a
+   * climb in any patch wired from both of the Ignite's ports, so the direction belongs to the trigger.
+   * The canvas animates the pulse along it, and a pulse running the wrong way says the opposite of what
+   * happened.
+   */
+  | { kind: 'edge'; id: string; time: number; duration: number; up?: boolean }
 
 type Listener = (event: ActivityEvent) => void
 

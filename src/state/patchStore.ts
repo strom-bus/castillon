@@ -219,7 +219,14 @@ function fromPatch(patch: Patch): {
               e.up
               ? EVENT_UP
               : EVENT_OUT,
-          targetHandle: sideways ? (rightwards ? SIGNAL_LEFT : SIGNAL_RIGHT) : EVENT_IN,
+          // A climb lands on the bottom of what it fires, since that is the end the wave arrives from.
+          targetHandle: sideways
+            ? rightwards
+              ? SIGNAL_LEFT
+              : SIGNAL_RIGHT
+            : e.up
+              ? EVENT_OUT
+              : EVENT_IN,
           type: EDGE_COMPONENT[e.kind],
           data: e.up ? { kind: e.kind, up: true } : { kind: e.kind },
         }

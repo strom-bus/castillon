@@ -34,12 +34,32 @@ describe('distortionCurve', () => {
     }
   })
 
-  it('gets progressively more brutal from overdrive to fuzz', () => {
-    // The reason for having three: at the same setting each squashes a quiet signal harder than
-    // the last. If they did not, they would be one effect under three names.
-    const quiet = 600
-    const at = (shape: (typeof SHAPES)[number]) => distortionCurve(shape, 0.5)[quiet]
-    expect(at('fuzz')).toBeGreaterThan(at('distortion'))
+  it('tells the three apart by what they actually are', () => {
+    /*
+     * This used to assert an ordering — that each of the three squashed a quiet signal harder than the
+     * last — and it was an accident of the constants rather than the design. Retuning fuzz's bias, which
+     * had to be done because the old one silenced any quiet note, put fuzz and distortion within a
+     * thousandth of each other at the sampled point and the claim fell over.
+     *
+     * What actually distinguishes them: the first two are **odd** functions, so they add only odd
+     * harmonics however hard they are driven, and fuzz is **asymmetric**, which is where its even
+     * harmonics and its whole character come from. That is a property of the design and not of a number.
+     */
+    const symmetry = (shape: (typeof SHAPES)[number]) => {
+      const curve = distortionCurve(shape, 0.5)
+      let worst = 0
+      for (let i = 0; i < curve.length; i++) {
+        worst = Math.max(worst, Math.abs(curve[i] + curve[curve.length - 1 - i]))
+      }
+      return worst
+    }
+    expect(symmetry('overdrive')).toBeLessThan(0.01)
+    expect(symmetry('distortion')).toBeLessThan(0.01)
+    expect(symmetry('fuzz')).toBeGreaterThan(0.05)
+
+    // And the two odd ones are not each other: at the same setting tanh turns over harder than the
+    // rational soft clip, which is the reason for having both.
+    const at = (shape: (typeof SHAPES)[number]) => distortionCurve(shape, 0.5)[600]
     expect(at('distortion')).toBeGreaterThan(at('overdrive'))
   })
 

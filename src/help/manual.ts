@@ -910,8 +910,8 @@ export const MANUAL: Section[] = [
           {
             term: { en: 'Distortion', es: 'Distortion' },
             text: {
-              en: 'Makes the sound harder and louder by deforming it. Shape chooses how: Overdrive is warm and gentle, Distortion harder, Fuzz ragged, and Octave up folds the wave over so a ghost octave appears above the note. Drive is how far in, and Tone tames the top end afterwards.',
-              es: 'Hace el sonido más duro y más fuerte deformándolo. Shape elige cómo: Overdrive es cálido y suave, Distortion más duro, Fuzz desgarrado, y Octave up dobla la onda de modo que aparece una octava fantasma por encima de la nota. Drive es cuánto entras, y Tone doma la parte alta después.',
+              en: 'Makes the sound harder and louder by deforming it. Shape chooses how: Overdrive is warm and gentle, Distortion harder, Fuzz ragged, and Octave up folds the wave over so a ghost octave appears above the note. Drive is how far in, and Tone tames the top end afterwards. The first three sit level with each other at the same Drive, so switching between them is a change of colour; Octave up sits a few decibels under them and always will, because a doubled wave has less to work with the quieter the note is — make it up on Mix or on the oscillator.',
+              es: 'Hace el sonido más duro y más fuerte deformándolo. Shape elige cómo: Overdrive es cálido y suave, Distortion más duro, Fuzz desgarrado, y Octave up dobla la onda de modo que aparece una octava fantasma por encima de la nota. Drive es cuánto entras, y Tone doma la parte alta después. Los tres primeros quedan al mismo nivel con el mismo Drive, así que cambiar entre ellos es un cambio de color; Octave up queda unos decibelios por debajo y siempre lo estará, porque una onda doblada tiene menos con lo que trabajar cuanto más suave es la nota — compénsalo en Mix o en el oscilador.',
             },
           },
           {

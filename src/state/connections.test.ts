@@ -137,6 +137,25 @@ describe('canConnect', () => {
     expect(canConnect(existing, audio('a', 'f', SIGNAL_LEFT, SIGNAL_RIGHT))).toBe(false)
   })
 
+  it('takes an effect-to-effect cable in the direction it was drawn', () => {
+    /*
+     * **The one place a drag can build something silent, and it is not a fault.**
+     *
+     * Between an oscillator and an effect only one direction is legal, so a drag either way can only have
+     * meant that one and is turned round. Between two effects *both* directions are legal — that is the
+     * whole point of the feature — so the direction of the drag is the statement, and drawing it the
+     * wrong way builds the chain backwards: the near effect feeds the far one, and whatever was at the
+     * near end has no input at all. Silent, and dark, and indistinguishable from broken.
+     *
+     * Turning it round on a guess was considered and rejected: an effect with no input yet is a perfectly
+     * ordinary thing to have while wiring a patch, so a rule that reversed the cable would break the
+     * middle of building one. The canvas already says it — an unfed effect reads `idle` — and that is
+     * where the answer belongs.
+     */
+    expect(connectionFor(rules(), audio('f', 'g'))).toMatchObject({ source: 'f', target: 'g' })
+    expect(connectionFor(rules(), audio('g', 'f'))).toMatchObject({ source: 'g', target: 'f' })
+  })
+
   it('joins effect to effect, which is how they go in series', () => {
     /*
      * This used to be refused, and the refusal was the whole reason the audio graph needed no cycle

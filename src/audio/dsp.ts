@@ -39,19 +39,51 @@ const SHAPES: Record<DistortionShape, (x: number, amount: number) => number> = {
    * the effect in — an octaver at its lowest setting still octaves, since that is what it is.
    *
    * Rectifying leaves a DC offset behind, so the chain that uses this has to block DC.
+   *
+   * **The grit is applied to the magnitude, before it is centred, and that ordering is the whole of it.**
+   * The other way round — centre to -1..1 and then soft-clip — clips a signal that is *sitting* at -1 for
+   * any quiet input, so the limiter saturates on the offset instead of on the sound: the waveform
+   * flattens to a near-constant, the alternating part collapses, and the high-pass behind it takes away
+   * what little is left. Measured at a tenth the level of the other three shapes on the same input, which
+   * is what it sounded like. Clipping the magnitude first is what a pedal does — its fuzz stage is
+   * AC-coupled and never sees the offset at all.
    */
   octave(x, amount) {
-    const rectified = 2 * Math.abs(x) - 1
-    const k = amount * 20
-    return k === 0 ? rectified : ((1 + k) * rectified) / (1 + k * Math.abs(rectified))
+    const magnitude = Math.abs(x)
+    /*
+     * Far gentler than the other three, and measured rather than chosen. They clip a signal that swings
+     * both ways, so hard clipping drives them toward a square wave — which is the loudest thing there is.
+     * This one clips a *magnitude*, which only ever goes up, so the same amount of clipping pins the
+     * whole waveform against the top and leaves almost no alternating part at all. Twenty was the old
+     * figure and it collapsed a quiet note to a tenth of the level of every other shape. Four is where the
+     * level stays flattest across input levels, which is what was measured for rather than guessed at.
+     */
+    const k = amount * 4
+    const driven = k === 0 ? magnitude : ((1 + k) * magnitude) / (1 + k * magnitude)
+    // Centred last, so the doubled wave uses the whole range whatever the input level was.
+    return 2 * driven - 1
   },
   fuzz(x, amount) {
     const k = amount * 60
     if (k === 0) return x
-    // The bias is the asymmetry: it clips the two halves of the wave by different amounts.
-    const biased = x + amount * 0.15
+    /*
+     * The bias is the asymmetry: it clips the two halves of the wave by different amounts, and that is
+     * what puts even harmonics in and separates fuzz from loud distortion.
+     *
+     * **A twentieth, not a seventh.** It used to be 0.15, which is larger than the amplitude of a great
+     * many notes here — an oscillator at its default gain under an envelope spends most of its life below
+     * that. A signal smaller than the bias never crosses zero at all, so it is not clipped asymmetrically,
+     * it is clipped *entirely on one side*: the waveform pins against the rail, the alternating part
+     * collapses and the high-pass behind it takes away what is left. Measured at a tenth of the level of
+     * the other shapes on a quiet note, which is the same fault octave-up had for the same reason.
+     *
+     * At 0.05 the bias is still three times the clipping knee at full drive, so the asymmetry is very much
+     * there — it simply no longer swallows the signal it is meant to be shaping.
+     */
+    const bias = amount * 0.05
+    const biased = x + bias
     const shaped = Math.sign(biased) * (1 - Math.exp(-Math.abs(biased) * (1 + k)))
-    return shaped / (1 - Math.exp(-(1 + amount * 0.15) * (1 + k)))
+    return shaped / (1 - Math.exp(-(1 + bias) * (1 + k)))
   },
 }
 

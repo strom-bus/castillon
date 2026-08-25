@@ -36,7 +36,7 @@ const DEFERRED_LIMIT = 60
 const DEFERRED = ['Manual', 'Gallery']
 
 /**
- * What the README's table of chunks says each one weighs, and how far it may drift before that is a lie.
+ * How far the README's table may drift from the build before it is a lie.
  *
  * A budget catches a chunk getting too big. Nothing caught the *documentation* getting stale, and it had:
  * the table said the manual was about thirty kilobytes when it had reached thirty-nine, and the entry
@@ -47,8 +47,26 @@ const DEFERRED = ['Manual', 'Gallery']
  * every release is a table nobody edits. Wide enough to ignore ordinary growth, narrow enough that a
  * third of a chunk appearing out of nowhere is a failure.
  */
-const DOCUMENTED = { react: 54, canvas: 59, index: 44, Manual: 39, Gallery: 6 }
 const DRIFT = 0.2
+
+/**
+ * The table itself, **read out of the README** rather than copied beside it.
+ *
+ * It was copied: an object here holding five numbers that had to agree with five numbers in a markdown
+ * table, which is this repository's most familiar bug wearing its documentation clothes — one fact
+ * declared twice, and the copy the compiler cannot see is the one that falls behind. Editing the README
+ * and forgetting this line failed the build with a message about the README being wrong when it was the
+ * only one that was right.
+ */
+function documented(): Record<string, number> {
+  const table = readFileSync('README.md', 'utf8')
+  const found: Record<string, number> = {}
+  // | `Manual`  | ~39 kB  | Only if the manual is opened |
+  for (const [, name, size] of table.matchAll(/^\|\s*`(\w+)`\s*\|\s*~(\d+) kB/gm)) {
+    found[name] = Number(size)
+  }
+  return found
+}
 
 const kb = (bytes: number) => bytes / 1024
 
@@ -106,6 +124,27 @@ for (const chunk of later) {
 /*
  * The README's table, which is the one number here a reader takes away and the one nothing was checking.
  */
+const DOCUMENTED = documented()
+
+/*
+ * Every chunk worth naming has to be in the table, asked of the build rather than of a list.
+ *
+ * Both directions matter and only one of them was covered. A row nobody updates is caught below; a row
+ * that goes *missing* — or a reader that quietly stops matching one — would leave that chunk unchecked
+ * and the build green, which is this file's own failure mode happening to this file. A kilobyte is the
+ * line between a chunk and the runtime shim, which is four hundred bytes and not worth a row.
+ */
+const WORTH_NAMING = 1
+for (const chunk of all) {
+  if (kb(chunk.gzip) < WORTH_NAMING) continue
+  if (Object.keys(DOCUMENTED).some((prefix) => chunk.name.startsWith(prefix))) continue
+  failures.push(
+    `${chunk.name} is ${kb(chunk.gzip).toFixed(1)} kB gzipped and the README's chunk table does not ` +
+      'name it. Add a row to "What a first visit downloads", or the table is a list of some of the ' +
+      'chunks presented as all of them.',
+  )
+}
+
 for (const [prefix, stated] of Object.entries(DOCUMENTED)) {
   const chunk = all.find((one) => one.name.startsWith(prefix))
   if (!chunk) {

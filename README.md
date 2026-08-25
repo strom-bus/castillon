@@ -630,16 +630,19 @@ of it. Split, a release of app code leaves the two vendor chunks in cache untouc
 | --------- | ------- | ----------------------------------------------- |
 | `react`   | ~54 kB  | First visit, then cached until React moves      |
 | `canvas`  | ~59 kB  | First visit, then cached until React Flow moves |
-| `index`   | ~44 kB  | Every release                                   |
-| `Manual`  | ~39 kB  | Only if the manual is opened                    |
-| `Gallery` | ~6 kB   | Only if the gallery is opened                   |
+| `index`   | ~49 kB  | Every release                                   |
+| `Manual`  | ~49 kB  | Only if the manual is opened                    |
+| `Gallery` | ~7 kB   | Only if the gallery is opened                   |
 
 Two vendor chunks rather than one because they change at different rates, and a chunk is only worth
 having if it can go stale independently. Everything else is left to Rollup: hand-naming chunks for our
 own modules would be guessing at an import graph the bundler already knows, and a wrong guess does not
 fail — it silently duplicates a module into two of them.
 
-`npm run size` is the part that keeps it true, and it runs in CI after the build. The splitting is
+`npm run size` is the part that keeps it true, and it runs in CI after the build. It reads that table
+out of this file rather than keeping its own copy of the numbers — the copy was five numbers that had to
+agree with five numbers here, which is one fact declared twice and the familiar way documentation goes
+stale while every test stays green. The splitting is
 undone by a single static import and nothing about such an import looks wrong: the build succeeds, the
 app works, and the only symptom is a slower load on a connection nobody testing it has. It budgets the
 gzipped bytes a first paint needs, and — separately — requires the deferred chunks to still exist,

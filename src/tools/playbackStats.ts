@@ -64,8 +64,3 @@ export function readPlayback(ctx: AudioContext): Playback | null {
     total: stats.totalDuration ?? stats.totalFramesDuration ?? 0,
   }
 }
-
-/** What share of the audio produced was lost. Zero is the only good answer. */
-export function failureRate(reading: Playback): number {
-  return reading.total > 0 ? reading.lost / reading.total : 0
-}

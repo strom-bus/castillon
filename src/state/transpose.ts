@@ -11,7 +11,7 @@
  * it accumulates the same number as the trigger travels — and this is for the reader instead.
  */
 
-import type { Patch, PatchEdge, PatchNode, WarpParams } from '../types/patch'
+import type { PatchEdge, PatchNode, WarpParams } from '../types/patch'
 
 /** How many steps each node is being moved by, for every node a trigger can reach. */
 export function transposeByNode(nodes: PatchNode[], edges: PatchEdge[]): Map<string, number> {
@@ -74,11 +74,6 @@ export function transposeByNode(nodes: PatchNode[], edges: PatchEdge[]): Map<str
     carried.set(id, total)
   }
   return carried
-}
-
-/** The same, from a whole patch. */
-export function transposeIn(patch: Patch): Map<string, number> {
-  return transposeByNode(patch.nodes, patch.edges)
 }
 
 /**

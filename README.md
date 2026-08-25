@@ -369,11 +369,13 @@ refused, since between an oscillator and an effect there is only one direction t
   wired to an Ignite lived in three shipped patches for four commits, and it surfaced only because
   one rolled by the dice came out looking unwired.
 
-- **A follower node**, the one thing on the canvas whose two sides are not the same: audio comes in the
+- **A FOLLOW node**, the one thing on the canvas whose two sides are not the same: audio comes in the
   left and modulation goes out the right, so one node reads a branch and moves another. It is an
   envelope follower, and it exists because everything else here is decided when a node fires — a MOD is
-  the exception that moves a parameter while you listen, and a follower is the exception that takes its
-  shape from the music instead of from a setting.
+  the exception that moves a parameter while you listen, and this is the exception that takes its shape
+  from the music instead of from a setting. It shipped as SENSE for a few hours and was renamed the same
+  day: the DSP, the worklet and the router's own map had been calling it a follower from the first
+  minute, and only the label said otherwise.
 
   It is registered in the engine as a modulator, which is the whole design rather than an implementation
   note: a MOD and a follower differ in where the shape comes from and in nothing else — a signal at unit

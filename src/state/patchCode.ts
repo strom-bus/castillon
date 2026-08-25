@@ -199,10 +199,10 @@ const MOD_WAVES = ['sine', 'triangle', 'square', 'sawtooth', 'random'] as const
  * swelling are the same control with opposite signs — so it travels offset by a hundred rather than
  * as a magnitude, and eight bits hold the whole of it.
  */
-const SENSE_DEPTH_BITS = 8
-const SENSE_SENSITIVITY_BITS = 10
+const FOLLOW_DEPTH_BITS = 8
+const FOLLOW_SENSITIVITY_BITS = 10
 /** Both times share a range, so they share a width. */
-const SENSE_TIME_BITS = 11
+const FOLLOW_TIME_BITS = 11
 
 // Appended, never reordered: the index is what travels, so moving an entry would rewrite history and a
 // new type goes on the end. Four bits hold sixteen, of which eight are used.
@@ -929,21 +929,21 @@ function readMod(reader: BitReader): ModParams {
 function writeFollow(writer: BitWriter, raw: FollowParams): void {
   const { target, depth, sensitivity, attack, release } = { ...defaultFollowParams(), ...raw }
   // Offset rather than signed, because the range is fixed and known at both ends: −1 stores as 0.
-  writer.write(quantise((depth as number) * 100 + 100, 1, 0, 200), SENSE_DEPTH_BITS)
+  writer.write(quantise((depth as number) * 100 + 100, 1, 0, 200), FOLLOW_DEPTH_BITS)
   writer.write(
     quantise((sensitivity as number) * 100, 1, 0, MAX_SENSITIVITY * 100),
-    SENSE_SENSITIVITY_BITS,
+    FOLLOW_SENSITIVITY_BITS,
   )
-  writer.write(quantise(attack as number, 1, MIN_FOLLOW_MS, MAX_FOLLOW_MS), SENSE_TIME_BITS)
-  writer.write(quantise(release as number, 1, MIN_FOLLOW_MS, MAX_FOLLOW_MS), SENSE_TIME_BITS)
+  writer.write(quantise(attack as number, 1, MIN_FOLLOW_MS, MAX_FOLLOW_MS), FOLLOW_TIME_BITS)
+  writer.write(quantise(release as number, 1, MIN_FOLLOW_MS, MAX_FOLLOW_MS), FOLLOW_TIME_BITS)
   writeText(writer, target ?? 'level')
 }
 
 function readFollow(reader: BitReader): FollowParams {
-  const depth = (reader.read(SENSE_DEPTH_BITS) - 100) / 100
-  const sensitivity = reader.read(SENSE_SENSITIVITY_BITS) / 100
-  const attack = reader.read(SENSE_TIME_BITS)
-  const release = reader.read(SENSE_TIME_BITS)
+  const depth = (reader.read(FOLLOW_DEPTH_BITS) - 100) / 100
+  const sensitivity = reader.read(FOLLOW_SENSITIVITY_BITS) / 100
+  const attack = reader.read(FOLLOW_TIME_BITS)
+  const release = reader.read(FOLLOW_TIME_BITS)
   const target = readText(reader)
   return { depth, sensitivity, attack, release, target: target || 'level' }
 }

@@ -95,6 +95,27 @@ describe('the README against the code', () => {
   })
 
   it('names every kind of node, so the palette holds no surprises', () => {
+    /*
+     * As the label, not as a substring of any word that happens to contain it.
+     *
+     * `says` is case-insensitive and unanchored, which is right for prose and wrong for a name: it let
+     * "a follower" satisfy FOLLOW and would have let "modulation" satisfy MOD. So a node could be
+     * renamed, go unmentioned in the README, and this would pass on a word that was already there —
+     * which is exactly the kind of green nobody looks at twice.
+     */
+    const names = (label: string) => new RegExp(`\\b${label}\\b`).test(readme)
+    for (const definition of NODE_DEFINITIONS) {
+      expect(names(definition.label), `README never names ${definition.label}`).toBe(true)
+    }
+  })
+
+  it('is not fooled by a word that merely contains a label', () => {
+    // The check above, checked: a reader that matched loosely would pass on prose alone.
+    expect(/\bMOD\b/.test('modulation everywhere')).toBe(false)
+    expect(/\bFOLLOW\b/.test('a follower listening')).toBe(false)
+  })
+
+  it('mentions every node somewhere in its prose', () => {
     for (const definition of NODE_DEFINITIONS) {
       expect(says(definition.label), `README never mentions ${definition.label}`).toBe(true)
     }

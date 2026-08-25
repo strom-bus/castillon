@@ -19,10 +19,20 @@ const nodes = [
   { id: 'b', type: 'osc' },
   { id: 'f', type: 'fx' },
   { id: 'g', type: 'fx' },
+  // A third, so a loop can be tested the long way round as well as straight back.
+  { id: 'h', type: 'fx' },
   { id: 'd', type: 'delay' },
 ]
 
-const rules = (edges: { source: string; target: string }[] = []) => ({ nodes, edges })
+const rules = (
+  edges: {
+    source: string
+    target: string
+    kind?: string
+    up?: boolean
+    data?: { kind?: string; up?: boolean }
+  }[] = [],
+) => ({ nodes, edges })
 
 const audio = (
   source: string,
@@ -100,7 +110,6 @@ describe('what a cable turns out to be', () => {
 
   it('refuses a signal cable between two things that have nothing to say to each other', () => {
     expect(connectionFor(rules(), audio('a', 'b'))).toBeNull()
-    expect(connectionFor(rules(), audio('f', 'g'))).toBeNull()
     expect(connectionFor(rules(), audio('a', 'ig'))).toBeNull()
     expect(connectionFor(rules(), audio('m', 'd'))).toBeNull()
   })
@@ -128,8 +137,46 @@ describe('canConnect', () => {
     expect(canConnect(existing, audio('a', 'f', SIGNAL_LEFT, SIGNAL_RIGHT))).toBe(false)
   })
 
-  it('refuses effect to effect, which is what keeps the audio graph one hop deep', () => {
-    expect(canConnect(rules(), audio('f', 'g'))).toBe(false)
+  it('joins effect to effect, which is how they go in series', () => {
+    /*
+     * This used to be refused, and the refusal was the whole reason the audio graph needed no cycle
+     * check: one hop deep and bipartite has nowhere for a loop to be. Order matters enormously in
+     * effects — a distorted reverb tail is a different sound from a reverberated distortion — and the
+     * order is the cables, the same as everywhere else here.
+     */
+    const decided = connectionFor(rules(), audio('f', 'g'))
+    expect(decided).toMatchObject({ source: 'f', target: 'g', kind: 'audio' })
+  })
+
+  it('refuses an audio cable that would feed back into itself', () => {
+    /*
+     * The rule that arrived with the one above, and the asymmetry worth stating: an *event* cycle is
+     * allowed here and bounded by `MAX_DEPTH`, because a trigger going round runs out of depth. Audio
+     * going round is a gain adding to itself, and nothing stops it.
+     */
+    // Straight back the way it came.
+    const pair = rules([{ source: 'f', target: 'g', kind: 'audio' }])
+    expect(canConnect(pair, audio('g', 'f'))).toBe(false)
+    // And the long way round, which is the case a one-step check would miss.
+    const three = rules([
+      { source: 'f', target: 'g', kind: 'audio' },
+      { source: 'g', target: 'h', kind: 'audio' },
+    ])
+    expect(canConnect(three, audio('h', 'f'))).toBe(false)
+    // Onto itself, the shortest loop there is.
+    expect(canConnect(rules(), audio('f', 'f'))).toBe(false)
+    // And a chain that does not close is still allowed, or the check would refuse the feature.
+    expect(canConnect(three, audio('a', 'h'))).toBe(true)
+  })
+
+  it('reads the cable kind from either shape, when it asks about loops', () => {
+    /*
+     * The canvas keeps the kind in `data.kind` and a patch keeps it as a field, and reading one of the two
+     * is exactly how the climbing flag went wrong the day before this. An audio rule that saw no kinds
+     * would find no loops at all.
+     */
+    const asCanvas = rules([{ source: 'f', target: 'g', data: { kind: 'audio' } }])
+    expect(canConnect(asCanvas, audio('g', 'f'))).toBe(false)
   })
 
   it('turns an effect dragged onto an oscillator round, since only one direction exists', () => {

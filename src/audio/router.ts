@@ -1,4 +1,5 @@
 import { resolveTarget, type ModTargetKey } from './modulation'
+import { wouldFeedBack } from '../state/connections'
 import type { FxParams, ModParams, NodeId, Patch } from '../types/patch'
 
 /**
@@ -28,7 +29,16 @@ export interface AudioGraph {
    * control which had to be set by hand and was wrong by default for six of the ten effects.
    */
   direct: Map<NodeId, number>
-  /** `oscId>fxId`, one per send. */
+  /**
+   * Whether each effect is heard directly, which it is unless it feeds another one.
+   *
+   * The end of a chain goes to the master; the middle of one does not, or a distorted reverb would be
+   * heard alongside the reverb it was made from — which is the parallel arrangement wearing a chain's
+   * clothes. Held as a map of every effect rather than a set of the terminal ones, so the diff can see an
+   * effect *stop* being terminal as readily as it sees one start.
+   */
+  terminals: Map<NodeId, boolean>
+  /** `sourceId>fxId`, one per send. The source is an oscillator, or an effect feeding another. */
   sends: Set<string>
   /** MOD node id → its parameters. */
   modulators: Map<NodeId, ModParams>
@@ -50,6 +60,7 @@ export type RouterOp =
   | { op: 'connect'; from: NodeId; to: NodeId }
   | { op: 'disconnect'; from: NodeId; to: NodeId }
   | { op: 'setDirect'; id: NodeId; value: number }
+  | { op: 'setToMaster'; id: NodeId; value: boolean }
   | { op: 'createMod'; id: NodeId; params: ModParams }
   | { op: 'updateMod'; id: NodeId; params: ModParams }
   | { op: 'disposeMod'; id: NodeId }
@@ -60,6 +71,7 @@ export const EMPTY_GRAPH: AudioGraph = {
   bpm: 0,
   effects: new Map(),
   direct: new Map(),
+  terminals: new Map(),
   sends: new Set(),
   modulators: new Map(),
   mods: new Map(),
@@ -87,17 +99,48 @@ export function graphOf(patch: Patch): AudioGraph {
     else if (node.type === 'osc') oscillators.add(node.id)
   }
 
+  /*
+   * Audio sends: an oscillator into an effect, and an effect into another one, which is how effects go in
+   * series. The order is the cables and there is no setting.
+   *
+   * **A loop is dropped rather than built.** A patch code, the dice or a paste can carry one — the
+   * connection rules refuse to *draw* one but nothing stops one arriving — and an audio loop is a gain
+   * feeding itself, which is not a glitch but a sound nobody can stop. Taken in patch order and skipping
+   * any cable that would close a loop against the ones already accepted, so which cable is dropped is the
+   * same every time rather than a matter of iteration.
+   */
   const sends = new Set<string>()
   const sending = new Set<NodeId>()
+  const chained = new Set<NodeId>()
+  const accepted: { source: NodeId; target: NodeId; kind: 'audio' }[] = []
   for (const edge of patch.edges) {
     if (edge.kind !== 'audio') continue
-    if (!oscillators.has(edge.source) || !effects.has(edge.target)) continue
+    const fromOsc = oscillators.has(edge.source)
+    const fromFx = effects.has(edge.source)
+    if (!(fromOsc || fromFx) || !effects.has(edge.target)) continue
+    if (wouldFeedBack(edge.source, edge.target, accepted)) continue
+
+    accepted.push({ source: edge.source, target: edge.target, kind: 'audio' })
     sends.add(sendKey(edge.source, edge.target))
-    sending.add(edge.source)
+    if (fromOsc) sending.add(edge.source)
+    // An effect that feeds another is not the end of its chain, so it does not go to the master.
+    else chained.add(edge.source)
   }
 
   const direct = new Map<NodeId, number>()
   for (const id of oscillators) direct.set(id, sending.has(id) ? 0 : 1)
+
+  /*
+   * Which effects are heard directly.
+   *
+   * The end of a chain goes to the master and the middle of one does not — otherwise a distorted reverb
+   * would be heard *and* the reverb it was made from, which is the parallel arrangement wearing a chain's
+   * clothes. Derived here rather than tracked in the engine: this is the one place that knows the shape of
+   * the whole graph, and an effect that stopped being terminal would otherwise need someone to remember
+   * to unhook it.
+   */
+  const terminals = new Map<NodeId, boolean>()
+  for (const id of effects.keys()) terminals.set(id, !chained.has(id))
 
   const modulators = new Map<NodeId, ModParams>()
   for (const node of patch.nodes) {
@@ -123,7 +166,7 @@ export function graphOf(patch: Patch): AudioGraph {
     mods.set(sendKey(edge.source, edge.target), { target, depth: params.depth ?? 0.6 })
   }
 
-  return { bpm: patch.bpm, effects, direct, sends, modulators, mods }
+  return { bpm: patch.bpm, effects, direct, terminals, sends, modulators, mods }
 }
 
 function sameMod(a: ModParams, b: ModParams): boolean {
@@ -215,6 +258,18 @@ export function diff(previous: AudioGraph, next: AudioGraph): RouterOp[] {
 
   for (const [id, value] of next.direct) {
     if (previous.direct.get(id) !== value) updates.push({ op: 'setDirect', id, value })
+  }
+
+  /*
+   * Absent counts as *not* connected, which is what a freshly built effect is: `createEffect` leaves its
+   * output unhooked and waits to be told. That is the whole reason this is a diff rather than something
+   * the engine tracks — an effect that stops being the end of a chain has to be unhooked, and nothing in
+   * the engine knows that has happened.
+   */
+  for (const [id, value] of next.terminals) {
+    if ((previous.terminals.get(id) ?? false) !== value) {
+      updates.push({ op: 'setToMaster', id, value })
+    }
   }
 
   return [...removals, ...additions, ...updates]

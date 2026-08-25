@@ -105,8 +105,13 @@ describe('diff', () => {
     const after = graph(patchOf([osc('a'), fx('f')], [audio('a', 'f')]))
     const ops = diff(before, after)
 
-    // Muting the direct path belongs to the same change: the effect carries the dry from here on.
-    expect(ops.map((o) => o.op)).toEqual(['createEffect', 'connect', 'setDirect'])
+    /*
+     * Muting the direct path belongs to the same change: the effect carries the dry from here on. And
+     * hooking the effect to the master belongs to it too — `createEffect` no longer does that, because
+     * where an effect's output goes depends on whether anything is downstream of it, which is a fact
+     * about the graph rather than about the node.
+     */
+    expect(ops.map((o) => o.op)).toEqual(['createEffect', 'connect', 'setDirect', 'setToMaster'])
   })
 
   it('disconnects before disposing, so nothing feeds a node that is going away', () => {

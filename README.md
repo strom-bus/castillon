@@ -337,7 +337,7 @@ refused, since between an oscillator and an effect there is only one direction t
 - **A patch gallery**, a window over the canvas rather than a page — so choosing a patch loads it into
   the instrument already underneath. Cards draw their own cascade, and stars decay with age so the
   popular sort does not freeze on whatever was published first. Two tabs: the patches people have
-  shared, and **eleven presets** that come with the machine.
+  shared, and **twelve presets** that come with the machine.
 
   Six are built around one idea that is hard to arrive at by rolling and small enough to read at a
   glance — the plain cascade, why there is no clock, one phrase driving another note by note, a figure
@@ -382,7 +382,7 @@ refused, since between an oscillator and an effect there is only one direction t
   it longer without making it clearer. Both languages live adjacent in one file so a half-finished
   edit shows up in the diff rather than as a blank paragraph months later.
 
-  Fourteen chapters and a hundred and fifty-four entries, written for whoever is using the instrument
+  Fourteen chapters and a hundred and fifty-five entries, written for whoever is using the instrument
   rather than for whoever built it: no entry explains how something is implemented, and every one says
   what a control does to the sound and when you would reach for it. One chapter per module, each in
   the order its own panel is in and under the panel's own group headings, so reading the manual and
@@ -410,6 +410,22 @@ refused, since between an oscillator and an effect there is only one direction t
   control every beat-repeat has, and a slow shape on it is a stutter that comes and goes. A slice held
   between blocks is memory, so it needs an `AudioWorklet`: you cannot repeat something with a delay line,
   you can only hear it again _as well_, which is the echo two rows up.
+
+- **Effects in series**, wired effect to effect. Order changes everything — a reverb into a distortion is
+  a distorted tail, a distortion into a reverb is a dirty note in a clean room — and there is no setting
+  for it: the order is the cables, the same as everything else here. Only the last effect in a chain
+  reaches the master, or you would hear the distorted reverb _and_ the reverb it was made from, which is
+  the parallel arrangement wearing a chain's clothes.
+
+  Mix needed no decision, which is why this waited on the wrong question for a while. Each stage
+  crossfades between what reached it and what it made of that, so in a chain the second effect's Mix is
+  against the first effect's output — exactly a row of pedals, composing by construction.
+
+  What it did need is the **one cycle check in the instrument**. The event graph permits loops and bounds
+  them at `MAX_DEPTH`, because a trigger going round runs out of depth. Audio going round is a gain adding
+  to itself and nothing stops it. So the rules refuse to draw one, and — because a patch code, the dice or
+  a paste can carry one anyway — the router drops any cable that would close a loop, taking them in patch
+  order so which one is dropped is a property of the patch rather than of a `Set`'s iteration.
 
 - **A three-band EQ**, which is the dull one and probably the most used. A shelf at 250 Hz, a broad bell
   wherever you aim it, a shelf at 3 kHz, fifteen decibels either way on each. The hinges are fixed and

@@ -153,7 +153,17 @@ export function fakeAudio(): FakeAudio {
       incoming: [] as unknown[],
       connect(next: unknown) {
         if (next && typeof next === 'object' && 'incoming' in next) {
-          ;(next as { incoming: unknown[] }).incoming.push(self ?? target)
+          const list = (next as { incoming: unknown[] }).incoming
+          /*
+           * Once, however many times it is asked for. The spec is explicit that connecting an output to an
+           * input it already reaches has no further effect, and a fake that counted it twice would say a
+           * signal arrives at double strength where a browser says it arrives once — so a test built on
+           * the count would be measuring the fake.
+           *
+           * Found by asserting that hooking an effect to the master twice changes nothing, which is true
+           * of the real thing and was not of this.
+           */
+          if (!list.includes(self ?? target)) list.push(self ?? target)
         }
         return next
       },

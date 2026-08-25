@@ -33,6 +33,44 @@ export const EVENT_OUT = 'out'
  */
 export const EVENT_UP = 'up'
 
+/**
+ * Whether joining `from` to `to` would close a loop in the audio graph.
+ *
+ * The one rule the event graph does not need, and the reason is worth stating because the asymmetry looks
+ * arbitrary: **an event cycle is bounded and an audio cycle is not.** A trigger going round and round runs
+ * out of depth at `MAX_DEPTH` and the pass ends. Audio going round and round is a gain — every trip adds
+ * to itself, and nothing anywhere stops it. So cycles are a feature in one graph and a fault in the other,
+ * and this is where that gets said.
+ *
+ * Asked of the graph as it stands plus the cable being proposed: walk forward from where the cable would
+ * land and see whether it comes back to where it left. A cable onto its own node is the shortest loop
+ * there is and is caught by the same walk.
+ */
+export function wouldFeedBack(from: string, to: string, edges: EdgeLike[]): boolean {
+  if (from === to) return true
+
+  const onward = new Map<string, string[]>()
+  for (const edge of edges) {
+    if (kindOf(edge) !== 'audio') continue
+    const list = onward.get(edge.source)
+    if (list) list.push(edge.target)
+    else onward.set(edge.source, [edge.target])
+  }
+
+  const seen = new Set<string>([to])
+  const queue = [to]
+  while (queue.length > 0) {
+    const at = queue.pop() as string
+    if (at === from) return true
+    for (const next of onward.get(at) ?? []) {
+      if (seen.has(next)) continue
+      seen.add(next)
+      queue.push(next)
+    }
+  }
+  return false
+}
+
 /** Whether a handle is on the side of a node, as opposed to its top or bottom. */
 export function isSignalHandle(handle: string | null | undefined): boolean {
   return handle?.startsWith(SIGNAL_PREFIX) ?? false
@@ -65,7 +103,9 @@ interface EdgeLike {
   target: string
   /** Set on a trigger cable that runs the cascade upward, so a pair can carry one of each. */
   up?: boolean
-  data?: { up?: boolean }
+  /** Which sort of cable it is, where that matters — the audio graph's own shape is one rule (§45). */
+  kind?: string
+  data?: { up?: boolean; kind?: string }
 }
 
 /**
@@ -78,6 +118,18 @@ interface EdgeLike {
  */
 function isClimbing(edge: EdgeLike): boolean {
   return edge.up === true || edge.data?.up === true
+}
+
+/**
+ * Which sort of cable it is, wherever the half of the app it came from keeps that.
+ *
+ * The same boundary as `isClimbing`, and written the same day the flag version of this bug was found: the
+ * canvas keeps it in `data.kind` and a patch keeps it as a field, and reading one of the two is how an
+ * audio rule came to look at every cable on the canvas and see no kind at all. An event cable defaults —
+ * absent has meant event since the first version of the format.
+ */
+function kindOf(edge: EdgeLike): string {
+  return edge.kind ?? edge.data?.kind ?? 'event'
 }
 
 export interface ConnectionRules {
@@ -166,10 +218,18 @@ function orient(from: string | undefined, to: string | undefined): EdgeKind | 'r
   if (from === 'warp' && WARPABLE.has(to ?? '')) return 'warp'
   if (to === 'warp' && WARPABLE.has(from ?? '')) return 'reversed'
 
-  // Audio only ever runs from an oscillator to an effect. That single restriction is what makes the
-  // audio graph bipartite and one hop deep, which is why there is no cycle check to write.
+  /*
+   * Audio runs out of an oscillator and into an effect, and out of an effect into another one — which is
+   * how effects go in series, and the whole of how their order is said. There is no setting: the order is
+   * the cables, the same as everywhere else here.
+   *
+   * That second rule is what this comment used to say made a cycle check unnecessary. The audio graph is
+   * no longer one hop deep, so the check exists — see `wouldFeedBack`, and §37 for why an audio loop is a
+   * different animal from an event one.
+   */
   if (from === 'osc' && to === 'fx') return 'audio'
   if (from === 'fx' && to === 'osc') return 'reversed'
+  if (from === 'fx' && to === 'fx') return 'audio'
 
   return null
 }
@@ -235,6 +295,19 @@ export function connectionFor(
   if (sideStart) {
     const decided = orient(typeOf(source), typeOf(target))
     if (decided === null) return null
+
+    /*
+     * An audio cable that would close a loop is refused outright, whichever way round it was drawn. This
+     * is the audio graph: a loop here is a gain feeding itself, not a finite re-triggering, so there is no
+     * cap that saves it and nothing to be gained by allowing it (§45).
+     */
+    const ends: [string, string] = decided === 'reversed' ? [target, source] : [source, target]
+    if (
+      (decided === 'audio' || orient(typeOf(target), typeOf(source)) === 'audio') &&
+      wouldFeedBack(ends[0], ends[1], rules.edges)
+    ) {
+      return null
+    }
 
     if (decided === 'reversed') {
       return already(target, source)

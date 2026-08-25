@@ -700,7 +700,12 @@ export class AudioEngine implements Engine {
     input.connect(chain.input)
     chain.output.connect(wet)
     wet.connect(output)
-    output.connect(this.master)
+    /*
+     * **Not** connected to the master here. Where an effect's output goes depends on whether anything
+     * else is downstream of it, which is a fact about the graph and not about the node — so the router
+     * says, through `setToMaster`, and says it again whenever that changes. Connecting here and
+     * disconnecting later would leave the engine tracking a thing it cannot see the whole of.
+     */
 
     this.effects.set(nodeId, {
       cost: effectCost(params),
@@ -1468,20 +1473,51 @@ export class AudioEngine implements Engine {
     return invert
   }
 
-  connectSend(oscId: NodeId, fxId: NodeId): void {
+  /**
+   * Feeds one thing into an effect: an oscillator's bus, or another effect's output.
+   *
+   * Which of the two comes from what the source *is*, not from a flag — an effect the engine knows about
+   * is a chain, and anything else is asked for a voice bus. That order matters: `busFor` creates a bus on
+   * demand, so asking it first would quietly conjure a voice bus for an effect id and connect silence.
+   */
+  connectSend(fromId: NodeId, fxId: NodeId): void {
     const effect = this.effects.get(fxId)
     if (!this.ctx || !effect) return
-    this.busFor(oscId).bus.connect(effect.input)
+    const upstream = this.effects.get(fromId)
+    if (upstream) upstream.output.connect(effect.input)
+    else this.busFor(fromId).bus.connect(effect.input)
   }
 
-  disconnectSend(oscId: NodeId, fxId: NodeId): void {
+  disconnectSend(fromId: NodeId, fxId: NodeId): void {
     const effect = this.effects.get(fxId)
-    const bus = this.buses.get(oscId)
-    if (!effect || !bus) return
+    if (!effect) return
+    const upstream = this.effects.get(fromId)
+    const source = upstream ? upstream.output : this.buses.get(fromId)?.bus
+    if (!source) return
     try {
-      bus.bus.disconnect(effect.input)
+      source.disconnect(effect.input)
     } catch {
       // Already gone. Web Audio throws rather than shrugging, and either way we are done.
+    }
+  }
+
+  /**
+   * Whether an effect is heard directly, or only through whatever it feeds.
+   *
+   * The end of a chain goes to the master and the middle of one does not. Told rather than worked out: the
+   * router is the one place that knows the shape of the graph, and an effect that has just stopped being
+   * the end of a chain is something only a diff can notice.
+   */
+  setToMaster(fxId: NodeId, on: boolean): void {
+    const effect = this.effects.get(fxId)
+    if (!effect || !this.master) return
+    if (on) effect.output.connect(this.master)
+    else {
+      try {
+        effect.output.disconnect(this.master)
+      } catch {
+        // Not connected. Web Audio throws where a no-op would do.
+      }
     }
   }
 
@@ -1678,6 +1714,9 @@ export function applyOps(target: AudioEngine, ops: RouterOp[], bpm: number): voi
         break
       case 'setDirect':
         target.setDirect(op.id, op.value)
+        break
+      case 'setToMaster':
+        target.setToMaster(op.id, op.value)
         break
       case 'createMod':
         target.createModulator(op.id, op.params, bpm)

@@ -858,6 +858,14 @@ export const MANUAL: Section[] = [
         es: 'Cablea el puerto lateral de un oscilador a un FX para alimentarlo. Varios osciladores pueden compartir un efecto y un oscilador puede alimentar varios, porque un efecto es un envío desde la salida y no una etapa de una cadena — que es también por qué da igual dónde lo pongas en el lienzo.',
       },
       {
+        en: 'An effect can also feed **another effect**, and that is how they go in series. Order changes everything: a reverb into a distortion is a distorted tail, a distortion into a reverb is a dirty note in a clean room. There is no setting for it and nothing to number — the order is the cables, and only the last effect in a chain is heard directly. The preset called ORDER is the same two effects wired both ways at once, so you can hear the difference in one pass.',
+        es: 'Un efecto también puede alimentar a **otro efecto**, y así van en serie. El orden lo cambia todo: un reverb hacia una distorsión es una cola distorsionada, una distorsión hacia un reverb es una nota sucia en una sala limpia. No hay ajuste para eso ni nada que numerar — el orden son los cables, y solo el último efecto de una cadena se oye directamente. El preset llamado ORDER son los mismos dos efectos cableados de las dos formas a la vez, para oír la diferencia en una pasada.',
+      },
+      {
+        en: 'A chain cannot come back on itself. Audio going round a loop is a gain adding to itself and nothing stops it, which is the one place this instrument refuses a cycle — triggers may go round as often as they like, because a trigger going round runs out of depth and a signal going round does not.',
+        es: 'Una cadena no puede volver sobre sí misma. El audio dando vueltas es una ganancia sumándose a sí misma y nada la detiene, y es el único sitio donde este instrumento rechaza un ciclo — los disparos pueden dar todas las vueltas que quieran, porque un disparo dando vueltas se queda sin profundidad y una señal no.',
+      },
+      {
         en: 'Every effect has a Mix, and it sits directly under the choice of effect rather than under that effect’s own controls. An oscillator with nothing attached is heard whole; once something is attached, Mix says how much of it you hear through that thing.',
         es: 'Todo efecto tiene un Mix, y está justo debajo de la elección de efecto y no debajo de los controles de ese efecto. Un oscilador sin nada enganchado se oye entero; en cuanto tiene algo, Mix dice cuánto de él oyes a través de esa cosa.',
       },
@@ -871,6 +879,13 @@ export const MANUAL: Section[] = [
             text: {
               en: 'Which of the fifteen this node is. Changing it replaces the controls below with that effect’s own, and the Mix above stays where it was — which is why Mix is above them rather than below, where it would slide up and down the panel every time you changed your mind.',
               es: 'Cuál de los quince es este nodo. Cambiarlo reemplaza los controles de abajo por los de ese efecto, y el Mix de arriba se queda donde estaba — por eso el Mix va encima y no debajo, donde se desplazaría por el panel cada vez que cambiaras de idea.',
+            },
+          },
+          {
+            term: { en: 'Mix in a chain', es: 'Mix en una cadena' },
+            text: {
+              en: 'Each stage crossfades between what reached it and what it made of that — so in a chain, the second effect’s Mix is against the *first effect’s output*, not against the bare oscillator. That is exactly how a row of pedals behaves, and it means you can put a stage in a chain at a low Mix and hear it as a colour on what came before rather than as a replacement for it.',
+              es: 'Cada etapa cruza entre lo que le llegó y lo que hizo con eso — así que en una cadena, el Mix del segundo efecto es contra la *salida del primero*, no contra el oscilador desnudo. Es exactamente como se comporta una fila de pedales, y significa que puedes meter una etapa con el Mix bajo y oírla como un color sobre lo anterior en vez de como un reemplazo.',
             },
           },
           {

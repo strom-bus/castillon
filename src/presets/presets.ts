@@ -1072,6 +1072,81 @@ const rise: Preset = {
   ),
 }
 
+/**
+ * The same two effects, in the two orders, on one trigger.
+ *
+ * Order is the whole subject and it needs the comparison to be audible, so both halves are here at once:
+ * one branch runs a reverb into a wavefolder, the other runs a wavefolder into a reverb. Same two effects,
+ * same settings, same notes — and they are not remotely the same sound.
+ *
+ * **Folding a reverb tail** puts harmonics into something that had none: the tail arrives smooth and
+ * leaves ragged, and because a folder's timbre follows the level, it gets *cleaner as it decays*. Nothing
+ * else here does that.
+ *
+ * **Reverberating a folded note** is the ordinary thing. The folding happens to the note while it is loud,
+ * and the reverb smears what came out — bright at the front and smooth behind it.
+ *
+ * Nothing about the patch says which order it is in except the cables, which is the point: there is no
+ * setting, no number, nothing to read off a panel. The two chains look different because they are.
+ */
+const order: Preset = {
+  id: 'order',
+  name: 'ORDER',
+  about: 'Reverb into a wavefolder, and a wavefolder into a reverb. The same two effects, twice.',
+  patch: patchOf(
+    88,
+    [
+      ignite('i', 1, 0),
+      osc('left', 0, 1, {
+        ...IN_KEY,
+        // A sine, so everything you hear that is not a sine was made by the chain.
+        waveform: 'sine',
+        steps: steps([note(0, 0), null, note(4, 0), null], [1, 1, 0.5, 1]),
+        division: '1/8',
+        gain: 0.3,
+        attack: 3,
+        decay: 0,
+        release: 260,
+        gate: 0.5,
+        filterType: 'off',
+        cutoff: 6000,
+        resonance: 1,
+      }),
+      osc('right', 3, 1, {
+        ...IN_KEY,
+        waveform: 'sine',
+        // The same phrase a fifth up, so the two chains sit apart and can be told from each other.
+        steps: steps([note(4, 0), null, note(0, 1), null], [1, 1, 0.5, 1]),
+        division: '1/8',
+        gain: 0.3,
+        attack: 3,
+        decay: 0,
+        release: 260,
+        gate: 0.5,
+        filterType: 'off',
+        cutoff: 6000,
+        resonance: 1,
+      }),
+
+      // Reverb first, then the folder: the tail gets folded, and cleans up as it dies.
+      fx('rvA', 0, 2, { effect: 'reverb', mix: 0.7, decay: 2.6, cutoff: 3400 }),
+      fx('foldA', 0, 3, { effect: 'fold', mix: 1, drive: 0.5, bias: 0.25, cutoff: 5000 }),
+
+      // Folder first, then the reverb: an ordinary bright note, smeared.
+      fx('foldB', 3, 2, { effect: 'fold', mix: 1, drive: 0.5, bias: 0.25, cutoff: 5000 }),
+      fx('rvB', 3, 3, { effect: 'reverb', mix: 0.7, decay: 2.6, cutoff: 3400 }),
+    ],
+    [
+      wire('i', 'left'),
+      wire('i', 'right'),
+      wire('left', 'rvA', 'audio'),
+      wire('rvA', 'foldA', 'audio'),
+      wire('right', 'foldB', 'audio'),
+      wire('foldB', 'rvB', 'audio'),
+    ],
+  ),
+}
+
 export const PRESETS: Preset[] = [
   descent,
   drift,
@@ -1082,6 +1157,7 @@ export const PRESETS: Preset[] = [
   pluck,
   reed,
   rise,
+  order,
   duck,
   stress,
 ]

@@ -4,6 +4,7 @@ import {
   FOLLOW_COST,
   MAX_RATE,
   MIN_RATE,
+  silentBecause,
   MOD_COST,
   targetOf,
   type LfoShape,
@@ -29,7 +30,13 @@ import { MAX_CUTOFF, MAX_RESONANCE, MIN_CUTOFF, MIN_RESONANCE } from './filter'
 import { effectCost, MAX_LOAD, voiceCost } from './load'
 import { fillNoise, type NoiseColor } from './noise'
 import type { Random } from './random'
-import { isNoise, pulseHarmonics, rampHarmonics } from './waveforms'
+import {
+  isNoise,
+  MAX_PULSE_WIDTH,
+  MIN_PULSE_WIDTH,
+  pulseHarmonics,
+  rampHarmonics,
+} from './waveforms'
 import type { RouterOp } from './router'
 import { registerWorklets } from './worklets/register'
 import { MAX_FOLLOW_MS, MAX_SENSITIVITY, MIN_FOLLOW_MS } from './dsp'
@@ -237,6 +244,19 @@ interface Voice {
   chain: AudioNode[]
   /** Its own filter, where it has one, since that is what a modulator on this oscillator points at. */
   filter: BiquadFilterNode | null
+  /**
+   * The delay that *is* the duty, on a pulse voice whose width is being swept, and null on every other
+   * voice — including a pulse nobody is sweeping, which is a baked wave with no width to reach.
+   */
+  width: AudioParam | null
+  /**
+   * What this note was built to play, in hertz.
+   *
+   * Kept because one target needs it: a duty is a share of a cycle and a delay is in seconds, so a
+   * modulation in duty has to be divided by the frequency on its way to the parameter. Every other
+   * target's units are the parameter's own.
+   */
+  freq: number
   /** What the step asked for, so a per-note envelope can be scaled by it. */
   velocity: number
   /**
@@ -333,6 +353,16 @@ export interface Engine {
  * The filter targets return null when the voice has no filter, which is what makes a cable to a switched
  * off filter do nothing rather than throw.
  */
+/**
+ * Whether a target needs the voice's filter to exist before it costs anything.
+ *
+ * Read from `silentBecause`, which is where the fact already lives — a target that does nothing on a
+ * filter-off oscillator is exactly a target that builds nothing to sweep.
+ */
+function needsFilter(key: ModTargetKey): boolean {
+  return silentBecause(key, { nodeType: 'osc', filterType: 'off' }) !== null
+}
+
 function voiceParam(voice: Voice, key: string): AudioParam | null {
   /*
    * Pitch and FM are the same parameter and differ only in how far they reach — a semitone against four
@@ -344,6 +374,10 @@ function voiceParam(voice: Voice, key: string): AudioParam | null {
     const source = voice.source as unknown as { detune?: AudioParam }
     return source.detune ?? null
   }
+  // Only a pulse voice built for sweeping has one, which is why this is on the voice and not worked out
+  // from the waveform: the same oscillator plays a swept pulse and a baked one on different notes.
+  if (key === 'width') return voice.width
+
   if (!voice.filter) return null
   return key === 'cutoff' ? voice.filter.frequency : voice.filter.Q
 }
@@ -500,8 +534,16 @@ export class AudioEngine implements Engine {
    * point at several things and the price is a property of the destination.
    */
   private modSurcharge = new Map<string, number>()
-  /** Per-voice surcharges, by oscillator: added to each voice as it is built rather than standing. */
+  /**
+   * Per-voice surcharges, by oscillator: added to each voice as it is built rather than standing.
+   *
+   * Two buckets, because one of them is conditional. A cutoff or a resonance sweep costs nothing on a
+   * voice whose filter is switched off, since no biquad is built to sweep — but pitch, and now width,
+   * cost what they cost whatever the filter is doing. One bucket gated on the filter charged a vibrato
+   * nothing on an unfiltered oscillator, which is a real modulation running for free in the accounting.
+   */
   private voiceSurcharge = new Map<NodeId, number>()
+  private filterSurcharge = new Map<NodeId, number>()
   /** One inverter per node, so wiring a mix modulation twice does not stack them. */
   private inverters = new Map<NodeId, GainNode>()
   /** Modulations that cannot be connected to, driven by recomputation instead. */
@@ -606,7 +648,9 @@ export class AudioEngine implements Engine {
     // A swept filter costs more than a static one, and this oscillator's filter is built per note —
     // so the surcharge is part of what this voice costs, not standing cost. Only where there is a
     // filter to sweep: with it off, nothing is built and nothing is charged.
-    const swept = req.filterType !== 'off' ? (this.voiceSurcharge.get(req.nodeId) ?? 0) : 0
+    const swept =
+      (this.voiceSurcharge.get(req.nodeId) ?? 0) +
+      (req.filterType !== 'off' ? (this.filterSurcharge.get(req.nodeId) ?? 0) : 0)
     const cost = voiceCost(req.waveform, req.filterType !== 'off') + swept
     if (this.totalLoadAt(req.time) + cost > this.ceiling) this.stealOldest(req.time)
 
@@ -621,7 +665,17 @@ export class AudioEngine implements Engine {
     const from = this.lastFreq.get(req.nodeId)
     this.lastFreq.set(req.nodeId, req.freq)
 
-    const source = this.createSource(req, from)
+    /*
+     * Whether anything is sweeping this oscillator's width, which decides what kind of pulse gets built.
+     * Asked of the links rather than remembered on the node: a cable drawn between two notes takes effect
+     * on the next one, which is the same promise every other per-voice modulation makes.
+     */
+    let sweptWidth = false
+    for (const link of this.voiceLinks.values()) {
+      if (link.oscId === req.nodeId && link.key === 'width') sweptWidth = true
+    }
+    const built = this.createSource(req, from, sweptWidth)
+    const source = built.source
 
     const gain = this.ctx.createGain()
     gain.gain.setValueAtTime(0, req.time)
@@ -655,8 +709,8 @@ export class AudioEngine implements Engine {
     gain.gain.linearRampToValueAtTime(0, end)
 
     // One biquad per voice, so a filter sweep tracks each note rather than a shared bus.
-    const chain: AudioNode[] = [source, gain]
-    let tail: AudioNode = source
+    const chain: AudioNode[] = [source, ...built.extra, gain]
+    let tail: AudioNode = built.out
     let filter: BiquadFilterNode | null = null
     if (req.filterType !== 'off') {
       filter = this.ctx.createBiquadFilter()
@@ -664,7 +718,7 @@ export class AudioEngine implements Engine {
       filter.frequency.setValueAtTime(clamp(req.cutoff, MIN_CUTOFF, MAX_CUTOFF), req.time)
       filter.Q.setValueAtTime(clamp(req.resonance, MIN_RESONANCE, MAX_RESONANCE), req.time)
       tail.connect(filter)
-      chain.splice(1, 0, filter)
+      chain.push(filter)
       tail = filter
     }
     tail.connect(gain).connect(this.busFor(req.nodeId).bus)
@@ -681,6 +735,8 @@ export class AudioEngine implements Engine {
       source,
       chain,
       filter,
+      width: built.width,
+      freq: req.freq,
       velocity: req.velocity,
       modulated: [],
     }
@@ -1517,6 +1573,7 @@ export class AudioEngine implements Engine {
     this.inverters.clear()
     this.modSurcharge.clear()
     this.voiceSurcharge.clear()
+    this.filterSurcharge.clear()
 
     // No links to clear and no timer to stop: `disposeModulator` releases all three kinds, the
     // recomputed ones included, and takes the timer down with the last of them. Clearing them here as
@@ -1543,7 +1600,10 @@ export class AudioEngine implements Engine {
     if (points === 0) return
 
     if (descriptor?.perVoice) {
-      this.voiceSurcharge.set(targetId, (this.voiceSurcharge.get(targetId) ?? 0) + points)
+      // Which bucket, asked of the same table that already knows which targets a filter has to exist
+      // for, rather than by naming cutoff and resonance here for a second time.
+      const bucket = needsFilter(target) ? this.filterSurcharge : this.voiceSurcharge
+      bucket.set(targetId, (bucket.get(targetId) ?? 0) + points)
     } else {
       this.modSurcharge.set(`${modId}->${targetId}`, points)
     }
@@ -1557,9 +1617,10 @@ export class AudioEngine implements Engine {
     if (!link) return
     const effect = this.effects.get(targetId)
     const points = targetOf(link.key, effect ? 'fx' : 'osc', effect?.params.effect)?.surcharge ?? 0
-    const standing = (this.voiceSurcharge.get(targetId) ?? 0) - points
-    if (standing > 0.001) this.voiceSurcharge.set(targetId, standing)
-    else this.voiceSurcharge.delete(targetId)
+    const bucket = needsFilter(link.key) ? this.filterSurcharge : this.voiceSurcharge
+    const standing = (bucket.get(targetId) ?? 0) - points
+    if (standing > 0.001) bucket.set(targetId, standing)
+    else bucket.delete(targetId)
   }
 
   /**
@@ -1623,6 +1684,23 @@ export class AudioEngine implements Engine {
       const peak = link.peak * (instance.byVelocity ? voice.velocity : 1)
       drawEnvelope(shape.gain, at, peak, instance.attack, instance.decay)
       voice.modulated.push({ amount: shape, param, from: instance.runner })
+      return
+    }
+
+    /*
+     * A duty divided by this note's own frequency, because the parameter is a delay in seconds.
+     *
+     * The one target whose units are not the parameter's. A share of a cycle means a different number of
+     * seconds on every note, so the conversion cannot live on the shared amount gain — it is built per
+     * voice, like a per-note envelope's shape, and goes with the note.
+     */
+    if (link.key === 'width' && voice.freq > 0) {
+      const ctx = this.ctx as BaseAudioContext
+      const scale = ctx.createGain()
+      scale.gain.value = 1 / voice.freq
+      link.amount.connect(scale)
+      scale.connect(param)
+      voice.modulated.push({ amount: scale, param, from: link.amount })
       return
     }
 
@@ -1760,7 +1838,23 @@ export class AudioEngine implements Engine {
     param.exponentialRampToValueAtTime(to, req.time + glide)
   }
 
-  private createSource(req: NoteRequest, from?: number): AudioScheduledSourceNode {
+  /**
+   * What a voice is made of: the node that is started and stopped, what carries its signal onward, and
+   * anything built in between.
+   *
+   * Nearly always one node doing all three, which is why this used to be one. A **swept pulse** is the
+   * exception and the reason for the shape.
+   */
+  private createSource(
+    req: NoteRequest,
+    from: number | undefined,
+    sweptWidth: boolean,
+  ): {
+    source: AudioScheduledSourceNode
+    out: AudioNode
+    extra: AudioNode[]
+    width: AudioParam | null
+  } {
     const ctx = this.ctx as BaseAudioContext
 
     if (isNoise(req.waveform)) {
@@ -1775,10 +1869,61 @@ export class AudioEngine implements Engine {
         from === undefined ? undefined : from * scale,
         req,
       )
-      return source
+      return { source, out: source, extra: [], width: null }
     }
 
     const osc = ctx.createOscillator()
+
+    /*
+     * A pulse whose width is being swept is built as **a sawtooth against a delayed copy of itself**.
+     *
+     * Subtract a saw from the same saw delayed by *d* seconds and what comes out is a pulse whose duty is
+     * `d × frequency`: the two ramps cancel everywhere except in the window between them. Both halves are
+     * the browser's own band-limited sawtooth, so the result is band-limited too — which is the whole
+     * reason this trick and not the analogue one, where a ramp compared against a threshold gives hard
+     * edges and every one of them aliases.
+     *
+     * The delay is the duty, and a delay time is an `AudioParam`. That is the entire point: the ordinary
+     * pulse here is a `PeriodicWave` with the width baked into its harmonics, and a baked wave is a wave
+     * you cannot sweep — the width could only ever move *between* notes, on the next one.
+     *
+     * Built only when something is actually sweeping it. Three nodes for every pulse voice in every patch
+     * would be a cost paid by everybody for a feature almost nobody is using, and the plain path is a
+     * cached wave that costs nothing per note.
+     */
+    if (req.waveform === 'pulse' && sweptWidth) {
+      osc.type = 'sawtooth'
+      this.setPitch(osc.frequency, req.freq, from, req)
+
+      // Generous: the longest useful delay is one whole cycle of the lowest note, and a slide may start
+      // below where it ends. A hundred milliseconds covers everything this instrument can play.
+      const delay = ctx.createDelay(0.1)
+      const invert = ctx.createGain()
+      invert.gain.value = -1
+      const sum = ctx.createGain()
+
+      /*
+       * The delay tracks the pitch, including through a slide.
+       *
+       * `d = duty / f`, so as the frequency ramps the delay has to ramp the other way or the duty walks
+       * across the note. And an exponential ramp is exactly right rather than approximately: the
+       * reciprocal of an exponential ramp *is* an exponential ramp, so the same curve the pitch takes
+       * keeps the duty constant the whole way down it.
+       */
+      const duty = clamp(req.pulseWidth, MIN_PULSE_WIDTH, MAX_PULSE_WIDTH)
+      const glide = glideSeconds(req.glide, req.duration)
+      const start = from !== undefined && from > 0 && glide > 0 ? from : req.freq
+      delay.delayTime.setValueAtTime(duty / start, req.time)
+      if (start !== req.freq) {
+        delay.delayTime.exponentialRampToValueAtTime(duty / req.freq, req.time + glide)
+      }
+
+      osc.connect(sum)
+      osc.connect(delay).connect(invert).connect(sum)
+
+      return { source: osc, out: sum, extra: [delay, invert, sum], width: delay.delayTime }
+    }
+
     if (req.waveform === 'pulse') {
       osc.setPeriodicWave(this.pulseWave(req.pulseWidth))
     } else if (req.waveform === 'ramp') {
@@ -1787,7 +1932,7 @@ export class AudioEngine implements Engine {
       osc.type = req.waveform
     }
     this.setPitch(osc.frequency, req.freq, from, req)
-    return osc
+    return { source: osc, out: osc, extra: [], width: null }
   }
 
   private noiseBuffer(color: NoiseColor): AudioBuffer {

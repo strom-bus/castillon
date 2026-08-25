@@ -16,12 +16,13 @@ import {
  */
 
 describe('targetsFor', () => {
-  it('offers an oscillator its output, its pitch and its filter', () => {
+  it('offers an oscillator its output, its pitch, its width and its filter', () => {
     // `fm` is in the table and is not in this list: it belongs to one kind of source, and what a MOD may
     // point at is `targetsFrom`'s question rather than this one. See the FM tests.
     expect(targetsFrom('mod', 'osc').map((t) => t.key)).toEqual([
       'level',
       'pitch',
+      'width',
       'cutoff',
       'resonance',
     ])

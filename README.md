@@ -396,6 +396,34 @@ refused, since between an oscillator and an effect there is only one direction t
   instead: a trigger cannot mistime and a follower cannot miss a note nobody told it about, and both are
   in the box so the difference can be heard.
 
+- **Pulse width as a modulation target**, which is the classic sweep and was the one waveform parameter
+  that could not move. A pulse here is a `PeriodicWave` with the duty baked into its harmonics when the
+  note starts, and a baked wave cannot be swept — the width could only ever change _between_ notes.
+
+  So an oscillator whose width is being modulated builds a different voice: a sawtooth against a delayed
+  copy of itself, where the delay **is** the duty. Subtract a saw from the same saw delayed by _d_
+  seconds and the two ramps cancel everywhere except in the window between them, so the duty is
+  `d × frequency` — and a delay time is an `AudioParam`, which is the whole point. Both halves are the
+  browser's own band-limited sawtooth, so the result is band-limited too. The analogue trick, comparing a
+  ramp against a threshold, gives hard edges and every one of them aliases.
+
+  The delay ramps with the pitch through a slide, and exactly rather than approximately: the reciprocal
+  of an exponential ramp is an exponential ramp, so the curve the pitch takes holds the duty still all
+  the way down it. And the modulation reaches the delay through a per-voice gain of `1 / frequency`,
+  since a duty is a share of a cycle and a delay is in seconds — the one target whose units are not the
+  parameter's own.
+
+  **Built only when something is sweeping it.** Three extra nodes on every pulse voice in every patch
+  would be a cost paid by everybody for a feature almost nobody is using, and the plain path is a cached
+  wave that costs nothing per note. The surcharge rides on the target, where the load estimator already
+  reads per-cable costs, so a patch that sweeps a width is priced for it and one that does not is not.
+
+  That uncovered an older hole in the same accounting: the per-voice surcharge was charged only on a
+  voice whose filter was on, which was right when the only per-voice targets were the filter's own. A
+  vibrato on an unfiltered oscillator had been running free ever since pitch became one. There are two
+  buckets now, and which one a target lands in is read from the same table that already knows which
+  targets need a filter to exist.
+
 - **An FM node**, the other occupant of that same cell: audio in the left, modulation out the right, and
   the whole difference from a SENSE is what it does with what it hears. A SENSE measures **how loud** a
   branch is; this uses **the waveform itself**, at audio rate, unchanged — which is frequency modulation,
@@ -486,7 +514,7 @@ refused, since between an oscillator and an effect there is only one direction t
   it longer without making it clearer. Both languages live adjacent in one file so a half-finished
   edit shows up in the diff rather than as a blank paragraph months later.
 
-  Fifteen chapters and a hundred and seventy-five entries, written for whoever is using the instrument
+  Fifteen chapters and a hundred and seventy-six entries, written for whoever is using the instrument
   rather than for whoever built it: no entry explains how something is implemented, and every one says
   what a control does to the sound and when you would reach for it. One chapter per module, each in
   the order its own panel is in and under the panel's own group headings, so reading the manual and

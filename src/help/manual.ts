@@ -491,8 +491,8 @@ export const MANUAL: Section[] = [
           {
             term: { en: 'Pulse width', es: 'Pulse width' },
             text: {
-              en: 'Only on Pulse, and it is the reason to choose Pulse over Square. It sets how lopsided the wave is: in the middle it *is* a square, and towards either end it thins out into something nasal and small. Sweeping it with a MOD is the classic way to make one voice sound like two.',
-              es: 'Solo en Pulse, y es la razón de elegir Pulse en vez de Square. Fija lo desigual que es la onda: en el centro *es* una cuadrada, y hacia los extremos se adelgaza en algo nasal y pequeño. Barrerlo con un MOD es la manera clásica de hacer que una voz suene como dos.',
+              en: 'Only on Pulse, and it is the reason to choose Pulse over Square. It sets how lopsided the wave is: in the middle it *is* a square, and towards either end it thins out into something nasal and small. This is where it rests; point a MOD at Width to sweep it while the note is sounding, which is the classic way to make one voice sound like two.',
+              es: 'Solo en Pulse, y es la razón de elegir Pulse en vez de Square. Fija lo desigual que es la onda: en el centro *es* una cuadrada, y hacia los extremos se adelgaza en algo nasal y pequeño. Aquí es donde descansa; apunta un MOD a Width para barrerlo mientras la nota suena, que es la manera clásica de hacer que una voz suene como dos.',
             },
           },
           {
@@ -1315,6 +1315,13 @@ export const MANUAL: Section[] = [
             text: {
               en: 'Which parameter it moves. The list is whatever the thing at the other end of the cable actually has, so a MOD on a reverb offers that reverb’s decay and one on a chorus offers its sweep. An entry that cannot work right now is shown greyed with the reason on it rather than hidden.',
               es: 'Qué parámetro mueve. La lista es lo que de verdad tiene la cosa al otro extremo del cable, así que un MOD en un reverb ofrece el decay de ese reverb y uno en un chorus ofrece su sweep. Una entrada que ahora no puede funcionar se muestra en gris con el motivo puesto, en vez de esconderse.',
+            },
+          },
+          {
+            term: { en: 'Width, as a target', es: 'Width, como destino' },
+            text: {
+              en: 'Only on an oscillator set to Pulse, and it is the classic one: sweeping the duty cycle slowly makes one voice sound like two drifting against each other. It moves *inside* the note rather than between notes, which is what separates it from setting a different width on each — an oscillator whose width is being swept is built differently for that reason, out of a sawtooth against a delayed copy of itself, and it costs a little more than a plain pulse. Nothing is built and nothing is charged unless something is actually sweeping it. On any other waveform the target is there and does nothing, since there is no duty to move.',
+              es: 'Solo en un oscilador puesto en Pulse, y es el clásico: barrer el ciclo de trabajo despacio hace que una voz suene como dos desfasándose. Se mueve *dentro* de la nota y no entre notas, que es lo que lo separa de poner un ancho distinto en cada una — un oscilador cuyo ancho se está barriendo se construye distinto por eso, con un diente de sierra contra una copia retrasada de sí mismo, y cuesta un poco más que un pulso normal. No se construye ni se cobra nada salvo que algo lo esté barriendo de verdad. En cualquier otra onda el destino está y no hace nada, porque no hay ciclo que mover.',
             },
           },
           {

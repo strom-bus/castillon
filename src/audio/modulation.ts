@@ -13,6 +13,7 @@
 
 import { MAX_BITS, MAX_REDUCTION, MAX_REPEATS, MIN_BITS, MIN_REDUCTION, MIN_REPEATS } from './dsp'
 import { effectOr } from './effects'
+import { MAX_PULSE_WIDTH, MIN_PULSE_WIDTH } from './waveforms'
 import { MAX_CUTOFF, MAX_RESONANCE, MIN_CUTOFF, MIN_RESONANCE } from './filter'
 import {
   MAX_COMPRESS_ATTACK,
@@ -567,10 +568,41 @@ const FM: ModTarget = {
   hint: 'How far the modulator bends the carrier, in cents. The modulator’s own level scales it, so its envelope is the shape of the index.',
 }
 
+/**
+ * The duty cycle of a pulse wave, which is the one waveform parameter that can be *moved*.
+ *
+ * Its span is the width's own range rather than nought to one: at either extreme the wave is a sliver
+ * and then silence, and a modulation whose full depth reaches silence is a control nobody can set.
+ *
+ * **A voice built for this is not the voice built without it.** A pulse is normally a `PeriodicWave`
+ * with the width baked into its harmonics when the note starts, and a baked wave cannot be swept — so
+ * an oscillator whose width is modulated builds a different thing entirely: a sawtooth against a delayed
+ * copy of itself, where the delay *is* the duty and is an `AudioParam`. That costs three more nodes per
+ * voice, which is what the surcharge is, and it is paid only by a voice that is actually doing it.
+ */
+const WIDTH: ModTarget = {
+  key: 'width',
+  label: 'Width',
+  min: MIN_PULSE_WIDTH,
+  max: MAX_PULSE_WIDTH,
+  via: 'audio',
+  perVoice: true,
+  /*
+   * Reasoned, not measured, and by the same principle the measured ones set: a delay line is a ring
+   * buffer read with interpolation, which is what a noise voice does — priced at 2.2 against an
+   * oscillator's 1. Two gains on top of that are free. So a little over one, and this is deliberately on
+   * the generous side of the reasoning, since the alternative is a budget that lets a patch through and
+   * then drops samples.
+   */
+  surcharge: 1.4,
+  hint: 'Sweeps the duty cycle of a pulse wave, inside the note rather than between notes. It does nothing on any other waveform.',
+}
+
 const OSC_TARGETS: readonly ModTarget[] = [
   LEVEL,
   PITCH,
   FM,
+  WIDTH,
   {
     ...FX_PARAM_TARGETS.cutoff,
     hint: 'Sweeps the filter of every note the oscillator plays.',

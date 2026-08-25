@@ -4,6 +4,7 @@ import { usePatchStore } from '../state/patchStore'
 import { MAX_BPM, MIN_BPM } from '../types/patch'
 import { NumberInput } from './NumberInput'
 import { ExportAudio } from './ExportAudio'
+import { ClipLight } from './ClipLight'
 import { MidiStatus } from './MidiStatus'
 import { PatchCode } from './PatchCode'
 import { UndoRedo } from './UndoRedo'
@@ -64,6 +65,9 @@ export function Transport() {
           value={masterGain}
           onChange={(e) => setMasterGain(Number(e.target.value))}
         />
+        {/* Against the control that both causes it and cures it — see ClipLight for why not on the
+            load meter, which measures a different thing entirely. */}
+        <ClipLight />
       </label>
 
       {/* Beside the volume rather than out on the canvas: next to the load meter it read as part of

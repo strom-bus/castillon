@@ -395,6 +395,33 @@ input[type='range'] {
   background: var(--border-strong);
 }
 
+/*
+ * The limiter light, beside VOL.
+ *
+ * Dark rather than absent when nothing is happening: an indicator that only exists while it is firing
+ * cannot be learned, because the first time anybody sees it is the first time it matters. A ring the
+ * size of the surrounding text, so it reads as part of the control it sits in rather than as a button.
+ */
+.clip-light {
+  width: 7px;
+  height: 7px;
+  flex-shrink: 0;
+  margin-left: 2px;
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  background: transparent;
+  transition:
+    background-color 80ms linear,
+    border-color 80ms linear;
+}
+
+/* The colour the inspector already warns in, which is the point of reusing it: there is one warm colour
+   in this interface and it means "something here is not doing what you wrote". */
+.clip-light.lit {
+  background: var(--brand-lit);
+  border-color: var(--brand-lit);
+}
+
 .meter-label {
   font-variant-numeric: tabular-nums;
   min-width: 30px;

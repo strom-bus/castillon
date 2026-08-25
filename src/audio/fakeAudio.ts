@@ -275,6 +275,13 @@ export function fakeAudio(): FakeAudio {
         ratio: param('ratio'),
         attack: param('attack'),
         release: param('release'),
+        /*
+         * A plain number and not a parameter, which is what the real one is: `reduction` is read-only
+         * and reports how hard the compressor is working right now. Here it is writable, which is the
+         * only way a test can ask what the interface does when the output is being held back — there is
+         * no signal in this context to make it happen for real.
+         */
+        reduction: 0,
       }),
     createConstantSource: () => source('constant', { offset: param('offset', 1) }),
     createOscillator: () =>

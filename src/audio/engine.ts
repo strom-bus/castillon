@@ -518,6 +518,8 @@ export class AudioEngine implements Engine {
   private ctx: BaseAudioContext | null = null
   private realtime = false
   private master: GainNode | null = null
+  /** Kept so the interface can ask how hard it is working. See `limiting`. */
+  private limiter: DynamicsCompressorNode | null = null
   private voices: Voice[] = []
   private masterGainValue = 0.8
   private buses = new Map<NodeId, OutputBus>()
@@ -616,6 +618,22 @@ export class AudioEngine implements Engine {
 
     master.connect(limiter).connect(ctx.destination)
     this.master = master
+    this.limiter = limiter
+  }
+
+  /**
+   * How hard the limiter is working right now, in decibels of gain reduction — nought when it is not.
+   *
+   * The honest reading of "the output is too loud", and it costs nothing: the limiter is already in the
+   * chain and already knows, where measuring the signal would mean an analyser node and a window of
+   * samples to look at. It also means the number is about the thing that is actually happening — the
+   * output never *clips*, it gets held back, and being held back is what a person needs to know about.
+   *
+   * Negative while it is working, since it is a reduction. Zero, not null, when there is no context yet:
+   * a silent instrument is not being limited.
+   */
+  limiting(): number {
+    return this.limiter?.reduction ?? 0
   }
 
   /** False until the first Play, since nothing can be built before there is a context. */

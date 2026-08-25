@@ -457,6 +457,25 @@ refused, since between an oscillator and an effect there is only one direction t
   nothing in the trigger layer needed changing. Assign a binding by playing it — a key or a note,
   whichever arrives first, so there is no source to choose. A five-pin socket beside the load meter says
   whether there is a keyboard there, and names it when there is.
+- **A light for when the output is being held back**, beside VOL. It reads the limiter's own gain
+  reduction rather than measuring the signal — the limiter is already in the chain and already knows,
+  where measuring would mean an analyser and a window of samples. It also makes the reading true to what
+  happens: nothing here clips, because the master runs into a limiter before the speakers, so an output
+  past what fits is squashed rather than torn. A squashed mix is still not the mix that was written, and
+  nothing else on screen said so.
+
+  Deliberately **not** on the load meter, which was the other place for it. That bar measures work and
+  this is level, and they are not the same question — a patch can be held back at a tenth of the budget
+  with one loud oscillator, and sit at ninety-five per cent without ever reaching the limiter. Colouring
+  the bar would point at the wrong fix: delete a node, when what is wanted is to turn something down. It
+  sits against the control that both causes it and cures it, the same reasoning that moved the MIDI
+  socket off the canvas.
+
+  It polls at twenty hertz and holds for six hundred milliseconds, because being held back is a
+  transient and a poll can fall between two of them. The limiter's release is a tenth of a second, so
+  anything that really overloads it outlasts the gap between two looks — the setting that makes the
+  limiter sound right is what makes it observable.
+
 - **Undo and redo**, by whole-patch snapshot, where one step is one completed gesture — from pressing
   the mouse to letting go, so a slider drag is one step rather than a hundred. It covers the
   destructive things too, which is why rolling the dice and resetting no longer ask first: a

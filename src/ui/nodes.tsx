@@ -16,7 +16,7 @@ import type {
   ModParams,
   OscParams,
   StartParams,
-  SenseParams,
+  FollowParams,
 } from '../types/patch'
 import { useNodeColors, type NodeColors } from '../viz/depth'
 import { useAnyNodeActivity, useNodeActivity } from '../viz/useActivity'
@@ -410,7 +410,7 @@ export function WarpNode({ id, data, selected }: NodeProps<FlowNode>) {
 }
 
 /**
- * A SENSE on the canvas: what it is moving, and by how much.
+ * A follower on the canvas: what it is moving, and by how much.
  *
  * Its two sides are **not** interchangeable, which nothing else here can say: audio comes in the left and
  * modulation goes out the right. So the ports are drawn as what they are — the left a target, the right a
@@ -421,9 +421,9 @@ export function WarpNode({ id, data, selected }: NodeProps<FlowNode>) {
  * say is whether it is wired at both ends and whether what it is moving is sounding. A follower with
  * nothing feeding it is silent however it is set, and that is the failure worth being able to see.
  */
-export function SenseNode({ id, data, selected }: NodeProps<FlowNode>) {
+export function FollowNode({ id, data, selected }: NodeProps<FlowNode>) {
   const ordinal = useOrdinal(id)
-  const params = data.params as SenseParams
+  const params = data.params as FollowParams
   const depth = params.depth ?? 0
 
   /*
@@ -459,7 +459,7 @@ export function SenseNode({ id, data, selected }: NodeProps<FlowNode>) {
   const state = wired && live ? ' active' : wired ? ' wired' : ' idle'
 
   return (
-    <div className={`node node-sense${state}${selected ? ' selected' : ''}`}>
+    <div className={`node node-follow${state}${selected ? ' selected' : ''}`}>
       {/* The left takes audio and the right puts out modulation, drawn as a target and a source so the
           canvas cannot offer the cable that would mean nothing. The only node here where a side says
           something — see `ports.side` in the registry. */}
@@ -477,7 +477,7 @@ export function SenseNode({ id, data, selected }: NodeProps<FlowNode>) {
       />
       <div className="node-header">
         <span className="node-title">
-          SENSE <span className="node-ordinal">{ordinal}</span>
+          FOLLOW <span className="node-ordinal">{ordinal}</span>
         </span>
         <span className="node-meta">{target?.label ?? 'off'}</span>
       </div>
@@ -507,7 +507,7 @@ export function SenseNode({ id, data, selected }: NodeProps<FlowNode>) {
 /**
  * An FM node on the canvas: how far it bends what it is pointed at.
  *
- * The same shape as a SENSE, because it is the same kind of thing wired the same way — audio in the left,
+ * The same shape as a follower, because it is the same kind of thing wired the same way — audio in the left,
  * modulation out the right — and showing it differently would hide that. What differs is that it has one
  * number instead of a destination, since it has only ever had one destination.
  */
@@ -533,7 +533,7 @@ export function FmNode({ id, data, selected }: NodeProps<FlowNode>) {
 
   return (
     <div className={`node node-fm${state}${selected ? ' selected' : ''}`}>
-      {/* Directed, like a SENSE and for the same reason: audio into it and modulation out of it are both
+      {/* Directed, like a follower and for the same reason: audio into it and modulation out of it are both
           legal between the same pair of nodes, so only the side can say which was meant. */}
       <Handle
         type="target"

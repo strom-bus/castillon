@@ -68,7 +68,7 @@ import {
   type IgniteTrigger,
   type ModParams,
   type FmParams,
-  type SenseParams,
+  type FollowParams,
   type HoldParams,
   type WarpParams,
   type StartParams,
@@ -826,7 +826,7 @@ export function Inspector() {
 
   /**
    * Whether anything is feeding the selected node, which for a follower is the whole difference between
-   * doing nothing and doing nothing yet. A SENSE with no input is silent however it is set.
+   * doing nothing and doing nothing yet. A follower with no input is silent however it is set.
    */
   const hearing = usePatchStore((s) =>
     s.edges.some((e) => e.target === s.selectedId && e.data?.kind === 'audio'),
@@ -1288,9 +1288,9 @@ export function Inspector() {
     )
   }
 
-  if (node.type === 'sense') {
-    const sense = node.data.params as SenseParams
-    const target = sense.target ?? 'level'
+  if (node.type === 'follow') {
+    const follower = node.data.params as FollowParams
+    const target = follower.target ?? 'level'
     // The same wiring a MOD reads, because it is the same cable: what it is pointed at decides what it
     // can point at.
     const [destinationType, destinationEffect, destinationFilter] = modWiring
@@ -1307,7 +1307,7 @@ export function Inspector() {
      * that are rebuilt from a timer — a decay, a bit depth — need a phase to compute, and it has none.
      */
     const offered: readonly ModTarget[] = targetsFrom(
-      'sense',
+      'follow',
       destinationType,
       destinationEffect as never,
     )
@@ -1317,7 +1317,7 @@ export function Inspector() {
     return (
       <Panel>
         <h2 className="inspector-title">
-          SENSE <span className="node-ordinal">{ordinal}</span>
+          FOLLOW <span className="node-ordinal">{ordinal}</span>
         </h2>
 
         {/* Two groups, and the sentence they read as: **what it hears**, then **what that moves**. The
@@ -1330,7 +1330,7 @@ export function Inspector() {
               the destination. */}
           <TypedSlider
             label="Sensitivity"
-            value={sense.sensitivity ?? 1}
+            value={follower.sensitivity ?? 1}
             min={0}
             max={MAX_SENSITIVITY}
             step={0.05}
@@ -1341,7 +1341,7 @@ export function Inspector() {
               hit, a slow release holds through the gaps between notes. */}
           <TypedSlider
             label="Attack"
-            value={sense.attack ?? 5}
+            value={follower.attack ?? 5}
             min={MIN_FOLLOW_MS}
             max={MAX_FOLLOW_MS}
             step={1}
@@ -1350,7 +1350,7 @@ export function Inspector() {
           />
           <TypedSlider
             label="Release"
-            value={sense.release ?? 200}
+            value={follower.release ?? 200}
             min={MIN_FOLLOW_MS}
             max={MAX_FOLLOW_MS}
             step={5}
@@ -1383,7 +1383,7 @@ export function Inspector() {
               opens a filter as it grows — so it is one signed control and not two modes. */}
           <TypedSlider
             label="Depth"
-            value={sense.depth ?? -0.7}
+            value={follower.depth ?? -0.7}
             min={-1}
             max={1}
             step={0.01}

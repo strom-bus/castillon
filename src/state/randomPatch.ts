@@ -672,7 +672,7 @@ export function randomPatch(random: () => number = Math.random): Patch {
     const effect = destination.type === 'fx' ? (destination.params as FxParams).effect : undefined
     // The narrower list: a follower can only reach a parameter that takes a connection, and one that
     // would do nothing on this destination is dropped the same way a modulator's is.
-    const offered = targetsFrom('sense', destination.type, effect).filter(
+    const offered = targetsFrom('follow', destination.type, effect).filter(
       (target) =>
         !silentBecause(target.key, {
           nodeType: destination.type,
@@ -685,7 +685,7 @@ export function randomPatch(random: () => number = Math.random): Patch {
 
     if (offered.length > 0) {
       const sense = add({
-        type: 'sense',
+        type: 'follow',
         // To the left, so its modulation port faces what it is moving. The audio comes in the other side
         // from wherever the branch it listens to happens to be.
         position: beside(destination, -1),

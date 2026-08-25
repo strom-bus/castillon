@@ -381,7 +381,7 @@ describe('every rule lands on a port that exists', () => {
         if (!permits(from, to, kind)) continue
         // Either sort of side port will do here — what is being checked is that there *is* one. Which
         // side, and whether the two mean different things, is `directedSides`' business and is checked in
-        // the SENSE tests below.
+        // the FOLLOW tests below.
         expect(portsOf(from).side, `${kind}: ${from} has no side port`).toBeTruthy()
         expect(portsOf(to).side, `${kind}: ${to} has no side port`).toBeTruthy()
       }
@@ -529,7 +529,7 @@ describe('a cable from the Ignite’s upward port', () => {
 })
 
 /**
- * A SENSE, whose two sides are not the same thing.
+ * A follower, whose two sides are not the same thing.
  *
  * Every other side port in the instrument takes whichever cable it is given and works the rest out from
  * what is at the other end — one port per side, and the kind read off the node types. A follower cannot
@@ -538,7 +538,7 @@ describe('a cable from the Ignite’s upward port', () => {
  * the rules have to refuse the two drags that would mean the wrong one.
  */
 describe('a follower’s sides', () => {
-  const withSense = [...nodes, { id: 's', type: 'sense' }, { id: 't', type: 'sense' }]
+  const withSense = [...nodes, { id: 's', type: 'follow' }, { id: 't', type: 'follow' }]
   const at = (
     source: string,
     target: string,
@@ -583,13 +583,13 @@ describe('a follower’s sides', () => {
 
   it('is not in the cascade at either end', () => {
     // It hangs off a node like a MOD and a WARP: nothing triggers it and nothing hangs below it.
-    expect(permits('start', 'sense', 'event')).toBe(false)
-    expect(permits('sense', 'osc', 'event')).toBe(false)
+    expect(permits('start', 'follow', 'event')).toBe(false)
+    expect(permits('follow', 'osc', 'event')).toBe(false)
   })
 })
 
 /**
- * An FM node's sides, which are a SENSE's sides and one narrower rule.
+ * An FM node's sides, which are a follower's sides and one narrower rule.
  *
  * It hears the same two things a follower does and reaches **only an oscillator**: its one control is a
  * deviation in cents against a note, and an effect has no note. A comb resonator has a pitch and could be

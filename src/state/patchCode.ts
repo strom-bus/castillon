@@ -1,7 +1,7 @@
 import { SCALES, type ScaleName } from '../audio/scales'
 import { MAX_FM_CENTS } from '../audio/modulation'
 import {
-  defaultSenseParams,
+  defaultFollowParams,
   defaultFmParams,
   defaultHoldParams,
   defaultWarpParams,
@@ -58,7 +58,7 @@ import {
   type Waveform,
   MAX_RATCHET,
   type Step,
-  type SenseParams,
+  type FollowParams,
   type FmParams,
   type HoldParams,
 } from '../types/patch'
@@ -209,7 +209,7 @@ const SENSE_TIME_BITS = 11
 // Reordered once, when DELAY and SIEVE became one HOLD. That does rewrite history, and it was the right
 // moment for it: nothing was stored anywhere but the presets and the starting patch, both of which live
 // in this repository and were rewritten with it.
-const NODE_TYPES = ['start', 'osc', 'hold', 'fx', 'mod', 'warp', 'sense', 'fm'] as const
+const NODE_TYPES = ['start', 'osc', 'hold', 'fx', 'mod', 'warp', 'follow', 'fm'] as const
 
 const EFFECT_CODES: EffectKind[] = [
   'reverb',
@@ -866,8 +866,8 @@ function readMod(reader: BitReader): ModParams {
   return { kind, fires, byVelocity, wave, rate, depth, attack, decay, target: target || 'level' }
 }
 
-function writeSense(writer: BitWriter, raw: SenseParams): void {
-  const { target, depth, sensitivity, attack, release } = { ...defaultSenseParams(), ...raw }
+function writeFollow(writer: BitWriter, raw: FollowParams): void {
+  const { target, depth, sensitivity, attack, release } = { ...defaultFollowParams(), ...raw }
   // Offset rather than signed, because the range is fixed and known at both ends: −1 stores as 0.
   writer.write(quantise((depth as number) * 100 + 100, 1, 0, 200), SENSE_DEPTH_BITS)
   writer.write(
@@ -879,7 +879,7 @@ function writeSense(writer: BitWriter, raw: SenseParams): void {
   writeText(writer, target ?? 'level')
 }
 
-function readSense(reader: BitReader): SenseParams {
+function readFollow(reader: BitReader): FollowParams {
   const depth = (reader.read(SENSE_DEPTH_BITS) - 100) / 100
   const sensitivity = reader.read(SENSE_SENSITIVITY_BITS) / 100
   const attack = reader.read(SENSE_TIME_BITS)
@@ -920,7 +920,7 @@ export function encodePatch(patch: Patch): string {
   const anyModulation =
     patch.nodes.some(
       (node) =>
-        node.type === 'mod' || node.type === 'warp' || node.type === 'sense' || node.type === 'fm',
+        node.type === 'mod' || node.type === 'warp' || node.type === 'follow' || node.type === 'fm',
     ) || patch.edges.some((e) => e.kind === 'mod' || e.kind === 'warp')
   const anyClimbing = patch.edges.some((e) => e.kind === 'event' && e.up === true)
   writer.write(
@@ -958,8 +958,8 @@ export function encodePatch(patch: Patch): string {
       writeStart(writer, node.params as StartParams)
     } else if (node.type === 'mod') {
       writeMod(writer, node.params as ModParams)
-    } else if (node.type === 'sense') {
-      writeSense(writer, node.params as SenseParams)
+    } else if (node.type === 'follow') {
+      writeFollow(writer, node.params as FollowParams)
     } else if (node.type === 'fm') {
       const { index } = { ...defaultFmParams(), ...(node.params as FmParams) }
       writer.write(quantise(index + MAX_FM_CENTS, 1, 0, MAX_FM_CENTS * 2), FM_INDEX_BITS)
@@ -1032,8 +1032,8 @@ export function decodePatch(code: string): Patch | null {
         params = readStart(reader)
       } else if (type === 'mod') {
         params = readMod(reader)
-      } else if (type === 'sense') {
-        params = readSense(reader)
+      } else if (type === 'follow') {
+        params = readFollow(reader)
       } else if (type === 'fm') {
         params = { index: reader.read(FM_INDEX_BITS) - MAX_FM_CENTS }
       }

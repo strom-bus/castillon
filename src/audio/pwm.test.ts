@@ -139,9 +139,9 @@ describe('a pulse whose width is being swept', () => {
   })
 
   it('is offered to a MOD and to a follower, both of which can drive it', () => {
-    // It is an `AudioParam`, so unlike the parameters that rebuild something, a SENSE can reach it too.
+    // It is an `AudioParam`, so unlike the parameters that rebuild something, a follower can reach it too.
     expect(targetsFrom('mod', 'osc').map((one) => one.key)).toContain('width')
-    expect(targetsFrom('sense', 'osc').map((one) => one.key)).toContain('width')
+    expect(targetsFrom('follow', 'osc').map((one) => one.key)).toContain('width')
   })
 })
 

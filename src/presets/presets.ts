@@ -19,7 +19,7 @@ import type {
   Patch,
   PatchEdge,
   PatchNode,
-  SenseParams,
+  FollowParams,
   HoldParams,
   Step,
   WarpParams,
@@ -116,9 +116,9 @@ const hold = (id: string, column: number, row: number, params: Partial<HoldParam
   params: { ...defaultHoldParams(), ...params },
 })
 
-const sense = (id: string, column: number, row: number, params: SenseParams): PatchNode => ({
+const follow = (id: string, column: number, row: number, params: FollowParams): PatchNode => ({
   id,
-  type: 'sense',
+  type: 'follow',
   position: at(column, row),
   params,
 })
@@ -794,7 +794,7 @@ const shadow: Preset = {
        * the gaps inside a phrase and opens it between phrases. Sensitivity above one because a single
        * oscillator at a quarter of full level never reaches the top of the range on its own.
        */
-      sense('ear', 1, 2, {
+      follow('ear', 1, 2, {
         target: 'cutoff',
         depth: -0.55,
         sensitivity: 1.7,
@@ -806,7 +806,7 @@ const shadow: Preset = {
     [
       wire('i', 'lead'),
       wire('i', 'pad'),
-      // Audio in the left, modulation out the right: the two cables a SENSE has, and the only node here
+      // Audio in the left, modulation out the right: the two cables a follower has, and the only node here
       // whose sides are not interchangeable.
       wire('lead', 'ear', 'audio'),
       wire('ear', 'pad', 'mod'),
@@ -883,7 +883,7 @@ const iron: Preset = {
     [
       wire('i', 'bell'),
       wire('i', 'mod'),
-      // Audio in the left, modulation out the right — the same two cables a SENSE has, carrying the
+      // Audio in the left, modulation out the right — the same two cables a follower has, carrying the
       // waveform itself instead of a reading of how loud it is.
       wire('mod', 'f', 'audio'),
       wire('f', 'bell', 'mod'),

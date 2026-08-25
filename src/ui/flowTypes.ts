@@ -1,6 +1,15 @@
 import { CascadeEdge } from './CascadeEdge'
 import { ModEdge } from './ModEdge'
-import { FmNode, FxNode, HoldNode, ModNode, OscNode, SenseNode, StartNode, WarpNode } from './nodes'
+import {
+  FmNode,
+  FxNode,
+  HoldNode,
+  ModNode,
+  OscNode,
+  FollowNode,
+  StartNode,
+  WarpNode,
+} from './nodes'
 import { SignalEdge } from './SignalEdge'
 import { WarpEdge } from './WarpEdge'
 
@@ -16,7 +25,7 @@ export const nodeTypes = {
   mod: ModNode,
   hold: HoldNode,
   warp: WarpNode,
-  sense: SenseNode,
+  follow: FollowNode,
   fm: FmNode,
 }
 

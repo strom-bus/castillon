@@ -531,8 +531,8 @@ export interface HoldParams {
 /**
  * An FM node: one oscillator's audio bending another's pitch.
  *
- * The other occupant of the cell a SENSE fills. Both take audio in and put modulation out, and the whole
- * difference is what they do with what they hear: a SENSE measures **how loud** it is — rectified and
+ * The other occupant of the cell a follower fills. Both take audio in and put modulation out, and the whole
+ * difference is what they do with what they hear: a follower measures **how loud** it is — rectified and
  * smoothed into a control — where this uses **the waveform itself**, at audio rate, unchanged. One is a
  * gesture and the other is a timbre.
  *
@@ -552,7 +552,7 @@ export interface FmParams {
 }
 
 /**
- * A SENSE: the one node whose input is audio and whose output is modulation.
+ * A follower: the one node whose input is audio and whose output is modulation.
  *
  * Everything else here is trigger-in/audio-out (an oscillator), audio-in/audio-out (an effect) or
  * clock-in/modulation-out (a MOD). That leaves one empty cell, and this fills it — which is why it is a
@@ -560,7 +560,7 @@ export interface FmParams {
  * its two ends, and a MOD that sometimes took audio would make `osc → mod` mean two different things
  * depending on a parameter.
  */
-export interface SenseParams {
+export interface FollowParams {
   /** What it moves, and by how much. The same pair a MOD has, resolved against the same table. */
   target?: string
   depth?: number
@@ -781,7 +781,7 @@ export interface ModParams {
 }
 
 export type NodeParams =
-  OscParams | FxParams | StartParams | ModParams | WarpParams | HoldParams | SenseParams | FmParams
+  OscParams | FxParams | StartParams | ModParams | WarpParams | HoldParams | FollowParams | FmParams
 
 /**
  * The longest a HOLD will wait. There is no minimum: nought is a legal setting and it is where one

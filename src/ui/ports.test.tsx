@@ -123,7 +123,7 @@ describe('the ports on a node', () => {
      * The other half of the port declaration, and the half that only one node uses. `side: 'either'`
      * means a side takes whatever it is given and the kind is worked out from the node types — so both
      * are sources, and a drag either way round is turned round if it has to be. `side: 'directed'` means
-     * the side *is* the meaning: a SENSE takes audio in the left and sends modulation out the right, and
+     * the side *is* the meaning: a follower takes audio in the left and sends modulation out the right, and
      * both of those are legal between the same pair of nodes, so nothing but the side can say which was
      * meant. Drawn as a target and a source, the canvas cannot offer the one that would be wrong.
      *

@@ -110,8 +110,8 @@ export const MANUAL: Section[] = [
           {
             term: { en: 'Eight kinds of node', es: 'Ocho tipos de nodo' },
             text: {
-              en: 'IGNITE starts a cascade. OSC is the only one that makes a sound. HOLD catches a trigger and lets it go late, or only sometimes, or both. FX processes what it is fed. WARP bends everything below where it is attached. MOD, SENSE and FM all make modulation and differ in where its shape comes from — its own clock, the loudness of a branch, the waveform of a branch. Each has its own chapter here, in the order the palette is in: what changes the sound, then what changes what is played, then what moves things.',
-              es: 'IGNITE arranca una cascada. OSC es el único que produce sonido. HOLD atrapa un disparo y lo suelta tarde, o solo a veces, o ambas. FX procesa lo que se le alimenta. WARP dobla todo lo que hay por debajo de donde está enganchado. MOD, SENSE y FM producen modulación y se diferencian en de dónde sale su forma — su propio reloj, lo fuerte que suena una rama, la onda de una rama. Cada uno tiene aquí su capítulo, en el orden de la paleta: lo que cambia el sonido, luego lo que cambia lo que se toca, luego lo que mueve las cosas.',
+              en: 'IGNITE starts a cascade. OSC is the only one that makes a sound. HOLD catches a trigger and lets it go late, or only sometimes, or both. FX processes what it is fed. WARP bends everything below where it is attached. MOD, FOLLOW and FM all make modulation and differ in where its shape comes from — its own clock, the loudness of a branch, the waveform of a branch. Each has its own chapter here, in the order the palette is in: what changes the sound, then what changes what is played, then what moves things.',
+              es: 'IGNITE arranca una cascada. OSC es el único que produce sonido. HOLD atrapa un disparo y lo suelta tarde, o solo a veces, o ambas. FX procesa lo que se le alimenta. WARP dobla todo lo que hay por debajo de donde está enganchado. MOD, FOLLOW y FM producen modulación y se diferencian en de dónde sale su forma — su propio reloj, lo fuerte que suena una rama, la onda de una rama. Cada uno tiene aquí su capítulo, en el orden de la paleta: lo que cambia el sonido, luego lo que cambia lo que se toca, luego lo que mueve las cosas.',
             },
           },
           {
@@ -1392,16 +1392,16 @@ export const MANUAL: Section[] = [
     ],
   },
   {
-    id: 'sense',
-    title: { en: 'SENSE — a branch listening', es: 'SENSE — una rama escuchando' },
+    id: 'follow',
+    title: { en: 'FOLLOW — a branch listening', es: 'FOLLOW — una rama escuchando' },
     body: [
       {
-        en: 'A SENSE hangs off a node like a MOD does, and it is the same thing with one difference: its shape is not its own. It listens to a branch and moves a parameter with how loud that branch is. Nothing sets its speed but the sound going into it.',
-        es: 'Un SENSE se engancha a un nodo como un MOD, y es lo mismo con una diferencia: su forma no es propia. Escucha una rama y mueve un parámetro con lo fuerte que suene esa rama. Nada fija su velocidad más que el sonido que entra en él.',
+        en: 'A follower hangs off a node like a MOD does, and it is the same thing with one difference: its shape is not its own. It listens to a branch and moves a parameter with how loud that branch is. Nothing sets its speed but the sound going into it.',
+        es: 'Un FOLLOW se engancha a un nodo como un MOD, y es lo mismo con una diferencia: su forma no es propia. Escucha una rama y mueve un parámetro con lo fuerte que suene esa rama. Nada fija su velocidad más que el sonido que entra en él.',
       },
       {
-        en: 'Its two sides are not the same, and it is the only node here where that is true. Audio comes in the left. Modulation goes out the right. So one SENSE reads one branch and moves another, and the two cables are never confused for each other.',
-        es: 'Sus dos costados no son iguales, y es el único nodo de aquí donde eso pasa. El audio entra por la izquierda. La modulación sale por la derecha. Así un SENSE lee una rama y mueve otra, y los dos cables no se confunden nunca.',
+        en: 'Its two sides are not the same, and it is the only node here where that is true. Audio comes in the left. Modulation goes out the right. So one FOLLOW reads one branch and moves another, and the two cables are never confused for each other.',
+        es: 'Sus dos costados no son iguales, y es el único nodo de aquí donde eso pasa. El audio entra por la izquierda. La modulación sale por la derecha. Así un FOLLOW lee una rama y mueve otra, y los dos cables no se confunden nunca.',
       },
       {
         en: 'What it is for: making one branch get out of the way of another, opening a filter with how hard something is being played, or holding an effect open while a line is busy and letting it close in the gaps. The DUCK preset does the first of those with a trigger instead, and it is worth hearing both — a trigger cannot mistime and a follower cannot miss a note it was not told about.',
@@ -1459,8 +1459,8 @@ export const MANUAL: Section[] = [
           {
             term: { en: 'Listening costs nothing', es: 'Escuchar no cuesta nada' },
             text: {
-              en: 'Feeding a SENSE does not take the sound anywhere. An oscillator wired into an effect is heard through that effect; an oscillator wired into a SENSE is heard exactly as it was, and the follower hears a copy. So you can listen to anything at any point without changing what comes out of it.',
-              es: 'Alimentar un SENSE no lleva el sonido a ningún sitio. Un oscilador cableado a un efecto se oye a través de ese efecto; un oscilador cableado a un SENSE se oye igual que antes, y el seguidor oye una copia. Así puedes escuchar lo que sea en cualquier punto sin cambiar lo que sale de ahí.',
+              en: 'Feeding a follower does not take the sound anywhere. An oscillator wired into an effect is heard through that effect; an oscillator wired into a follower is heard exactly as it was, and the follower hears a copy. So you can listen to anything at any point without changing what comes out of it.',
+              es: 'Alimentar un FOLLOW no lleva el sonido a ningún sitio. Un oscilador cableado a un efecto se oye a través de ese efecto; un oscilador cableado a un FOLLOW se oye igual que antes, y el seguidor oye una copia. Así puedes escuchar lo que sea en cualquier punto sin cambiar lo que sale de ahí.',
             },
           },
           {
@@ -1473,8 +1473,8 @@ export const MANUAL: Section[] = [
           {
             term: { en: 'Feeding it from itself', es: 'Alimentarlo de sí mismo' },
             text: {
-              en: 'A SENSE listening to the branch it is moving is a compressor built by hand, and it works: point it at that oscillator’s Level with the Depth below zero and louder notes are pulled down more than quiet ones. The FX module has a real compressor and it is easier to set, but this one can be pointed anywhere — the same arrangement on a filter cutoff is not a compressor at all.',
-              es: 'Un SENSE escuchando la rama que mueve es un compresor hecho a mano, y funciona: apúntalo al Level de ese oscilador con el Depth por debajo de cero y las notas fuertes bajan más que las flojas. El módulo FX tiene un compresor de verdad y es más fácil de ajustar, pero este se puede apuntar a cualquier sitio — el mismo arreglo sobre el corte de un filtro no es un compresor en absoluto.',
+              en: 'A follower listening to the branch it is moving is a compressor built by hand, and it works: point it at that oscillator’s Level with the Depth below zero and louder notes are pulled down more than quiet ones. The FX module has a real compressor and it is easier to set, but this one can be pointed anywhere — the same arrangement on a filter cutoff is not a compressor at all.',
+              es: 'Un FOLLOW escuchando la rama que mueve es un compresor hecho a mano, y funciona: apúntalo al Level de ese oscilador con el Depth por debajo de cero y las notas fuertes bajan más que las flojas. El módulo FX tiene un compresor de verdad y es más fácil de ajustar, pero este se puede apuntar a cualquier sitio — el mismo arreglo sobre el corte de un filtro no es un compresor en absoluto.',
             },
           },
         ],
@@ -1490,8 +1490,8 @@ export const MANUAL: Section[] = [
         es: 'Un nodo FM toma el audio de un oscilador y lo pone sobre la altura de otro. No como un temblor — a rate de audio, miles de veces por segundo, lo bastante rápido para que el oído deje de oír una nota doblándose y empiece a oír otro instrumento. Campanas, metal golpeado, y el gruñido debajo de un bajo.',
       },
       {
-        en: 'It is wired exactly like a SENSE, and for the same reason: audio comes in the left, modulation goes out the right. The two nodes are the same shape and differ in what they do with what they hear — a SENSE measures how loud it is, this uses the waveform itself.',
-        es: 'Se cablea exactamente como un SENSE, y por lo mismo: el audio entra por la izquierda, la modulación sale por la derecha. Los dos nodos tienen la misma forma y se diferencian en qué hacen con lo que oyen — un SENSE mide cuán fuerte suena, este usa la onda misma.',
+        en: 'It is wired exactly like a follower, and for the same reason: audio comes in the left, modulation goes out the right. The two nodes are the same shape and differ in what they do with what they hear — a follower measures how loud it is, this uses the waveform itself.',
+        es: 'Se cablea exactamente como un FOLLOW, y por lo mismo: el audio entra por la izquierda, la modulación sale por la derecha. Los dos nodos tienen la misma forma y se diferencian en qué hacen con lo que oyen — un FOLLOW mide cuán fuerte suena, este usa la onda misma.',
       },
       {
         en: 'The oscillator feeding it is called the **modulator** and the one it points at is the **carrier**. Both are ordinary oscillators with their own sequences, so the interval you write between them is the relationship the FM is built on — which means you play the timbre rather than dialling it.',
@@ -1543,8 +1543,8 @@ export const MANUAL: Section[] = [
           {
             term: { en: 'You still hear the modulator', es: 'El modulador se sigue oyendo' },
             text: {
-              en: 'Feeding an FM node takes nothing off the output, exactly as feeding a SENSE does not — so the modulator is still heard unless you turn its Level down. That is deliberate: a little of it under the carrier is often the strike of the sound. Take its Level to nothing and the FM carries on unchanged, because what the node hears is the oscillator before the master.',
-              es: 'Alimentar un nodo FM no le quita nada a la salida, igual que alimentar un SENSE tampoco — así que el modulador se sigue oyendo salvo que le bajes el Level. Es a propósito: un poco de él debajo de la portadora suele ser el golpe del sonido. Baja su Level a cero y la FM sigue igual, porque lo que el nodo oye es el oscilador antes del máster.',
+              en: 'Feeding an FM node takes nothing off the output, exactly as feeding a follower does not — so the modulator is still heard unless you turn its Level down. That is deliberate: a little of it under the carrier is often the strike of the sound. Take its Level to nothing and the FM carries on unchanged, because what the node hears is the oscillator before the master.',
+              es: 'Alimentar un nodo FM no le quita nada a la salida, igual que alimentar un FOLLOW tampoco — así que el modulador se sigue oyendo salvo que le bajes el Level. Es a propósito: un poco de él debajo de la portadora suele ser el golpe del sonido. Baja su Level a cero y la FM sigue igual, porque lo que el nodo oye es el oscilador antes del máster.',
             },
           },
           {

@@ -1,7 +1,7 @@
 import { MAX_FM_CENTS, resolveTarget, type ModTargetKey } from './modulation'
 import { wouldFeedBack } from '../state/connections'
-import { defaultFmParams, defaultSenseParams } from '../nodes/registry'
-import type { FmParams, FxParams, ModParams, NodeId, Patch, SenseParams } from '../types/patch'
+import { defaultFmParams, defaultFollowParams } from '../nodes/registry'
+import type { FmParams, FxParams, ModParams, NodeId, Patch, FollowParams } from '../types/patch'
 
 /**
  * Works out the smallest set of changes that takes the live audio graph to the one the patch
@@ -43,8 +43,8 @@ export interface AudioGraph {
   sends: Set<string>
   /** MOD node id → its parameters. */
   modulators: Map<NodeId, ModParams>
-  /** SENSE node id → its parameters. Kept apart from the MODs because it is built out of other parts. */
-  followers: Map<NodeId, SenseParams>
+  /** FOLLOW node id → its parameters. Kept apart from the MODs because it is built out of other parts. */
+  followers: Map<NodeId, FollowParams>
   /**
    * FM node id → its parameters.
    *
@@ -54,10 +54,10 @@ export interface AudioGraph {
    */
   fms: Map<NodeId, FmParams>
   /**
-   * `sourceId>listenerId`, one per audio cable into a SENSE or an FM node.
+   * `sourceId>listenerId`, one per audio cable into a follower or an FM node.
    *
    * A tap and not a send: what a listener hears is not routed anywhere, so feeding one does **not** take
-   * the source off the master the way feeding an effect does. An oscillator wired only to a SENSE is
+   * the source off the master the way feeding an effect does. An oscillator wired only to a follower is
    * heard exactly as it was — which is most of the point of the node — and an FM modulator you can also
    * hear is a sound somebody may want, so Level is what silences it rather than the cable.
    */
@@ -88,8 +88,8 @@ export type RouterOp =
   | { op: 'disconnectMod'; from: NodeId; to: NodeId }
   | { op: 'createFm'; id: NodeId }
   | { op: 'disposeFm'; id: NodeId }
-  | { op: 'createFollow'; id: NodeId; params: SenseParams }
-  | { op: 'updateFollow'; id: NodeId; params: SenseParams }
+  | { op: 'createFollow'; id: NodeId; params: FollowParams }
+  | { op: 'updateFollow'; id: NodeId; params: FollowParams }
   | { op: 'disposeFollow'; id: NodeId }
   | { op: 'tap'; from: NodeId; to: NodeId }
   | { op: 'untap'; from: NodeId; to: NodeId }
@@ -123,7 +123,7 @@ function splitSend(key: string): { from: NodeId; to: NodeId } {
 export function graphOf(patch: Patch): AudioGraph {
   const effects = new Map<NodeId, FxParams>()
   const oscillators = new Set<NodeId>()
-  const followers = new Map<NodeId, SenseParams>()
+  const followers = new Map<NodeId, FollowParams>()
   const fms = new Map<NodeId, FmParams>()
 
   for (const node of patch.nodes) {
@@ -134,8 +134,8 @@ export function graphOf(patch: Patch): AudioGraph {
     // Merged over the defaults, unlike the others: a follower's depth is the one modulation control whose
     // resting value is negative, so an absent key falling back to a generic 0.6 would turn a duck into a
     // swell. Merging here means the engine and the diff both see a complete node.
-    else if (node.type === 'sense') {
-      followers.set(node.id, { ...defaultSenseParams(), ...(node.params as SenseParams) })
+    else if (node.type === 'follow') {
+      followers.set(node.id, { ...defaultFollowParams(), ...(node.params as FollowParams) })
     }
   }
 
@@ -203,7 +203,7 @@ export function graphOf(patch: Patch): AudioGraph {
   for (const edge of patch.edges) {
     if (edge.kind !== 'mod') continue
     /*
-     * A MOD or a SENSE: two nodes that make modulation, and from here down one path.
+     * A MOD or a follower: two nodes that make modulation, and from here down one path.
      *
      * They differ in where the shape comes from and in nothing else — a signal at unit amplitude through
      * a depth, pointed at a parameter — so the cable, the resolving and the whole of the engine's
@@ -239,7 +239,7 @@ export function graphOf(patch: Patch): AudioGraph {
       params.target as ModTargetKey | undefined,
       destination,
       effects.get(edge.target)?.effect,
-      followers.has(edge.source) ? 'sense' : 'mod',
+      followers.has(edge.source) ? 'follow' : 'mod',
     )
     if (!target) continue
     // Depth rides along because it is scaled to the target: the same 0.6 is half a hertz on one
@@ -276,7 +276,7 @@ function sameMod(a: ModParams, b: ModParams): boolean {
  * Depth and target are left out for the same reason they are on a MOD: both are carried by the cable, so
  * a change to either arrives as a rewiring rather than as an update to the follower.
  */
-function sameFollower(a: SenseParams, b: SenseParams): boolean {
+function sameFollower(a: FollowParams, b: FollowParams): boolean {
   return a.attack === b.attack && a.release === b.release && a.sensitivity === b.sensitivity
 }
 

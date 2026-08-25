@@ -681,7 +681,7 @@ export function targetsFor(
  *
  * **A follower cannot reach a parameter that is rebuilt rather than connected.** Its level lives on the
  * audio thread and nothing on this side can read it, where the ones marked `via: 'value'` are driven by
- * a timer computing the modulator's own phase — arithmetic a MOD can do and a SENSE cannot.
+ * a timer computing the modulator's own phase — arithmetic a MOD can do and a follower cannot.
  *
  * **And a target may belong to one source alone**, which is `only`: an FM node's Index is the carrier's
  * pitch over four octaves, and offering that in a MOD's list beside Pitch would be offering a siren.
@@ -708,7 +708,7 @@ export function targetsFrom(
   if (mine.length > 0) return mine
 
   return all.filter(
-    (target) => target.only === undefined && (sourceType !== 'sense' || target.via !== 'value'),
+    (target) => target.only === undefined && (sourceType !== 'follow' || target.via !== 'value'),
   )
 }
 

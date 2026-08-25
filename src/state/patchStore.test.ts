@@ -309,3 +309,28 @@ describe('serialisation', () => {
     expect(params.steps).toHaveLength(4)
   })
 })
+
+describe('a type that was renamed', () => {
+  /*
+   * The follower shipped as SENSE for a few hours and became FOLLOW the same day. One line of the map
+   * keeps a code written in that window loading, and without a test the line is a claim nobody checks —
+   * the failure being silent in the usual way: an unknown type is *dropped*, so the patch arrives short
+   * a node and nothing says why.
+   */
+  it('loads a node saved under its old name', () => {
+    const store = usePatchStore.getState()
+    store.loadPatch({
+      version: 1,
+      bpm: 120,
+      loop: true,
+      nodes: [{ id: 'n0', type: 'sense', position: { x: 0, y: 0 }, params: { depth: -0.5 } }],
+      edges: [],
+    })
+
+    const node = usePatchStore.getState().nodes.find((one) => one.id === 'n0')
+    expect(node, 'the node was dropped rather than renamed').toBeTruthy()
+    expect(node!.type).toBe('follow')
+    // And it keeps what it was carrying, rather than arriving as a fresh node of the new type.
+    expect((node!.data.params as { depth?: number }).depth).toBe(-0.5)
+  })
+})

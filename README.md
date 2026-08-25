@@ -369,14 +369,14 @@ refused, since between an oscillator and an effect there is only one direction t
   wired to an Ignite lived in three shipped patches for four commits, and it surfaced only because
   one rolled by the dice came out looking unwired.
 
-- **A SENSE node**, the one thing on the canvas whose two sides are not the same: audio comes in the
+- **A follower node**, the one thing on the canvas whose two sides are not the same: audio comes in the
   left and modulation goes out the right, so one node reads a branch and moves another. It is an
   envelope follower, and it exists because everything else here is decided when a node fires — a MOD is
-  the exception that moves a parameter while you listen, and a SENSE is the exception that takes its
+  the exception that moves a parameter while you listen, and a follower is the exception that takes its
   shape from the music instead of from a setting.
 
   It is registered in the engine as a modulator, which is the whole design rather than an implementation
-  note: a MOD and a SENSE differ in where the shape comes from and in nothing else — a signal at unit
+  note: a MOD and a follower differ in where the shape comes from and in nothing else — a signal at unit
   amplitude through a depth, pointed at a parameter — so the cable, the target resolution and every
   destination the engine already knows how to reach came with it, per-voice targets included. What it
   cannot reach is a parameter that is rebuilt rather than connected, a reverb's decay or a bitcrusher's
@@ -390,7 +390,7 @@ refused, since between an oscillator and an effect there is only one direction t
   number close to nothing where its peak is the note.
 
   Feeding one costs nothing: a tap and not a send. An oscillator wired into an effect is heard through
-  that effect, and an oscillator wired into a SENSE is heard exactly as it was — so anything can be
+  that effect, and an oscillator wired into a follower is heard exactly as it was — so anything can be
   listened to at any point without changing what comes out of it. The preset called SHADOW is a pad
   darkening while a lead plays and opening in the rests, which is the arrangement DUCK does by trigger
   instead: a trigger cannot mistime and a follower cannot miss a note nobody told it about, and both are
@@ -425,7 +425,7 @@ refused, since between an oscillator and an effect there is only one direction t
   targets need a filter to exist.
 
 - **An FM node**, the other occupant of that same cell: audio in the left, modulation out the right, and
-  the whole difference from a SENSE is what it does with what it hears. A SENSE measures **how loud** a
+  the whole difference from a follower is what it does with what it hears. A follower measures **how loud** a
   branch is; this uses **the waveform itself**, at audio rate, unchanged — which is frequency modulation,
   and past a few hundred cents the ear stops hearing a note being bent and starts hearing a different
   instrument.

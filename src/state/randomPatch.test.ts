@@ -72,7 +72,7 @@ describe('randomPatch', () => {
       const seen = reachable(patch)
       for (const node of patch.nodes) {
         if (node.type === 'fx') continue
-        // A MOD, a WARP, a SENSE and an FM node are all the *source* of their own cable — nothing
+        // A MOD, a WARP, a follower and an FM node are all the *source* of their own cable — nothing
         // triggers them, so what they need is somewhere to point rather than something upstream.
         // Walking triggers only would report every one of them as stranded.
         if (SIDE_SOURCES.has(node.type ?? '')) {
@@ -570,7 +570,7 @@ describe('where it puts things', () => {
         if (edge.kind !== 'audio' && edge.kind !== 'mod') continue
         /*
          * A listener's audio cable is the one that says nothing about layout, so it is left out rather
-         * than counted as a miss. A SENSE or an FM node is placed beside the thing it *moves*, like a
+         * than counted as a miss. A follower or an FM node is placed beside the thing it *moves*, like a
          * MOD — that is where its modulation port faces — and the branch it listens to is chosen from
          * anywhere in the patch. Neither end of that cable was placed relative to the other.
          */

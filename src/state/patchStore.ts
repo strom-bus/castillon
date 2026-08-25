@@ -24,7 +24,7 @@ import type {
   OscParams,
   Patch,
   StartParams,
-  SenseParams,
+  FollowParams,
   Step,
   WarpParams,
 } from '../types/patch'
@@ -119,7 +119,7 @@ interface PatchState {
         StartParams &
         ModParams &
         WarpParams &
-        SenseParams &
+        FollowParams &
         FmParams
     >,
   ): void
@@ -163,6 +163,14 @@ export const INITIAL_PATCH_CODE =
 /** Types that have been renamed. A patch saved under the old name still loads. */
 const RENAMED_TYPES: Record<string, string> = {
   osc4: 'osc',
+  /*
+   * The follower shipped as SENSE for a few hours and was renamed the same day.
+   *
+   * Kept anyway, and it costs one line: the codebase had been calling it a follower everywhere except
+   * the label — the DSP, the worklet, the router's own map — so the rename collapsed two vocabularies
+   * into one rather than introducing a new word. A code written in that window still loads.
+   */
+  sense: 'follow',
 }
 
 /**

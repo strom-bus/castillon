@@ -1844,10 +1844,10 @@ input[type='range'] {
   border: 1px solid var(--text);
 }
 
-/* A SENSE wears exactly what a WARP wears, and for the same three reasons: it hangs off a node rather
+/* A FOLLOW wears exactly what a WARP wears, and for the same three reasons: it hangs off a node rather
    than standing in the cascade, so no depth hue; it is never triggered, so the only thing it can report
    is what it is doing somewhere else; and being wired at one end only is its one real failure. */
-.node-sense {
+.node-follow {
   --accent: var(--text);
   border-image: none;
   transition:
@@ -1855,25 +1855,25 @@ input[type='range'] {
     color 120ms linear;
 }
 
-.node-sense.idle {
+.node-follow.idle {
   border: 1px solid var(--border-strong);
 }
 
-.node-sense.idle .node-title,
-.node-sense.idle .node-meta,
-.node-sense.idle .delay-value {
+.node-follow.idle .node-title,
+.node-follow.idle .node-meta,
+.node-follow.idle .delay-value {
   color: var(--muted);
 }
 
-.node-sense.wired {
+.node-follow.wired {
   border: 1px solid var(--muted);
 }
 
-.node-sense.active {
+.node-follow.active {
   border: 1px solid var(--text);
 }
 
-/* An FM node wears what a SENSE wears, which is what a WARP wears: no depth hue, three tones, and the
+/* An FM node wears what a FOLLOW wears, which is what a WARP wears: no depth hue, three tones, and the
    only thing it can report is what it is doing somewhere else. */
 .node-fm {
   --accent: var(--text);

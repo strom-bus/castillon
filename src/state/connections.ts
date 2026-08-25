@@ -179,7 +179,7 @@ const triggerOf = (type: string | undefined) =>
   NODE_DEFINITIONS.find((one) => one.type === type)?.ports.trigger
 
 /** Whether a trigger can run from one node type into another: one has a way out, the other a way in. */
-/** Whether this kind of node's two sides mean different things. Only a SENSE's do. */
+/** Whether this kind of node's two sides mean different things. Only a follower's do. */
 function directedSides(type: string | undefined): boolean {
   return NODE_DEFINITIONS.find((definition) => definition.type === type)?.ports.side === 'directed'
 }
@@ -237,18 +237,18 @@ function orient(from: string | undefined, to: string | undefined): EdgeKind | 'r
   if (from === 'fx' && to === 'fx') return 'audio'
 
   /*
-   * A SENSE listens to audio and puts out modulation, so **both** directions between it and an oscillator
+   * A follower listens to audio and puts out modulation, so **both** directions between it and an oscillator
    * are legal and they are different kinds of cable. Nothing else here is like that: everywhere else, one
    * direction is the cable and the other is the same cable drawn backwards.
    *
    * Which is why its sides are directed — audio in the left, modulation out the right. The drag alone
    * cannot say which of two legal, different cables was meant; the port can. See `NodeDefinition.ports`.
    */
-  if ((from === 'osc' || from === 'fx') && to === 'sense') return 'audio'
-  if (from === 'sense' && (to === 'osc' || to === 'fx')) return 'mod'
+  if ((from === 'osc' || from === 'fx') && to === 'follow') return 'audio'
+  if (from === 'follow' && (to === 'osc' || to === 'fx')) return 'mod'
 
   /*
-   * An FM node hears the same two things a SENSE does and reaches **only an oscillator**.
+   * An FM node hears the same two things a follower does and reaches **only an oscillator**.
    *
    * Not an effect, and that is a rule rather than an omission: its one control is a deviation in cents
    * against a note, and an effect has no note. A comb resonator has a pitch and could in principle be

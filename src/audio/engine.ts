@@ -22,7 +22,7 @@ import {
   type FxParams,
   type ModParams,
   type NodeId,
-  type SenseParams,
+  type FollowParams,
   type Waveform,
 } from '../types/patch'
 import { effectOr, type EffectChain } from './effects'
@@ -129,12 +129,12 @@ interface ModInstance {
    * carry a label and a hint in its panel, where `sense` and `fm` are different nodes altogether. Naming
    * them in the user-facing union would have put two more entries in the MOD's kind selector.
    */
-  kind: ModKind | 'sense' | 'fm'
+  kind: ModKind | 'follow' | 'fm'
   /**
    * The parts a node that *listens* has: the gain a branch is tapped into, and whatever stands between
    * that and the depth.
    *
-   * Two nodes have this and they differ only in `through`. A SENSE puts the follower processor there —
+   * Two nodes have this and they differ only in `through`. A follower puts the follower processor there —
    * `null` where the browser has no `AudioWorklet`, in which case the instance exists, takes cables and
    * moves nothing, the same degradation as a comb on a context that cannot register its processor. An FM
    * node puts nothing there at all: the waveform reaches the depth unchanged, which is the whole
@@ -1166,7 +1166,7 @@ export class AudioEngine implements Engine {
   /**
    * Builds a follower: a tap, a processor, and the same depth gain every modulator ends in.
    *
-   * The last part is the whole design. A SENSE differs from a MOD in where the shape comes from and in
+   * The last part is the whole design. A follower differs from a MOD in where the shape comes from and in
    * nothing else — a signal at unit amplitude through a depth, pointed at a parameter — so it is
    * registered as a modulator and every destination the engine already knows how to reach comes with it,
    * per-voice targets included. What it cannot reach is a parameter driven by recomputation: that needs a
@@ -1175,7 +1175,7 @@ export class AudioEngine implements Engine {
    * The tap is a gain of one rather than a direct connection, so what the branch feeds is one node whose
    * identity does not change when a cable is added or removed.
    */
-  createFollower(nodeId: NodeId, params: SenseParams): void {
+  createFollower(nodeId: NodeId, params: FollowParams): void {
     if (!this.ctx) return
     this.disposeModulator(nodeId)
 
@@ -1207,7 +1207,7 @@ export class AudioEngine implements Engine {
       // The processor where there is one, and the tap where there is not: `source` is what a per-voice
       // link connects from, and connecting from a node that feeds nothing is silence rather than a crash.
       source: node ?? input,
-      kind: 'sense',
+      kind: 'follow',
       listening: { input, through: node },
       depth,
       cost: FOLLOW_COST,
@@ -1224,7 +1224,7 @@ export class AudioEngine implements Engine {
   /**
    * Builds an FM node: a tap, a depth, and nothing in between.
    *
-   * The shortest modulator here, and that is the point of it. A SENSE puts a processor between what it
+   * The shortest modulator here, and that is the point of it. A follower puts a processor between what it
    * hears and what it moves, because measuring a level is work; this passes the waveform through
    * unchanged at audio rate, which is exactly what makes it frequency modulation rather than a control.
    *
@@ -1265,7 +1265,7 @@ export class AudioEngine implements Engine {
    * slider is heard while the branch is sounding. Depth is not among them — it belongs to the cable, the
    * same as a MOD's, so a change to it arrives as a rewiring.
    */
-  updateFollower(nodeId: NodeId, params: SenseParams): void {
+  updateFollower(nodeId: NodeId, params: FollowParams): void {
     const instance = this.modulators.get(nodeId)
     if (!instance?.listening) return
     instance.attack = clamp(params.attack ?? 5, MIN_FOLLOW_MS, MAX_FOLLOW_MS) / 1000
@@ -1293,7 +1293,7 @@ export class AudioEngine implements Engine {
    * engine knows about is a chain, and anything else is asked for a voice bus — `busFor` builds one on
    * demand, so asking it first would conjure a bus for an effect id and listen to silence.
    *
-   * A **tap**, not a send: it takes nothing off the master. An oscillator wired only to a SENSE is heard
+   * A **tap**, not a send: it takes nothing off the master. An oscillator wired only to a follower is heard
    * exactly as it was, which is most of what the node is for.
    */
   connectTap(fromId: NodeId, listenerId: NodeId): void {
@@ -1374,7 +1374,7 @@ export class AudioEngine implements Engine {
      * thread — so it does not take one of these at all, and `targetsFrom` is what keeps one from being
      * offered in the first place. This is the floor under that, not a second decision about it.
      */
-    if (descriptor?.via === 'value' && instance.kind === 'sense') return
+    if (descriptor?.via === 'value' && instance.kind === 'follow') return
 
     // Nothing to connect to: the parameter exists but rebuilds something rather than being an
     // `AudioParam`, so it is driven by recomputation.

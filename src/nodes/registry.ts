@@ -7,7 +7,7 @@ import { LAYER_THRESHOLD, MAX_LOAD } from '../audio/load'
 import type {
   FmParams,
   HoldParams,
-  SenseParams,
+  FollowParams,
   Direction,
   FxParams,
   ModParams,
@@ -113,13 +113,13 @@ export interface NodeDefinition {
     /**
      * The pair of signal ports, and whether the two sides mean the same thing.
      *
-     * `'either'` is what everything had until a SENSE existed: two interchangeable ports, so a neighbour
+     * `'either'` is what everything had until a follower existed: two interchangeable ports, so a neighbour
      * attaches on whichever side it already sits on and the cable stays short. Which side a cable uses is
      * cosmetic, chosen from the layout rather than stored.
      *
-     * `'directed'` is the SENSE, where they cannot be interchangeable: audio comes in the left and
+     * `'directed'` is the FOLLOW, where they cannot be interchangeable: audio comes in the left and
      * modulation goes out the right. It is the first node where a side *means* something, and the reason
-     * is that both directions between a SENSE and an oscillator are legal and are different **kinds** of
+     * is that both directions between a follower and an oscillator are legal and are different **kinds** of
      * cable — so the drag alone cannot say which was meant, and the port has to.
      */
     side?: 'either' | 'directed'
@@ -745,7 +745,7 @@ export function defaultModParams(): ModParams {
  * with no modes at all: under an Ignite it runs once per pass of the cascade; under a node deep in the
  * tree it runs when that branch lights up; behind a Delay it runs late.
  */
-export function defaultSenseParams(): SenseParams {
+export function defaultFollowParams(): FollowParams {
   /*
    * Pointed at a level, because that is what a follower is nearly always for — one branch getting out of
    * the way of another — and with a **negative** depth for the same reason. A follower at a positive depth
@@ -758,7 +758,7 @@ export function defaultSenseParams(): SenseParams {
 }
 
 /**
- * A SENSE: it listens to a branch and moves something with what it hears.
+ * A follower: it listens to a branch and moves something with what it hears.
  *
  * The one node whose input is audio and whose output is modulation, which is the cell the other four leave
  * empty — and the reason it is a node rather than a kind of MOD. What a cable *is* has to be decidable
@@ -770,16 +770,16 @@ export function defaultSenseParams(): SenseParams {
  * says how much of it there is, for as long as there is any.
  */
 const sense: NodeDefinition = {
-  type: 'sense',
-  label: 'SENSE',
+  type: 'follow',
+  label: 'FOLLOW',
   place: 'side',
   ports: { side: 'directed' },
-  defaults: defaultSenseParams,
+  defaults: defaultFollowParams,
 }
 
 export function defaultFmParams(): Required<FmParams> {
   /*
-   * Not neutral, and deliberately — the same reasoning a SENSE's depth follows.
+   * Not neutral, and deliberately — the same reasoning a follower's depth follows.
    *
    * "A node arrives doing nothing" is the rule for anything that stands in a path that already works: a
    * HOLD or a WARP dropped in must not change what was there. An FM node stands in no path. It is only
@@ -795,12 +795,12 @@ export function defaultFmParams(): Required<FmParams> {
 /**
  * An FM node: one oscillator's audio bending another's pitch.
  *
- * The other occupant of the cell a SENSE fills, and the two differ only in what they do with what they
- * hear — a SENSE measures how loud it is, this uses the waveform itself. Same ports, same direction,
+ * The other occupant of the cell a follower fills, and the two differ only in what they do with what they
+ * hear — a follower measures how loud it is, this uses the waveform itself. Same ports, same direction,
  * different idea, which is why it is a second node and not a mode on the first: the controls have nothing
- * in common, and a SENSE with an "FM" switch would hide the whole feature inside a dropdown.
+ * in common, and a follower with an "FM" switch would hide the whole feature inside a dropdown.
  *
- * Like a SENSE it is not in the cascade and has no schedule. What it does happens because a cable is
+ * Like a follower it is not in the cascade and has no schedule. What it does happens because a cable is
  * there and a modulator is sounding.
  */
 const fm: NodeDefinition = {
@@ -862,7 +862,7 @@ const clamp = (value: number, min: number, max: number) => Math.min(max, Math.ma
  *
  * Within the second half the order is by *what a node makes*, not by how often it is reached. Ordering a
  * row of buttons by frequency buys nothing — every one of them is one click away wherever it sits —
- * where grouping buys the thing a palette is for: seeing that MOD, SENSE and FM stand together tells you
+ * where grouping buys the thing a palette is for: seeing that MOD, FOLLOW and FM stand together tells you
  * they are three answers to one question without reading a word. So: the one that changes **sound**, then
  * the one that changes **what is played**, then the three that make **modulation** — and among those, by
  * where each takes its shape from: its own clock, the loudness of a branch, the waveform of a branch.

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { defaultFxParams, defaultOscParams, defaultSenseParams } from '../nodes/registry'
-import type { Patch, PatchEdge, PatchNode, SenseParams } from '../types/patch'
+import { defaultFxParams, defaultOscParams, defaultFollowParams } from '../nodes/registry'
+import type { Patch, PatchEdge, PatchNode, FollowParams } from '../types/patch'
 import { AudioEngine } from './engine'
 import { fakeAudio, type FakeAudio } from './fakeAudio'
 import { amountFor, targetsFor, targetsFrom } from './modulation'
@@ -10,7 +10,7 @@ import { diff, EMPTY_GRAPH, graphOf } from './router'
  * The follower, from the patch down to the parameter.
  *
  * Two claims are worth this much care, because both fail quietly. **A tap is not a send:** feeding a
- * SENSE must leave the branch exactly as loud as it was, where feeding an effect takes the oscillator
+ * FOLLOW must leave the branch exactly as loud as it was, where feeding an effect takes the oscillator
  * off the master — get that wrong and every patch with a follower in it loses the sound it is listening
  * to. And **a follower reaches only what takes a connection:** its level lives on the audio thread, so a
  * target that is rebuilt from a timer would be a cable drawn, lit, and doing nothing at all.
@@ -33,8 +33,8 @@ function fx(id: string, effect = 'reverb'): PatchNode {
  * Deliberately **not** merged over the defaults: a patch node may carry only what was set, and the
  * router is the place that completes it. A helper that filled in the gaps here would hide that.
  */
-function sense(id: string, params: Partial<SenseParams> = {}): PatchNode {
-  return { id, type: 'sense', position: { x: 0, y: 0 }, params }
+function sense(id: string, params: Partial<FollowParams> = {}): PatchNode {
+  return { id, type: 'follow', position: { x: 0, y: 0 }, params }
 }
 
 const audio = (source: string, target: string): PatchEdge => ({
@@ -140,7 +140,7 @@ describe('a follower in the graph', () => {
 
   it('offers fewer targets than a modulator, and only the ones it can serve', () => {
     const all = targetsFor('fx', 'reverb')
-    const signal = targetsFrom('sense', 'fx', 'reverb')
+    const signal = targetsFrom('follow', 'fx', 'reverb')
     expect(signal.length).toBeGreaterThan(0)
     expect(signal.length).toBeLessThan(all.length)
     expect(signal.every((target) => target.via !== 'value')).toBe(true)
@@ -149,11 +149,11 @@ describe('a follower in the graph', () => {
 
 describe('a follower in the engine', () => {
   /** An engine with one follower listening to `a` and pointed at it, plus the fake it was built on. */
-  function built(over: Partial<SenseParams> = {}) {
+  function built(over: Partial<FollowParams> = {}) {
     const fake: FakeAudio = fakeAudio()
     const engine = new AudioEngine()
     engine.adopt(fake.ctx)
-    const params = { ...defaultSenseParams(), ...over }
+    const params = { ...defaultFollowParams(), ...over }
     // The two gains the follower builds, in the order it builds them: the tap it listens through and
     // the depth everything downstream hangs off.
     const already = fake.nodes('gain').length

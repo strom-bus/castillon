@@ -112,7 +112,7 @@ describe('an FM node in the graph', () => {
   it('is offered to nothing but an FM node', () => {
     // Sitting in a MOD's list beside Pitch, it would be a siren offered as a vibrato.
     const forMod = targetsFrom('mod', 'osc').map((one) => one.key)
-    const forSense = targetsFrom('sense', 'osc').map((one) => one.key)
+    const forSense = targetsFrom('follow', 'osc').map((one) => one.key)
     const forFm = targetsFrom('fm', 'osc').map((one) => one.key)
 
     expect(forMod).not.toContain('fm')
@@ -141,7 +141,7 @@ describe('an FM node in the engine', () => {
     /*
      * The whole difference from a follower, which puts a processor there. Passing the waveform through
      * unchanged is what makes this frequency modulation rather than a control signal — anything in the
-     * middle that rectified or smoothed it would turn it back into a SENSE.
+     * middle that rectified or smoothed it would turn it back into a follower.
      */
     const { input, depth } = built()
     expect(depth.incoming).toEqual([input])

@@ -118,22 +118,40 @@ refused, since between an oscillator and an effect there is only one direction t
   alternates by _pass_ rather than turning round inside one, because an oscillator commits its whole
   sequence the moment it is triggered — so the ends repeat, and it is worth most on an odd number of
   steps, where the turn lands on a different beat every time round.
-- **Delay node** that holds a trigger and passes it on later, so branches drift out of step.
-- **A SIEVE node**, its sibling: it holds a trigger and passes it on _sometimes_. There is no bar here,
-  so a pass is the only thing that recurs — and a sieve set to the first of every two lets its branch
-  happen on alternate passes. Written `1:2` the way a musician writes it, and read on the node without
-  selecting it. Two sieves over the same run, disagreeing about which passes are theirs, is how two
-  branches take turns; that is alternation with no feature of its own. It also carries odds, so a branch
-  can happen most of the time rather than every other time, and the two compose because both are neutral
-  at rest — a sieve dropped into a chain is not a change until it is asked to be.
-- **A sieve that counts the triggers reaching it** rather than the passes. The same number in a plain
-  chain — one trigger arrives per pass — so the setting is not a choice until it is somewhere the two
-  come apart: under an oscillator sending on every step, where one arrives per step and the sieve
-  becomes a divider on the steps, or inside a loop, where _which pass is this_ has stopped meaning
-  anything. That loop is why it counts rather than waits: the obvious node for one is a JOIN that holds
-  a trigger until all of its parents have fired, and it cannot exist in a graph that permits cycles,
-  because a parent hanging below the join only fires after it and the wait never ends. Counting is
-  defined everywhere and cannot deadlock, which is a weaker promise and a keepable one.
+- **A HOLD node** that catches a trigger and lets it go again — **late**, or only on **some** of the
+  passes, or both at once. It makes no sound and changes nothing about what the branch below it plays,
+  only whether and when it happens.
+
+  This was two nodes, DELAY and SIEVE, and they were one idea written twice: hold a trigger, then let it
+  go. The manual's own line introducing the second called it the first's sibling, the implementations
+  differed by which of `endTime` and `outgoing` each touched, and any patch that wanted _every other
+  pass, and late_ needed two nodes in a row to say one thing. The standing argument against merging them
+  was discoverability — the palette is the vocabulary, and one node with five controls is a node nobody
+  reads — which is answered by the panel's two groups, **LATE** and **SOMETIMES**, and by the node
+  showing only the parts of itself it is actually using.
+
+  It arrives doing nothing and says so on the node: `thru`. That is a change from the DELAY, which
+  arrived at half a second, so dropping one in was an edit to _undo_ — every other node here is neutral
+  at rest, on the stated principle that adding one should be an edit to make.
+
+  There is no bar here, so a pass is the only thing that recurs, and a HOLD set to the first of every two
+  lets its branch happen on alternate passes. Written `1:2` the way a musician writes it, and read on the
+  node without selecting it. Two of them over the same run, disagreeing about which passes are theirs, is
+  how two branches take turns — alternation with no feature of its own. It also carries odds, so a branch
+  can happen most of the time rather than every other time.
+
+  A trigger it drops is **never waited for**, because there is nothing left to wait for. So a pass it
+  withholds costs the cascade no length however long the Wait is set, and the shape of the cycle is the
+  same whether or not anything went through.
+
+- **Counting the triggers reaching it** rather than the passes. The same number in a plain chain — one
+  trigger arrives per pass — so the setting is not a choice until it is somewhere the two come apart:
+  under an oscillator sending on every step, where one arrives per step and the node becomes a divider on
+  the steps, or inside a loop, where _which pass is this_ has stopped meaning anything. That loop is why
+  it counts rather than waits: the obvious node for one is a JOIN that holds a trigger until all of its
+  parents have fired, and it cannot exist in a graph that permits cycles, because a parent hanging below
+  the join only fires after it and the wait never ends. Counting is defined everywhere and cannot
+  deadlock, which is a weaker promise and a keepable one.
 - **A budget counted in work, not voices.** One point is one plain oscillator voice, and the ceiling is
   measured rather than chosen: Chrome reports how much of each 128-sample block the audio thread has
   used, so ramping load until that reaches a hundred per cent _is_ the ceiling rather than a proxy for
@@ -262,7 +280,7 @@ refused, since between an oscillator and an effect there is only one direction t
   LFO keeps its own rate whatever the music does, an envelope runs once each time the cascade triggers
   it. So a MOD carries event ports as well, and where you wire the trigger is what decides the
   behaviour — under an Ignite it runs once per pass, under a node deep in the tree it runs when that
-  branch lights up, behind a Delay it runs late. It passes the trigger on, so one in the middle of a
+  branch lights up, behind a HOLD it runs late. It passes the trigger on, so one in the middle of a
   chain never breaks the chain. An envelope fires either on a trigger or on **every note** — one sweep
   per note, each on that note's own filter, which is the classic filter pluck. Per note needs a target
   that is built per note, and an oscillator's filter is the only one there is.
@@ -275,7 +293,7 @@ refused, since between an oscillator and an effect there is only one direction t
   cascade is one warp on the oscillator at the top of it, since reach travels downward.
 
   An oscillator and nothing else, which took a second pass to get right. The rules first allowed an
-  Ignite and a Delay as well, and neither has anything a warp can bend — a wait is a number in
+  Ignite and a HOLD as well, and neither has anything a warp can bend — a wait is a number in
   milliseconds that no ratio scales, and a trigger has no pitch or tempo of its own. A warp attached
   to either was never bending that node, it was using it as a place to stand while it reached the
   oscillators below: reach dressed up as attachment. The first fix was to give those two nodes side
@@ -285,7 +303,7 @@ refused, since between an oscillator and an effect there is only one direction t
   Six dimensions, each named for what it bends rather than for the arithmetic that bends it.
   **Pitch** moves in degrees of each oscillator's own scale and in semitones where that oscillator is
   free, so a bass in pentatonic and a lead in minor both move a third and both stay in key. **Speed**
-  divides the step, which is the one thing a DELAY cannot do — a delay sets two branches a fixed
+  divides the step, which is the one thing a HOLD cannot do — a wait sets two branches a fixed
   distance apart and holds them there, and a ratio makes them drift and keep drifting. **Velocity**
   scales what every note below is worth, and **Chance** thins the branch out whether or not the
   oscillators below use per-step chance.
@@ -443,7 +461,7 @@ refused, since between an oscillator and an effect there is only one direction t
   it longer without making it clearer. Both languages live adjacent in one file so a half-finished
   edit shows up in the diff rather than as a blank paragraph months later.
 
-  Fifteen chapters and a hundred and sixty-eight entries, written for whoever is using the instrument
+  Fourteen chapters and a hundred and sixty-eight entries, written for whoever is using the instrument
   rather than for whoever built it: no entry explains how something is implemented, and every one says
   what a control does to the sound and when you would reach for it. One chapter per module, each in
   the order its own panel is in and under the panel's own group headings, so reading the manual and
@@ -460,7 +478,7 @@ refused, since between an oscillator and an effect there is only one direction t
   patch changes it. **Generate** publishes and puts the code in the field; the field is empty until
   it does, because a code shown before it exists is a code somebody writes down. Copy copies what is
   there and nothing else. The field takes either kind of code.
-  The eight nodes it starts with come to 132 characters, against 3353 as JSON.
+  The eight nodes it starts with come to 135 characters, against 3401 as JSON.
 
 - **A compressor**, and the only effect here that makes a sound _more_ even rather than more interesting
   — which is exactly why a patch of five branches wants one: past a few voices the loud moments start

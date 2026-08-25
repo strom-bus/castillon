@@ -227,7 +227,7 @@ describe('modulation in the graph', () => {
   it('drops a cable to something with nothing to modulate', () => {
     const graph = graphOf(
       patchOf(
-        [modNode('m'), { id: 'd', type: 'delay', position: { x: 0, y: 0 }, params: {} }],
+        [modNode('m'), { id: 'd', type: 'hold', position: { x: 0, y: 0 }, params: {} }],
         [modEdge('m', 'd')],
       ),
     )

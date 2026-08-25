@@ -5,9 +5,8 @@ import type { Engine } from '../audio/engine'
 import { MIN_REDUCTION, MIN_REPEATS } from '../audio/dsp'
 import { LAYER_THRESHOLD, MAX_LOAD } from '../audio/load'
 import type {
-  SieveParams,
+  HoldParams,
   SenseParams,
-  DelayParams,
   Direction,
   FxParams,
   ModParams,
@@ -20,7 +19,7 @@ import type {
   WarpParams,
 } from '../types/patch'
 import {
-  MAX_DELAY_MS,
+  MAX_WAIT_MS,
   MAX_MOD_ATTACK,
   MAX_RATCHET,
   MAX_SLOP,
@@ -31,7 +30,6 @@ import {
   MAX_WARP_RATIO,
   MIN_WARP_RATIO,
   MAX_MOD_DECAY,
-  MIN_DELAY_MS,
   MIN_MOD_ATTACK,
   MIN_MOD_DECAY,
 } from '../types/patch'
@@ -72,7 +70,7 @@ export interface ScheduleResult {
   /**
    * Whether this node kept a branch from happening that would otherwise have run.
    *
-   * Only a SIEVE ever says so, and it is what tells a pass apart from a shorter one. A pass that is
+   * Only a HOLD ever says so, and it is what tells a pass apart from a shorter one. A pass that is
    * short because a branch was withheld must not shorten the cycle — otherwise a branch set to every
    * other pass fires at irregular intervals. A pass that is short because it *is* short must be left
    * alone, which is what an odd-length sequence with a swing is. The two look identical from the
@@ -160,80 +158,81 @@ const start: NodeDefinition = {
   },
 }
 
-export const DEFAULT_DELAY_MS = 500
-
-export function defaultDelayParams(): DelayParams {
-  return { delayMs: DEFAULT_DELAY_MS }
+export function defaultHoldParams(): Required<HoldParams> {
+  /*
+   * Every dimension at its neutral point, so a HOLD just added is a wire.
+   *
+   * The one behaviour the merge deliberately changed. A DELAY arrived at half a second, so dropping one
+   * in was an edit to undo rather than an edit to make — and every other node here
+   * arrive doing nothing. Now this one does too.
+   */
+  return { waitMs: 0, counts: 'passes', every: 1, offset: 1, chance: 1 }
 }
 
 /**
- * Holds the trigger and passes it on later. It is an *event* delay, not an audio effect: it makes
- * no sound of its own, it just shifts when the branch below it starts. Chain accounting picks the
- * wait up through `endTime`, so the loop waits for it before restarting.
- */
-const delay: NodeDefinition = {
-  type: 'delay',
-  label: 'DELAY',
-  place: 'cascade',
-  ports: { trigger: 'both' },
-  defaults: defaultDelayParams,
-  schedule({ node, time, activity }) {
-    const params = node.params as DelayParams
-    const ms = Math.min(MAX_DELAY_MS, Math.max(MIN_DELAY_MS, params.delayMs ?? DEFAULT_DELAY_MS))
-    const wait = ms / 1000
-    // The flash lasts the whole wait, which is what drives the progress bar in the UI.
-    activity.push({ kind: 'node', id: node.id, time, duration: wait })
-    return { endTime: time + wait, outgoing: [time + wait] }
-  },
-}
-
-export function defaultSieveParams(): SieveParams {
-  // Neutral: counts nothing, tosses nothing, passes everything. A sieve dropped into a chain is not a
-  // change until it is asked to be, the same promise a warp makes.
-  return { counts: 'passes', every: 1, offset: 1, chance: 1 }
-}
-
-/**
- * Whether this pass belongs to a sieve set to `offset` of every `every`.
+ * Whether this pass belongs to a hold set to `offset` of every `every`.
  *
  * Counting from one, so 1:2 is the first of every pair and 2:2 is the second — which is how alternation
- * is written: two sieves over the same run, disagreeing about which passes are theirs. The modulo is
+ * is written: two of them over the same run, disagreeing about which passes are theirs. The modulo is
  * taken twice because the first passes can put `lap - offset` below zero, and JavaScript's remainder
  * keeps the sign.
  */
-export function sieveLetsThrough(params: SieveParams, lap: number): boolean {
+export function holdLetsThrough(params: HoldParams, lap: number): boolean {
   const every = Math.min(MAX_EVERY, Math.max(1, Math.round(params.every ?? 1)))
   const offset = Math.min(every, Math.max(1, Math.round(params.offset ?? 1)))
   return (((lap - offset) % every) + every) % every === 0
 }
 
-const sieve: NodeDefinition = {
-  type: 'sieve',
-  label: 'SIEVE',
+/** The wait in seconds. Nought is a setting rather than a floor: it is the node passing the trigger on. */
+export function holdWait(params: HoldParams): number {
+  return clamp(params.waitMs ?? 0, 0, MAX_WAIT_MS) / 1000
+}
+
+/**
+ * Holds a trigger and lets it go — late, sometimes, or both.
+ *
+ * Two nodes until now, and they were one idea: a DELAY passed a trigger on **late** and a SIEVE passed
+ * one on **sometimes**, and the manual introduced the second as the first's sibling. Neither made a
+ * sound, neither touched what the branch below plays, and every patch that wanted "every other pass, and
+ * late" needed two nodes in a row to say one thing.
+ *
+ * The conditions are asked in the order they can rule each other out: a trigger this node withholds is
+ * never waited for, because there is nothing left to wait for. So a pass it drops costs the cascade no
+ * length at all, exactly as a sieve's did.
+ */
+const hold: NodeDefinition = {
+  type: 'hold',
+  label: 'HOLD',
   place: 'cascade',
   ports: { trigger: 'both' },
-  defaults: defaultSieveParams,
+  defaults: defaultHoldParams,
   schedule({ node, time, activity, engine, lap = 1, arrival = 1 }) {
-    const params = node.params as SieveParams
+    const params = node.params as HoldParams
     // Passes of the cascade, or triggers arriving here. The same number in a plain chain, and different
     // wherever it matters: under `onStep`, below several parents, or inside a cycle.
-    const counted = sieveLetsThrough(params, params.counts === 'triggers' ? arrival : lap)
+    const counted = holdLetsThrough(params, params.counts === 'triggers' ? arrival : lap)
     const odds = clamp(params.chance ?? 1, 0, 1)
     const passes = counted && (odds >= 1 || engine.chance() < odds)
 
     /*
-     * Lit only on the passes that are its own.
+     * Lit only on the passes that are its own, and for as long as it is holding one.
      *
      * A node that flashed whether or not it let anything through would say "a trigger reached me", which
      * is true of every pass and therefore says nothing. Lighting on the ones it passes makes the pattern
-     * visible on the canvas — two sieves alternating are two nodes taking turns, which is the thing you
-     * are trying to see.
+     * visible on the canvas — two of them alternating are two nodes taking turns, which is the thing you
+     * are trying to see. The duration is the wait, which is what drives the progress bar; with no wait it
+     * is the flash every instantaneous node gets.
      */
-    if (passes) activity.push({ kind: 'node', id: node.id, time, duration: FLASH })
+    if (!passes) {
+      // Ends where it began: it held nothing back in time, only in fact. A branch that does not happen
+      // this pass costs the cascade no length, and the lap keeps its shape.
+      return { endTime: time, outgoing: [], withheld: true }
+    }
 
-    // Ends where it began either way: it holds nothing back in time, only sometimes in fact. So a branch
-    // that does not happen this pass costs the cascade no length, and the lap keeps its shape.
-    return { endTime: time, outgoing: passes ? [time] : [], withheld: !passes }
+    const wait = holdWait(params)
+    activity.push({ kind: 'node', id: node.id, time, duration: wait || FLASH })
+    // Chain accounting picks the wait up through `endTime`, so the loop waits for it before restarting.
+    return { endTime: time + wait, outgoing: [time + wait] }
   },
 }
 
@@ -819,7 +818,7 @@ const clamp = (value: number, min: number, max: number) => Math.min(max, Math.ma
  * Within each, the order a patch is built in — a cascade starts, then sounds, then waits; and a sound is
  * shaped, then swept, then moved.
  */
-export const NODE_DEFINITIONS: NodeDefinition[] = [start, osc, delay, sieve, fx, mod, warp, sense]
+export const NODE_DEFINITIONS: NodeDefinition[] = [start, osc, hold, fx, mod, warp, sense]
 
 const byType = new Map(NODE_DEFINITIONS.map((d) => [d.type, d]))
 

@@ -29,10 +29,10 @@ describe('App', () => {
     // missing from the whole app during a move and every test still passed.
     expect(screen.getByTitle(new RegExp(`of ${MAX_LOAD}\\.`))).toBeDefined()
 
-    // The starting patch: two independent cascades, five oscillators and a delay.
+    // The starting patch: two independent cascades, five oscillators and a hold waiting half a second.
     expect(screen.getAllByText('IGNITE')).toHaveLength(2)
     expect(screen.getAllByText('OSC')).toHaveLength(5)
-    expect(screen.getByText('DELAY')).toBeDefined()
+    expect(screen.getByText('HOLD')).toBeDefined()
   })
 
   it('draws each sequencer four bars with their notes', () => {

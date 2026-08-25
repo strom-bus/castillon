@@ -24,7 +24,7 @@ import type {
   OscParams,
   Patch,
   PatchNode,
-  SieveParams,
+  HoldParams,
   StartParams,
 } from '../types/patch'
 
@@ -97,7 +97,7 @@ describe('the presets', () => {
      */
     const lit = reachable(patch)
     const dark = patch.nodes
-      .filter((node) => node.type === 'osc' || node.type === 'delay')
+      .filter((node) => node.type === 'osc' || node.type === 'hold')
       .filter((node) => !lit.has(node.id))
       .map((node) => node.id)
     expect(dark).toEqual([])
@@ -249,14 +249,14 @@ describe('the presets', () => {
     // all of them and says nothing — what a step carries is checked column by column below instead.
     'osc.steps',
     // The count and the place in a run are one idea, and a preset showing a run of one would be showing
-    // a sieve at rest. `every` above 1 is the check; `offset` at 1 is a legitimate choice within it.
-    'sieve.offset',
+    // a hold at rest. `every` above 1 is the check; `offset` at 1 is a legitimate choice within it.
+    'hold.offset',
   ])
 
   it('use every parameter every node has, asked of the nodes and not of a list', () => {
     /*
      * What the check below used to be: a map of feature names written out by hand. It missed the whole
-     * SIEVE — the node shipped, the map never got an entry, and for its entire life no preset showed
+     * HOLD — the node shipped, the map never got an entry, and for its entire life no preset showed
      * one. The test whose only job was to catch that was itself the thing that had fallen behind.
      *
      * So this asks the registry instead. Every node type has a `defaults()`; a parameter nothing moves
@@ -366,12 +366,12 @@ describe('the presets', () => {
           ((node.params as ModParams).depth ?? 0) < 0,
       ),
       /*
-       * A SIEVE counting the triggers reaching it rather than the passes — a divider on the steps above
+       * A HOLD counting the triggers reaching it rather than the passes — a divider on the steps above
        * it. One value of one field, invisible in the panel, and the reading that makes the node more
        * than a probability gate.
        */
       dividing: nodes.some(
-        (node) => node.type === 'sieve' && (node.params as SieveParams).counts === 'triggers',
+        (node) => node.type === 'hold' && (node.params as HoldParams).counts === 'triggers',
       ),
       // An Ignite that waits to be played rather than being seeded by the transport, which is the whole
       // of playing this thing by hand.

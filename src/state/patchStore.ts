@@ -14,7 +14,7 @@ import { getEffect, labelOf } from '../audio/effects'
 import { getDefinition, normaliseStepCount, resizeSteps } from '../nodes/registry'
 import { MAX_BPM, MIN_BPM } from '../types/patch'
 import type {
-  DelayParams,
+  HoldParams,
   EdgeKind,
   EffectKind,
   FxParams,
@@ -26,7 +26,6 @@ import type {
   SenseParams,
   Step,
   WarpParams,
-  SieveParams,
 } from '../types/patch'
 import {
   connectionFor,
@@ -113,14 +112,7 @@ interface PatchState {
   updateParams(
     id: string,
     partial: Partial<
-      OscParams &
-        FxParams &
-        DelayParams &
-        StartParams &
-        ModParams &
-        WarpParams &
-        SieveParams &
-        SenseParams
+      OscParams & FxParams & HoldParams & StartParams & ModParams & WarpParams & SenseParams
     >,
   ): void
   setEffect(id: string, effect: EffectKind): void
@@ -148,7 +140,8 @@ function makeNode(type: string, position: { x: number; y: number }, id = newId(t
 
 /**
  * The starting patch, held as its own patch code rather than built by hand: two cascades, five
- * oscillators across four waveforms and a delay, so Play does something interesting immediately.
+ * oscillators across four waveforms and a HOLD waiting half a second, so Play does something
+ * interesting immediately.
  *
  * To change it, build the patch in the app, copy the PATCH CODE field and paste it here.
  *
@@ -157,7 +150,7 @@ function makeNode(type: string, position: { x: number; y: number }, id = newId(t
  * error. The test beside this one is what notices.
  */
 export const INITIAL_PATCH_CODE =
-  'FGLC4BAJBSMEAoUjgABXXNB2czVeqAE8oAGPwAA3frJQY8HT5Y-usA6QDQANAAAAw5lOZRAUEBQwEMh4gLuAoGAADrhnYgacAAsgIxGSAi6JwAATVbQTzsYL9gAMBFCziVuA'
+  'FGLDQBAJBSMEAoUjgABXXNB2czVeqAE8oAGPwAA3frJQY8HT5Y-usA6QDQANAAAAw5lOZRAUEBQwEPoAMg8QF3AUDAAB1wzsQNOAAWQEYjJARdE4AAJqtoJ52MF-wAGAihZxK3A'
 
 /** Types that have been renamed. A patch saved under the old name still loads. */
 const RENAMED_TYPES: Record<string, string> = {

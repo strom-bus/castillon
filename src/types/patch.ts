@@ -471,26 +471,36 @@ export const MAX_SWING = 4
 export const MAX_SLOP = 0.5
 
 /**
- * The longest run of passes a SIEVE can count over.
+ * The longest run of passes a HOLD can count over.
  *
  * Sixteen because past that nobody can hear the pattern as a pattern — a branch that happens once every
- * twenty passes is not a rhythm, it is a surprise. And two sieves counting over the same run is how
+ * twenty passes is not a rhythm, it is a surprise. And two holds counting over the same run is how
  * alternation is written, so the useful values are small ones.
  */
 export const MAX_EVERY = 16
 
 /**
- * A node that lets a trigger through on some passes and not others.
+ * A node that holds a trigger and then lets it go — late, sometimes, or both.
  *
- * The sibling of a DELAY, which is the shape of the idea: a DELAY holds a trigger and passes it on late,
- * and this holds a trigger and passes it on *sometimes*. Both leave the branch below untouched and change
- * only whether and when it happens, which is why neither needed a new kind of cable.
+ * One node because it was always one idea. A DELAY held a trigger and passed it on **late**; a SIEVE held
+ * one and passed it on **sometimes**, and the manual's own first sentence about the sieve called it the
+ * delay's sibling. Two names for hold-then-release, and every patch that wanted "every other pass, and
+ * late" needed two nodes in a row to say one thing.
  *
- * Two conditions, and they compose because both are neutral at rest. `every` and `offset` are the
- * counted one — "the first of every two", written 1:2 — and `chance` is the tossed one. A sieve added and
- * not touched passes everything, so putting one in a chain is never a change until it is asked to be.
+ * Three conditions, and they compose because every one of them is neutral at rest: `waitMs` is the late
+ * one, `every` and `offset` are the counted one — "the first of every two", written 1:2 — and `chance` is
+ * the tossed one. So a HOLD dropped into a chain is a wire until it is asked to be something, which is the
+ * promise a WARP and a SIEVE both made and the one a DELAY broke by arriving at half a second.
+ *
+ * It changes only whether and when the branch below happens, never what it plays, which is why it needs
+ * no new kind of cable.
  */
-export interface SieveParams {
+export interface HoldParams {
+  /**
+   * How long the trigger is held before it is passed on, in milliseconds. Nought passes it straight
+   * through, which is where one starts.
+   */
+  waitMs?: number
   /**
    * What the run is counted in: passes of the cascade, or triggers arriving at this node.
    *
@@ -498,7 +508,7 @@ export interface SieveParams {
    * trigger reaches a node once per pass — and they come apart in exactly the places worth having:
    *
    * - Under an oscillator propagating **on every step**, a trigger arrives once per step, so counting
-   *   them divides the step stream. Sixteen steps above and a sieve at 1:4 fires the branch on every
+   *   them divides the step stream. Sixteen steps above and a hold at 1:4 fires the branch on every
    *   fourth one, which nothing else here can do.
    * - Where a node has **several parents**, it is reached once per parent.
    * - Inside a **cycle**, where a node is reached again and again and "which pass is this" has no useful
@@ -511,11 +521,11 @@ export interface SieveParams {
    */
   counts?: 'passes' | 'triggers'
   /** How long the run is. 1 counts nothing and lets everything through. */
-  every: number
+  every?: number
   /** Which pass of that run is this node's, counting from one. */
-  offset: number
+  offset?: number
   /** And how often it lets one through when the count says it may. 1 is always. */
-  chance: number
+  chance?: number
 }
 
 /**
@@ -630,11 +640,6 @@ export interface WarpParams {
    * it makes a sparse sequence denser, up to always.
    */
   chance?: number
-}
-
-export interface DelayParams {
-  /** How long the trigger is held before being passed on, in milliseconds. */
-  delayMs: number
 }
 
 /**
@@ -753,17 +758,13 @@ export interface ModParams {
 }
 
 export type NodeParams =
-  | OscParams
-  | FxParams
-  | DelayParams
-  | StartParams
-  | ModParams
-  | WarpParams
-  | SieveParams
-  | SenseParams
+  OscParams | FxParams | StartParams | ModParams | WarpParams | HoldParams | SenseParams
 
-export const MIN_DELAY_MS = 10
-export const MAX_DELAY_MS = 4000
+/**
+ * The longest a HOLD will wait. There is no minimum: nought is a legal setting and it is where one
+ * starts — the node passing the trigger straight on — so the range runs from there.
+ */
+export const MAX_WAIT_MS = 4000
 
 export interface PatchNode {
   id: NodeId

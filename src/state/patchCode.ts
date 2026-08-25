@@ -1,8 +1,7 @@
 import { SCALES, type ScaleName } from '../audio/scales'
 import {
-  defaultDelayParams,
   defaultSenseParams,
-  defaultSieveParams,
+  defaultHoldParams,
   defaultWarpParams,
   defaultFxParams,
   defaultOscParams,
@@ -19,7 +18,7 @@ import {
   MAX_DECAY,
   MAX_EQ_DB,
   MAX_RATIO,
-  MAX_DELAY_MS,
+  MAX_WAIT_MS,
   MAX_EVERY,
   MAX_SLOP,
   MAX_WARP,
@@ -34,13 +33,11 @@ import {
   MAX_MOD_DECAY,
   MIN_DECAY,
   MIN_THRESHOLD,
-  MIN_DELAY_MS,
   MIN_MOD_ATTACK,
   MIN_MOD_DECAY,
   MIN_NOTE,
   MIN_RATE,
   MIN_SWEEP,
-  type DelayParams,
   type WarpParams,
   type Direction,
   type DistortionShape,
@@ -60,7 +57,7 @@ import {
   MAX_RATCHET,
   type Step,
   type SenseParams,
-  type SieveParams,
+  type HoldParams,
 } from '../types/patch'
 import {
   MAX_BITS,
@@ -149,12 +146,20 @@ const WARP_SWING_BITS = 4
 const WARP_LEVEL_BITS = 8
 /** Slop in hundredths, which covers its whole range in six bits with room to spare. */
 const WARP_SLOP_BITS = 6
-/** A sieve's run and its place in it, stored from zero so the whole range fits. */
-const SIEVE_COUNT_BITS = 4
+/** A hold's run and its place in it, stored from zero so the whole range fits. */
+const HOLD_COUNT_BITS = 4
 /** And its odds, in hundredths. */
-const SIEVE_CHANCE_BITS = 7
+const HOLD_CHANCE_BITS = 7
 /** And what it counts: passes, or the triggers reaching it. */
-const SIEVE_COUNTS_BITS = 1
+const HOLD_COUNTS_BITS = 1
+/**
+ * And its wait, in whole milliseconds.
+ *
+ * Twelve bits rather than the nine the DELAY used, which stored it in tens. Three bits on one node is
+ * nothing, and the coarser grid had a real edge to it now that nought is a legal setting: a wait typed at
+ * five milliseconds would have been stored as none at all, which is a different node.
+ */
+const HOLD_WAIT_BITS = 12
 
 const EDGE_KINDS = ['event', 'audio', 'mod', 'warp'] as const
 
@@ -188,8 +193,12 @@ const SENSE_SENSITIVITY_BITS = 10
 const SENSE_TIME_BITS = 11
 
 // Appended, never reordered: the index is what travels, so moving an entry would rewrite history and a
-// new type goes on the end. Four bits hold sixteen, of which eight are used.
-const NODE_TYPES = ['start', 'osc', 'delay', 'fx', 'mod', 'warp', 'sieve', 'sense'] as const
+// new type goes on the end. Four bits hold sixteen, of which seven are used.
+//
+// Reordered once, when DELAY and SIEVE became one HOLD. That does rewrite history, and it was the right
+// moment for it: nothing was stored anywhere but the presets and the starting patch, both of which live
+// in this repository and were rewritten with it.
+const NODE_TYPES = ['start', 'osc', 'hold', 'fx', 'mod', 'warp', 'sense'] as const
 
 const EFFECT_CODES: EffectKind[] = [
   'reverb',
@@ -921,20 +930,18 @@ export function encodePatch(patch: Patch): string {
       writeOsc(writer, node.params as OscParams)
     } else if (node.type === 'fx') {
       writeFx(writer, node.params as FxParams)
-    } else if (node.type === 'delay') {
-      const { delayMs } = { ...defaultDelayParams(), ...(node.params as DelayParams) }
-      writer.write(quantise(delayMs / 10, 1, MIN_DELAY_MS / 10, MAX_DELAY_MS / 10), 9)
     } else if (node.type === 'warp') {
       writeWarp(writer, { ...defaultWarpParams(), ...(node.params as WarpParams) })
-    } else if (node.type === 'sieve') {
-      const { every, offset, chance, counts } = {
-        ...defaultSieveParams(),
-        ...(node.params as SieveParams),
+    } else if (node.type === 'hold') {
+      const { waitMs, every, offset, chance, counts } = {
+        ...defaultHoldParams(),
+        ...(node.params as HoldParams),
       }
-      writer.write(counts === 'triggers' ? 1 : 0, SIEVE_COUNTS_BITS)
-      writer.write(quantise(every, 1, 1, MAX_EVERY) - 1, SIEVE_COUNT_BITS)
-      writer.write(quantise(offset, 1, 1, MAX_EVERY) - 1, SIEVE_COUNT_BITS)
-      writer.write(quantise(chance * 100, 1, 0, 100), SIEVE_CHANCE_BITS)
+      writer.write(quantise(waitMs, 1, 0, MAX_WAIT_MS), HOLD_WAIT_BITS)
+      writer.write(counts === 'triggers' ? 1 : 0, HOLD_COUNTS_BITS)
+      writer.write(quantise(every, 1, 1, MAX_EVERY) - 1, HOLD_COUNT_BITS)
+      writer.write(quantise(offset, 1, 1, MAX_EVERY) - 1, HOLD_COUNT_BITS)
+      writer.write(quantise(chance * 100, 1, 0, 100), HOLD_CHANCE_BITS)
     } else if (node.type === 'start' && anyBound) {
       writeStart(writer, node.params as StartParams)
     } else if (node.type === 'mod') {
@@ -996,16 +1003,15 @@ export function decodePatch(code: string): Patch | null {
         params = readOsc(reader, oscFields)
       } else if (type === 'fx') {
         params = readFx(reader, fxFields)
-      } else if (type === 'delay') {
-        params = { delayMs: reader.read(9) * 10 }
       } else if (type === 'warp') {
         params = readWarp(reader)
-      } else if (type === 'sieve') {
+      } else if (type === 'hold') {
         params = {
-          counts: reader.read(SIEVE_COUNTS_BITS) === 1 ? 'triggers' : 'passes',
-          every: reader.read(SIEVE_COUNT_BITS) + 1,
-          offset: reader.read(SIEVE_COUNT_BITS) + 1,
-          chance: reader.read(SIEVE_CHANCE_BITS) / 100,
+          waitMs: reader.read(HOLD_WAIT_BITS),
+          counts: reader.read(HOLD_COUNTS_BITS) === 1 ? 'triggers' : 'passes',
+          every: reader.read(HOLD_COUNT_BITS) + 1,
+          offset: reader.read(HOLD_COUNT_BITS) + 1,
+          chance: reader.read(HOLD_CHANCE_BITS) / 100,
         }
       } else if (type === 'start' && ignitesCarryTrigger) {
         params = readStart(reader)

@@ -141,11 +141,11 @@ describe('the history over the real store', () => {
   })
 
   it('undoes a reset back to the patch that was replaced', () => {
-    store().addNode('delay', { x: 5, y: 5 })
-    const withDelay = store().nodes.length
+    store().addNode('hold', { x: 5, y: 5 })
+    const withHold = store().nodes.length
     store().resetPatch()
     history().undo()
-    expect(store().nodes).toHaveLength(withDelay)
+    expect(store().nodes).toHaveLength(withHold)
   })
 
   it('restores tempo and loop, which belong to the patch', () => {

@@ -4,7 +4,7 @@ import { estimatePeakLoad } from '../audio/load'
 import { silentBecause, targetOf } from '../audio/modulation'
 import { NODE_DEFINITIONS } from '../nodes/registry'
 import { permits } from './connections'
-import type { FxParams, ModParams, OscParams, Patch, SieveParams, WarpParams } from '../types/patch'
+import type { FxParams, ModParams, OscParams, Patch, HoldParams, WarpParams } from '../types/patch'
 import { decodePatch, encodePatch } from './patchCode'
 import { warpDoingNothing } from './transpose'
 import { ROLL_BUDGET, cellsOf, randomPatch } from './randomPatch'
@@ -320,7 +320,7 @@ describe('randomPatch', () => {
   })
 
   it('rolls modulators, since a third of the instrument was never turning up', () => {
-    // The die knew about oscillators, delays and effects and not about MOD, so nothing it produced ever
+    // The die knew about oscillators, holds and effects and not about MOD, so nothing it produced ever
     // modulated anything.
     const withMod = many(60).filter((patch) => patch.nodes.some((node) => node.type === 'mod'))
     expect(withMod.length).toBeGreaterThan(10)
@@ -328,7 +328,7 @@ describe('randomPatch', () => {
 
   it('rolls every node the machine has, asked of the registry and not of a list', () => {
     /*
-     * Twice now a node has existed that the die never rolled — first the MOD, then the SIEVE — so the
+     * Twice now a node has existed that the die never rolled — first the MOD, then the HOLD — so the
      * only patches containing one were the ones somebody wired by hand. Both times there were tests
      * about the die and none of them noticed, because each was a claim about a node somebody had
      * remembered to write a claim about.
@@ -343,27 +343,29 @@ describe('randomPatch', () => {
     expect(NODE_DEFINITIONS.length).toBeGreaterThan(5)
   })
 
-  it('rolls sieves often enough to be a feature rather than a rarity', () => {
+  it('rolls holds often enough to be a feature rather than a rarity', () => {
     // The check above only asks whether it ever happens. One in eighty would satisfy it and would still
     // mean nobody meets the node.
-    const withSieve = many(60).filter((patch) => patch.nodes.some((node) => node.type === 'sieve'))
+    const withSieve = many(60).filter((patch) => patch.nodes.some((node) => node.type === 'hold'))
     expect(withSieve.length).toBeGreaterThan(5)
   })
 
-  it('never rolls a sieve that lets everything through', () => {
+  it('never rolls a hold that does nothing at all', () => {
     // A neutral one is a node on the canvas doing nothing, which from a roll is indistinguishable from
-    // a die that forgot to set it.
+    // a die that forgot to set it. Three ways for it to be doing something now, and it needs one.
     for (const patch of many(60)) {
-      for (const node of patch.nodes.filter((n) => n.type === 'sieve')) {
-        const params = node.params as SieveParams
-        expect(params.every > 1 || (params.chance ?? 1) < 1).toBe(true)
-        expect(params.offset).toBeLessThanOrEqual(params.every)
-        expect(params.offset).toBeGreaterThanOrEqual(1)
+      for (const node of patch.nodes.filter((n) => n.type === 'hold')) {
+        const params = node.params as HoldParams
+        const every = params.every ?? 1
+        const offset = params.offset ?? 1
+        expect((params.waitMs ?? 0) > 0 || every > 1 || (params.chance ?? 1) < 1).toBe(true)
+        expect(offset).toBeLessThanOrEqual(every)
+        expect(offset).toBeGreaterThanOrEqual(1)
       }
     }
   })
 
-  it('only asks a sieve to count triggers where that is a different number', () => {
+  it('only asks a hold to count triggers where that is a different number', () => {
     /*
      * Counting arrivals is the same as counting passes unless more than one trigger reaches the node in
      * a pass, which here means an oscillator above sending on every step. Set anywhere else it is a
@@ -372,8 +374,8 @@ describe('randomPatch', () => {
      */
     let counting = 0
     for (const patch of many(80)) {
-      for (const node of patch.nodes.filter((n) => n.type === 'sieve')) {
-        if ((node.params as SieveParams).counts !== 'triggers') continue
+      for (const node of patch.nodes.filter((n) => n.type === 'hold')) {
+        if ((node.params as HoldParams).counts !== 'triggers') continue
         counting++
         const above = patch.edges
           .filter((edge) => edge.kind === 'event' && edge.target === node.id)

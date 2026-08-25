@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { defaultFxParams, defaultOscParams, defaultSieveParams } from '../nodes/registry'
+import { defaultFxParams, defaultOscParams, defaultHoldParams } from '../nodes/registry'
 import { MAX_EVERY } from '../types/patch'
 import type {
   WarpParams,
   FxParams,
   ModParams,
-  SieveParams,
+  HoldParams,
   Patch,
   PatchEdge,
   PatchNode,
@@ -41,7 +41,7 @@ const DEMO = patchOf(
     { id: 's', type: 'start', position: { x: 300, y: 20 }, params: {} },
     osc('a', { waveform: 'pulse', pulseWidth: 0.2, division: '1/16', gain: 0.4 }),
     osc('b', { waveform: 'brown', propagateMode: 'onStep' }),
-    { id: 'd', type: 'delay', position: { x: 40, y: 800 }, params: { delayMs: 750 } },
+    { id: 'd', type: 'hold', position: { x: 40, y: 800 }, params: { waitMs: 750 } },
   ],
   [
     { id: 'e0', kind: 'event', source: 's', target: 'a' },
@@ -93,7 +93,7 @@ describe('patch code', () => {
     expect(decoded).not.toBeNull()
     expect(decoded!.bpm).toBe(120)
     expect(decoded!.loop).toBe(true)
-    expect(decoded!.nodes.map((n) => n.type)).toEqual(['start', 'osc', 'osc', 'delay'])
+    expect(decoded!.nodes.map((n) => n.type)).toEqual(['start', 'osc', 'osc', 'hold'])
     expect(decoded!.edges).toHaveLength(3)
   })
 
@@ -292,7 +292,7 @@ describe('patch code', () => {
 
   it('round-trips the delay wait', () => {
     const decoded = decodePatch(encodePatch(DEMO))!
-    expect((decoded.nodes[3].params as { delayMs: number }).delayMs).toBe(750)
+    expect((decoded.nodes[3].params as { waitMs: number }).waitMs).toBe(750)
   })
 
   it('round-trips bpm and loop across their range', () => {
@@ -779,17 +779,17 @@ describe('modulation in the code', () => {
     })
   })
 
-  describe('a sieve, whose condition is the whole of it', () => {
+  describe('a hold, whose condition is the whole of it', () => {
     /*
-     * A SIEVE has no sound of its own — its parameters *are* the node, so a field lost in the code is a
+     * A HOLD has no sound of its own — its parameters *are* the node, so a field lost in the code is a
      * shared patch that plays a different piece. The warp lost three of four that way, and the shape of
      * the mistake was a field added to the panel and not to the codec.
      */
-    const sieved = (params: SieveParams) =>
+    const held = (params: HoldParams) =>
       patchOf(
         [
           { id: 's', type: 'start', position: { x: 0, y: 0 }, params: {} },
-          { id: 'g', type: 'sieve', position: { x: 120, y: 40 }, params },
+          { id: 'g', type: 'hold', position: { x: 120, y: 40 }, params },
           oscNode('a'),
         ],
         [
@@ -798,9 +798,9 @@ describe('modulation in the code', () => {
         ],
       )
 
-    const through = (params: Partial<SieveParams>): SieveParams => {
-      const back = roundTrip(sieved({ ...defaultSieveParams(), ...params }))!
-      return back.nodes.find((node) => node.type === 'sieve')!.params as SieveParams
+    const through = (params: Partial<HoldParams>): HoldParams => {
+      const back = roundTrip(held({ ...defaultHoldParams(), ...params }))!
+      return back.nodes.find((node) => node.type === 'hold')!.params as HoldParams
     }
 
     it('carries the run, the place in it and the odds', () => {
@@ -819,7 +819,7 @@ describe('modulation in the code', () => {
 
     it('leaves one at rest reading as one at rest', () => {
       const out = through({})
-      expect(out).toEqual(defaultSieveParams())
+      expect(out).toEqual(defaultHoldParams())
     })
 
     it('keeps the whole range of runs, up to the longest it can hold', () => {

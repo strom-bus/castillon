@@ -2,7 +2,7 @@ import { EFFECTS } from '../audio/effects'
 import { effectCost, estimatePeakLoad } from '../audio/load'
 import { LFO_SHAPES, signalTargets, silentBecause, targetsFor } from '../audio/modulation'
 import { DEGREES, type ScaleName } from '../audio/scales'
-import { defaultDelayParams, defaultFxParams, defaultOscParams } from '../nodes/registry'
+import { defaultFxParams, defaultOscParams } from '../nodes/registry'
 import type {
   Division,
   ModParams,
@@ -11,7 +11,7 @@ import type {
   Patch,
   PatchEdge,
   PatchNode,
-  SieveParams,
+  HoldParams,
   Waveform,
   WarpParams,
 } from '../types/patch'
@@ -325,21 +325,32 @@ function randomOsc(
 }
 
 /**
- * A sieve's condition.
+ * What a hold is set to do, which is now three things rather than one node's worth each.
  *
- * Never the neutral one: a rolled sieve that lets everything through is a node on the canvas doing
- * nothing, which reads as a bug in the die rather than as a choice. Runs stay short — past about four
- * the branch stops being a rhythm and becomes a surprise you wait too long for — and the odds are left
- * at certain most of the time, so what the node does is legible on the second pass rather than the
- * eighth.
+ * One at a time, mostly. A hold that is late *and* selective *and* chancy is three interruptions in one
+ * node, and a rolled patch carrying one reads as an accident rather than as a decision — the same
+ * reasoning that gives a rolled warp one dimension out of six.
+ *
+ * Never the neutral one: a rolled hold that passes everything straight through is a node on the canvas
+ * doing nothing, which looks like a bug in the die. Runs stay short — past about four the branch stops
+ * being a rhythm and becomes a surprise you wait too long for — and the odds are left at certain most of
+ * the time, so what the node does is legible on the second pass rather than the eighth.
  */
-function randomSieve(c: Chance): SieveParams {
-  const every = c.range(2, 4)
+function randomHold(c: Chance): HoldParams {
+  const doing = c.weighted([
+    // Late is commonest because it is the one that pulls two branches out of step, which is what most
+    // cascades want from this node.
+    ['late', 5],
+    ['sometimes', 3],
+    ['both', 2],
+  ] as const)
+  const every = doing === 'late' ? 1 : c.range(2, 4)
   return {
+    waitMs: doing === 'sometimes' ? 0 : c.range(120, 900, 10),
     counts: 'passes',
     every,
     offset: c.range(1, every),
-    chance: c.chance(0.25) ? c.range(50, 90, 5) / 100 : 1,
+    chance: doing !== 'late' && c.chance(0.25) ? c.range(50, 90, 5) / 100 : 1,
   }
 }
 
@@ -412,14 +423,14 @@ export function randomPatch(random: () => number = Math.random): Patch {
   const triggeredBy = new Map<string, PatchNode>()
 
   /*
-   * Sieves and whatever hangs above each one, kept so their counting can be settled later.
+   * Holds and whatever hangs above each one, kept so their counting can be settled later.
    *
    * Counting arrivals only differs from counting passes where more than one trigger reaches a node in
    * one pass, and in a rolled patch that means an oscillator above sending on every step. Which mode
    * that oscillator has is not decided until its params are rolled, further down, so the choice cannot
    * be made here — and made here anyway it would be a setting that says nothing nine times in ten.
    */
-  const sieves: { node: PatchNode; above: PatchNode }[] = []
+  const holds: { node: PatchNode; above: PatchNode }[] = []
 
   for (let cascade = 0; cascade < cascades; cascade++) {
     const originColumn = (cascade % perRow) * cascadeColumns
@@ -440,43 +451,31 @@ export function randomPatch(random: () => number = Math.random): Patch {
       const width = d === 0 ? 1 : c.range(...size.width)
       const children: PatchNode[] = []
       /*
-       * What sits between two levels, if anything. A DELAY holds a trigger and passes it late; a SIEVE
-       * holds one and passes it sometimes — siblings, and the die had only ever rolled the first of
-       * them, so a whole node never turned up in a patch nobody wired by hand.
-       *
-       * Mostly neither: both are edits to a cascade that already works, and a patch where every level
-       * is interrupted has no through-line left to hear the interruptions against.
+       * Whether a hold sits between two levels. Mostly not: it is an edit to a cascade that already
+       * works, and a patch where every level is interrupted has no through-line left to hear the
+       * interruptions against.
        */
       const between =
         d > 0
           ? c.weighted([
               ['none', 7],
-              ['delay', 2],
-              ['sieve', 1],
+              ['hold', 3],
             ] as const)
           : 'none'
-      // Whichever it is takes a row of its own, so siblings stay on one line whether or not one has it.
+      // It takes a row of its own, so siblings stay on one line whether or not one has it.
       const oscRow = row + (between === 'none' ? 0 : 1)
 
       for (let i = 0; i < width; i++) {
         const parent = c.pick(parents)
         const column = originColumn + i
 
-        // A delay between levels is what pulls two branches out of step with each other; a sieve is
-        // what takes one of them out of some of the passes altogether.
+        // A hold between levels either pulls two branches out of step with each other or takes one of
+        // them out of some of the passes altogether, depending on which way it was rolled.
         const at = { x: column * COLUMN, y: row * ROW }
         const via =
-          between === 'delay'
-            ? add({
-                type: 'delay',
-                position: at,
-                params: { ...defaultDelayParams(), delayMs: c.range(120, 900, 10) },
-              })
-            : between === 'sieve'
-              ? add({ type: 'sieve', position: at, params: randomSieve(c) })
-              : null
+          between === 'hold' ? add({ type: 'hold', position: at, params: randomHold(c) }) : null
         if (via) wire(parent, via)
-        if (via?.type === 'sieve') sieves.push({ node: via, above: parent })
+        if (via) holds.push({ node: via, above: parent })
 
         const osc = add({
           type: 'osc',
@@ -502,15 +501,18 @@ export function randomPatch(random: () => number = Math.random): Patch {
     claim(osc)
   }
 
-  for (const { node, above } of sieves) {
+  for (const { node, above } of holds) {
     /*
-     * Now that the oscillators have their modes, a sieve under one that sends on every step can be asked
+     * Now that the oscillators have their modes, a hold under one that sends on every step can be asked
      * to count what arrives rather than which pass it is — a divider on the steps, which is the one
-     * place the two readings differ. Under anything else it would be the same number by another name.
+     * place the two readings differ. Under anything else it would be the same number by another name,
+     * and on a hold that counts nothing it would be no number at all.
      */
+    const params = node.params as HoldParams
+    if ((params.every ?? 1) <= 1) continue
     if (above.type !== 'osc') continue
     if ((above.params as OscParams).propagateMode !== 'onStep') continue
-    if (c.chance(0.6)) (node.params as SieveParams).counts = 'triggers'
+    if (c.chance(0.6)) params.counts = 'triggers'
   }
 
   const wanted = Math.round(

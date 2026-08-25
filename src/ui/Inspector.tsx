@@ -25,7 +25,7 @@ import {
   sliderToCutoff,
 } from '../audio/filter'
 import { MAX_PULSE_WIDTH, MIN_PULSE_WIDTH, WAVEFORM_NAMES, WAVEFORMS } from '../audio/waveforms'
-import { DEFAULT_DELAY_MS, DEFAULT_STEP_COUNT, MAX_STEPS, MIN_STEPS } from '../nodes/registry'
+import { DEFAULT_STEP_COUNT, MAX_STEPS, MIN_STEPS } from '../nodes/registry'
 import {
   LFO_SHAPE_LABELS,
   LFO_SHAPES,
@@ -68,7 +68,7 @@ import {
   type IgniteTrigger,
   type ModParams,
   type SenseParams,
-  type SieveParams,
+  type HoldParams,
   type WarpParams,
   type StartParams,
 } from '../types/patch'
@@ -84,7 +84,7 @@ import {
   MAX_DECAY,
   MAX_EQ_DB,
   MAX_RATIO,
-  MAX_DELAY_MS,
+  MAX_WAIT_MS,
   MAX_FEEDBACK,
   MAX_RATE,
   MAX_SWEEP,
@@ -94,8 +94,6 @@ import {
   MIN_THRESHOLD,
   DIRECTIONS,
   DIRECTION_LABELS,
-  MIN_DELAY_MS,
-  type DelayParams,
   type Direction,
   type DistortionShape,
   type Division,
@@ -1524,75 +1522,103 @@ export function Inspector() {
     )
   }
 
-  if (node.type === 'sieve') {
-    const sieve = node.data.params as SieveParams
-    const every = Math.min(MAX_EVERY, Math.max(1, Math.round(sieve.every ?? 1)))
-    const offset = Math.min(every, Math.max(1, Math.round(sieve.offset ?? 1)))
-    const counts = sieve.counts ?? 'passes'
+  if (node.type === 'hold') {
+    const hold = node.data.params as HoldParams
+    const every = Math.min(MAX_EVERY, Math.max(1, Math.round(hold.every ?? 1)))
+    const offset = Math.min(every, Math.max(1, Math.round(hold.offset ?? 1)))
+    const counts = hold.counts ?? 'passes'
+    const wait = Math.max(0, Math.round(hold.waitMs ?? 0))
+    const odds = Math.round((hold.chance ?? 1) * 100)
 
     return (
       <Panel>
         <h2 className="inspector-title">
-          SIEVE <span className="node-ordinal">{ordinal}</span>
+          HOLD <span className="node-ordinal">{ordinal}</span>
         </h2>
 
-        {/* What is being counted, before how many of them. The same number in a plain chain, so this
-            changes nothing until the sieve sits under an oscillator sending on every step, below
-            several parents, or inside a loop. */}
-        <label className="inspector-field">
-          <span className="inspector-label">Counts</span>
-          <select
-            value={counts}
-            onChange={(e) =>
-              updateParams(node.id, { counts: e.target.value as SieveParams['counts'] })
-            }
-          >
-            <option value="passes">Passes</option>
-            <option value="triggers">Triggers in</option>
-          </select>
-        </label>
-
-        {/* The run first and the place in it second, which is the order the condition is read in:
-            "of every two, the first". Both start at one, which counts nothing and passes everything. */}
-        <Slider
-          label="Every"
-          value={every}
-          min={1}
-          max={MAX_EVERY}
-          step={1}
-          suffix={counts === 'triggers' ? ' triggers' : ' passes'}
-          onChange={(value) =>
-            // The place cannot outrun the run it is in: shortening one to two with the place at five
-            // would leave a node whose condition can never be met, silent with nothing saying why.
-            updateParams(node.id, { every: value, offset: Math.min(offset, value) })
-          }
-        />
-
-        {every > 1 && (
-          <Slider
-            label={counts === 'triggers' ? 'On trigger' : 'On pass'}
-            value={offset}
-            min={1}
-            max={every}
-            step={1}
-            onChange={(value) => updateParams(node.id, { offset: value })}
+        {/* Grouped as the two things it can be: **late**, and **sometimes**. They were two nodes until
+            this panel existed, and the headings are what keeps that legible — a flat list of five
+            controls would be a node nobody reads, which was the standing argument against merging them
+            at all. Late first because it is the commoner of the two and because it is the one that
+            changes the shape of a pass rather than whether there is one. */}
+        <Group title="LATE">
+          <TypedSlider
+            label="Wait"
+            value={wait}
+            min={0}
+            max={MAX_WAIT_MS}
+            step={10}
+            suffix="ms"
+            onChange={(waitMs) => updateParams(node.id, { waitMs })}
           />
-        )}
+        </Group>
 
-        <Slider
-          label="Chance"
-          value={Math.round((sieve.chance ?? 1) * 100)}
-          min={0}
-          max={100}
-          step={5}
-          suffix="%"
-          onChange={(value) => updateParams(node.id, { chance: value / 100 })}
-        />
+        <Group title="SOMETIMES">
+          {/* What is being counted, before how many of them. The same number in a plain chain, so this
+              changes nothing until the node sits under an oscillator sending on every step, below
+              several parents, or inside a loop. */}
+          <label className="inspector-field">
+            <span className="inspector-label">Counts</span>
+            <select
+              value={counts}
+              onChange={(e) =>
+                updateParams(node.id, { counts: e.target.value as HoldParams['counts'] })
+              }
+            >
+              <option value="passes">Passes</option>
+              <option value="triggers">Triggers in</option>
+            </select>
+          </label>
+
+          {/* The run first and the place in it second, which is the order the condition is read in:
+              "of every two, the first". Both start at one, which counts nothing and passes everything. */}
+          <Slider
+            label="Every"
+            value={every}
+            min={1}
+            max={MAX_EVERY}
+            step={1}
+            suffix={counts === 'triggers' ? ' triggers' : ' passes'}
+            onChange={(value) =>
+              // The place cannot outrun the run it is in: shortening one to two with the place at five
+              // would leave a node whose condition can never be met, silent with nothing saying why.
+              updateParams(node.id, { every: value, offset: Math.min(offset, value) })
+            }
+          />
+
+          {every > 1 && (
+            <Slider
+              label={counts === 'triggers' ? 'On trigger' : 'On pass'}
+              value={offset}
+              min={1}
+              max={every}
+              step={1}
+              onChange={(value) => updateParams(node.id, { offset: value })}
+            />
+          )}
+
+          <Slider
+            label="Chance"
+            value={odds}
+            min={0}
+            max={100}
+            step={5}
+            suffix="%"
+            onChange={(value) => updateParams(node.id, { chance: value / 100 })}
+          />
+        </Group>
 
         <p className="inspector-empty">
-          Holds a trigger and passes it on sometimes, the way a DELAY holds one and passes it on
-          late. Everything below it happens only on the passes this lets through.
+          Holds a trigger and lets it go — late, sometimes, or both. It makes no sound of its own
+          and changes nothing about what the branch below it plays, only whether and when it
+          happens.
         </p>
+        {wait === 0 && every === 1 && odds === 100 && (
+          <p className="inspector-empty">
+            Set to nothing, so it is a wire. Give it a Wait to pull two branches out of step, or an
+            Every to take a branch out of some of the passes.
+          </p>
+        )}
         <p className="inspector-empty">
           Two of these over the same run, on the first and the second of every two, is how two
           branches take turns.
@@ -1601,29 +1627,9 @@ export function Inspector() {
           Counting triggers instead divides whatever reaches it. Under an OSC sending on every step
           that is one arrival per step, so 1 of every 4 fires the branch on every fourth note.
         </p>
-      </Panel>
-    )
-  }
-
-  if (node.type === 'delay') {
-    const delayParams = node.data.params as DelayParams
-    return (
-      <Panel>
-        <h2 className="inspector-title">
-          DELAY <span className="node-ordinal">{ordinal}</span>
-        </h2>
-        <TypedSlider
-          label="Wait"
-          value={delayParams.delayMs ?? DEFAULT_DELAY_MS}
-          min={MIN_DELAY_MS}
-          max={MAX_DELAY_MS}
-          step={10}
-          suffix="ms"
-          onChange={(delayMs) => updateParams(node.id, { delayMs })}
-        />
         <p className="inspector-empty">
-          Holds the trigger and passes it on later. It makes no sound of its own — it shifts when
-          the branch below it starts, so it is how two branches are pulled out of step.
+          A pass it withholds is never waited for either, so a branch that does not happen costs the
+          cascade no length.
         </p>
       </Panel>
     )

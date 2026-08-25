@@ -1,14 +1,14 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { defaultOscParams, defaultSieveParams } from '../nodes/registry'
-import type { NodeId, Patch, PatchEdge, PatchNode, SieveParams } from '../types/patch'
+import { defaultOscParams, defaultHoldParams } from '../nodes/registry'
+import type { NodeId, Patch, PatchEdge, PatchNode, HoldParams } from '../types/patch'
 import { ActivityBus } from '../viz/activity'
 import type { Engine, NoteRequest } from './engine'
 import { CascadeScheduler } from './scheduler'
 
 /**
- * A SIEVE counting the triggers that reach it rather than the passes of the cascade.
+ * A HOLD counting the triggers that reach it rather than the passes of the cascade.
  *
- * The arithmetic is the same function either way — `sieve.test.ts` owns that. What is at stake here is
+ * The arithmetic is the same function either way — `hold.test.ts` owns that. What is at stake here is
  * *which number* it is handed, and the two only come apart in the places this instrument is unusual:
  * under an oscillator sending on every step, and inside a loop. So every test here is the same patch
  * twice, changing nothing but what is counted, and asserting the two disagree.
@@ -60,12 +60,12 @@ function build(patch: Patch) {
 /** A step lasts 0.25 s at 120 BPM on a 1/8 division, which is what every count below is read against. */
 const STEP = 0.25
 
-function sieve(id: NodeId, params: Partial<SieveParams>): PatchNode {
+function hold(id: NodeId, params: Partial<HoldParams>): PatchNode {
   return {
     id,
-    type: 'sieve',
+    type: 'hold',
     position: { x: 0, y: 0 },
-    params: { ...defaultSieveParams(), ...params },
+    params: { ...defaultHoldParams(), ...params },
   }
 }
 
@@ -98,12 +98,12 @@ function voice(id: NodeId): PatchNode {
 }
 
 /**
- * Runs a sender of `steps` steps over a sieve, and reports which arrivals got through.
+ * Runs a sender of `steps` steps over a hold, and reports which arrivals got through.
  *
  * As step numbers counted from one across the whole run, so a pattern that restarts every pass and one
  * that carries on are different lists rather than the same one read twice.
  */
-function through(steps: number, params: Partial<SieveParams>, seconds: number): number[] {
+function through(steps: number, params: Partial<HoldParams>, seconds: number): number[] {
   const patch: Patch = {
     version: 1,
     bpm: 120,
@@ -111,7 +111,7 @@ function through(steps: number, params: Partial<SieveParams>, seconds: number): 
     nodes: [
       { id: 's', type: 'start', position: { x: 0, y: 0 }, params: {} },
       sender('top', steps),
-      sieve('g', params),
+      hold('g', params),
       voice('v'),
     ],
     edges: [edge('s', 'top'), edge('top', 'g'), edge('g', 'v')],
@@ -131,7 +131,7 @@ beforeEach(() => {
   engine = new FakeEngine()
 })
 
-describe('a sieve counting the triggers that reach it', () => {
+describe('a hold counting the triggers that reach it', () => {
   it('divides the steps, where counting passes divides the passes', () => {
     /*
      * The whole point, said as one comparison. Four steps handing a branch four triggers a pass: counting
@@ -159,7 +159,7 @@ describe('a sieve counting the triggers that reach it', () => {
 
   it('is the same as counting passes where a pass brings one trigger', () => {
     // Which is what makes it safe to offer at all: in a plain chain the setting is not a choice, so
-    // nobody has to understand it before they can use a SIEVE.
+    // nobody has to understand it before they can use a HOLD.
     const byPass = through(1, { every: 3, offset: 2, counts: 'passes' }, 4)
     const byTrigger = through(1, { every: 3, offset: 2, counts: 'triggers' }, 4)
     expect(byTrigger).toEqual(byPass)
@@ -193,7 +193,7 @@ describe('a sieve counting the triggers that reach it', () => {
         // A run of three rather than two, because a play consuming an even number of triggers would
         // leave a carried-over count on the same parity and the second play would agree by luck.
         // Deleting the clear left exactly that test green.
-        sieve('g', { every: 3, offset: 1, counts: 'triggers' }),
+        hold('g', { every: 3, offset: 1, counts: 'triggers' }),
         voice('v'),
       ],
       edges: [edge('s', 'top'), edge('top', 'g'), edge('g', 'v')],
@@ -221,7 +221,7 @@ describe('a sieve counting the triggers that reach it', () => {
   it('counts again from the start when the patch is edited under it', () => {
     /*
      * An edit rebuilds every chain, so the pass count goes back to one; this has to go back with it or
-     * the two disagree about how far along the piece is, and a SIEVE would answer differently after a
+     * the two disagree about how far along the piece is, and a HOLD would answer differently after a
      * change that had nothing to do with it.
      */
     const patch: Patch = {
@@ -231,7 +231,7 @@ describe('a sieve counting the triggers that reach it', () => {
       nodes: [
         { id: 's', type: 'start', position: { x: 0, y: 0 }, params: {} },
         sender('top', 3),
-        sieve('g', { every: 3, offset: 1, counts: 'triggers' }),
+        hold('g', { every: 3, offset: 1, counts: 'triggers' }),
         voice('v'),
       ],
       edges: [edge('s', 'top'), edge('top', 'g'), edge('g', 'v')],
@@ -254,19 +254,19 @@ describe('a sieve counting the triggers that reach it', () => {
   })
 })
 
-describe('a sieve inside a loop, where a pass has stopped meaning anything', () => {
+describe('a hold inside a loop, where a pass has stopped meaning anything', () => {
   /**
-   * A cycle: the sieve feeds an oscillator that feeds it back. The cascade cuts at `MAX_DEPTH`, so the
+   * A cycle: the hold feeds an oscillator that feeds it back. The cascade cuts at `MAX_DEPTH`, so the
    * node is reached many times in one pass and `lap` is the same number for every one of them.
    */
-  function cycled(params: Partial<SieveParams>): number {
+  function cycled(params: Partial<HoldParams>): number {
     const patch: Patch = {
       version: 1,
       bpm: 120,
       loop: false,
       nodes: [
         { id: 's', type: 'start', position: { x: 0, y: 0 }, params: {} },
-        sieve('g', params),
+        hold('g', params),
         voice('v'),
       ],
       edges: [edge('s', 'g'), edge('g', 'v'), edge('v', 'g')],
@@ -280,7 +280,7 @@ describe('a sieve inside a loop, where a pass has stopped meaning anything', () 
 
   it('thins the loop, which counting passes cannot do', () => {
     /*
-     * Every arrival inside one pass carries the same lap, so a sieve counting passes is all-or-nothing
+     * Every arrival inside one pass carries the same lap, so a hold counting passes is all-or-nothing
      * in a cycle: it either lets the loop run to the depth cap or stops it dead. Counting arrivals is a
      * real division of it — which is the difference between a setting that works in a loop and one that
      * happens not to crash there.
@@ -290,7 +290,7 @@ describe('a sieve inside a loop, where a pass has stopped meaning anything', () 
     const byTrigger = cycled({ every: 2, offset: 1, counts: 'triggers' })
 
     expect(all).toBeGreaterThan(4)
-    // The pass the loop starts on is the sieve's own, so counting passes changes nothing whatever.
+    // The pass the loop starts on is the hold's own, so counting passes changes nothing whatever.
     expect(byPass).toBe(all)
     expect(byTrigger).toBeLessThan(all)
     expect(byTrigger).toBeGreaterThan(0)
@@ -298,7 +298,7 @@ describe('a sieve inside a loop, where a pass has stopped meaning anything', () 
 
   it('still ends, because counting waits for nothing', () => {
     // The failure a JOIN would have had. A node that counts can be starved of triggers but never held
-    // by one, so the pass ends on the depth cap exactly as it does without a sieve in the loop.
+    // by one, so the pass ends on the depth cap exactly as it does without a hold in the loop.
     expect(cycled({ every: 3, offset: 1, counts: 'triggers' })).toBeGreaterThan(0)
     expect(cycled({ every: 3, offset: 1, counts: 'triggers' })).toBeLessThan(20)
   })

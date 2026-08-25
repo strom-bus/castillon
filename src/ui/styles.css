@@ -524,7 +524,7 @@ input[type='range'] {
   border-color: var(--accent);
 }
 
-/* ---------- Delay ---------- */
+/* ---------- Hold ---------- */
 
 .delay-body {
   display: flex;
@@ -540,6 +540,34 @@ input[type='range'] {
   letter-spacing: 0.02em;
   text-align: center;
   color: var(--text);
+}
+
+/* Everything the node is doing, on one line, each part shown only where it is doing it. Centred and
+   allowed to wrap, since a hold that is both late and selective carries two readings and a node that
+   clipped one of them would be lying by omission. */
+.hold-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* Beside the number rather than in the header, so the header is free for the odds. */
+.hold-unit {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin-left: 3px;
+}
+
+/* What a hold set to nothing is: a wire. Muted, because it is the node saying it is not doing anything
+   rather than a value it holds. */
+.hold-thru {
+  font-family: var(--display);
+  font-size: 14px;
+  letter-spacing: 0.1em;
+  color: var(--muted);
 }
 
 .delay-track {
@@ -1128,18 +1156,11 @@ input[type='range'] {
   width: 100%;
 }
 
-/* ---------- SIEVE ---------- */
+/* ---------- HOLD ---------- */
 
 /* The condition, read at rest: which passes are this node's is the whole of what it does, so it is on
-   the node rather than only in the panel. Sized like a delay's number, which is its sibling. */
-.sieve-body {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 6px 10px 10px;
-}
-
-.sieve-value {
+   the node rather than only in the panel. */
+.hold-count {
   font-family: var(--display);
   font-size: 18px;
   letter-spacing: 0.04em;

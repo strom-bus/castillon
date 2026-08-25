@@ -1,21 +1,21 @@
 import { describe, expect, it } from 'vitest'
-import { defaultSieveParams, sieveLetsThrough } from '../nodes/registry'
-import { MAX_EVERY, type SieveParams } from '../types/patch'
+import { defaultHoldParams, holdLetsThrough } from '../nodes/registry'
+import { MAX_EVERY, type HoldParams } from '../types/patch'
 
 /**
- * Which passes belong to a sieve.
+ * Which passes belong to a hold.
  *
  * The cascade has no bar, so a pass is the only thing that recurs — and this is the arithmetic that turns
  * counting them into a musical idea. Tested apart from the scheduler because it is a pure question about
  * numbers, and because the thing that would go wrong in it is off-by-one in three different places.
  */
 
-const at = (params: Partial<SieveParams>, laps: number) =>
+const at = (params: Partial<HoldParams>, laps: number) =>
   Array.from({ length: laps }, (_, i) =>
-    sieveLetsThrough({ ...defaultSieveParams(), ...params }, i + 1),
+    holdLetsThrough({ ...defaultHoldParams(), ...params }, i + 1),
   )
 
-describe('a sieve counting passes', () => {
+describe('a hold counting passes', () => {
   it('lets everything through until it is asked not to', () => {
     // Where it starts. Dropping one into a chain has to be no change at all, the same promise a warp
     // makes — otherwise adding one is an edit to undo rather than an edit to make.
@@ -28,7 +28,7 @@ describe('a sieve counting passes', () => {
 
   it('takes the other half at the same run, which is how two branches alternate', () => {
     /*
-     * Alternation with no feature of its own: two sieves over the same run, disagreeing about which
+     * Alternation with no feature of its own: two holds over the same run, disagreeing about which
      * passes are theirs. Asserted as the *complement*, because that is the property that makes it
      * alternation rather than two things that merely both happen sometimes.
      */
@@ -43,9 +43,9 @@ describe('a sieve counting passes', () => {
      * screen as 0:2, which is the arithmetic showing through — and the modulo has to be taken twice,
      * since `lap - offset` goes negative on the early passes and JavaScript keeps the sign there.
      */
-    expect(sieveLetsThrough({ every: 2, offset: 1, chance: 1 }, 1)).toBe(true)
-    expect(sieveLetsThrough({ every: 4, offset: 3, chance: 1 }, 1)).toBe(false)
-    expect(sieveLetsThrough({ every: 4, offset: 3, chance: 1 }, 3)).toBe(true)
+    expect(holdLetsThrough({ every: 2, offset: 1, chance: 1 }, 1)).toBe(true)
+    expect(holdLetsThrough({ every: 4, offset: 3, chance: 1 }, 1)).toBe(false)
+    expect(holdLetsThrough({ every: 4, offset: 3, chance: 1 }, 3)).toBe(true)
   })
 
   it('divides a longer run without drifting', () => {
@@ -71,7 +71,7 @@ describe('a sieve counting passes', () => {
 
   it('is unmoved by a fractional or absent setting', () => {
     // A patch code stores whole numbers, but a hand-built patch need not.
-    expect(sieveLetsThrough({ every: 2.4, offset: 1.4, chance: 1 }, 3)).toBe(true)
-    expect(sieveLetsThrough({} as SieveParams, 7)).toBe(true)
+    expect(holdLetsThrough({ every: 2.4, offset: 1.4, chance: 1 }, 3)).toBe(true)
+    expect(holdLetsThrough({} as HoldParams, 7)).toBe(true)
   })
 })

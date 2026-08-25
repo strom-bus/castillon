@@ -6,7 +6,7 @@
  * got wired beside that cable instead, and then the node under it fired twice with the untransposed pass
  * masking the moved one.
  *
- * The gesture stayed for the delay, which has the same problem and always did. A doubled delay is heard
+ * The gesture stayed for the hold, which has the same problem and always did. A doubled wait is heard
  * as an echo, so it got away with it for a long time.
  */
 
@@ -39,7 +39,7 @@ describe('a node dropped on a cable', () => {
   it('takes the place of it, joined to both ends', () => {
     const cable = eventEdges()[1]!
     const { source, target } = cable
-    const id = dropOn('delay', cable.id)
+    const id = dropOn('hold', cable.id)
 
     const now = eventEdges()
     expect(now.some((e) => e.id === cable.id)).toBe(false)
@@ -52,7 +52,7 @@ describe('a node dropped on a cable', () => {
       store().resetPatch()
       const here = store().edges.find((e) => e.source === cable.source && e.target === cable.target)
       if (!here) continue
-      const id = dropOn('delay', here.id)
+      const id = dropOn('hold', here.id)
       const now = eventEdges()
       expect(
         now.some((e) => e.target === id),
@@ -72,7 +72,7 @@ describe('a node dropped on a cable', () => {
       store().resetPatch()
       const here = store().edges.find((e) => e.source === cable.source && e.target === cable.target)
       if (!here) continue
-      const id = dropOn('delay', here.id)
+      const id = dropOn('hold', here.id)
       expect(
         eventEdges().some((e) => e.source === id),
         `${cable.source}->${cable.target}`,

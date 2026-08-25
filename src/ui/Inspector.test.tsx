@@ -3,33 +3,27 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { SIGNAL_LEFT, SIGNAL_RIGHT } from '../state/connections'
 import { usePatchStore } from '../state/patchStore'
-import {
-  MAX_DELAY_MS,
-  MIN_DELAY_MS,
-  type DelayParams,
-  type OscParams,
-  type WarpParams,
-} from '../types/patch'
+import { MAX_WAIT_MS, type HoldParams, type OscParams, type WarpParams } from '../types/patch'
 import { Inspector } from './Inspector'
 
-function selectDelay(): string {
-  const delay = usePatchStore.getState().nodes.find((n) => n.type === 'delay')!
-  usePatchStore.getState().select(delay.id)
-  return delay.id
+function selectHold(): string {
+  const hold = usePatchStore.getState().nodes.find((n) => n.type === 'hold')!
+  usePatchStore.getState().select(hold.id)
+  return hold.id
 }
 
 function wait(id: string): number {
   const node = usePatchStore.getState().nodes.find((n) => n.id === id)!
-  return (node.data.params as DelayParams).delayMs
+  return (node.data.params as HoldParams).waitMs ?? 0
 }
 
 beforeEach(() => {
   usePatchStore.getState().resetPatch()
 })
 
-describe('the delay wait', () => {
+describe('a hold’s wait', () => {
   it('can be typed instead of dragged', () => {
-    const id = selectDelay()
+    const id = selectHold()
     render(<Inspector />)
 
     fireEvent.change(screen.getByLabelText('Wait'), { target: { value: '1250' } })
@@ -37,44 +31,47 @@ describe('the delay wait', () => {
   })
 
   it('can be typed digit by digit without the field fighting back', () => {
-    const id = selectDelay()
+    const id = selectHold()
     const before = wait(id)
     render(<Inspector />)
     const input = screen.getByLabelText('Wait') as HTMLInputElement
 
-    // "1" is below the minimum wait, so it must be held rather than clamped mid-word.
-    fireEvent.change(input, { target: { value: '1' } })
-    expect(input.value).toBe('1')
+    // Past the top of the range mid-word, which must be held rather than clamped under the cursor —
+    // otherwise reaching 4000 by typing is impossible, since 40000 has to be passed through on the way
+    // to backspacing it.
+    fireEvent.change(input, { target: { value: '40000' } })
+    expect(input.value).toBe('40000')
     expect(wait(id)).toBe(before)
 
-    fireEvent.change(input, { target: { value: '18' } })
-    fireEvent.change(input, { target: { value: '180' } })
-    expect(wait(id)).toBe(180)
+    fireEvent.change(input, { target: { value: '4000' } })
+    expect(wait(id)).toBe(4000)
   })
 
   it('clamps out-of-range typing on blur', () => {
-    const id = selectDelay()
+    const id = selectHold()
     render(<Inspector />)
     const input = screen.getByLabelText('Wait')
 
     fireEvent.change(input, { target: { value: '99999' } })
     fireEvent.blur(input, { target: { value: '99999' } })
-    expect(wait(id)).toBe(MAX_DELAY_MS)
+    expect(wait(id)).toBe(MAX_WAIT_MS)
 
-    fireEvent.change(input, { target: { value: '1' } })
-    fireEvent.blur(input, { target: { value: '1' } })
-    expect(wait(id)).toBe(MIN_DELAY_MS)
+    // And nought is *in* range rather than clamped up: no wait is what a hold starts at, and it is the
+    // node passing the trigger straight on.
+    fireEvent.change(input, { target: { value: '0' } })
+    fireEvent.blur(input, { target: { value: '0' } })
+    expect(wait(id)).toBe(0)
   })
 
   it('still has a working slider beside the field', () => {
-    const id = selectDelay()
+    const id = selectHold()
     render(<Inspector />)
     fireEvent.change(screen.getByLabelText('Wait slider'), { target: { value: '2000' } })
     expect(wait(id)).toBe(2000)
   })
 
   it('keeps the current wait if the field is emptied', () => {
-    const id = selectDelay()
+    const id = selectHold()
     const before = wait(id)
     render(<Inspector />)
     const input = screen.getByLabelText('Wait')

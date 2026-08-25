@@ -15,7 +15,7 @@ describe('the starting patch', () => {
     expect(patch.loop).toBe(true)
     expect(patch.nodes.filter((n) => n.type === 'start')).toHaveLength(2)
     expect(patch.nodes.filter((n) => n.type === 'osc')).toHaveLength(5)
-    expect(patch.nodes.filter((n) => n.type === 'delay')).toHaveLength(1)
+    expect(patch.nodes.filter((n) => n.type === 'hold')).toHaveLength(1)
     expect(patch.edges).toHaveLength(6)
   })
 

@@ -1,14 +1,14 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { defaultSieveParams, defaultOscParams } from '../nodes/registry'
+import { defaultHoldParams, defaultOscParams } from '../nodes/registry'
 import {
-  MAX_DELAY_MS,
+  MAX_WAIT_MS,
   MAX_RATCHET,
   MAX_SLOP,
   type NodeId,
   type OscParams,
   type Patch,
   type PatchEdge,
-  type SieveParams,
+  type HoldParams,
   type WarpParams,
   type PatchNode,
   type Step,
@@ -76,8 +76,8 @@ function osc(id: string): PatchNode {
   return { id, type: 'osc', position: { x: 0, y: 0 }, params: defaultOscParams() }
 }
 
-function delayNode(id: string, delayMs: number): PatchNode {
-  return { id, type: 'delay', position: { x: 0, y: 0 }, params: { delayMs } }
+function holdNode(id: string, waitMs: number): PatchNode {
+  return { id, type: 'hold', position: { x: 0, y: 0 }, params: { waitMs } }
 }
 
 function edge(source: string, target: string): PatchEdge {
@@ -295,12 +295,12 @@ describe('CascadeScheduler', () => {
   })
 })
 
-describe('delay node', () => {
+describe('hold node', () => {
   it('pushes the branch below it back by its wait', () => {
     const patch = patchOf(
       [
         { id: 's', type: 'start', position: { x: 0, y: 0 }, params: {} },
-        delayNode('d', 750),
+        holdNode('d', 750),
         osc('a'),
       ],
       [edge('s', 'd'), edge('d', 'a')],
@@ -319,7 +319,7 @@ describe('delay node', () => {
 
   it('makes no sound of its own', () => {
     const patch = patchOf(
-      [{ id: 's', type: 'start', position: { x: 0, y: 0 }, params: {} }, delayNode('d', 200)],
+      [{ id: 's', type: 'start', position: { x: 0, y: 0 }, params: {} }, holdNode('d', 200)],
       [edge('s', 'd')],
     )
     const scheduler = build(patch)
@@ -331,7 +331,7 @@ describe('delay node', () => {
 
   it('flashes for exactly as long as it waits, which is what drives the progress bar', () => {
     const patch = patchOf(
-      [{ id: 's', type: 'start', position: { x: 0, y: 0 }, params: {} }, delayNode('d', 1200)],
+      [{ id: 's', type: 'start', position: { x: 0, y: 0 }, params: {} }, holdNode('d', 1200)],
       [edge('s', 'd')],
     )
     const scheduler = build(patch)
@@ -347,7 +347,7 @@ describe('delay node', () => {
       [
         { id: 's', type: 'start', position: { x: 0, y: 0 }, params: {} },
         osc('a'),
-        delayNode('d', 500),
+        holdNode('d', 500),
       ],
       [edge('s', 'a'), edge('a', 'd')],
       true,
@@ -369,14 +369,14 @@ describe('delay node', () => {
 
   it('clamps an out-of-range wait instead of trusting the patch', () => {
     const patch = patchOf(
-      [{ id: 's', type: 'start', position: { x: 0, y: 0 }, params: {} }, delayNode('d', 999999)],
+      [{ id: 's', type: 'start', position: { x: 0, y: 0 }, params: {} }, holdNode('d', 999999)],
       [edge('s', 'd')],
     )
     const scheduler = build(patch)
     scheduler.start()
     scheduler.drain(100)
     const flash = events.find((e) => e.kind === 'node' && e.id === 'd')
-    expect(flash?.duration).toBeCloseTo(MAX_DELAY_MS / 1000, 6)
+    expect(flash?.duration).toBeCloseTo(MAX_WAIT_MS / 1000, 6)
     scheduler.stop()
   })
 })
@@ -490,7 +490,7 @@ describe('replacing the whole patch', () => {
     // with, so a trigger in flight can land on a node that exists in the new patch and sound a note
     // nobody asked for. The long delay parks exactly such a trigger beyond the horizon.
     const held = patchOf(
-      [start('s1'), delayNode('d', 2000), osc('a')],
+      [start('s1'), holdNode('d', 2000), osc('a')],
       [edge('s1', 'd'), edge('d', 'a')],
     )
     const { scheduler, holder } = buildSwappable(held)
@@ -1608,22 +1608,22 @@ describe('swing and slop on the oscillator', () => {
 })
 
 /**
- * A SIEVE in a running cascade, which is the lap counter earning its keep.
+ * A HOLD in a running cascade, which is the lap counter earning its keep.
  *
- * The arithmetic is tested on its own in `sieve.test.ts`; what is checked here is that a pass is counted
+ * The arithmetic is tested on its own in `hold.test.ts`; what is checked here is that a pass is counted
  * at all — each one gets a fresh chain id, so the count has to be handed on when a chain settles rather
  * than kept against its id, and getting that wrong would leave every pass believing it were the first.
  */
-describe('a sieve deciding which passes happen', () => {
-  /** Notes played over several laps, with a sieve between the Ignite and the oscillator. */
-  function overLaps(params: Partial<SieveParams>, seconds: number) {
+describe('a hold deciding which passes happen', () => {
+  /** Notes played over several laps, with a hold between the Ignite and the oscillator. */
+  function overLaps(params: Partial<HoldParams>, seconds: number) {
     const nodes: PatchNode[] = [
       { id: 's', type: 'start', position: { x: 0, y: 0 }, params: {} },
       {
         id: 'g',
-        type: 'sieve',
+        type: 'hold',
         position: { x: 0, y: 0 },
-        params: { ...defaultSieveParams(), ...params },
+        params: { ...defaultHoldParams(), ...params },
       },
       {
         id: 'o',
@@ -1651,7 +1651,7 @@ describe('a sieve deciding which passes happen', () => {
     /*
      * The check the whole lap counter exists for. Each pass builds a new chain with a new id, so if the
      * count were kept against the id rather than handed on at `settle`, every pass would believe it were
-     * the first — and a sieve at 1:2 would pass all of them.
+     * the first — and a hold at 1:2 would pass all of them.
      */
     const all = overLaps({}, 8)
     const half = overLaps({ every: 2, offset: 1 }, 8)
@@ -1661,7 +1661,7 @@ describe('a sieve deciding which passes happen', () => {
   })
 
   it('lets nothing through on the passes that are not its own', () => {
-    // Two sieves over the same run take opposite passes, so between them they take all of them and
+    // Two holds over the same run take opposite passes, so between them they take all of them and
     // neither takes any twice.
     const first = overLaps({ every: 2, offset: 1 }, 8)
     const second = overLaps({ every: 2, offset: 2 }, 8)
@@ -1678,19 +1678,19 @@ describe('a sieve deciding which passes happen', () => {
      * The rule that makes any of this musical, and it was not there when the node was written: **a pass
      * must not get shorter because part of it did not happen.**
      *
-     * A blocked sieve costs its branch nothing, so a cascade whose only branch is sieved out has nothing
+     * A blocked hold costs its branch nothing, so a cascade whose only branch is withheld has nothing
      * left to wait for — the pass ended at once and came round again immediately, and a branch set to
      * every other pass fired at irregular intervals rather than alternating. The floor is the previous
      * pass's length, so a skipped one takes as long as the one before it.
      */
-    const times = (params: Partial<SieveParams>) => {
+    const times = (params: Partial<HoldParams>) => {
       const nodes: PatchNode[] = [
         { id: 's', type: 'start', position: { x: 0, y: 0 }, params: {} },
         {
           id: 'g',
-          type: 'sieve',
+          type: 'hold',
           position: { x: 0, y: 0 },
-          params: { ...defaultSieveParams(), ...params },
+          params: { ...defaultHoldParams(), ...params },
         },
         {
           id: 'o',
@@ -1719,7 +1719,7 @@ describe('a sieve deciding which passes happen', () => {
 
   it('costs the cascade no length, so the laps keep their shape', () => {
     /*
-     * A sieve ends where it begins — it holds nothing back in time, only sometimes in fact. If it took
+     * A hold ends where it begins — it holds nothing back in time, only sometimes in fact. If it took
      * any length, a branch that did not happen would shorten the pass and the cycle would breathe
      * differently depending on a coin toss, which is the one thing it must not do.
      */
@@ -1729,6 +1729,161 @@ describe('a sieve deciding which passes happen', () => {
     // With the branch silent the cascade still comes round at the same rate, so the run that *does*
     // sound is unchanged in count.
     expect(overLaps({ every: 2, offset: 1 }, 8)).toBeCloseTo(Math.ceil(straight / 2), 0)
+  })
+})
+
+/**
+ * The two halves of a HOLD together, which is the whole reason it is one node.
+ *
+ * Late and selective were two nodes until they were merged, and everything above tests one at a time.
+ * What only exists now is their meeting: a node that waits *and* decides, and the order those two are
+ * asked in.
+ */
+describe('a hold doing both at once', () => {
+  /** The times a note sounded, over a looping cascade with one hold above the oscillator. */
+  function times(params: Partial<HoldParams>, seconds = 8) {
+    const nodes: PatchNode[] = [
+      { id: 's', type: 'start', position: { x: 0, y: 0 }, params: {} },
+      {
+        id: 'g',
+        type: 'hold',
+        position: { x: 0, y: 0 },
+        params: { ...defaultHoldParams(), ...params },
+      },
+      {
+        id: 'o',
+        type: 'osc',
+        position: { x: 0, y: 0 },
+        params: { ...defaultOscParams(), steps: [{ note: 60, active: true, velocity: 1 }] },
+      },
+    ]
+    const scheduler = build(patchOf(nodes, [edge('s', 'g'), edge('g', 'o')], true))
+    scheduler.start()
+    scheduler.drain(seconds)
+    scheduler.stop()
+    return engine.notes.map((note) => note.time)
+  }
+
+  it('arrives as a wire, which is what a DELAY never did', () => {
+    /*
+     * The one behaviour the merge deliberately changed, and the argument that had been standing against
+     * merging at all. A DELAY defaulted to half a second, so dropping one in was an edit to *undo*; every
+     * other node here arrives doing nothing. Asserted against the node's own defaults rather than against
+     * a written-down zero, so a default put back would fail here rather than pass quietly.
+     */
+    const wired = times({})
+    const straight = (() => {
+      const nodes: PatchNode[] = [
+        { id: 's', type: 'start', position: { x: 0, y: 0 }, params: {} },
+        {
+          id: 'o',
+          type: 'osc',
+          position: { x: 0, y: 0 },
+          params: { ...defaultOscParams(), steps: [{ note: 60, active: true, velocity: 1 }] },
+        },
+      ]
+      const scheduler = build(patchOf(nodes, [edge('s', 'o')], true))
+      scheduler.start()
+      scheduler.drain(8)
+      scheduler.stop()
+      return engine.notes.map((note) => note.time)
+    })()
+
+    expect(wired.length).toBe(straight.length)
+    for (let i = 0; i < wired.length; i++) {
+      expect(wired[i], `note ${i}`).toBeCloseTo(straight[i]!, 6)
+    }
+  })
+
+  it('waits on the passes it takes and drops the rest, in one node', () => {
+    // What needed two nodes in a row before: every other pass, and late.
+    const both = times({ waitMs: 300, every: 2, offset: 1 })
+    const selective = times({ every: 2, offset: 1 })
+    expect(both.length).toBeGreaterThan(1)
+    expect(selective.length).toBeGreaterThan(1)
+
+    // The first note it lets through is its wait later than the same condition without one.
+    expect(both[0]! - selective[0]!).toBeCloseTo(0.3, 6)
+
+    /*
+     * And the gap between the notes that sound grows by *twice* the wait, which is the two rules meeting.
+     * The wait lengthens the pass it happens on; the pass it skips takes as long as the one before it,
+     * which is now that longer one. So two passes apart is two waits later.
+     */
+    const straight = selective[1]! - selective[0]!
+    expect(both[1]! - both[0]!).toBeCloseTo(straight + 0.6, 6)
+  })
+
+  it('does not wait for a trigger it drops', () => {
+    /*
+     * The order the two conditions are asked in, and it is not arbitrary: a trigger this node withholds
+     * is never waited for, because there is nothing left to wait for. Ask the wait first and a pass it
+     * drops would cost the cascade the whole wait for nothing.
+     *
+     * Measured on a hold that drops *everything*, where the wait can have no other effect: the passes
+     * themselves have to come round at the same rate whether the wait is nought or nearly a second.
+     */
+    const passes = (params: Partial<HoldParams>) => {
+      const nodes: PatchNode[] = [
+        { id: 's', type: 'start', position: { x: 0, y: 0 }, params: {} },
+        {
+          id: 'g',
+          type: 'hold',
+          position: { x: 0, y: 0 },
+          params: { ...defaultHoldParams(), chance: 0, ...params },
+        },
+        {
+          id: 'o',
+          type: 'osc',
+          position: { x: 0, y: 0 },
+          params: { ...defaultOscParams(), steps: [{ note: 60, active: true, velocity: 1 }] },
+        },
+      ]
+      const scheduler = build(patchOf(nodes, [edge('s', 'g'), edge('g', 'o')], true))
+      scheduler.start()
+      scheduler.drain(8)
+      scheduler.stop()
+      return events.filter((e) => e.kind === 'node' && e.id === 's').map((e) => e.time)
+    }
+
+    const instant = passes({})
+    const patient = passes({ waitMs: 900 })
+    expect(instant.length).toBeGreaterThan(2)
+    expect(patient.length).toBe(instant.length)
+    for (let i = 0; i < patient.length; i++) {
+      expect(patient[i], `pass ${i}`).toBeCloseTo(instant[i]!, 6)
+    }
+  })
+
+  it('flashes only on the passes it takes, and for as long as it holds them', () => {
+    // The two rules the two nodes had, and they compose: a sieve lit on its own passes, a delay lit for
+    // its wait. Together it is lit for the wait on the passes that are its own and dark on the others.
+    const nodes: PatchNode[] = [
+      { id: 's', type: 'start', position: { x: 0, y: 0 }, params: {} },
+      {
+        id: 'g',
+        type: 'hold',
+        position: { x: 0, y: 0 },
+        params: { ...defaultHoldParams(), waitMs: 400, every: 2, offset: 1 },
+      },
+      {
+        id: 'o',
+        type: 'osc',
+        position: { x: 0, y: 0 },
+        params: { ...defaultOscParams(), steps: [{ note: 60, active: true, velocity: 1 }] },
+      },
+    ]
+    const scheduler = build(patchOf(nodes, [edge('s', 'g'), edge('g', 'o')], true))
+    scheduler.start()
+    scheduler.drain(8)
+    scheduler.stop()
+
+    const lit = events.filter((e) => e.kind === 'node' && e.id === 'g')
+    const passes = events.filter((e) => e.kind === 'node' && e.id === 's')
+    expect(lit.length).toBeGreaterThan(1)
+    // Half the passes, not all of them.
+    expect(lit.length).toBeLessThan(passes.length)
+    for (const flash of lit) expect(flash.duration).toBeCloseTo(0.4, 6)
   })
 })
 

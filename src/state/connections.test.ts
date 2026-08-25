@@ -21,7 +21,7 @@ const nodes = [
   { id: 'g', type: 'fx' },
   // A third, so a loop can be tested the long way round as well as straight back.
   { id: 'h', type: 'fx' },
-  { id: 'd', type: 'delay' },
+  { id: 'd', type: 'hold' },
 ]
 
 const rules = (
@@ -280,7 +280,7 @@ describe('canConnect', () => {
 /**
  * What a WARP may attach to, which is the rule that went wrong.
  *
- * It read `start`, `osc`, `delay` for four commits and two of those were nodes with nothing a warp can
+ * It read `start`, `osc`, `hold` for four commits and two of those were nodes with nothing a warp can
  * bend. Worse, the canvas had no side port on either, so the cable was refused when drawn by hand and
  * invisible when it arrived in a built patch — the fault surfaced only because a warp rolled by the dice
  * came out looking unwired.
@@ -301,9 +301,9 @@ describe('what a warp attaches to', () => {
     expect(permits('warp', 'start', 'warp')).toBe(false)
   })
 
-  it('will not go onto a DELAY either, whose wait no ratio scales', () => {
+  it('will not go onto a HOLD either, whose wait no ratio scales', () => {
     expect(canConnect(rules(), audio('w', 'd'))).toBe(false)
-    expect(permits('warp', 'delay', 'warp')).toBe(false)
+    expect(permits('warp', 'hold', 'warp')).toBe(false)
   })
 
   it('will not go onto an effect, which plays nothing of its own', () => {

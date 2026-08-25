@@ -3,13 +3,12 @@ import type { CSSProperties } from 'react'
 import { FILTER_LABELS } from '../audio/filter'
 import { WAVEFORM_LABELS } from '../audio/waveforms'
 import { EFFECTS } from '../audio/effects'
-import { DEFAULT_DELAY_MS } from '../nodes/registry'
 import { EVENT_IN, EVENT_OUT, EVENT_UP, SIGNAL_LEFT, SIGNAL_RIGHT } from '../state/connections'
 import { formatOrdinal, nodeOrdinal } from '../state/ordinals'
 import { usePatchStore, type FlowNode } from '../state/patchStore'
 import { targetOf } from '../audio/modulation'
 import type {
-  DelayParams,
+  HoldParams,
   WarpParams,
   EffectKind,
   FxParams,
@@ -17,7 +16,6 @@ import type {
   OscParams,
   StartParams,
   SenseParams,
-  SieveParams,
 } from '../types/patch'
 import { useNodeColors, type NodeColors } from '../viz/depth'
 import { useAnyNodeActivity, useNodeActivity } from '../viz/useActivity'
@@ -494,71 +492,76 @@ export function SenseNode({ id, data, selected }: NodeProps<FlowNode>) {
   )
 }
 
-export function SieveNode({ id, data, selected }: NodeProps<FlowNode>) {
-  const { pulsing } = useNodeActivity(id)
-  const colors = useNodeColors(id)
-  const ordinal = useOrdinal(id)
-  const params = data.params as SieveParams
-  const every = Math.max(1, Math.round(params.every ?? 1))
-  const offset = Math.min(every, Math.max(1, Math.round(params.offset ?? 1)))
-  const odds = Math.round((params.chance ?? 1) * 100)
-
-  return (
-    <div
-      className={`node node-sieve${pulsing ? ' pulsing' : ''}${selected ? ' selected' : ''}`}
-      style={depthStyle(colors)}
-    >
-      <Handle type="target" id={EVENT_IN} position={Position.Top} className="port port-in" />
-      <div className="node-header">
-        <span className="node-title">
-          SIEVE <span className="node-ordinal">{ordinal}</span>
-        </span>
-        {/* The odds beside the count, and only where they are not certain: a node reading "1:2" is
-            saying everything about itself, and "· 100%" beside it would only be noise. */}
-        {odds < 100 && <span className="node-meta">{odds}%</span>}
-      </div>
-      <div className="sieve-body">
-        {/* The condition as a musician writes it — the first of every two is 1:2 — and read at rest,
-            without selecting the node, since which passes are whose is the whole of what it does. */}
-        <span className="sieve-value">
-          {offset}:{every}
-        </span>
-      </div>
-      <Handle type="source" id={EVENT_OUT} position={Position.Bottom} className="port port-out" />
-    </div>
-  )
-}
-
-export function DelayNode({ id, data, selected }: NodeProps<FlowNode>) {
+/**
+ * A HOLD: what it is holding a trigger for, and how far through the wait it is.
+ *
+ * Three things it can be doing and it says all of them at once, each only when it is doing it — a node
+ * showing "0 ms · 1:1 · 100%" would be three ways of writing *nothing*. Neutral, it says `thru`, which is
+ * what it is: a wire.
+ *
+ * The condition is on the node rather than only in the panel because which passes are this node's is the
+ * whole of what it does — two of them alternating are two nodes taking turns, and that is a thing to see
+ * across a canvas rather than to look up one at a time.
+ */
+export function HoldNode({ id, data, selected }: NodeProps<FlowNode>) {
   const { pulsing, runId, duration } = useNodeActivity(id)
   const colors = useNodeColors(id)
   const ordinal = useOrdinal(id)
-  const params = data.params as DelayParams
-  const ms = params.delayMs ?? DEFAULT_DELAY_MS
+  const params = data.params as HoldParams
+
+  const ms = Math.max(0, Math.round(params.waitMs ?? 0))
+  const every = Math.max(1, Math.round(params.every ?? 1))
+  const offset = Math.min(every, Math.max(1, Math.round(params.offset ?? 1)))
+  const odds = Math.round(Math.min(1, Math.max(0, params.chance ?? 1)) * 100)
+  const doingNothing = ms === 0 && every === 1 && odds === 100
 
   return (
     <div
-      className={`node node-delay${pulsing ? ' pulsing' : ''}${selected ? ' selected' : ''}`}
+      className={`node node-hold${pulsing ? ' pulsing' : ''}${selected ? ' selected' : ''}`}
       style={depthStyle(colors)}
     >
       <Handle type="target" id={EVENT_IN} position={Position.Top} className="port port-in" />
-      {/* No side ports, and that is a decision rather than an omission: a DELAY's wait is a number in
-          milliseconds that no warp scales, so warping one does exactly what warping the node below it
-          does. See WARPABLE in state/connections. */}
+      {/* No side ports, and that is a decision rather than an omission: a wait is a number in
+          milliseconds that no warp scales, and a count of passes has no pitch or tempo to bend — so
+          warping one would do exactly what warping the node below it does. See WARPABLE. */}
       <div className="node-header">
         <span className="node-title">
-          DELAY <span className="node-ordinal">{ordinal}</span>
+          HOLD <span className="node-ordinal">{ordinal}</span>
         </span>
-        <span className="node-meta">ms</span>
+        {/* The odds only where they are not certain: "· 100%" beside a condition that already says
+            everything about itself is noise. */}
+        {odds < 100 && <span className="node-meta">{odds}%</span>}
       </div>
       <div className="delay-body">
-        <span className="delay-value">{ms}</span>
-        {/* Keyed by runId so the fill animation restarts from zero on every trigger. */}
-        <div className="delay-track">
-          {pulsing && (
-            <div key={runId} className="delay-fill" style={{ animationDuration: `${duration}s` }} />
+        <div className="hold-row">
+          {ms > 0 && (
+            <span className="delay-value">
+              {ms}
+              <span className="hold-unit">ms</span>
+            </span>
           )}
+          {/* The condition as a musician writes it: the first of every two is 1:2. */}
+          {every > 1 && (
+            <span className="hold-count">
+              {offset}:{every}
+            </span>
+          )}
+          {doingNothing && <span className="hold-thru">thru</span>}
         </div>
+        {/* Only where there is a wait to show. Keyed by runId so the fill restarts from zero on every
+            trigger, and it only ever runs on a pass this node lets through — a withheld trigger is
+            never waited for, because there is nothing left to wait for. */}
+        {ms > 0 && (
+          <div className="delay-track">
+            {pulsing && (
+              <div
+                key={runId}
+                className="delay-fill"
+                style={{ animationDuration: `${duration}s` }}
+              />
+            )}
+          </div>
+        )}
       </div>
       <Handle type="source" id={EVENT_OUT} position={Position.Bottom} className="port port-out" />
     </div>

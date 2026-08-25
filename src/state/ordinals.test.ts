@@ -24,7 +24,7 @@ describe('nodeOrdinal', () => {
   })
 
   it('is unmoved by nodes of other kinds sitting in between', () => {
-    const padded = [{ id: 'x', type: 'delay' }, ...nodes, { id: 'y', type: 'delay' }]
+    const padded = [{ id: 'x', type: 'hold' }, ...nodes, { id: 'y', type: 'hold' }]
     expect(nodeOrdinal(padded, 'b')).toBe(2)
   })
 

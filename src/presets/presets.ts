@@ -10,7 +10,7 @@
  * patch this patch.
  */
 
-import { defaultDelayParams, defaultFxParams, defaultOscParams } from '../nodes/registry'
+import { defaultFxParams, defaultHoldParams, defaultOscParams } from '../nodes/registry'
 import { stressPatch } from '../tools/stressPatch'
 import type {
   FxParams,
@@ -20,7 +20,7 @@ import type {
   PatchEdge,
   PatchNode,
   SenseParams,
-  SieveParams,
+  HoldParams,
   Step,
   WarpParams,
 } from '../types/patch'
@@ -93,13 +93,6 @@ const osc = (id: string, column: number, row: number, over: Partial<OscParams>):
   params: { ...defaultOscParams(), ...IN_KEY, ...over },
 })
 
-const delay = (id: string, column: number, row: number, delayMs: number): PatchNode => ({
-  id,
-  type: 'delay',
-  position: at(column, row),
-  params: { ...defaultDelayParams(), delayMs },
-})
-
 const fx = (id: string, column: number, row: number, over: Partial<FxParams>): PatchNode => ({
   id,
   type: 'fx',
@@ -114,11 +107,13 @@ const mod = (id: string, column: number, row: number, params: ModParams): PatchN
   params,
 })
 
-const sieve = (id: string, column: number, row: number, params: SieveParams): PatchNode => ({
+const hold = (id: string, column: number, row: number, params: Partial<HoldParams>): PatchNode => ({
   id,
-  type: 'sieve',
+  type: 'hold',
   position: at(column, row),
-  params,
+  // Over the defaults, which are all neutral: a preset says the one or two things it wants this node to
+  // do and stays silent about the rest.
+  params: { ...defaultHoldParams(), ...params },
 })
 
 const sense = (id: string, column: number, row: number, params: SenseParams): PatchNode => ({
@@ -262,7 +257,7 @@ const drift: Preset = {
         resonance: 8,
         keyTrack: 0.6,
       }),
-      delay('d', 2, 1, 260),
+      hold('d', 2, 1, { waitMs: 260 }),
       osc('b', 2, 2, {
         waveform: 'pulse',
         pulseWidth: 0.22,
@@ -817,14 +812,14 @@ const shadow: Preset = {
  * One line, sifted three ways.
  *
  * A sixteen-step tick sends a trigger down on **every step**, and each branch takes a different share of
- * them: one of every three, one of every five, and — counting passes rather than triggers — one pass in
- * two, most of the time. So three rhythms come out of a sequence that has only one, and nothing here
+ * them: one of every three, the third of every five, and — counting passes rather than triggers — one pass
+ * in two, most of the time. So three rhythms come out of a sequence that has only one, and nothing here
  * plays a note that was written.
  *
  * The two dividers are the point. Sixteen is not a multiple of three or of five and the count carries on
  * across the pass boundary, so where each lands moves every time round: it takes fifteen passes to come
  * back to where it started, out of one bar of sixteen. That is a phrase nobody wrote, and it is the one
- * thing counting passes cannot do — every trigger in a pass carries the same pass number, so a sieve
+ * thing counting passes cannot do — every trigger in a pass carries the same pass number, so a hold
  * counting them takes all sixteen or none.
  *
  * The third branch is the older reading, kept beside them so the difference is audible rather than
@@ -833,7 +828,7 @@ const shadow: Preset = {
 const sift: Preset = {
   id: 'sift',
   name: 'SIFT',
-  about: 'One tick, three sieves: two dividing its steps and one counting its passes.',
+  about: 'One tick, three holds: two dividing its steps and one counting its passes.',
   patch: patchOf(
     100,
     [
@@ -859,15 +854,22 @@ const sift: Preset = {
         filterType: 'highpass',
         cutoff: 900,
         resonance: 2,
-        // The whole preset hangs off this: one trigger per step is what gives the sieves below
+        // The whole preset hangs off this: one trigger per step is what gives the holds below
         // something to divide.
         propagateMode: 'onStep',
       }),
 
-      // One of every three arrivals, and one of every five. Both counting triggers, which is the only
-      // reading under which they mean anything different from each other.
-      sieve('g3', 0, 2, { counts: 'triggers', every: 3, offset: 1, chance: 1 }),
-      sieve('g5', 2, 2, { counts: 'triggers', every: 5, offset: 1, chance: 1 }),
+      /*
+       * One of every three arrivals, and the third of every five. Both counting triggers, which is the
+       * only reading under which they mean anything different from each other.
+       *
+       * The second one takes its place in the run rather than the first: at 1:3 and 1:5 both land on the
+       * same arrival whenever their runs line up, so the two branches keep hitting together on the
+       * downbeat of the pattern. Moved to the third, they coincide somewhere in the middle instead, and
+       * where that is moves every pass.
+       */
+      hold('g3', 0, 2, { counts: 'triggers', every: 3, offset: 1 }),
+      hold('g5', 2, 2, { counts: 'triggers', every: 5, offset: 3 }),
       /*
        * And the older reading beside them: passes, not triggers.
        *
@@ -876,7 +878,7 @@ const sift: Preset = {
        * own pass it would let all sixteen through and the pad would machine-gun — which is what it did
        * when this preset was first wired. Counting passes wants one arrival a pass to count.
        */
-      sieve('gp', 3, 1, { counts: 'passes', every: 2, offset: 1, chance: 0.75 }),
+      hold('gp', 3, 1, { counts: 'passes', every: 2, offset: 1, chance: 0.75 }),
 
       osc('chime', 0, 3, {
         ...IN_KEY,

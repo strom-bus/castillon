@@ -110,15 +110,15 @@ export const MANUAL: Section[] = [
           {
             term: { en: 'Seven kinds of node', es: 'Siete tipos de nodo' },
             text: {
-              en: 'IGNITE starts a cascade. OSC is the only one that makes a sound. DELAY holds a trigger and passes it on late, and SIEVE holds one and passes it on only sometimes. FX processes what it is fed. MOD moves a parameter while you listen. WARP bends everything below where it is attached. Each has its own chapter here, in that order of how often you will touch it.',
-              es: 'IGNITE arranca una cascada. OSC es el único que produce sonido. DELAY retiene un disparo y lo pasa más tarde, y SIEVE lo retiene y lo pasa solo a veces. FX procesa lo que se le alimenta. MOD mueve un parámetro mientras escuchas. WARP dobla todo lo que hay por debajo de donde está enganchado. Cada uno tiene aquí su capítulo, en ese orden de cuánto lo vas a tocar.',
+              en: 'IGNITE starts a cascade. OSC is the only one that makes a sound. HOLD catches a trigger and lets it go late, or only sometimes, or both. FX processes what it is fed. MOD moves a parameter while you listen. WARP bends everything below where it is attached. Each has its own chapter here, in that order of how often you will touch it.',
+              es: 'IGNITE arranca una cascada. OSC es el único que produce sonido. HOLD atrapa un disparo y lo suelta tarde, o solo a veces, o ambas. FX procesa lo que se le alimenta. MOD mueve un parámetro mientras escuchas. WARP dobla todo lo que hay por debajo de donde está enganchado. Cada uno tiene aquí su capítulo, en ese orden de cuánto lo vas a tocar.',
             },
           },
           {
             term: { en: 'Two ways to add one', es: 'Dos maneras de añadir uno' },
             text: {
-              en: 'Drag it out of the palette on the left onto empty canvas, or drop it straight onto an existing cable — which puts it inside that cable, joined to both ends. The second is how a DELAY gets between two nodes that are already wired together without unwiring them first.',
-              es: 'Arrástralo desde la paleta de la izquierda al lienzo vacío, o suéltalo justo encima de un cable ya hecho — eso lo mete dentro de ese cable, unido a los dos extremos. Lo segundo es como un DELAY entra entre dos nodos ya cableados sin tener que descablearlos antes.',
+              en: 'Drag it out of the palette on the left onto empty canvas, or drop it straight onto an existing cable — which puts it inside that cable, joined to both ends. The second is how a HOLD gets between two nodes that are already wired together without unwiring them first.',
+              es: 'Arrástralo desde la paleta de la izquierda al lienzo vacío, o suéltalo justo encima de un cable ya hecho — eso lo mete dentro de ese cable, unido a los dos extremos. Lo segundo es como un HOLD entra entre dos nodos ya cableados sin tener que descablearlos antes.',
             },
           },
           {
@@ -356,8 +356,8 @@ export const MANUAL: Section[] = [
           {
             term: { en: 'When nothing sounds', es: 'Cuando no suena nada' },
             text: {
-              en: 'The first thing to check is whether there is an oscillator below the IGNITE at all. A trigger travels through DELAYs and FXs without making a sound; only an OSC turns it into one.',
-              es: 'Lo primero que hay que mirar es si hay algún oscilador debajo del IGNITE. Un disparo atraviesa DELAY y FX sin hacer ningún sonido; solo un OSC lo convierte en uno.',
+              en: 'The first thing to check is whether there is an oscillator below the IGNITE at all. A trigger travels through HOLDs and FXs without making a sound; only an OSC turns it into one.',
+              es: 'Lo primero que hay que mirar es si hay algún oscilador debajo del IGNITE. Un disparo atraviesa HOLD y FX sin hacer ningún sonido; solo un OSC lo convierte en uno.',
             },
           },
         ],
@@ -719,27 +719,72 @@ export const MANUAL: Section[] = [
     ],
   },
   {
-    id: 'delay',
-    title: { en: 'DELAY — moving a branch in time', es: 'DELAY — mover una rama en el tiempo' },
+    id: 'hold',
+    title: { en: 'HOLD — late, sometimes, or both', es: 'HOLD — tarde, a veces, o ambas' },
     body: [
       {
-        en: 'A DELAY makes no sound of its own. It catches a trigger and passes it on later, which moves everything below it later too. It is the simplest way to pull two branches out of step with each other.',
-        es: 'Un DELAY no hace ningún sonido propio. Atrapa un disparo y lo pasa más tarde, lo que mueve también todo lo que hay debajo. Es la manera más simple de desfasar dos ramas entre sí.',
+        en: 'A HOLD makes no sound of its own. It catches a trigger and lets it go again — **later**, or only on **some** of the passes, or both at once. Everything below it moves with it, so one node decides when a whole branch happens and whether it happens at all.',
+        es: 'Un HOLD no hace ningún sonido propio. Atrapa un disparo y lo suelta otra vez — **más tarde**, o solo en **algunas** pasadas, o las dos cosas a la vez. Todo lo que hay debajo se mueve con él, así que un nodo decide cuándo ocurre una rama entera y si ocurre siquiera.',
       },
       {
-        en: 'Note what it is not: it is not an echo. An echo repeats audio and lives in FX; this moves *when something happens*. Two oscillators under one IGNITE with a DELAY on one of them play the same phrase a fixed distance apart, and stay that far apart for ever.',
-        es: 'Fíjate en lo que no es: no es un eco. Un eco repite audio y vive en FX; esto mueve *cuándo pasa algo*. Dos osciladores bajo un IGNITE con un DELAY en uno de ellos tocan la misma frase a una distancia fija, y se quedan a esa distancia para siempre.',
+        en: 'This was two nodes until recently, DELAY and SIEVE, and they were one idea written twice — hold a trigger, then let it go. The manual’s own line about the second called it the first’s sibling. Any patch that wanted *every other pass, and late* needed two nodes in a row to say one thing, so now it is one node with two groups in its panel.',
+        es: 'Esto eran dos nodos hasta hace poco, DELAY y SIEVE, y eran una sola idea escrita dos veces — retener un disparo y luego soltarlo. La propia línea del manual sobre el segundo lo llamaba hermano del primero. Cualquier patch que quisiera *una pasada sí y otra no, y tarde* necesitaba dos nodos seguidos para decir una sola cosa, así que ahora es un nodo con dos grupos en su panel.',
+      },
+      {
+        en: 'It arrives doing nothing at all — no wait, counting nothing, tossing nothing — and says so on the node: `thru`. Dropping one into a chain is never a change until you ask it to be. That is the promise every other node here makes and the one the old DELAY broke by arriving at half a second.',
+        es: 'Llega sin hacer nada — sin espera, sin contar nada, sin tirar ninguna moneda — y lo dice en el nodo: `thru`. Meter uno en una cadena no es un cambio hasta que se lo pidas. Es la promesa que hacen todos los demás nodos de aquí y la que el viejo DELAY rompía llegando a medio segundo.',
+      },
+      {
+        en: 'Note what it is not: it is not an echo. An echo repeats audio and lives in FX; this moves *when something happens*. Two oscillators under one IGNITE with a HOLD on one of them play the same phrase a fixed distance apart, and stay that far apart for ever.',
+        es: 'Fíjate en lo que no es: no es un eco. Un eco repite audio y vive en FX; esto mueve *cuándo pasa algo*. Dos osciladores bajo un IGNITE con un HOLD en uno de ellos tocan la misma frase a una distancia fija, y se quedan a esa distancia para siempre.',
+      },
+      {
+        en: 'There is no bar in this instrument, so a pass is the only thing that recurs — and by default that is what it counts. It says its condition on the node itself, written the way a musician writes it: 1:2 is the first of every two.',
+        es: 'En este instrumento no hay compás, así que una pasada es lo único que se repite — y por defecto es lo que cuenta. Dice su condición en el propio nodo, escrita como la escribiría un músico: 1:2 es la primera de cada dos.',
       },
     ],
     detail: [
       {
-        title: 'THE PANEL',
+        title: 'LATE',
         terms: [
           {
             term: { en: 'Wait', es: 'Wait' },
             text: {
-              en: 'How long it holds the trigger, in milliseconds. Type it into the readout when you want an exact figure and drag when you are listening for one. Short waits thicken a doubled line; long ones turn a second branch into an answer to the first.',
-              es: 'Cuánto retiene el disparo, en milisegundos. Escríbelo en el lector cuando quieras una cifra exacta y arrastra cuando lo estés buscando de oído. Las esperas cortas engordan una línea doblada; las largas convierten una segunda rama en una respuesta a la primera.',
+              en: 'How long it holds the trigger, in milliseconds. Nought passes it straight on, which is where it starts. Type a figure into the readout when you want an exact one and drag when you are listening for it. Short waits thicken a doubled line; long ones turn a second branch into an answer to the first.',
+              es: 'Cuánto retiene el disparo, en milisegundos. Cero lo pasa directo, que es donde empieza. Escribe una cifra en el lector cuando quieras una exacta y arrastra cuando la busques de oído. Las esperas cortas engordan una línea doblada; las largas convierten una segunda rama en una respuesta a la primera.',
+            },
+          },
+        ],
+      },
+      {
+        title: 'SOMETIMES',
+        terms: [
+          {
+            term: { en: 'Counts', es: 'Counts' },
+            text: {
+              en: 'Whether the run is counted in passes of the cascade or in the triggers that arrive here. In a plain chain they are the same number — one trigger reaches a node once per pass — so this changes nothing until the HOLD sits somewhere they come apart: under an OSC sending on every step, below more than one parent, or inside a loop, where *which pass is this* has stopped meaning anything and *how many have reached me* still does.',
+              es: 'Si la tanda se cuenta en pasadas de la cascada o en los disparos que llegan aquí. En una cadena simple son el mismo número — a un nodo le llega un disparo por pasada — así que esto no cambia nada hasta que el HOLD está donde se separan: bajo un OSC que envía en cada paso, debajo de más de un padre, o dentro de un bucle, donde *qué pasada es esta* ya no significa nada y *cuántos me han llegado* sigue significándolo.',
+            },
+          },
+          {
+            term: { en: 'Every', es: 'Every' },
+            text: {
+              en: 'How long the run is. At one it counts nothing and everything goes through, which is where it starts. At two the branch below happens every other time round, at four every fourth, and past about eight it stops being a rhythm and becomes a surprise.',
+              es: 'Cuánto dura la tanda. En uno no cuenta nada y pasa todo, que es donde empieza. En dos, la rama de abajo ocurre una vuelta sí y otra no; en cuatro, una de cada cuatro; y pasado ocho deja de ser un ritmo y se vuelve una sorpresa.',
+            },
+          },
+          {
+            term: { en: 'On pass', es: 'On pass' },
+            text: {
+              en: 'Which of that run is this one’s, counting from one — it reads *On trigger* when that is what is being counted. It only appears once there is a run to have a place in. And it is the whole of alternation: two HOLDs over the same run, one on the first pass and one on the second, is two branches taking turns — no feature of its own, just two nodes disagreeing about which passes are theirs.',
+              es: 'Cuál de esa tanda es la suya, contando desde uno — dice *On trigger* cuando eso es lo que se cuenta. Solo aparece cuando ya hay una tanda en la que tener sitio. Y es la alternancia entera: dos HOLD sobre la misma tanda, uno en la primera pasada y otro en la segunda, son dos ramas turnándose — sin ninguna función propia, solo dos nodos discrepando sobre qué pasadas son suyas.',
+            },
+          },
+          {
+            term: { en: 'Chance', es: 'Chance' },
+            text: {
+              en: 'And how often it lets one through when the count says it may. A hundred per cent is always, which is where it starts. All three conditions compose: a branch can happen on every other pass, only most of the time, and a quarter of a second late — which is a thing that repeats without being predictable.',
+              es: 'Y cada cuánto deja pasar cuando la cuenta lo permite. Cien por cien es siempre, que es donde empieza. Las tres condiciones se combinan: una rama puede ocurrir una vuelta sí y otra no, solo casi siempre, y un cuarto de segundo tarde — que es algo que se repite sin ser previsible.',
             },
           },
         ],
@@ -749,86 +794,32 @@ export const MANUAL: Section[] = [
           {
             term: { en: 'Where to put one', es: 'Dónde poner uno' },
             text: {
-              en: 'Drop it straight onto a cable that already exists and it goes inside that cable, joined to both ends — no unwiring needed. That is almost always what you want, since a DELAY is a thing you put *between* two nodes.',
-              es: 'Suéltalo justo encima de un cable que ya existe y entra dentro de ese cable, unido a los dos extremos — sin descablear nada. Eso es casi siempre lo que quieres, porque un DELAY es algo que pones *entre* dos nodos.',
+              en: 'Drop it straight onto a cable that already exists and it goes inside that cable, joined to both ends — no unwiring needed. That is almost always what you want, since a HOLD is a thing you put *between* two nodes.',
+              es: 'Suéltalo justo encima de un cable que ya existe y entra dentro de ese cable, unido a los dos extremos — sin descablear nada. Eso es casi siempre lo que quieres, porque un HOLD es algo que pones *entre* dos nodos.',
             },
           },
           {
             term: { en: 'A fixed distance, not a drift', es: 'Una distancia fija, no un desfase' },
             text: {
-              en: 'A DELAY sets two branches apart and holds them there. If you want them to keep moving away from each other, that is a WARP with its Speed changed, or two oscillators of different lengths — both of those drift, and drift is a different musical thing from a delay.',
-              es: 'Un DELAY separa dos ramas y las mantiene ahí. Si quieres que se sigan alejando la una de la otra, eso es un WARP con el Speed cambiado, o dos osciladores de distinta duración — esos dos se desfasan, y desfasarse es musicalmente otra cosa que un retardo.',
-            },
-          },
-        ],
-      },
-    ],
-  },
-  {
-    id: 'sieve',
-    title: { en: 'SIEVE — passing a trigger sometimes', es: 'SIEVE — dejar pasar a veces' },
-    body: [
-      {
-        en: 'The DELAY’s sibling. A DELAY holds a trigger and passes it on late; a SIEVE holds one and passes it on *sometimes*. Everything below it happens only on the passes it lets through, so one node decides whether a whole branch is part of this time round.',
-        es: 'El hermano del DELAY. Un DELAY retiene un disparo y lo pasa más tarde; un SIEVE lo retiene y lo pasa *a veces*. Todo lo que hay debajo ocurre solo en las pasadas que deja pasar, así que un nodo decide si una rama entera forma parte de esta vuelta.',
-      },
-      {
-        en: 'There is no bar in this instrument, so a pass is the only thing that recurs — and by default that is what a SIEVE counts. It says its condition on the node itself, written the way a musician writes it: 1:2 is the first of every two.',
-        es: 'En este instrumento no hay compás, así que una pasada es lo único que se repite — y por defecto es lo que cuenta un SIEVE. Dice su condición en el propio nodo, escrita como la escribiría un músico: 1:2 es la primera de cada dos.',
-      },
-      {
-        en: 'It can count the triggers reaching it instead, and that is a different instrument. Under an OSC sending on every step, one trigger arrives per step, so a SIEVE at 1:4 fires its branch on every fourth note of the sequence above — a divider on the steps rather than on the passes.',
-        es: 'También puede contar los disparos que le llegan, y eso es otro instrumento. Bajo un OSC que envía en cada paso llega un disparo por paso, así que un SIEVE en 1:4 dispara su rama cada cuarta nota de la secuencia de arriba — un divisor sobre los pasos y no sobre las pasadas.',
-      },
-    ],
-    detail: [
-      {
-        title: 'THE PANEL',
-        terms: [
-          {
-            term: { en: 'Counts', es: 'Counts' },
-            text: {
-              en: 'Whether the run is counted in passes of the cascade or in the triggers that arrive here. In a plain chain they are the same number — one trigger reaches a node once per pass — so this changes nothing until the SIEVE sits somewhere they come apart: under an OSC sending on every step, below more than one parent, or inside a loop, where *which pass is this* has stopped meaning anything and *how many have reached me* still does.',
-              es: 'Si la tanda se cuenta en pasadas de la cascada o en los disparos que llegan aquí. En una cadena simple son el mismo número — a un nodo le llega un disparo por pasada — así que esto no cambia nada hasta que el SIEVE está donde se separan: bajo un OSC que envía en cada paso, debajo de más de un padre, o dentro de un bucle, donde *qué pasada es esta* ya no significa nada y *cuántos me han llegado* sigue significándolo.',
+              en: 'A wait sets two branches apart and holds them there. If you want them to keep moving away from each other, that is a WARP with its Speed changed, or two oscillators of different lengths — both of those drift, and drift is a different musical thing from a delay.',
+              es: 'Una espera separa dos ramas y las mantiene ahí. Si quieres que se sigan alejando la una de la otra, eso es un WARP con el Speed cambiado, o dos osciladores de distinta duración — esos dos se desfasan, y desfasarse es musicalmente otra cosa que un retardo.',
             },
           },
           {
-            term: { en: 'Every', es: 'Every' },
-            text: {
-              en: 'How long the run is. At one it counts nothing and everything goes through, which is where a SIEVE starts — dropping one into a chain is not a change until you ask it to be. At two the branch below happens every other time round, at four every fourth, and past about eight it stops being a rhythm and becomes a surprise.',
-              es: 'Cuánto dura la tanda. En uno no cuenta nada y pasa todo, que es donde empieza un SIEVE — meter uno en una cadena no es un cambio hasta que se lo pidas. En dos, la rama de abajo ocurre una vuelta sí y otra no; en cuatro, una de cada cuatro; y pasado ocho deja de ser un ritmo y se vuelve una sorpresa.',
+            term: {
+              en: 'A pass it drops costs nothing',
+              es: 'Una pasada que descarta no cuesta nada',
             },
-          },
-          {
-            term: { en: 'On pass', es: 'On pass' },
             text: {
-              en: 'Which of that run is this one’s, counting from one — it reads *On trigger* when that is what is being counted. It only appears once there is a run to have a place in. And it is the whole of alternation: two SIEVEs over the same run, one on the first pass and one on the second, is two branches taking turns — no feature of its own, just two nodes disagreeing about which passes are theirs.',
-              es: 'Cuál de esa tanda es la suya, contando desde uno — dice *On trigger* cuando eso es lo que se cuenta. Solo aparece cuando ya hay una tanda en la que tener sitio. Y es la alternancia entera: dos SIEVE sobre la misma tanda, uno en la primera pasada y otro en la segunda, son dos ramas turnándose — sin ninguna función propia, solo dos nodos discrepando sobre qué pasadas son suyas.',
-            },
-          },
-          {
-            term: { en: 'Chance', es: 'Chance' },
-            text: {
-              en: 'And how often it lets one through when the count says it may. A hundred per cent is always, which is where it starts. The two conditions compose: a branch can happen on every other pass *and* only most of the time, which is a thing that repeats without being predictable.',
-              es: 'Y cada cuánto deja pasar cuando la cuenta lo permite. Cien por cien es siempre, que es donde empieza. Las dos condiciones se combinan: una rama puede ocurrir una vuelta sí y otra no *y además* solo casi siempre, que es algo que se repite sin ser previsible.',
-            },
-          },
-        ],
-      },
-      {
-        terms: [
-          {
-            term: { en: 'It costs the cascade nothing', es: 'No le cuesta nada a la cascada' },
-            text: {
-              en: 'A SIEVE holds nothing back in time — it ends where it begins. So a branch that does not happen this pass takes no length off the lap, and the shape of the cycle is the same whether or not it let anything through. It is the one node here that changes what happens without changing when.',
-              es: 'Un SIEVE no retiene nada en el tiempo — termina donde empieza. Así que una rama que no ocurre en esta pasada no le quita duración a la vuelta, y la forma del ciclo es la misma deje pasar o no. Es el único nodo de aquí que cambia qué ocurre sin cambiar cuándo.',
+              en: 'A trigger it withholds is never waited for — there is nothing left to wait for — so a branch that does not happen this pass takes no length off the lap however long the Wait is set. The shape of the cycle is the same whether or not it let anything through.',
+              es: 'Un disparo que retiene no se espera nunca — ya no queda nada que esperar — así que una rama que no ocurre en esta pasada no le quita duración a la vuelta por larga que esté la espera. La forma del ciclo es la misma deje pasar o no.',
             },
           },
           {
             term: { en: 'Two dividers off one line', es: 'Dos divisores de una sola línea' },
             text: {
-              en: 'Put an OSC on *every step* above two SIEVEs counting triggers, one of every three and one of every five, and three rhythms come out of a sequence that has only one. The count carries on across the pass boundary rather than starting again, so where each lands moves every time round — sixteen steps against three and five takes fifteen passes to come back to the beginning. The preset called SIFT is exactly this, with a third SIEVE beside them counting passes — hung off the IGNITE rather than off the tick, because a sieve counting passes wants one arrival a pass to count.',
-              es: 'Pon un OSC en *cada paso* encima de dos SIEVE contando disparos, uno de cada tres y otro de cada cinco, y salen tres ritmos de una secuencia que solo tiene uno. La cuenta sigue de una pasada a la siguiente en vez de empezar de nuevo, así que dónde cae cada uno se mueve cada vuelta — dieciséis pasos contra tres y cinco tardan quince pasadas en volver al principio. El preset llamado SIFT es exactamente esto, con un tercer SIEVE al lado contando pasadas — colgado del IGNITE y no del tick, porque un sieve que cuenta pasadas quiere una llegada por pasada que contar.',
+              en: 'Put an OSC on *every step* above two HOLDs counting triggers, one of every three and one of every five, and three rhythms come out of a sequence that has only one. The count carries on across the pass boundary rather than starting again, so where each lands moves every time round — sixteen steps against three and five takes fifteen passes to come back to the beginning. The preset called SIFT is exactly this, with a third HOLD beside them counting passes — hung off the IGNITE rather than off the tick, because counting passes wants one arrival a pass to count.',
+              es: 'Pon un OSC en *cada paso* encima de dos HOLD contando disparos, uno de cada tres y otro de cada cinco, y salen tres ritmos de una secuencia que solo tiene uno. La cuenta sigue de una pasada a la siguiente en vez de empezar de nuevo, así que dónde cae cada uno se mueve cada vuelta — dieciséis pasos contra tres y cinco tardan quince pasadas en volver al principio. El preset llamado SIFT es exactamente esto, con un tercer HOLD al lado contando pasadas — colgado del IGNITE y no del tick, porque contar pasadas quiere una llegada por pasada que contar.',
             },
           },
           {
@@ -841,8 +832,8 @@ export const MANUAL: Section[] = [
           {
             term: { en: 'It lights only on its own passes', es: 'Se enciende solo en sus pasadas' },
             text: {
-              en: 'A node that flashed every time a trigger reached it would be saying something true of every pass and therefore saying nothing. Lighting on the ones it passes makes the pattern visible: two SIEVEs alternating are two nodes taking turns on the canvas, which is the thing you are trying to see.',
-              es: 'Un nodo que parpadeara cada vez que le llega un disparo estaría diciendo algo cierto en todas las pasadas y por tanto no diría nada. Encenderse en las que deja pasar hace visible el patrón: dos SIEVE alternando son dos nodos turnándose en el lienzo, que es justo lo que intentas ver.',
+              en: 'A node that flashed every time a trigger reached it would be saying something true of every pass and therefore saying nothing. Lighting on the ones it passes makes the pattern visible: two HOLDs alternating are two nodes taking turns on the canvas, which is the thing you are trying to see. Where there is a wait, the light lasts it — that is the bar filling underneath the number.',
+              es: 'Un nodo que parpadeara cada vez que le llega un disparo estaría diciendo algo cierto en todas las pasadas y por tanto no diría nada. Encenderse en las que deja pasar hace visible el patrón: dos HOLD alternando son dos nodos turnándose en el lienzo, que es justo lo que intentas ver. Cuando hay espera, la luz dura lo que dure — es la barra llenándose debajo del número.',
             },
           },
         ],
@@ -1325,8 +1316,8 @@ export const MANUAL: Section[] = [
           {
             term: { en: 'Speed', es: 'Speed' },
             text: {
-              en: 'Stretches or squeezes every step below it. This is the thing a DELAY cannot do: a delay sets two branches a fixed distance apart, and a ratio makes them drift and keep drifting. A list of musical ratios rather than a slider, because against a grid a half and a third are worth having and 0.87 is only out of time.',
-              es: 'Estira o comprime todos los pasos de debajo. Esto es lo que un DELAY no puede hacer: un retardo separa dos ramas a una distancia fija, y una razón las hace desfasarse y seguir desfasándose. Es una lista de razones musicales y no un slider, porque contra una rejilla un medio y un tercio valen la pena y 0.87 solo está a contratiempo.',
+              en: 'Stretches or squeezes every step below it. This is the thing a HOLD cannot do: a wait sets two branches a fixed distance apart, and a ratio makes them drift and keep drifting. A list of musical ratios rather than a slider, because against a grid a half and a third are worth having and 0.87 is only out of time.',
+              es: 'Estira o comprime todos los pasos de debajo. Esto es lo que un HOLD no puede hacer: una espera separa dos ramas a una distancia fija, y una razón las hace desfasarse y seguir desfasándose. Es una lista de razones musicales y no un slider, porque contra una rejilla un medio y un tercio valen la pena y 0.87 solo está a contratiempo.',
             },
           },
           {
@@ -1385,8 +1376,8 @@ export const MANUAL: Section[] = [
           {
             term: { en: 'A common mistake', es: 'Un error común' },
             text: {
-              en: 'Looking for somewhere to attach it other than an oscillator. There is nowhere: an IGNITE and a DELAY have no side port, because neither has anything a warp could bend — a wait is a number in milliseconds that no ratio scales, and a trigger has no pitch. To bend a whole cascade, attach it to the oscillator at the top. The panel warns you when it is attached to nothing that makes a note.',
-              es: 'Buscar dónde engancharlo que no sea un oscilador. No hay otro sitio: un IGNITE y un DELAY no tienen puerto lateral, porque ninguno tiene nada que un warp pueda doblar — una espera es un número en milisegundos que ninguna razón escala, y un disparo no tiene altura. Para doblar una cascada entera, engánchalo al oscilador de arriba. El panel avisa cuando no está enganchado a nada que haga una nota.',
+              en: 'Looking for somewhere to attach it other than an oscillator. There is nowhere: an IGNITE and a HOLD have no side port, because neither has anything a warp could bend — a wait is a number in milliseconds that no ratio scales, and a trigger has no pitch. To bend a whole cascade, attach it to the oscillator at the top. The panel warns you when it is attached to nothing that makes a note.',
+              es: 'Buscar dónde engancharlo que no sea un oscilador. No hay otro sitio: un IGNITE y un HOLD no tienen puerto lateral, porque ninguno tiene nada que un warp pueda doblar — una espera es un número en milisegundos que ninguna razón escala, y un disparo no tiene altura. Para doblar una cascada entera, engánchalo al oscilador de arriba. El panel avisa cuando no está enganchado a nada que haga una nota.',
             },
           },
         ],

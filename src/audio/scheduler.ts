@@ -91,7 +91,7 @@ interface Chain {
    * How long the pass before this one lasted, and the floor under this one.
    *
    * **A pass must not get shorter because part of it did not happen.** A SIEVE that blocks costs its
-   * branch nothing, so a cascade whose only branch is sieved out has nothing left to wait for: the pass
+   * branch nothing, so a cascade whose only branch is withheld has nothing left to wait for: the pass
    * ends at once and comes round again immediately, and a branch set to every other pass fires at
    * irregular intervals instead of alternating. Which is the opposite of what was asked for.
    *
@@ -430,7 +430,7 @@ export class CascadeScheduler {
     })
 
     if (chain && result.endTime > chain.lastEnd) chain.lastEnd = result.endTime
-    // Remembered for `settle`: a pass that was cut short by a sieve keeps the cycle's length, and one
+    // Remembered for `settle`: a pass cut short by a withheld trigger keeps the cycle's length, and one
     // that is simply shorter does not.
     if (chain && result.withheld) chain.withheld = true
 

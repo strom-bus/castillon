@@ -2,7 +2,7 @@
  * What the canvas has to say before it is asked (PLAN §18.18).
  *
  * A transform reaches its whole branch, which is the point of it and also the danger: an oscillator
- * three levels down sounds moved with nothing on it saying why. A delay has the same reach and gets away
+ * three levels down sounds moved with nothing on it saying why. A hold has the same reach and gets away
  * with it, because a shift in time is heard from where it came — a shift in pitch is silent about its
  * cause. So each affected node is told what is happening to it, and this is the arithmetic behind that.
  */
@@ -120,7 +120,7 @@ describe('why a transform may be doing nothing', () => {
 
   it('says so when there is no note below what it is on', () => {
     const why = warpDoingNothing(
-      [node('s', 'start'), node('d', 'delay'), node('t', 'warp', 5)],
+      [node('s', 'start'), node('d', 'hold'), node('t', 'warp', 5)],
       [edge('s', 'd'), shift('t', 'd')],
       't',
     )

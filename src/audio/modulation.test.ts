@@ -99,7 +99,7 @@ describe('targetsFor', () => {
 
   it('offers nothing on anything else, so a MOD cannot point at a cascade', () => {
     expect(targetsFor('start')).toEqual([])
-    expect(targetsFor('delay')).toEqual([])
+    expect(targetsFor('hold')).toEqual([])
     expect(targetsFor('mod')).toEqual([])
     expect(targetsFor(undefined)).toEqual([])
   })
@@ -142,7 +142,7 @@ describe('resolveTarget', () => {
 
   it('resolves to nothing where there is nothing to modulate', () => {
     // Which is how a cable to the wrong kind of node ends up doing nothing instead of throwing.
-    expect(resolveTarget('level', 'delay')).toBeNull()
+    expect(resolveTarget('level', 'hold')).toBeNull()
     expect(resolveTarget('level', undefined)).toBeNull()
   })
 })

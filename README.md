@@ -163,6 +163,25 @@ refused, since between an oscillator and an effect there is only one direction t
   all along. They attach to an oscillator's side ports as sends —
   several on one oscillator, or one shared by several — and each carries a wet/dry mix, so a send is
   a blend rather than a replacement.
+- **Distortion shapes that stay level with each other.** Two of the four used to go quiet on quiet notes,
+  and for the same reason: both add a constant offset and then clip, so the clipper saturates on the
+  _offset_ rather than on the sound — the waveform flattens against a rail, its alternating part collapses,
+  and the 20 Hz high-pass behind the shaper removes what is left. Octave up clipped a signal already
+  centred at -1; fuzz added a bias larger than the amplitude of most notes here, so anything quieter never
+  crossed zero at all and was clipped entirely on one side. Both measured at a tenth the level of the
+  others.
+
+  Octave up now clips the magnitude _before_ centring, which is what a pedal does — its fuzz stage is
+  AC-coupled and never sees the offset — and at a quarter of the old gain, because a magnitude only ever
+  goes up: the clipping that drives a bipolar signal toward a square wave merely pins a unipolar one
+  against the top. The three symmetrical shapes now sit within two decibels of each other at every input
+  level, against fifteen before. Octave up stays six decibels under at full scale and thirteen at a tenth
+  of it, and **no curve can close that** — a shaper is memoryless, and a rectified wave uses less of its
+  range the quieter the input is, so levelling it would need to know how loud the input was.
+
+  Neither fault is visible in a test of the _curve_. Both curves are perfectly good curves; every test
+  there was asked what a curve looked like and none asked how loud what came out of it was.
+
 - **A comb resonator**, which is the only effect here that decides the pitch instead of the source. A
   delay line short enough to be a note, fed back into itself: a click in gives a plucked string, a drum
   gives a tuned drum. A low-pass **inside** the loop is what separates a struck string from a metallic
@@ -420,6 +439,13 @@ refused, since between an oscillator and an effect there is only one direction t
   Mix needed no decision, which is why this waited on the wrong question for a while. Each stage
   crossfades between what reached it and what it made of that, so in a chain the second effect's Mix is
   against the first effect's output — exactly a row of pedals, composing by construction.
+
+  **It does not matter which end you drag from.** Between an oscillator and an effect only one direction is
+  legal, so a drag either way is turned round; between two effects both are, so the drag decides — except
+  where one end is fed and the other is not, and then there is exactly one reading under which the cable
+  does anything. Pull one from a new effect back to something already in the chain and the chain extends.
+  Two effects that are both fed, or neither fed, keep the direction they were drawn in, because at that
+  point nothing says which comes first.
 
   What it did need is the **one cycle check in the instrument**. The event graph permits loops and bounds
   them at `MAX_DEPTH`, because a trigger going round runs out of depth. Audio going round is a gain adding

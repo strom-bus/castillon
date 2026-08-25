@@ -108,7 +108,21 @@ export function voiceCost(waveform: Waveform, filtered: boolean): number {
 }
 
 export function oscVoiceCost(params: OscParams): number {
-  return voiceCost(params.waveform ?? 'square', (params.filterType ?? 'off') !== 'off')
+  /*
+   * The dearest waveform the sequence can play, not the one the node is set to.
+   *
+   * A step may take the waveform over for itself, and noise costs more than twice an oscillator — so a
+   * sequence of fifteen squares and one white step is dearer than its node says. The budget is a
+   * *ceiling*, so the honest reading is the worst case: a patch priced at its average would be a patch
+   * that fits until the moment it does not.
+   */
+  const filtered = (params.filterType ?? 'off') !== 'off'
+  const waves = new Set<Waveform>([params.waveform ?? 'square'])
+  for (const step of params.steps ?? []) if (step.waveform) waves.add(step.waveform)
+
+  let most = 0
+  for (const wave of waves) most = Math.max(most, voiceCost(wave, filtered))
+  return most
 }
 
 /** Whatever the effect declares, since what an effect is made of is the effect's own business. */

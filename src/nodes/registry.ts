@@ -17,6 +17,7 @@ import type {
   PatchEdge,
   PatchNode,
   Step,
+  Waveform,
   WarpParams,
 } from '../types/patch'
 import {
@@ -157,6 +158,26 @@ const start: NodeDefinition = {
     activity.push({ kind: 'node', id: node.id, time, duration: FLASH })
     return { endTime: time, outgoing: [time] }
   },
+}
+
+/**
+ * The four settings a step may take over from its oscillator, resolved for one step.
+ *
+ * One place that knows the rule, rather than four `??` chains at the point the note is built. It is the
+ * kind of rule that gets half-applied — three parameters read from the step and the fourth from the node,
+ * for ever, because nothing about the wrong one looks wrong.
+ */
+export function lockedFor(
+  params: OscParams,
+  step: Step,
+): { waveform: Waveform; cutoff: number; gate: number; decay: number } {
+  return {
+    // ?? keeps patches saved before waveforms existed playable.
+    waveform: step.waveform ?? params.waveform ?? 'square',
+    cutoff: step.cutoff ?? params.cutoff ?? 2000,
+    gate: step.gate ?? params.gate,
+    decay: step.decay ?? params.decay ?? 0,
+  }
 }
 
 export function defaultHoldParams(): Required<HoldParams> {
@@ -579,6 +600,16 @@ const osc: NodeDefinition = {
        */
       const velocity = clamp(s.velocity * warping.velocity, 0, 1)
 
+      /*
+       * What this step overrides, resolved once for the step rather than once per hit of a roll.
+       *
+       * Before the warping and not after, and that is the order that means something: a lock is a
+       * **value** and a warp is a **transformation**. The step says what this note is made of; the branch
+       * then bends it along with every other note under the warp. The other way round, a warp would be
+       * something a single step could escape, which is the opposite of what a warp is for.
+       */
+      const locked = lockedFor(params, s)
+
       // Hits share the slot, so a roll fits inside the step rather than running over the next one. The
       // step being swung, a roll on the long half is slower than the same roll on the short one — which
       // is what a roll played with a groove does.
@@ -606,9 +637,9 @@ const osc: NodeDefinition = {
               transposeBy(s.note, warping.pitch, params.scale ?? 'free', params.scaleRoot ?? 0),
             ) * detuneRatio(params.detune ?? 0),
           // ?? keeps patches saved before waveforms existed playable.
-          waveform: params.waveform ?? 'square',
+          waveform: locked.waveform,
           pulseWidth: params.pulseWidth ?? 0.5,
-          duration: slot * params.gate,
+          duration: slot * locked.gate,
           /*
            * The oscillator's own gain, the step's rolled velocity, and whatever the branch is being
            * levelled by. Clamped at one, which is full scale: a branch already there cannot be made
@@ -621,14 +652,14 @@ const osc: NodeDefinition = {
           gain: clamp(params.gain * rolled * warping.level, 0, 1),
           velocity: rolled,
           attack: params.attack,
-          decay: params.decay ?? 0,
+          decay: locked.decay,
           release: params.release,
           // Only the note that was asked to slide, and only its first hit: the rest of a roll is the
           // same pitch, so there is nothing for them to slide from.
           glide: s.slide && hit === 0 ? (params.glide ?? 0) : 0,
           filterType: params.filterType ?? 'off',
           cutoff: trackedCutoff(
-            params.cutoff ?? 2000,
+            locked.cutoff,
             transposeBy(s.note, warping.pitch, params.scale ?? 'free', params.scaleRoot ?? 0),
             params.keyTrack ?? 0,
           ),

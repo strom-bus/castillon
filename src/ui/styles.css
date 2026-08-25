@@ -670,6 +670,20 @@ input[type='range'] {
    it, so what you see is one step divided and not one step with lines on it. */
 /* The notes the scale allows, drawn faintly across the track so the grid is seen before a bar is let
    go of rather than felt afterwards. Under the bar, since it is the paper and not the mark. */
+/* A step that overrules its oscillator, said on the canvas so it can be found without clicking through
+   every step. One mark for all four locks: which of them is what the panel is for. */
+.step-locked {
+  position: absolute;
+  top: 2px;
+  left: 50%;
+  width: 3px;
+  height: 3px;
+  margin-left: -1.5px;
+  border-radius: 50%;
+  background: var(--accent);
+  pointer-events: none;
+}
+
 .step-guide {
   position: absolute;
   left: 0;
@@ -1109,6 +1123,39 @@ input[type='range'] {
 .inspector-field {
   display: block;
   margin-bottom: 14px;
+}
+
+/*
+ * The dot that says a step has taken a control over from its oscillator.
+ *
+ * Hollow while it follows and filled once it does not, which is the one distinction it has to carry.
+ * It is also the release: clicking it hands the control back. Disabled while hollow, since releasing
+ * something that already follows does nothing — and a control that can be pressed to no effect is worse
+ * than one that visibly cannot.
+ */
+.lock-dot {
+  width: 6px;
+  height: 6px;
+  padding: 0;
+  margin-right: 6px;
+  flex-shrink: 0;
+  align-self: center;
+  border: 1px solid var(--muted);
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+}
+
+.lock-dot:disabled {
+  background: transparent;
+  border-color: var(--border-strong);
+  cursor: default;
+}
+
+/* And the whole row reads back a step lighter while it is only showing what the node says, so a panel of
+   four can be read at a glance for which ones this step has claimed. */
+.inspector-field.locked.inherited .inspector-label {
+  color: var(--border-strong);
 }
 
 .inspector-label {

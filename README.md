@@ -396,6 +396,40 @@ refused, since between an oscillator and an effect there is only one direction t
   instead: a trigger cannot mistime and a follower cannot miss a note nobody told it about, and both are
   in the box so the difference can be heard.
 
+- **Per-step parameter locks.** Four of an oscillator's own settings — Wave, Cutoff, Gate and Decay —
+  can be taken over by a single step, so one line of sixteen squares can hold one sawtooth, one note
+  that rings while the rest are clipped, and one that keeps its peak instead of falling away. A
+  sequencer that can only change how _loud_ a note is has one way of saying "this one matters"; this
+  has four.
+
+  **Absent means the node's**, which is what makes them cheap in every sense: the panel always shows
+  what the note is actually going to use, a step that locks nothing carries nothing, and there is no
+  second source of truth to keep in step. Every value is stored shifted up by one so that nought stays
+  free to mean absent — without which "deliberately at the bottom of the range" and "says nothing" would
+  be the same number, and a decay of nought is the commonest setting there is.
+
+  The rule for which four is worth more than the list: **a setting is lockable if it is read when the
+  note is built, and not if it decides when the step happens.** So a cutoff can differ from step to step
+  and a division cannot — locking how long a step _lasts_ is per-step timing, a different feature
+  wearing this one's clothes. And the four chosen are four axes that do not overlap: what the note is
+  made of, how bright it is, how long it is held, how it falls away. Resonance would be a second cutoff
+  and pulse width a second waveform.
+
+  The format needed no new machinery at all. Steps were already written **by column with a bit saying
+  whether the column is used**, so a lock is one more column whose resting value means "the node's": a
+  sequence that locks nothing pays four bits for the whole node, and the first lock in a column buys it
+  for all sixteen steps.
+
+  The gesture is that **moving a control locks it**, which is how the machines this comes from work and
+  has one consequence worth stating: there is no way to try a value on one step without keeping it. The
+  dot beside each name says which way it is, and clicking it hands the control back. A locked step
+  carries a mark above its bar so a sequence can be read for them without clicking through it — a step
+  that is different and does not show it is a state you can only find by opening every step in turn.
+
+  It also moved the budget: a locked waveform can be dearer than the node's, so an oscillator is now
+  priced at the dearest waveform its sequence can reach. The budget is a ceiling, and a patch priced at
+  its average is a patch that fits until the pass that reaches that step.
+
 - **Pulse width as a modulation target**, which is the classic sweep and was the one waveform parameter
   that could not move. A pulse here is a `PeriodicWave` with the duty baked into its harmonics when the
   note starts, and a baked wave cannot be swept — the width could only ever change _between_ notes.
@@ -488,7 +522,7 @@ refused, since between an oscillator and an effect there is only one direction t
 - **A patch gallery**, a window over the canvas rather than a page — so choosing a patch loads it into
   the instrument already underneath. Cards draw their own cascade, and stars decay with age so the
   popular sort does not freeze on whatever was published first. Two tabs: the patches people have
-  shared, and **fourteen presets** that come with the machine.
+  shared, and **fifteen presets** that come with the machine.
 
   Six are built around one idea that is hard to arrive at by rolling and small enough to read at a
   glance — the plain cascade, why there is no clock, one phrase driving another note by note, a figure
@@ -533,7 +567,7 @@ refused, since between an oscillator and an effect there is only one direction t
   it longer without making it clearer. Both languages live adjacent in one file so a half-finished
   edit shows up in the diff rather than as a blank paragraph months later.
 
-  Fifteen chapters and a hundred and seventy-six entries, written for whoever is using the instrument
+  Fifteen chapters and a hundred and eighty entries, written for whoever is using the instrument
   rather than for whoever built it: no entry explains how something is implemented, and every one says
   what a control does to the sound and when you would reach for it. One chapter per module, each in
   the order its own panel is in and under the panel's own group headings, so reading the manual and
@@ -550,7 +584,7 @@ refused, since between an oscillator and an effect there is only one direction t
   patch changes it. **Generate** publishes and puts the code in the field; the field is empty until
   it does, because a code shown before it exists is a code somebody writes down. Copy copies what is
   there and nothing else. The field takes either kind of code.
-  The eight nodes it starts with come to 135 characters, against 3401 as JSON.
+  The eight nodes it starts with come to 138 characters, against 3401 as JSON.
 
 - **A compressor**, and the only effect here that makes a sound _more_ even rather than more interesting
   — which is exactly why a patch of five branches wants one: past a few voices the loud moments start

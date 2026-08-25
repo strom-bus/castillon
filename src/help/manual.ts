@@ -699,6 +699,39 @@ export const MANUAL: Section[] = [
         ],
       },
       {
+        title: 'INSTEAD OF THE OSC',
+        terms: [
+          {
+            term: { en: 'Taking a control over', es: 'Tomar prestado un control' },
+            text: {
+              en: 'Four of the oscillator’s own settings can be taken over by a single step: its Wave, Cutoff, Gate and Decay. Each one follows the oscillator until you move it, and from then on that step keeps its own — so a line of sixteen squares can have one sawtooth in it, or one note that rings while the other fifteen are clipped short. The dot beside the name says which: hollow means it follows, filled means this step overrules. Clicking the dot hands the control back.',
+              es: 'Cuatro de los ajustes del propio oscilador los puede tomar prestados un solo paso: su Wave, Cutoff, Gate y Decay. Cada uno sigue al oscilador hasta que lo mueves, y desde entonces ese paso se queda con el suyo — así una línea de dieciséis cuadradas puede tener una sierra dentro, o una nota que resuena mientras las otras quince quedan cortadas. El punto al lado del nombre dice cuál: hueco significa que sigue, relleno que ese paso manda. Pulsando el punto devuelves el control.',
+            },
+          },
+          {
+            term: { en: 'Moving one is locking it', es: 'Moverlo es fijarlo' },
+            text: {
+              en: 'There is no way to try a value on one step without keeping it, because trying it *is* keeping it — the control always shows what that note is going to use, and moving it changes what that is. To hear the value on every step instead, go back up to the oscillator and set it there.',
+              es: 'No hay manera de probar un valor en un paso sin quedártelo, porque probarlo *es* quedártelo — el control siempre muestra lo que esa nota va a usar, y moverlo cambia qué es eso. Para oír el valor en todos los pasos, sube al oscilador y ponlo ahí.',
+            },
+          },
+          {
+            term: { en: 'Why these four', es: 'Por qué estos cuatro' },
+            text: {
+              en: 'They are four axes that do not overlap: what the note is made of, how bright it is, how long it is held, and how it falls away. Resonance would be a second Cutoff and Pulse width a second Wave. Which note slides is already per step, on the control above. And nothing about *when* a step happens can be taken over — a division belongs to the sequence, and a step that lasted longer than its slot would be a different feature wearing this one’s clothes.',
+              es: 'Son cuatro ejes que no se solapan: de qué está hecha la nota, cuán brillante es, cuánto se sostiene y cómo cae. Resonance sería un segundo Cutoff y Pulse width una segunda Wave. Qué nota se desliza ya es por paso, en el control de arriba. Y nada sobre *cuándo* ocurre un paso se puede tomar prestado — una división pertenece a la secuencia, y un paso que durara más que su hueco sería otra función disfrazada de esta.',
+            },
+          },
+          {
+            term: { en: 'A locked step shows itself', es: 'Un paso con lo suyo se ve' },
+            text: {
+              en: 'A step that overrules its oscillator in any of the four carries a small dot above its bar, so a sequence can be read for them without clicking through it. One dot for all four — which of them is what the panel is for. The preset called MASK is one oscillator with one of each, so the four are audible side by side.',
+              es: 'Un paso que manda sobre su oscilador en cualquiera de los cuatro lleva un punto pequeño encima de su barra, así una secuencia se puede leer de un vistazo sin ir pulsando paso por paso. Un punto para los cuatro — cuál de ellos es lo que dice el panel. El preset llamado MASK es un oscilador con uno de cada, para oír los cuatro seguidos.',
+            },
+          },
+        ],
+      },
+      {
         terms: [
           {
             term: { en: 'What the bar shows', es: 'Qué muestra la barra' },

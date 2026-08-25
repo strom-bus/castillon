@@ -20,7 +20,9 @@ import {
   FILTER_NAMES,
   FILTER_TYPES,
   formatCutoff,
+  MAX_CUTOFF,
   MAX_RESONANCE,
+  MIN_CUTOFF,
   MIN_RESONANCE,
   sliderToCutoff,
 } from '../audio/filter'
@@ -153,6 +155,88 @@ function Slider({
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
       />
+    </label>
+  )
+}
+
+/**
+ * A control a step may take over from its oscillator, with the dot that says whether it has.
+ *
+ * The control is **always there and always shows what this note will actually use** — the step's own
+ * value if it has one, the node's if it does not. That is the whole design: a reader wants to know what
+ * is going to happen, not which of two places the number came from, and a blank control that has to be
+ * switched on before it says anything answers neither question.
+ *
+ * Touching it locks it. That is the gesture, and it is the one the machines this comes from use — with
+ * the consequence worth stating plainly: there is no way to try a value on one step without locking it,
+ * because trying it *is* locking it.
+ *
+ * The dot releases it back. Filled means this step overrules the node; hollow means it follows.
+ */
+function Locked({
+  label,
+  readout,
+  value,
+  inherited,
+  min,
+  max,
+  step,
+  onChange,
+  onRelease,
+  children,
+}: {
+  label: string
+  /** What this note will use, whichever place it came from, as it is read on the right of the label. */
+  readout: string
+  /** The same thing as a number, where the control is a slider. */
+  value?: number
+  /** Whether that is the node's rather than this step's. */
+  inherited: boolean
+  min?: number
+  max?: number
+  step?: number
+  onChange?: (value: number) => void
+  onRelease: () => void
+  /** A control of its own, where a slider is the wrong shape — a waveform is a list, not a range. */
+  children?: ReactNode
+}) {
+  return (
+    <label className={`inspector-field locked${inherited ? ' inherited' : ''}`}>
+      <span className="inspector-label">
+        {/* A button rather than a checkbox: it has one job, releasing, and a checkbox would imply that
+            ticking it is how you lock — which is not the gesture. It is only reachable while locked,
+            since releasing something that follows the node already does nothing. */}
+        <button
+          type="button"
+          className="lock-dot"
+          disabled={inherited}
+          onClick={(e) => {
+            e.preventDefault()
+            onRelease()
+          }}
+          title={
+            inherited
+              ? 'Follows the oscillator. Move it to give this step its own.'
+              : 'This step overrules the oscillator. Click to let it follow again.'
+          }
+          aria-label={inherited ? `${label} follows the oscillator` : `Release ${label}`}
+        />
+        {label}
+        <em>{readout}</em>
+      </span>
+      {/* Named explicitly rather than by the label's text, which by then also holds the readout: the
+          accessible name of a control should be what it is called and not what it currently says. */}
+      {children ?? (
+        <input
+          type="range"
+          aria-label={label}
+          min={min}
+          max={max}
+          step={step}
+          value={value}
+          onChange={(e) => onChange?.(Number(e.target.value))}
+        />
+      )}
     </label>
   )
 }
@@ -712,6 +796,71 @@ function StepPanel({
               idea — and the title above says which scope you are in. */}
           <span>Glide {(params.glide ?? 0) === 0 && '(set the time on the OSC first)'}</span>
         </label>
+      </Group>
+
+      {/* The four the oscillator lends out, under a heading that says what the group *is* rather than
+          what it holds: everything above belongs to the step and nothing else, and everything here
+          belongs to the oscillator until this step takes it. */}
+      <Group title="INSTEAD OF THE OSC">
+        <Locked
+          label="Wave"
+          readout=""
+          inherited={step.waveform === undefined}
+          onRelease={() => set({ waveform: undefined })}
+        >
+          <select
+            aria-label="Wave"
+            value={step.waveform ?? params.waveform ?? 'square'}
+            onChange={(e) => set({ waveform: e.target.value as Waveform })}
+          >
+            {WAVEFORMS.map((wave) => (
+              <option key={wave} value={wave}>
+                {WAVEFORM_NAMES[wave]}
+              </option>
+            ))}
+          </select>
+        </Locked>
+
+        <Locked
+          label="Cutoff"
+          value={Math.round(step.cutoff ?? params.cutoff ?? 2000)}
+          readout={formatCutoff(step.cutoff ?? params.cutoff ?? 2000)}
+          inherited={step.cutoff === undefined}
+          min={MIN_CUTOFF}
+          max={MAX_CUTOFF}
+          step={10}
+          onChange={(cutoff) => set({ cutoff })}
+          onRelease={() => set({ cutoff: undefined })}
+        />
+
+        <Locked
+          label="Gate"
+          value={step.gate ?? params.gate}
+          readout={String(step.gate ?? params.gate)}
+          inherited={step.gate === undefined}
+          min={0.05}
+          max={1}
+          step={0.05}
+          onChange={(gate) => set({ gate })}
+          onRelease={() => set({ gate: undefined })}
+        />
+
+        <Locked
+          label="Decay"
+          value={Math.round(step.decay ?? params.decay ?? 0)}
+          readout={`${Math.round(step.decay ?? params.decay ?? 0)} ms`}
+          inherited={step.decay === undefined}
+          min={0}
+          max={2000}
+          step={10}
+          onChange={(decay) => set({ decay })}
+          onRelease={() => set({ decay: undefined })}
+        />
+
+        <p className="inspector-empty">
+          A control here follows the oscillator until you move it, and then this step keeps its own
+          — the dot beside the name says which, and clicking it hands the control back.
+        </p>
       </Group>
     </Panel>
   )

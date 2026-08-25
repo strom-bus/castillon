@@ -78,6 +78,15 @@ const steps = (notes: Array<number | null>, velocities?: number[]): Step[] =>
     velocity: velocities?.[i % velocities.length] ?? 1,
   }))
 
+/**
+ * The four settings a step may take over from its oscillator, applied to some of them.
+ *
+ * Keyed by index rather than given as a parallel array, because that is what a lock *is*: almost every
+ * step says nothing, and a list of mostly-undefined would be the sequence written twice.
+ */
+const locks = (steps: Step[], at: Record<number, Partial<Step>>): Step[] =>
+  steps.map((step, i) => ({ ...step, ...at[i] }))
+
 const ignite = (id: string, column: number, row: number): PatchNode => ({
   id,
   type: 'start',
@@ -816,6 +825,87 @@ const shadow: Preset = {
 }
 
 /**
+ * One oscillator wearing a different face on four of its sixteen steps.
+ *
+ * Everything here comes from one node with one sequence. What makes the line sound like several
+ * instruments taking turns is that four of its steps carry their own **waveform, cutoff, gate and
+ * decay** — the oscillator's own settings, taken over for that step alone and inherited everywhere else.
+ *
+ * The four are chosen to be the four axes that do not overlap, and this preset is one of each so the
+ * difference between them is audible rather than described:
+ *
+ * - **step 3** is a different waveform — a saw among squares, which is a change of material.
+ * - **step 7** opens the filter, which is the classic one: the same note, brighter.
+ * - **step 10** holds for the whole slot instead of a fifth of it, so one note is long where the rest
+ *   are clipped.
+ * - **step 14** keeps its peak instead of falling away, which reads as an accent even though its
+ *   velocity is the same as its neighbours'.
+ *
+ * That last one is the point of the whole feature in one step: a sequencer that can only change *how
+ * loud* a note is has one way of saying "this one matters", and this has four.
+ */
+const mask: Preset = {
+  id: 'mask',
+  name: 'MASK',
+  about:
+    'One oscillator, one sequence, and four steps that overrule it — a line of four instruments.',
+  patch: patchOf(
+    112,
+    [
+      ignite('i', 1, 0),
+      osc('line', 1, 1, {
+        waveform: 'square',
+        pulseWidth: 0.5,
+        steps: locks(
+          steps(
+            [
+              note(0, 0),
+              note(2, 0),
+              note(4, 0),
+              note(3, 0),
+              note(0, 0),
+              note(4, 0),
+              note(6, 0),
+              note(4, 0),
+              note(0, 1),
+              note(4, 0),
+              note(2, 0),
+              note(3, 0),
+              note(0, 0),
+              note(5, 0),
+              note(4, 0),
+              note(2, 0),
+            ],
+            // Even, deliberately: every difference you hear is a lock rather than an accent, which is
+            // what makes this a demonstration rather than a tune with dynamics.
+            [0.7],
+          ),
+          {
+            2: { waveform: 'sawtooth' },
+            6: { cutoff: 6000 },
+            9: { gate: 1 },
+            13: { decay: 0 },
+          },
+        ),
+        division: '1/16',
+        gain: 0.26,
+        attack: 2,
+        // Short everywhere, so the one step that holds its peak stands out against fifteen that do not.
+        decay: 90,
+        release: 120,
+        gate: 0.2,
+        filterType: 'lowpass',
+        cutoff: 1400,
+        resonance: 7,
+        keyTrack: 0.4,
+      }),
+      fx('rv', 2, 2, { effect: 'reverb', mix: 0.22, decay: 2.2, cutoff: 3400 }),
+    ],
+    [wire('i', 'line'), wire('line', 'rv', 'audio')],
+  ),
+}
+
+/**
  * Two oscillators, and only one of them is a note.
  *
  * The other is bending it. An FM node takes the audio of one oscillator and puts it on the pitch of
@@ -1360,5 +1450,6 @@ export const PRESETS: Preset[] = [
   duck,
   shadow,
   iron,
+  mask,
   stress,
 ]

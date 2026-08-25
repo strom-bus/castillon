@@ -139,6 +139,28 @@ export interface Step {
    * worth having is the one where some do.
    */
   slide?: boolean
+
+  /*
+   * Four of the oscillator's own settings, taken over for this step alone.
+   *
+   * **Absent means the node's**, which is what makes them cheap in every sense: a sequence that locks
+   * nothing carries nothing, a step that locks one thing carries one, and the panel can always show what
+   * the note is *going* to use rather than a blank. The parameter that is not locked is not stored, not
+   * drawn as a special case, and not a second source of truth.
+   *
+   * Only four, and the rule behind which four is worth more than the list: **a setting is lockable if it
+   * is read when the note is built, and not if it decides when the step happens.** So a cutoff can differ
+   * from step to step and a division cannot — locking how long a step *lasts* is per-step timing, which
+   * is a different feature wearing this one's clothes.
+   *
+   * These four because they are the four axes that do not overlap: what the note is made of, how bright
+   * it is, how long it is held, and how it falls away. Resonance would be a second cutoff and pulse width
+   * a second waveform. Slide is already per step, above, and was the fifth axis before this existed.
+   */
+  waveform?: Waveform
+  cutoff?: number
+  gate?: number
+  decay?: number
 }
 
 export interface OscParams {

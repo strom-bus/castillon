@@ -584,3 +584,78 @@ describe('the warp panel', () => {
     expect(screen.getByText(/Doing nothing/)).toBeTruthy()
   })
 })
+
+/**
+ * Taking one of the oscillator's settings over for a single step.
+ *
+ * The gesture is the design and both halves can fail quietly: a control that never locks leaves the
+ * panel writing to the node, which changes sixteen steps instead of one, and a control that cannot be
+ * released leaves a step stuck with a value nobody can hand back.
+ */
+describe('a step that overrules its oscillator', () => {
+  /** The oscillator's first step, selected, with the panel open on it. */
+  function selectStep(): string {
+    const osc = usePatchStore.getState().nodes.find((n) => n.type === 'osc')!
+    usePatchStore.getState().select(osc.id)
+    usePatchStore.getState().selectStep(osc.id, 0)
+    return osc.id
+  }
+
+  const stepOne = (id: string) =>
+    (usePatchStore.getState().nodes.find((n) => n.id === id)!.data.params as OscParams).steps[0]!
+
+  it('follows the oscillator until something is moved', () => {
+    const id = selectStep()
+    render(<Inspector />)
+    // What the control shows is what the note will use, which at rest is the node's own value.
+    expect(stepOne(id).cutoff).toBeUndefined()
+    expect((screen.getByLabelText('Cutoff follows the oscillator') as HTMLElement).tagName).toBe(
+      'BUTTON',
+    )
+  })
+
+  it('locks the value on that step alone when it is moved', () => {
+    const id = selectStep()
+    const node = usePatchStore.getState().nodes.find((n) => n.id === id)!
+    const before = (node.data.params as OscParams).cutoff
+    render(<Inspector />)
+
+    fireEvent.change(screen.getByLabelText('Cutoff'), { target: { value: '5000' } })
+
+    expect(stepOne(id).cutoff).toBe(5000)
+    // The node is untouched, and so is every other step: that is the whole point of the gesture.
+    const after = usePatchStore.getState().nodes.find((n) => n.id === id)!.data.params as OscParams
+    expect(after.cutoff).toBe(before)
+    expect(after.steps[1]!.cutoff).toBeUndefined()
+  })
+
+  it('hands the control back when the dot is clicked', () => {
+    const id = selectStep()
+    render(<Inspector />)
+    fireEvent.change(screen.getByLabelText('Cutoff'), { target: { value: '5000' } })
+    expect(stepOne(id).cutoff).toBe(5000)
+
+    fireEvent.click(screen.getByLabelText('Release Cutoff'))
+    expect(stepOne(id).cutoff).toBeUndefined()
+  })
+
+  it('offers no release while the control already follows', () => {
+    // A button that can be pressed to no effect is worse than one that visibly cannot.
+    selectStep()
+    render(<Inspector />)
+    expect(
+      (screen.getByLabelText('Cutoff follows the oscillator') as HTMLButtonElement).disabled,
+    ).toBe(true)
+  })
+
+  it('takes each of the four independently', () => {
+    const id = selectStep()
+    render(<Inspector />)
+
+    fireEvent.change(screen.getByLabelText('Gate'), { target: { value: '0.9' } })
+    expect(stepOne(id).gate).toBe(0.9)
+    expect(stepOne(id).cutoff).toBeUndefined()
+    expect(stepOne(id).decay).toBeUndefined()
+    expect(stepOne(id).waveform).toBeUndefined()
+  })
+})

@@ -13,6 +13,7 @@ import {
   MIN_STEPS,
 } from '../nodes/registry'
 import { cutoffToSlider, MAX_RESONANCE, MIN_RESONANCE, sliderToCutoff } from '../audio/filter'
+import { WAVEFORMS } from '../audio/waveforms'
 import { FILTER_TYPES } from '../audio/filter'
 import {
   MAX_BPM,
@@ -616,6 +617,63 @@ const STEP_COLUMNS: StepColumn[] = [
     pack: (step) => (step.slide ? 1 : 0),
     unpack: (step, stored) => {
       step.slide = stored === 1
+    },
+  },
+
+  /*
+   * The four a step may take over from its oscillator, one column each.
+   *
+   * They cost nothing to have and this is why: a column is skipped whole when every step reads its
+   * resting value, and the resting value here is **nought, meaning "the node's"**. So a sequence that
+   * locks nothing pays four bits for the whole node, and one that locks a cutoff on three steps of
+   * sixteen pays that column and still nothing for the other three.
+   *
+   * Every value is therefore stored **shifted up by one**, so that nought stays free to mean absent. That
+   * matters more than it looks: without it, "this step is deliberately at the bottom of the range" and
+   * "this step says nothing" would be the same number, and a lock could never be set to a zero. A gate
+   * of nought is not reachable, but a decay of nought is the commonest setting there is.
+   */
+  {
+    name: 'lockedWaveform',
+    bits: 4,
+    rest: 0,
+    pack: (step) => (step.waveform ? WAVEFORMS.indexOf(step.waveform) + 1 : 0),
+    unpack: (step, stored) => {
+      if (stored > 0) step.waveform = WAVEFORMS[stored - 1]
+    },
+  },
+  {
+    // The same thousand-and-something steps the oscillator's own cutoff gets, on the same curve, so a
+    // locked cutoff and an unlocked one are the same number at the same place on the slider.
+    name: 'lockedCutoff',
+    bits: 11,
+    rest: 0,
+    pack: (step) =>
+      step.cutoff === undefined ? 0 : Math.round(cutoffToSlider(step.cutoff) * 1023) + 1,
+    unpack: (step, stored) => {
+      if (stored > 0) step.cutoff = sliderToCutoff((stored - 1) / 1023)
+    },
+  },
+  {
+    // Twentieths, which is the step the panel offers.
+    name: 'lockedGate',
+    bits: 5,
+    rest: 0,
+    pack: (step) => (step.gate === undefined ? 0 : clamp(Math.round(step.gate * 20), 1, 20)),
+    unpack: (step, stored) => {
+      if (stored > 0) step.gate = stored / 20
+    },
+  },
+  {
+    // Tens of milliseconds up to two seconds, matching what the oscillator's own decay is worth setting
+    // to by hand. Shifted, because a decay of nought — hold the peak until the note ends — is a setting
+    // somebody wants on one step of sixteen.
+    name: 'lockedDecay',
+    bits: 8,
+    rest: 0,
+    pack: (step) => (step.decay === undefined ? 0 : clamp(Math.round(step.decay / 10), 0, 200) + 1),
+    unpack: (step, stored) => {
+      if (stored > 0) step.decay = (stored - 1) * 10
     },
   },
 ]

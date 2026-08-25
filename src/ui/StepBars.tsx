@@ -96,6 +96,19 @@ export function StepBars({
         const hits = useRatchet ? Math.max(1, Math.round(step.ratchet ?? 1)) : 1
         const chance = useChance ? (step.chance ?? 1) : 1
         const open = selectedId === nodeId && selectedStep === index
+        /*
+         * Whether this step overrules the oscillator in any of the four ways it can.
+         *
+         * Worth a mark on the canvas rather than only in the panel, and for the reason every other
+         * per-step fact here is drawn: a step that is different and does not show it is a state you can
+         * only find by clicking every step in turn. One mark for all four — *which* of them is the
+         * panel's business, and four marks on a bar this size would be a legend.
+         */
+        const locked =
+          step.waveform !== undefined ||
+          step.cutoff !== undefined ||
+          step.gate !== undefined ||
+          step.decay !== undefined
         return (
           <div className={`step${open ? ' open' : ''}`} key={index}>
             <div
@@ -114,7 +127,8 @@ export function StepBars({
                 `Step ${index + 1} · ${noteName(step.note)} · drag to tune` +
                 (chance < 1 ? ` · ${Math.round(chance * 100)}% of the time` : '') +
                 (hits > 1 ? ` · ${hits} hits` : '') +
-                (step.slide ? ' · glides in' : '')
+                (step.slide ? ' · glides in' : '') +
+                (locked ? ' · has its own settings' : '')
               }
             >
               {/* A roll draws as that many stacked pieces, which is what a roll is: the step divided.
@@ -122,6 +136,8 @@ export function StepBars({
               {guides.map((at) => (
                 <span key={at} className="step-guide" style={{ bottom: `${at}%` }} />
               ))}
+              {/* Above the bar rather than on it, so it is legible whatever the note's height. */}
+              {locked && <span className="step-locked" />}
               <div className="step-bar" style={{ height: `${Math.round(ratio * 100)}%` }}>
                 {hits > 1 &&
                   Array.from({ length: hits - 1 }, (_, line) => (

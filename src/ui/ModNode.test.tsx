@@ -1,7 +1,8 @@
 import { ModNode } from './nodes'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { beforeEach, describe, expect, it } from 'vitest'
+import { activity } from '../audio/runtime'
 import { canConnect, EVENT_IN, EVENT_OUT } from '../state/connections'
 import { usePatchStore } from '../state/patchStore'
 import type { ModParams } from '../types/patch'
@@ -239,5 +240,77 @@ describe('what a modulator says about itself', () => {
     // on the node that means nothing there.
     const lfo = showMod({ kind: 'lfo', rate: 2, target: 'level' })
     expect(lfo).not.toMatch(/note|trig/)
+  })
+})
+
+/**
+ * That an envelope which runs on every note can be seen running.
+ *
+ * Nothing triggers a per-note envelope — that is the whole meaning of the setting, its clock is the
+ * notes of the node it is attached to — so it pushed no activity of its own and sat dark while it was
+ * doing all of its work. It was the only envelope on the canvas that could be running and look idle.
+ */
+describe('a per-note envelope lighting up', () => {
+  /** Renders a MOD, returns its element and a way to make the node it is pointed at sound. */
+  function attach(fires: 'note' | 'trigger') {
+    const store = usePatchStore.getState()
+    store.addNode('mod', { x: 0, y: 0 })
+    const mod = usePatchStore.getState().nodes.at(-1)!
+    usePatchStore.getState().updateParams(mod.id, { kind: 'env', fires, target: 'level' })
+    const osc = usePatchStore.getState().nodes.find((n) => n.type === 'osc')!.id
+    usePatchStore.getState().onConnect({
+      source: mod.id,
+      target: osc,
+      sourceHandle: 'signal-l',
+      targetHandle: 'signal-l',
+    })
+
+    const { container } = render(
+      <ReactFlowProvider>
+        <ModNode
+          id={mod.id}
+          data={{
+            params: usePatchStore.getState().nodes.find((n) => n.id === mod.id)!.data.params,
+          }}
+          selected={false}
+          type="mod"
+          dragging={false}
+          zIndex={0}
+          isConnectable
+          draggable
+          selectable
+          deletable
+          positionAbsoluteX={0}
+          positionAbsoluteY={0}
+        />
+      </ReactFlowProvider>,
+    )
+    return { node: () => container.querySelector('.node-mod') as HTMLElement, osc }
+  }
+
+  /** Sounds a node the way the scheduler would, and lets the bus dispatch it. */
+  async function sound(id: string) {
+    await act(async () => {
+      activity.push({ kind: 'node', id, time: 0, duration: 1 })
+      activity.start()
+      await new Promise((resolve) => requestAnimationFrame(() => resolve(null)))
+      await new Promise((resolve) => requestAnimationFrame(() => resolve(null)))
+    })
+    activity.stop()
+  }
+
+  it('lights with the note it is sweeping, having no pulse of its own', async () => {
+    const { node, osc } = attach('note')
+    expect(node().className).not.toContain('pulsing')
+    await sound(osc)
+    expect(node().className).toContain('pulsing')
+  })
+
+  it('leaves a triggered envelope waiting for its own trigger', async () => {
+    // Its clock is the cable, not the target's notes: it may be pointed at a node that is sounding and
+    // still not be running, and saying otherwise would be a light that means nothing.
+    const { node, osc } = attach('trigger')
+    await sound(osc)
+    expect(node().className).not.toContain('pulsing')
   })
 })

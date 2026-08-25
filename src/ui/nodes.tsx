@@ -217,7 +217,16 @@ export function FxNode({ id, data, selected }: NodeProps<FlowNode>) {
  * by taking away the port it was drawn to.
  */
 export function ModNode({ id, data, selected }: NodeProps<FlowNode>) {
-  const wired = usePatchStore((s) => s.edges.some((e) => e.source === id && e.data?.kind === 'mod'))
+  // The destinations rather than whether there are any, because a per-note envelope's light is a fact
+  // about them: joined, so the array does not restart the subscription on every render.
+  const attached = usePatchStore((s) =>
+    s.edges
+      .filter((e) => e.source === id && e.data?.kind === 'mod')
+      .map((e) => e.target)
+      .join('|'),
+  )
+  const targets = attached ? attached.split('|') : []
+  const wired = targets.length > 0
   const ordinal = useOrdinal(id)
   const params = data.params as ModParams
   const envelope = params.kind === 'env'
@@ -251,7 +260,20 @@ export function ModNode({ id, data, selected }: NodeProps<FlowNode>) {
   const target = destination
     ? targetOf(params.target, destinationType, destinationEffect as EffectKind | undefined)
     : undefined
-  const { pulsing } = useNodeActivity(id)
+
+  /*
+   * A per-note envelope lights with what it is pointed at, not with itself.
+   *
+   * Nothing ever triggers it — that is the whole meaning of the setting, its clock is the notes of the
+   * node it is attached to — so it pushed no activity of its own and sat dark while it was doing all of
+   * its work. Reported as a bug, and it was one: the node was the only envelope on the canvas that could
+   * be running and look idle. Borrowed from the WARP, which is dark for the same reason and solves it
+   * the same way. A trigger-fired envelope keeps its own pulse, which lasts the sweep.
+   */
+  const perNote = envelope && params.fires === 'note'
+  const own = useNodeActivity(id)
+  const live = useAnyNodeActivity(perNote ? targets : [])
+  const pulsing = perNote ? live : own.pulsing
 
   return (
     <div

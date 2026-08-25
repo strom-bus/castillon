@@ -56,6 +56,36 @@ function portsOn(type: string): Set<string> {
   )
 }
 
+/**
+ * Which way each side port faces, by the class React Flow puts on it.
+ *
+ * `null` where there is no port on that side. A handle is a target or a source and the canvas will only
+ * offer a cable between one of each, so this is the difference between a side that means something and a
+ * side that takes whatever it is given.
+ */
+function sidesOn(type: string): { left: string | null; right: string | null } {
+  const facing = (handle: Element | null) =>
+    handle === null ? null : handle.classList.contains('target') ? 'target' : 'source'
+
+  const Component = nodeTypes[type as keyof typeof nodeTypes]
+  const definition = NODE_DEFINITIONS.find((one) => one.type === type)
+  const props = {
+    id: 'n1',
+    data: { params: definition?.defaults() ?? {} },
+    selected: false,
+  } as Record<string, unknown>
+
+  const { container } = render(
+    <ReactFlowProvider>
+      <Component {...(props as never as Parameters<typeof Component>[0])} />
+    </ReactFlowProvider>,
+  )
+  return {
+    left: facing(container.querySelector(`[data-handleid="${SIGNAL_LEFT}"]`)),
+    right: facing(container.querySelector(`[data-handleid="${SIGNAL_RIGHT}"]`)),
+  }
+}
+
 describe('the ports on a node', () => {
   it.each([...WARPABLE])('%s can take a warp, so it has a side for one to land on', (type) => {
     const ports = portsOn(type)
@@ -63,23 +93,54 @@ describe('the ports on a node', () => {
     expect(ports.has(SIGNAL_RIGHT), `${type} has no right side port`).toBe(true)
   })
 
-  it('gives nothing a side port the rules would turn every cable away from', () => {
+  it('gives a side port to exactly the nodes that declare one', () => {
     /*
-     * The other direction, and the one the first fix got wrong: a port nothing can use is worse than
-     * no port. An Ignite briefly had two, so a WARP could hang off it — which meant signal ports on a
-     * node that has nothing to do with signal, to support a warp that was not bending the Ignite at
-     * all but using it as a place to stand while it reached the oscillators below.
+     * Both directions at once, read off `ports.side` rather than a list of types kept beside it — which
+     * is what this was, and the list had to be edited every time a node was added, so it was a copy of
+     * the registry that could fall behind it.
+     *
+     * The direction the first fix got wrong is the second one: a port nothing can use is worse than no
+     * port. An Ignite briefly had two, so a WARP could hang off it — signal ports on a node that has
+     * nothing to do with signal, to support a warp that was not bending the Ignite at all but using it
+     * as a place to stand while it reached the oscillators below.
      */
-    const usable = new Set([...WARPABLE, 'osc', 'fx', 'mod', 'warp'])
     for (const definition of NODE_DEFINITIONS) {
-      if (usable.has(definition.type)) continue
+      const declared = definition.ports.side !== undefined
       const ports = portsOn(definition.type)
-      expect(ports.has(SIGNAL_LEFT), `${definition.type} has a side port nothing can use`).toBe(
-        false,
-      )
-      expect(ports.has(SIGNAL_RIGHT), `${definition.type} has a side port nothing can use`).toBe(
-        false,
-      )
+      expect(
+        ports.has(SIGNAL_LEFT),
+        `${definition.type} ${declared ? 'has no left side port' : 'has a side port nothing can use'}`,
+      ).toBe(declared)
+      expect(
+        ports.has(SIGNAL_RIGHT),
+        `${definition.type} ${declared ? 'has no right side port' : 'has a side port nothing can use'}`,
+      ).toBe(declared)
+    }
+  })
+
+  it('faces each side port the way the registry says it does', () => {
+    /*
+     * The other half of the port declaration, and the half that only one node uses. `side: 'either'`
+     * means a side takes whatever it is given and the kind is worked out from the node types — so both
+     * are sources, and a drag either way round is turned round if it has to be. `side: 'directed'` means
+     * the side *is* the meaning: a SENSE takes audio in the left and sends modulation out the right, and
+     * both of those are legal between the same pair of nodes, so nothing but the side can say which was
+     * meant. Drawn as a target and a source, the canvas cannot offer the one that would be wrong.
+     *
+     * Read off the registry rather than named here, so a second directed node inherits the check.
+     */
+    for (const definition of NODE_DEFINITIONS) {
+      if (definition.ports.side === undefined) continue
+      const sides = sidesOn(definition.type)
+      if (definition.ports.side === 'directed') {
+        expect(sides.left, `${definition.type} does not take a cable on its left`).toBe('target')
+        expect(sides.right, `${definition.type} does not send from its right`).toBe('source')
+      } else {
+        expect(sides, `${definition.type} has a side that means something`).toEqual({
+          left: 'source',
+          right: 'source',
+        })
+      }
     }
   })
 

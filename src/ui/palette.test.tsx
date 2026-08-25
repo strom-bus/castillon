@@ -42,11 +42,27 @@ describe('the palette', () => {
 
   it('agrees with itself about which nodes take a trigger', () => {
     /*
-     * The claim behind the division, checked against the connection rules rather than asserted twice.
-     * A side node with trigger ports, or a cascade node without, would put the rule in the wrong place
-     * and nothing else would notice.
+     * The claim behind the division, read off the ports rather than asserted as a second list — which is
+     * what this was, and a list is exactly wrong here: it needed editing every time a node was added, so
+     * it said "these are the side nodes" while claiming to check that they belong on that side.
+     *
+     * Standing in the cascade means something fires you, so a cascade node must declare a trigger port.
+     * Hanging off one means you attach to a node instead of being fired by it, so a side node must
+     * declare a side to attach by. An oscillator is both — fired from above and open at the sides —
+     * which is why this is two implications and not an equivalence.
      */
-    const sideTypes = NODE_DEFINITIONS.filter((d) => d.place === 'side').map((d) => d.type)
-    expect(sideTypes).toEqual(['fx', 'mod', 'warp'])
+    for (const definition of NODE_DEFINITIONS) {
+      if (definition.place === 'cascade') {
+        expect(
+          definition.ports.trigger,
+          `${definition.type} stands in the cascade with no trigger port`,
+        ).toBeTruthy()
+      } else {
+        expect(
+          definition.ports.side,
+          `${definition.type} hangs off a node with no side to hang by`,
+        ).toBeTruthy()
+      }
+    }
   })
 })

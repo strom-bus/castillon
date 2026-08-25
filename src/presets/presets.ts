@@ -19,6 +19,7 @@ import type {
   Patch,
   PatchEdge,
   PatchNode,
+  SenseParams,
   SieveParams,
   Step,
   WarpParams,
@@ -116,6 +117,13 @@ const mod = (id: string, column: number, row: number, params: ModParams): PatchN
 const sieve = (id: string, column: number, row: number, params: SieveParams): PatchNode => ({
   id,
   type: 'sieve',
+  position: at(column, row),
+  params,
+})
+
+const sense = (id: string, column: number, row: number, params: SenseParams): PatchNode => ({
+  id,
+  type: 'sense',
   position: at(column, row),
   params,
 })
@@ -711,6 +719,101 @@ const duck: Preset = {
 }
 
 /**
+ * The other way to duck, and the difference is the whole point of putting both in the box.
+ *
+ * DUCK is keyed by a **trigger**: the pad moves because the other branch fired, so it cannot mistime and
+ * a quiet hit ducks exactly as much as a loud one. This one is keyed by the **sound**, and everything that
+ * follows from that is audible — the pad closes by however much the lead is actually playing, a rest lets
+ * it open, and a soft phrase moves it less than a hard one.
+ *
+ * It closes a filter rather than pulling a level, which is the other reason for it to exist. A follower
+ * pointed at a cutoff is not a sidechain at all: it is one line making room for another in the register
+ * instead of in the volume, and nothing else here can do it.
+ */
+const shadow: Preset = {
+  id: 'shadow',
+  name: 'SHADOW',
+  about:
+    'A pad that darkens while the lead plays and opens in the rests, keyed by the sound and not by a trigger.',
+  patch: patchOf(
+    104,
+    [
+      ignite('i', 1, 0),
+      /*
+       * The lead. Busy and uneven on purpose: a follower's whole subject is how much is going on, so a
+       * line with rests in it makes the pad move where a steady one would only hold it down.
+       */
+      osc('lead', 0, 1, {
+        waveform: 'pulse',
+        pulseWidth: 0.35,
+        steps: steps([
+          note(0, 0),
+          note(2, 0),
+          null,
+          note(4, 0),
+          note(3, 0),
+          null,
+          note(5, 0),
+          null,
+        ]),
+        division: '1/8',
+        gain: 0.3,
+        attack: 3,
+        decay: 140,
+        release: 160,
+        gate: 0.5,
+        filterType: 'lowpass',
+        cutoff: 2400,
+        resonance: 4,
+        keyTrack: 0.5,
+      }),
+      // The pad, and its filter is deliberately left open: what the follower does is close it, so it has
+      // to have somewhere to travel from.
+      osc('pad', 2, 1, {
+        waveform: 'sawtooth',
+        detune: -6,
+        steps: steps([note(0, -1), null, note(4, -1), null]),
+        division: '1/4',
+        gain: 0.24,
+        attack: 260,
+        decay: 0,
+        release: 1100,
+        gate: 1,
+        filterType: 'lowpass',
+        cutoff: 4200,
+        resonance: 5,
+        keyTrack: 0.3,
+      }),
+      /*
+       * The follower. It hears the lead on its left and moves the pad's cutoff on its right.
+       *
+       * Slow to let go and quick to take hold, which is what makes it read as one line making room for
+       * another rather than as a tremolo: four hundred milliseconds of release holds the pad down through
+       * the gaps inside a phrase and opens it between phrases. Sensitivity above one because a single
+       * oscillator at a quarter of full level never reaches the top of the range on its own.
+       */
+      sense('ear', 1, 2, {
+        target: 'cutoff',
+        depth: -0.55,
+        sensitivity: 1.7,
+        attack: 9,
+        release: 420,
+      }),
+      fx('rv', 3, 2, { effect: 'reverb', mix: 0.3, decay: 3.4, cutoff: 2400 }),
+    ],
+    [
+      wire('i', 'lead'),
+      wire('i', 'pad'),
+      // Audio in the left, modulation out the right: the two cables a SENSE has, and the only node here
+      // whose sides are not interchangeable.
+      wire('lead', 'ear', 'audio'),
+      wire('ear', 'pad', 'mod'),
+      wire('pad', 'rv', 'audio'),
+    ],
+  ),
+}
+
+/**
  * One line, sifted three ways.
  *
  * A sixteen-step tick sends a trigger down on **every step**, and each branch takes a different share of
@@ -1169,5 +1272,6 @@ export const PRESETS: Preset[] = [
   rise,
   order,
   duck,
+  shadow,
   stress,
 ]

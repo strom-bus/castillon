@@ -518,6 +518,32 @@ export interface SieveParams {
   chance: number
 }
 
+/**
+ * A SENSE: the one node whose input is audio and whose output is modulation.
+ *
+ * Everything else here is trigger-in/audio-out (an oscillator), audio-in/audio-out (an effect) or
+ * clock-in/modulation-out (a MOD). That leaves one empty cell, and this fills it — which is why it is a
+ * node of its own rather than a kind of MOD: what a cable *is* has to be decidable from the node types at
+ * its two ends, and a MOD that sometimes took audio would make `osc → mod` mean two different things
+ * depending on a parameter.
+ */
+export interface SenseParams {
+  /** What it moves, and by how much. The same pair a MOD has, resolved against the same table. */
+  target?: string
+  depth?: number
+  /**
+   * How much of what it hears becomes control signal, applied **before** the smoothing.
+   *
+   * Before, so a quiet branch can still drive something to the top of its range. Applied after, it would
+   * scale a control signal that had already been flattened by the smoothing, and the branches that most
+   * need a follower — the quiet ones — would be the ones it could not reach.
+   */
+  sensitivity?: number
+  /** How fast it grabs, and how slowly it lets go, in milliseconds. Different on purpose. */
+  attack?: number
+  release?: number
+}
+
 export interface WarpParams {
   /**
    * Steps to move everything below this node, counted in whatever units each oscillator can offer.
@@ -727,7 +753,14 @@ export interface ModParams {
 }
 
 export type NodeParams =
-  OscParams | FxParams | DelayParams | StartParams | ModParams | WarpParams | SieveParams
+  | OscParams
+  | FxParams
+  | DelayParams
+  | StartParams
+  | ModParams
+  | WarpParams
+  | SieveParams
+  | SenseParams
 
 export const MIN_DELAY_MS = 10
 export const MAX_DELAY_MS = 4000

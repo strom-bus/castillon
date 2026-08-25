@@ -597,6 +597,25 @@ export function targetsFor(
 }
 
 /**
+ * The targets a destination offers *a signal*, which is not all of them.
+ *
+ * A follower's level lives on the audio thread and nothing on the main thread can read it, so a SENSE can
+ * only reach a parameter that is an `AudioParam`. The ones marked `via: 'value'` are driven by
+ * recomputation from a timer — a decay or a bit depth rebuilds something rather than taking a connection
+ * — and a modulator that knows its own phase can do that arithmetic where a follower cannot.
+ *
+ * Withdrawn here rather than refused in the engine: a control that offers a destination and then does
+ * nothing with it is the shape of fault this codebase keeps finding, so the list a SENSE is chosen from
+ * is the list a SENSE can serve.
+ */
+export function signalTargets(
+  nodeType: string | undefined,
+  effect?: EffectKind,
+): readonly ModTarget[] {
+  return targetsFor(nodeType, effect).filter((target) => target.via !== 'value')
+}
+
+/**
  * The description of one target, on one kind of node.
  *
  * `nodeType` is **required**, and that is the whole of this function's history. It used to be optional,
@@ -624,8 +643,10 @@ export function resolveTarget(
   key: ModTargetKey | undefined,
   nodeType: string | undefined,
   effect?: EffectKind,
+  /** A follower asking, which can only reach the ones that take a connection. See `signalTargets`. */
+  signalOnly = false,
 ): ModTargetKey | null {
-  const offered = targetsFor(nodeType, effect)
+  const offered = signalOnly ? signalTargets(nodeType, effect) : targetsFor(nodeType, effect)
   if (offered.length === 0) return null
   if (offered.some((target) => target.key === key)) return key as ModTargetKey
 
@@ -674,3 +695,13 @@ export function amountFor(target: ModTarget, depth: number): number {
  * on each target, because it depends on what is being swept and not on the modulator.
  */
 export const MOD_COST = 0.5
+
+/**
+ * A follower is a worklet, and a worklet is dearer than an oscillator and a gain.
+ *
+ * **A prior, not a measurement.** The sweep that priced the voice and the effects has not been run since
+ * this was added, and the honest thing is to say so rather than to let a number imply a reading. Set from
+ * the two worklets that have been measured — the bitcrusher's decimator and the comb — as the cheaper of
+ * the two: this one does two multiplies and a compare per sample and keeps no buffer.
+ */
+export const FOLLOW_COST = 4

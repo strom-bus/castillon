@@ -351,6 +351,33 @@ refused, since between an oscillator and an effect there is only one direction t
   wired to an Ignite lived in three shipped patches for four commits, and it surfaced only because
   one rolled by the dice came out looking unwired.
 
+- **A SENSE node**, the one thing on the canvas whose two sides are not the same: audio comes in the
+  left and modulation goes out the right, so one node reads a branch and moves another. It is an
+  envelope follower, and it exists because everything else here is decided when a node fires — a MOD is
+  the exception that moves a parameter while you listen, and a SENSE is the exception that takes its
+  shape from the music instead of from a setting.
+
+  It is registered in the engine as a modulator, which is the whole design rather than an implementation
+  note: a MOD and a SENSE differ in where the shape comes from and in nothing else — a signal at unit
+  amplitude through a depth, pointed at a parameter — so the cable, the target resolution and every
+  destination the engine already knows how to reach came with it, per-voice targets included. What it
+  cannot reach is a parameter that is rebuilt rather than connected, a reverb's decay or a bitcrusher's
+  bit depth: those are driven from a timer that computes the modulator's own phase, and a follower has no
+  phase. They are withdrawn from the list it is chosen from rather than offered and quietly ignored.
+
+  Two speeds, which is why it is a worklet and not a low-pass filter: taking `|x|` is a wave shaper and
+  smoothing it is a filter, so a follower with **one** speed needs no processor at all. Two needs to know
+  whether the signal is rising, which is a comparison against the value it last put out — and that is
+  memory. One speed would track the average of a branch rather than its shape, and a note's average is a
+  number close to nothing where its peak is the note.
+
+  Feeding one costs nothing: a tap and not a send. An oscillator wired into an effect is heard through
+  that effect, and an oscillator wired into a SENSE is heard exactly as it was — so anything can be
+  listened to at any point without changing what comes out of it. The preset called SHADOW is a pad
+  darkening while a lead plays and opening in the rests, which is the arrangement DUCK does by trigger
+  instead: a trigger cannot mistime and a follower cannot miss a note nobody told it about, and both are
+  in the box so the difference can be heard.
+
 - **Ignite modes.** An Ignite either fires by itself with the transport, or waits for a key. Bound to
   a key it can hold — sounding while the key is down — or toggle, starting on one press and stopping
   on the next. Built so the Ignite does not know it was a keyboard: a source emits press and release
@@ -371,7 +398,7 @@ refused, since between an oscillator and an effect there is only one direction t
 - **A patch gallery**, a window over the canvas rather than a page — so choosing a patch loads it into
   the instrument already underneath. Cards draw their own cascade, and stars decay with age so the
   popular sort does not freeze on whatever was published first. Two tabs: the patches people have
-  shared, and **twelve presets** that come with the machine.
+  shared, and **thirteen presets** that come with the machine.
 
   Six are built around one idea that is hard to arrive at by rolling and small enough to read at a
   glance — the plain cascade, why there is no clock, one phrase driving another note by note, a figure
@@ -416,7 +443,7 @@ refused, since between an oscillator and an effect there is only one direction t
   it longer without making it clearer. Both languages live adjacent in one file so a half-finished
   edit shows up in the diff rather than as a blank paragraph months later.
 
-  Fourteen chapters and a hundred and sixty entries, written for whoever is using the instrument
+  Fifteen chapters and a hundred and sixty-eight entries, written for whoever is using the instrument
   rather than for whoever built it: no entry explains how something is implemented, and every one says
   what a control does to the sound and when you would reach for it. One chapter per module, each in
   the order its own panel is in and under the panel's own group headings, so reading the manual and

@@ -20,6 +20,7 @@ import decimatorSource from 'virtual:worklet/decimator'
 import octaveSource from 'virtual:worklet/octave'
 import combSource from 'virtual:worklet/comb'
 import stutterSource from 'virtual:worklet/stutter'
+import followSource from 'virtual:worklet/follow'
 
 /** Contexts already loaded, so a second effect on the same context does not fetch again. */
 const loaded = new WeakSet<BaseAudioContext>()
@@ -37,8 +38,8 @@ export async function registerWorklets(ctx: BaseAudioContext): Promise<boolean> 
 
   // One module per processor: a single combined file would mean one parse error taking down every
   // effect that needs a worklet rather than just its own.
-  const urls = [decimatorSource, octaveSource, combSource, stutterSource].map((source) =>
-    URL.createObjectURL(new Blob([source], { type: 'application/javascript' })),
+  const urls = [decimatorSource, octaveSource, combSource, stutterSource, followSource].map(
+    (source) => URL.createObjectURL(new Blob([source], { type: 'application/javascript' })),
   )
   try {
     for (const url of urls) await ctx.audioWorklet.addModule(url)

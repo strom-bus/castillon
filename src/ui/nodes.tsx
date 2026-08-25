@@ -16,6 +16,7 @@ import type {
   ModParams,
   OscParams,
   StartParams,
+  SenseParams,
   SieveParams,
 } from '../types/patch'
 import { useNodeColors, type NodeColors } from '../viz/depth'
@@ -404,6 +405,90 @@ export function WarpNode({ id, data, selected }: NodeProps<FlowNode>) {
         {/* Signed even when positive, because the sign is the whole reading: +2 and 2 look alike at a
             glance and only one of them says which way. */}
         <span className="delay-value">{steps > 0 ? `+${steps}` : steps}</span>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * A SENSE on the canvas: what it is moving, and by how much.
+ *
+ * Its two sides are **not** interchangeable, which nothing else here can say: audio comes in the left and
+ * modulation goes out the right. So the ports are drawn as what they are — the left a target, the right a
+ * source — and the canvas will only offer a cable that could mean something. Every other side port in the
+ * instrument is a source and takes its side from wherever the neighbour happens to sit.
+ *
+ * Three tones like a MOD and a WARP, and for the same reason: it is never triggered, so what it has to
+ * say is whether it is wired at both ends and whether what it is moving is sounding. A follower with
+ * nothing feeding it is silent however it is set, and that is the failure worth being able to see.
+ */
+export function SenseNode({ id, data, selected }: NodeProps<FlowNode>) {
+  const ordinal = useOrdinal(id)
+  const params = data.params as SenseParams
+  const depth = params.depth ?? 0
+
+  /*
+   * What it says it is pointed at, asked of whatever it is actually pointed at — the same reasoning as a
+   * MOD's header, and the same reason the destination's type is not optional: `pitch` is a hundred cents
+   * on an oscillator and twelve semitones on a comb, and an effect may rename a parameter it borrows.
+   */
+  const destination = usePatchStore((s) => {
+    const edge = s.edges.find((e) => e.source === id && e.data?.kind === 'mod')
+    const node = edge && s.nodes.find((n) => n.id === edge.target)
+    if (!node) return null
+    return node.type === 'fx' ? `fx:${(node.data.params as FxParams).effect}` : (node.type ?? 'osc')
+  })
+  const [destinationType, destinationEffect] = (destination ?? '').split(':')
+  const target = destination
+    ? targetOf(params.target, destinationType, destinationEffect as EffectKind | undefined)
+    : undefined
+
+  // Both ends, because either one missing makes it do nothing: no input and it never moves, no output
+  // and it moves nothing.
+  const hearing = usePatchStore((s) =>
+    s.edges.some((edge) => edge.target === id && (edge.data?.kind ?? 'event') === 'audio'),
+  )
+  const attached = usePatchStore((s) =>
+    s.edges
+      .filter((edge) => edge.source === id && edge.data?.kind === 'mod')
+      .map((edge) => edge.target)
+      .join('|'),
+  )
+  const targets = attached ? attached.split('|') : []
+  const live = useAnyNodeActivity(targets)
+  const wired = hearing && targets.length > 0
+  const state = wired && live ? ' active' : wired ? ' wired' : ' idle'
+
+  return (
+    <div className={`node node-sense${state}${selected ? ' selected' : ''}`}>
+      {/* The left takes audio and the right puts out modulation, drawn as a target and a source so the
+          canvas cannot offer the cable that would mean nothing. The only node here where a side says
+          something — see `ports.side` in the registry. */}
+      <Handle
+        type="target"
+        id={SIGNAL_LEFT}
+        position={Position.Left}
+        className="port port-signal"
+      />
+      <Handle
+        type="source"
+        id={SIGNAL_RIGHT}
+        position={Position.Right}
+        className="port port-signal"
+      />
+      <div className="node-header">
+        <span className="node-title">
+          SENSE <span className="node-ordinal">{ordinal}</span>
+        </span>
+        <span className="node-meta">{target?.label ?? 'off'}</span>
+      </div>
+      <div className="delay-body">
+        {/* Signed even when positive, like a WARP's transpose: a follower is most often pulling *down*,
+            and the sign is the whole reading — ducking and swelling are the same control. */}
+        <span className="delay-value">
+          {depth > 0 ? '+' : ''}
+          {Math.round(depth * 100)}%
+        </span>
       </div>
     </div>
   )

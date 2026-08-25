@@ -1,6 +1,7 @@
 import { SCALES, type ScaleName } from '../audio/scales'
 import {
   defaultDelayParams,
+  defaultSenseParams,
   defaultSieveParams,
   defaultWarpParams,
   defaultFxParams,
@@ -58,10 +59,14 @@ import {
   type Waveform,
   MAX_RATCHET,
   type Step,
+  type SenseParams,
   type SieveParams,
 } from '../types/patch'
 import {
   MAX_BITS,
+  MAX_FOLLOW_MS,
+  MAX_SENSITIVITY,
+  MIN_FOLLOW_MS,
   MAX_REPEATS,
   MAX_COMB_NOTE,
   MAX_REDUCTION,
@@ -172,12 +177,19 @@ const MOD_ATTACK_BITS = 11
 const MOD_DECAY_BITS = 13
 const MOD_WAVES = ['sine', 'triangle', 'square', 'sawtooth', 'random'] as const
 
-// Appended, never reordered: a code stores the index, so moving an entry would rewrite history. Four
-// bits leave room for sixteen, of which five are used.
-// Append-only, and there is room: four bits hold sixteen and six are used.
-// Append-only: the index is what travels, so a new type goes on the end and every older code
-// still reads.
-const NODE_TYPES = ['start', 'osc', 'delay', 'fx', 'mod', 'warp', 'sieve'] as const
+/**
+ * A follower's fields. Depth is the only signed one in the instrument's modulation — ducking and
+ * swelling are the same control with opposite signs — so it travels offset by a hundred rather than
+ * as a magnitude, and eight bits hold the whole of it.
+ */
+const SENSE_DEPTH_BITS = 8
+const SENSE_SENSITIVITY_BITS = 10
+/** Both times share a range, so they share a width. */
+const SENSE_TIME_BITS = 11
+
+// Appended, never reordered: the index is what travels, so moving an entry would rewrite history and a
+// new type goes on the end. Four bits hold sixteen, of which eight are used.
+const NODE_TYPES = ['start', 'osc', 'delay', 'fx', 'mod', 'warp', 'sieve', 'sense'] as const
 
 const EFFECT_CODES: EffectKind[] = [
   'reverb',
@@ -834,6 +846,28 @@ function readMod(reader: BitReader): ModParams {
   return { kind, fires, byVelocity, wave, rate, depth, attack, decay, target: target || 'level' }
 }
 
+function writeSense(writer: BitWriter, raw: SenseParams): void {
+  const { target, depth, sensitivity, attack, release } = { ...defaultSenseParams(), ...raw }
+  // Offset rather than signed, because the range is fixed and known at both ends: −1 stores as 0.
+  writer.write(quantise((depth as number) * 100 + 100, 1, 0, 200), SENSE_DEPTH_BITS)
+  writer.write(
+    quantise((sensitivity as number) * 100, 1, 0, MAX_SENSITIVITY * 100),
+    SENSE_SENSITIVITY_BITS,
+  )
+  writer.write(quantise(attack as number, 1, MIN_FOLLOW_MS, MAX_FOLLOW_MS), SENSE_TIME_BITS)
+  writer.write(quantise(release as number, 1, MIN_FOLLOW_MS, MAX_FOLLOW_MS), SENSE_TIME_BITS)
+  writeText(writer, target ?? 'level')
+}
+
+function readSense(reader: BitReader): SenseParams {
+  const depth = (reader.read(SENSE_DEPTH_BITS) - 100) / 100
+  const sensitivity = reader.read(SENSE_SENSITIVITY_BITS) / 100
+  const attack = reader.read(SENSE_TIME_BITS)
+  const release = reader.read(SENSE_TIME_BITS)
+  const target = readText(reader)
+  return { depth, sensitivity, attack, release, target: target || 'level' }
+}
+
 function writeFx(writer: BitWriter, raw: FxParams): void {
   writeParams(writer, FX_FIELDS, { ...defaultFxParams(), ...raw }, FX_REFERENCE)
 }
@@ -864,8 +898,9 @@ export function encodePatch(patch: Patch): string {
   // Two bits are needed by anything past the first two kinds, so the flag covers all of them: there
   // were three when it was named and there are four now, and the question it answers is the same one.
   const anyModulation =
-    patch.nodes.some((node) => node.type === 'mod' || node.type === 'warp') ||
-    patch.edges.some((e) => e.kind === 'mod' || e.kind === 'warp')
+    patch.nodes.some(
+      (node) => node.type === 'mod' || node.type === 'warp' || node.type === 'sense',
+    ) || patch.edges.some((e) => e.kind === 'mod' || e.kind === 'warp')
   const anyClimbing = patch.edges.some((e) => e.kind === 'event' && e.up === true)
   writer.write(
     (anyBound ? FLAG_IGNITE_TRIGGER : 0) |
@@ -904,6 +939,8 @@ export function encodePatch(patch: Patch): string {
       writeStart(writer, node.params as StartParams)
     } else if (node.type === 'mod') {
       writeMod(writer, node.params as ModParams)
+    } else if (node.type === 'sense') {
+      writeSense(writer, node.params as SenseParams)
     }
   }
 
@@ -974,6 +1011,8 @@ export function decodePatch(code: string): Patch | null {
         params = readStart(reader)
       } else if (type === 'mod') {
         params = readMod(reader)
+      } else if (type === 'sense') {
+        params = readSense(reader)
       }
 
       nodes.push({ id: `n${i}`, type, position: { x, y }, params })

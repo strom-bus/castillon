@@ -23,6 +23,7 @@ import type {
   OscParams,
   Patch,
   StartParams,
+  SenseParams,
   Step,
   WarpParams,
   SieveParams,
@@ -112,7 +113,14 @@ interface PatchState {
   updateParams(
     id: string,
     partial: Partial<
-      OscParams & FxParams & DelayParams & StartParams & ModParams & WarpParams & SieveParams
+      OscParams &
+        FxParams &
+        DelayParams &
+        StartParams &
+        ModParams &
+        WarpParams &
+        SieveParams &
+        SenseParams
     >,
   ): void
   setEffect(id: string, effect: EffectKind): void

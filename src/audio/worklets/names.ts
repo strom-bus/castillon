@@ -15,6 +15,9 @@
 
 import {
   MAX_COMB_NOTE,
+  MAX_FOLLOW_MS,
+  MAX_SENSITIVITY,
+  MIN_FOLLOW_MS,
   MAX_REDUCTION,
   MAX_REPEATS,
   MAX_SLICE_SECONDS,
@@ -28,6 +31,7 @@ export const DECIMATOR = 'castillon-decimator'
 export const OCTAVE = 'castillon-octave'
 export const COMB = 'castillon-comb'
 export const STUTTER = 'castillon-stutter'
+export const FOLLOW = 'castillon-follow'
 
 /** One parameter of one processor, in the shape `parameterDescriptors` wants it. */
 export interface WorkletParam {
@@ -74,6 +78,31 @@ export const WORKLET_PARAMS: Record<string, WorkletParam[]> = {
       // Above Nyquist on purpose: that is what "no damping at all" is, and the top of the control has to
       // be able to reach it. `combDamping` returns nothing rather than almost nothing there.
       maxValue: 96000,
+      automationRate: 'k-rate',
+    },
+  ],
+  [FOLLOW]: [
+    // Milliseconds, both of them, which is what every compressor in the world calls these.
+    {
+      name: 'attack',
+      defaultValue: 5,
+      minValue: MIN_FOLLOW_MS,
+      maxValue: MAX_FOLLOW_MS,
+      automationRate: 'k-rate',
+    },
+    {
+      name: 'release',
+      defaultValue: 200,
+      minValue: MIN_FOLLOW_MS,
+      maxValue: MAX_FOLLOW_MS,
+      automationRate: 'k-rate',
+    },
+    // How much of the input becomes control signal, applied *before* the smoothing — see `follow`.
+    {
+      name: 'sensitivity',
+      defaultValue: 1,
+      minValue: 0,
+      maxValue: MAX_SENSITIVITY,
       automationRate: 'k-rate',
     },
   ],

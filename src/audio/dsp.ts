@@ -254,6 +254,71 @@ export function stutter(
   }
 }
 
+/** How fast a follower may be asked to react, in milliseconds. */
+export const MIN_FOLLOW_MS = 1
+export const MAX_FOLLOW_MS = 2000
+
+/** How much of the input becomes control signal, at the top of the control. */
+export const MAX_SENSITIVITY = 8
+
+/** What a follower remembers: the level it has arrived at. */
+export interface FollowState {
+  level: number
+}
+
+export function followState(): FollowState {
+  return { level: 0 }
+}
+
+/**
+ * One block of envelope following: the size of the signal, smoothed, with a fast way up and a slow way
+ * down.
+ *
+ * **Why the two are different is the whole feature.** A single smoothing constant gives a follower that
+ * lets go as slowly as it grabs, which tracks the *average* of a branch rather than its shape — and the
+ * shape is what anybody wants to hear. Fast up and slow down is what makes a follower duck on the attack
+ * of a note and recover between notes, which is the gesture every sidechain in music is.
+ *
+ * `|x|` rather than a square: the rectified magnitude is what an analogue detector reads, and it needs no
+ * root afterwards. Both coefficients are one-pole, computed from a time to reach roughly two thirds of the
+ * way — which is what "attack" and "release" mean on every compressor ever built.
+ *
+ * Pure over its arguments, state included, so it can be tested with two arrays and no audio thread.
+ */
+export function follow(
+  input: Float32Array,
+  output: Float32Array,
+  attackCoefficient: number,
+  releaseCoefficient: number,
+  gain: number,
+  state: FollowState,
+): void {
+  const up = Math.min(1, Math.max(0, attackCoefficient))
+  const down = Math.min(1, Math.max(0, releaseCoefficient))
+  const scale = Math.max(0, gain)
+
+  for (let i = 0; i < input.length; i++) {
+    const size = Math.abs(input[i]) * scale
+    // Rising uses the attack and falling uses the release, which is the one branch in the whole function
+    // and the reason it cannot be a biquad.
+    const rate = size > state.level ? up : down
+    state.level += (size - state.level) * rate
+    output[i] = state.level
+  }
+}
+
+/**
+ * The one-pole coefficient for a response time, at a sample rate.
+ *
+ * Time to about two thirds of the way there, which is what a compressor means by attack and release — not
+ * time to arrive, which for a one-pole is never.
+ */
+export function followCoefficient(milliseconds: number, sampleRate: number): number {
+  if (!(sampleRate > 0)) return 1
+  const ms = Math.min(MAX_FOLLOW_MS, Math.max(MIN_FOLLOW_MS, milliseconds))
+  return Math.min(1, Math.max(0, 1 - Math.exp(-1 / ((ms / 1000) * sampleRate))))
+}
+
 /**
  * A staircase that rounds the signal to `bits` of resolution.
  *

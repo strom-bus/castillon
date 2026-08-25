@@ -77,6 +77,16 @@ let currentParam: ((name: string, initial?: number) => FakeParam) | null = null
 export function installWorkletStub(): void {
   class AudioWorkletNodeStub {
     parameters: Map<string, unknown>
+    /**
+     * What is connected into it, and what it is connected to, recorded the same way every other node
+     * here records it.
+     *
+     * It used to record neither — `connect` returned its argument and forgot — which made a processor a
+     * hole in the graph the fake can see: a chain that failed to hook its worklet up to what comes after
+     * it looked identical to one that did. That is the third gap of this kind found in this file, and
+     * they all read as a gap in the engine rather than in the stub.
+     */
+    incoming: unknown[] = []
 
     constructor(_ctx: BaseAudioContext, name: string) {
       // Read from the same list the processors declare, so the stub cannot know a different set of
@@ -91,9 +101,21 @@ export function installWorkletStub(): void {
     }
 
     connect(next: unknown) {
+      if (next && typeof next === 'object' && 'incoming' in next) {
+        const list = (next as { incoming: unknown[] }).incoming
+        // Once, however often it is asked: the spec says a connection already standing has no further
+        // effect, and the rest of this fake counts it once for the same reason.
+        if (!list.includes(this)) list.push(this)
+      }
       return next
     }
-    disconnect() {}
+    disconnect(from?: unknown) {
+      if (from && typeof from === 'object' && 'incoming' in from) {
+        const list = (from as { incoming: unknown[] }).incoming
+        const at = list.indexOf(this)
+        if (at !== -1) list.splice(at, 1)
+      }
+    }
   }
 
   globalThis.AudioWorkletNode ??= AudioWorkletNodeStub as unknown as typeof AudioWorkletNode

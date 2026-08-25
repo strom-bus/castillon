@@ -1,6 +1,6 @@
 import { EFFECTS } from '../audio/effects'
 import { effectCost, estimatePeakLoad } from '../audio/load'
-import { LFO_SHAPES, silentBecause, targetsFor } from '../audio/modulation'
+import { LFO_SHAPES, signalTargets, silentBecause, targetsFor } from '../audio/modulation'
 import { DEGREES, type ScaleName } from '../audio/scales'
 import { defaultDelayParams, defaultFxParams, defaultOscParams } from '../nodes/registry'
 import type {
@@ -652,6 +652,54 @@ export function randomPatch(random: () => number = Math.random): Patch {
       params,
     })
     wire(warp, host, 'warp')
+  }
+
+  /*
+   * A follower, sometimes, and it needs two things rather than one: a branch to listen to and a parameter
+   * to move. So it is rolled last, where both are known.
+   *
+   * Listening to something **other** than what it moves wherever there is a choice, because that is the
+   * arrangement you cannot build any other way here — a follower pointed at the branch it is hearing is a
+   * compressor, and the FX module has one of those. Two different branches is one getting out of the way
+   * of the other, which is the thing worth meeting in a rolled patch.
+   *
+   * Depth below zero most of the time for the same reason.
+   */
+  if (c.chance(0.25) && destinations.length > 0 && oscillators.length > 0) {
+    const destination = c.pick(destinations)
+    const effect = destination.type === 'fx' ? (destination.params as FxParams).effect : undefined
+    // The narrower list: a follower can only reach a parameter that takes a connection, and one that
+    // would do nothing on this destination is dropped the same way a modulator's is.
+    const offered = signalTargets(destination.type, effect).filter(
+      (target) =>
+        !silentBecause(target.key, {
+          nodeType: destination.type,
+          effect,
+          filterType: (destination.params as OscParams).filterType,
+        }),
+    )
+    const elsewhere = oscillators.filter((one) => one.id !== destination.id)
+    const heard = elsewhere.length > 0 ? c.pick(elsewhere) : c.pick(oscillators)
+
+    if (offered.length > 0) {
+      const sense = add({
+        type: 'sense',
+        // To the left, so its modulation port faces what it is moving. The audio comes in the other side
+        // from wherever the branch it listens to happens to be.
+        position: beside(destination, -1),
+        params: {
+          target: c.pick(offered).key,
+          // Away from zero on both sides, since a follower at nothing is a node that does nothing.
+          depth: c.chance(0.75) ? -c.range(40, 90) / 100 : c.range(40, 90) / 100,
+          sensitivity: c.range(60, 200) / 100,
+          // Quick up and slow down, which is what makes it read as a follower rather than as a tremolo.
+          attack: c.range(2, 40),
+          release: c.range(80, 600),
+        },
+      })
+      wire(heard, sense, 'audio')
+      wire(sense, destination, 'mod')
+    }
   }
 
   return trimToBudget({

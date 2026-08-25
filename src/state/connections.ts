@@ -179,6 +179,11 @@ const triggerOf = (type: string | undefined) =>
   NODE_DEFINITIONS.find((one) => one.type === type)?.ports.trigger
 
 /** Whether a trigger can run from one node type into another: one has a way out, the other a way in. */
+/** Whether this kind of node's two sides mean different things. Only a SENSE's do. */
+function directedSides(type: string | undefined): boolean {
+  return NODE_DEFINITIONS.find((definition) => definition.type === type)?.ports.side === 'directed'
+}
+
 /** Whether this kind of node has the upward trigger output at all. Only the Ignite does. */
 function hasUpPort(type: string | undefined): boolean {
   return NODE_DEFINITIONS.find((definition) => definition.type === type)?.ports.up === true
@@ -230,6 +235,17 @@ function orient(from: string | undefined, to: string | undefined): EdgeKind | 'r
   if (from === 'osc' && to === 'fx') return 'audio'
   if (from === 'fx' && to === 'osc') return 'reversed'
   if (from === 'fx' && to === 'fx') return 'audio'
+
+  /*
+   * A SENSE listens to audio and puts out modulation, so **both** directions between it and an oscillator
+   * are legal and they are different kinds of cable. Nothing else here is like that: everywhere else, one
+   * direction is the cable and the other is the same cable drawn backwards.
+   *
+   * Which is why its sides are directed — audio in the left, modulation out the right. The drag alone
+   * cannot say which of two legal, different cables was meant; the port can. See `NodeDefinition.ports`.
+   */
+  if ((from === 'osc' || from === 'fx') && to === 'sense') return 'audio'
+  if (from === 'sense' && (to === 'osc' || to === 'fx')) return 'mod'
 
   return null
 }
@@ -293,6 +309,22 @@ export function connectionFor(
     )
 
   if (sideStart) {
+    /*
+     * On a node whose sides are directed, which side a cable uses is not cosmetic: the left is where audio
+     * comes in and the right is where modulation goes out. A cable that leaves by the input, or arrives at
+     * the output, is refused rather than turned round — turning it round would be guessing at which of two
+     * legal cables was meant, which is the thing the ports exist to stop.
+     *
+     * `null` handles pass: a patch code stores which nodes a cable joins and not which port, so the sides
+     * are chosen on load from what the cable *is* (see `fromPatch`) rather than checked here.
+     */
+    if (
+      (directedSides(typeOf(source)) && sourceHandle === SIGNAL_LEFT) ||
+      (directedSides(typeOf(target)) && targetHandle === SIGNAL_RIGHT)
+    ) {
+      return null
+    }
+
     const decided = orient(typeOf(source), typeOf(target))
     if (decided === null) return null
 

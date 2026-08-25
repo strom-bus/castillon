@@ -50,15 +50,24 @@ describe('randomPatch', () => {
       const seen = reachable(patch)
       for (const node of patch.nodes) {
         if (node.type === 'fx') continue
-        // A MOD and a WARP are both the *source* of their own cable — nothing points at them, so what
-        // they need is somewhere to point rather than something upstream. Walking triggers only would
-        // report every one of them as stranded.
-        if (node.type === 'mod' || node.type === 'warp') {
-          const kind = node.type === 'mod' ? 'mod' : 'warp'
+        // A MOD, a WARP and a SENSE are all the *source* of their own cable — nothing triggers them, so
+        // what they need is somewhere to point rather than something upstream. Walking triggers only
+        // would report every one of them as stranded.
+        if (node.type === 'mod' || node.type === 'warp' || node.type === 'sense') {
+          const kind = node.type === 'warp' ? 'warp' : 'mod'
           expect(
             patch.edges.some((edge) => edge.source === node.id && edge.kind === kind),
             `${node.type} ${node.id} points at nothing`,
           ).toBe(true)
+          // And a follower needs the other end as well, which is the one node here where being wired at
+          // one end only is possible and silent: it moves what it is pointed at with what it hears, so
+          // hearing nothing means doing nothing however it is set.
+          if (node.type === 'sense') {
+            expect(
+              patch.edges.some((edge) => edge.target === node.id && edge.kind === 'audio'),
+              `sense ${node.id} hears nothing`,
+            ).toBe(true)
+          }
           continue
         }
         expect(seen.has(node.id), `${node.type} ${node.id} is stranded`).toBe(true)
@@ -532,8 +541,18 @@ describe('where it puts things', () => {
     let total = 0
     for (const patch of many(400)) {
       const at = new Map(patch.nodes.map((node) => [node.id, node]))
+      const followers = new Set(
+        patch.nodes.filter((node) => node.type === 'sense').map((node) => node.id),
+      )
       for (const edge of patch.edges) {
         if (edge.kind !== 'audio' && edge.kind !== 'mod') continue
+        /*
+         * A follower's audio cable is the one that says nothing about layout, so it is left out rather
+         * than counted as a miss. A SENSE is placed beside the thing it *moves*, like a MOD — that is
+         * where its modulation port faces — and the branch it listens to is chosen from anywhere in the
+         * patch. Neither end of that cable was placed relative to the other.
+         */
+        if (edge.kind === 'audio' && followers.has(edge.target)) continue
         const from = at.get(edge.source)
         const to = at.get(edge.target)
         if (!from || !to) continue
@@ -561,8 +580,13 @@ describe('where it puts things', () => {
   it('keeps effects to one side and modulators to the other', () => {
     // So a node carrying both is not sandwiched between them.
     for (const patch of many(80)) {
+      const followers = new Set(
+        patch.nodes.filter((node) => node.type === 'sense').map((node) => node.id),
+      )
       for (const edge of patch.edges) {
         if (edge.kind !== 'audio' && edge.kind !== 'mod') continue
+        // For the reason above: a follower sits beside what it moves, and what it hears is anywhere.
+        if (edge.kind === 'audio' && followers.has(edge.target)) continue
         const from = patch.nodes.find((node) => node.id === edge.source)!
         const to = patch.nodes.find((node) => node.id === edge.target)!
 

@@ -379,8 +379,11 @@ describe('every rule lands on a port that exists', () => {
     (kind) => {
       for (const [from, to] of pairs) {
         if (!permits(from, to, kind)) continue
-        expect(portsOf(from).side, `${kind}: ${from} has no side port`).toBe(true)
-        expect(portsOf(to).side, `${kind}: ${to} has no side port`).toBe(true)
+        // Either sort of side port will do here — what is being checked is that there *is* one. Which
+        // side, and whether the two mean different things, is `directedSides`' business and is checked in
+        // the SENSE tests below.
+        expect(portsOf(from).side, `${kind}: ${from} has no side port`).toBeTruthy()
+        expect(portsOf(to).side, `${kind}: ${to} has no side port`).toBeTruthy()
       }
     },
   )
@@ -522,5 +525,65 @@ describe('a cable from the Ignite’s upward port', () => {
         { source: 'o', target: 'p', sourceHandle: EVENT_UP, targetHandle: EVENT_OUT },
       ),
     ).toBeNull()
+  })
+})
+
+/**
+ * A SENSE, whose two sides are not the same thing.
+ *
+ * Every other side port in the instrument takes whichever cable it is given and works the rest out from
+ * what is at the other end — one port per side, and the kind read off the node types. A follower cannot
+ * do that: audio into it and modulation out of it are *both* legal between the same pair of nodes, so
+ * only the side says which was meant. That makes it the one node where a port carries a direction, and
+ * the rules have to refuse the two drags that would mean the wrong one.
+ */
+describe('a follower’s sides', () => {
+  const withSense = [...nodes, { id: 's', type: 'sense' }, { id: 't', type: 'sense' }]
+  const at = (
+    source: string,
+    target: string,
+    sourceHandle: string,
+    targetHandle: string,
+    edges: { source: string; target: string; kind?: string }[] = [],
+  ) => connectionFor({ nodes: withSense, edges }, { source, target, sourceHandle, targetHandle })
+
+  it('takes audio in the left', () => {
+    expect(at('a', 's', SIGNAL_RIGHT, SIGNAL_LEFT)).toMatchObject({
+      source: 'a',
+      target: 's',
+      kind: 'audio',
+    })
+    // And from an effect as readily, which is how a follower listens to the end of a chain.
+    expect(at('f', 's', SIGNAL_RIGHT, SIGNAL_LEFT)?.kind).toBe('audio')
+  })
+
+  it('sends modulation out the right', () => {
+    expect(at('s', 'a', SIGNAL_RIGHT, SIGNAL_LEFT)).toMatchObject({
+      source: 's',
+      target: 'a',
+      kind: 'mod',
+    })
+    expect(at('s', 'f', SIGNAL_RIGHT, SIGNAL_LEFT)?.kind).toBe('mod')
+  })
+
+  it('refuses a cable leaving its left port', () => {
+    // The left is where it listens. A cable out of it would be modulation drawn from the input, and the
+    // pair of nodes alone cannot say that is not what was meant — only the side can.
+    expect(at('s', 'a', SIGNAL_LEFT, SIGNAL_LEFT)).toBeNull()
+  })
+
+  it('refuses a cable arriving at its right port', () => {
+    // The right is where it speaks. Audio arriving there is the same mistake the other way up.
+    expect(at('a', 's', SIGNAL_RIGHT, SIGNAL_RIGHT)).toBeNull()
+  })
+
+  it('will not listen to another follower, which has no sound to give', () => {
+    expect(at('s', 't', SIGNAL_RIGHT, SIGNAL_LEFT)).toBeNull()
+  })
+
+  it('is not in the cascade at either end', () => {
+    // It hangs off a node like a MOD and a WARP: nothing triggers it and nothing hangs below it.
+    expect(permits('start', 'sense', 'event')).toBe(false)
+    expect(permits('sense', 'osc', 'event')).toBe(false)
   })
 })

@@ -6,6 +6,7 @@ import { MIN_REDUCTION, MIN_REPEATS } from '../audio/dsp'
 import { LAYER_THRESHOLD, MAX_LOAD } from '../audio/load'
 import type {
   SieveParams,
+  SenseParams,
   DelayParams,
   Direction,
   FxParams,
@@ -110,7 +111,19 @@ export interface NodeDefinition {
    */
   ports: {
     trigger?: 'in' | 'out' | 'both'
-    side?: boolean
+    /**
+     * The pair of signal ports, and whether the two sides mean the same thing.
+     *
+     * `'either'` is what everything had until a SENSE existed: two interchangeable ports, so a neighbour
+     * attaches on whichever side it already sits on and the cable stays short. Which side a cable uses is
+     * cosmetic, chosen from the layout rather than stored.
+     *
+     * `'directed'` is the SENSE, where they cannot be interchangeable: audio comes in the left and
+     * modulation goes out the right. It is the first node where a side *means* something, and the reason
+     * is that both directions between a SENSE and an oscillator are legal and are different **kinds** of
+     * cable — so the drag alone cannot say which was meant, and the port has to.
+     */
+    side?: 'either' | 'directed'
     /**
      * A second trigger output, at the top, whose cables run the cascade **upward**.
      *
@@ -246,7 +259,7 @@ const warp: NodeDefinition = {
   type: 'warp',
   label: 'WARP',
   place: 'side',
-  ports: { side: true },
+  ports: { side: 'either' },
   defaults: defaultWarpParams,
 }
 
@@ -427,7 +440,7 @@ const osc: NodeDefinition = {
   type: 'osc',
   label: 'OSC',
   place: 'cascade',
-  ports: { trigger: 'both', side: true },
+  ports: { trigger: 'both', side: 'either' },
   defaults: defaultOscParams,
   schedule({ node, time, bpm, engine, activity, warping = NO_WARPING, lap = 1 }) {
     const params = node.params as OscParams
@@ -698,7 +711,7 @@ const fx: NodeDefinition = {
   type: 'fx',
   label: 'FX',
   place: 'side',
-  ports: { side: true },
+  ports: { side: 'either' },
   defaults: defaultFxParams,
 }
 
@@ -732,11 +745,43 @@ export function defaultModParams(): ModParams {
  * with no modes at all: under an Ignite it runs once per pass of the cascade; under a node deep in the
  * tree it runs when that branch lights up; behind a Delay it runs late.
  */
+export function defaultSenseParams(): SenseParams {
+  /*
+   * Pointed at a level, because that is what a follower is nearly always for — one branch getting out of
+   * the way of another — and with a **negative** depth for the same reason. A follower at a positive depth
+   * on a level makes the loud thing louder, which is the opposite of every use anybody has for one.
+   *
+   * Fast up and slow down, which is the shape of a duck. Sensitivity at one: what it hears is what it
+   * reads, until somebody tells it otherwise.
+   */
+  return { target: 'level', depth: -0.7, sensitivity: 1, attack: 5, release: 200 }
+}
+
+/**
+ * A SENSE: it listens to a branch and moves something with what it hears.
+ *
+ * The one node whose input is audio and whose output is modulation, which is the cell the other four leave
+ * empty — and the reason it is a node rather than a kind of MOD. What a cable *is* has to be decidable
+ * from the types at its two ends, and a MOD that sometimes took audio would make `osc → mod` mean an audio
+ * cable or a reversed modulation cable depending on a parameter. That invariant is where the two worst
+ * faults of the week came from breaking (PLAN §37.1, §45.8).
+ *
+ * It is not in the cascade, so it has no trigger ports and never fires: it hears whatever is passing and
+ * says how much of it there is, for as long as there is any.
+ */
+const sense: NodeDefinition = {
+  type: 'sense',
+  label: 'SENSE',
+  place: 'side',
+  ports: { side: 'directed' },
+  defaults: defaultSenseParams,
+}
+
 const mod: NodeDefinition = {
   type: 'mod',
   label: 'MOD',
   place: 'side',
-  ports: { trigger: 'both', side: true },
+  ports: { trigger: 'both', side: 'either' },
   defaults: defaultModParams,
   schedule({ node, time, engine, activity }) {
     const params = node.params as ModParams
@@ -774,7 +819,7 @@ const clamp = (value: number, min: number, max: number) => Math.min(max, Math.ma
  * Within each, the order a patch is built in — a cascade starts, then sounds, then waits; and a sound is
  * shaped, then swept, then moved.
  */
-export const NODE_DEFINITIONS: NodeDefinition[] = [start, osc, delay, sieve, fx, mod, warp]
+export const NODE_DEFINITIONS: NodeDefinition[] = [start, osc, delay, sieve, fx, mod, warp, sense]
 
 const byType = new Map(NODE_DEFINITIONS.map((d) => [d.type, d]))
 

@@ -1792,6 +1792,35 @@ input[type='range'] {
   border: 1px solid var(--text);
 }
 
+/* A SENSE wears exactly what a WARP wears, and for the same three reasons: it hangs off a node rather
+   than standing in the cascade, so no depth hue; it is never triggered, so the only thing it can report
+   is what it is doing somewhere else; and being wired at one end only is its one real failure. */
+.node-sense {
+  --accent: var(--text);
+  border-image: none;
+  transition:
+    border-color 120ms linear,
+    color 120ms linear;
+}
+
+.node-sense.idle {
+  border: 1px solid var(--border-strong);
+}
+
+.node-sense.idle .node-title,
+.node-sense.idle .node-meta,
+.node-sense.idle .delay-value {
+  color: var(--muted);
+}
+
+.node-sense.wired {
+  border: 1px solid var(--muted);
+}
+
+.node-sense.active {
+  border: 1px solid var(--text);
+}
+
 .node-mod.idle {
   border-color: var(--border-strong);
 }

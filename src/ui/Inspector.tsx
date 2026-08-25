@@ -4,6 +4,9 @@ import { DIVISIONS } from '../audio/clock'
 import {
   MAX_BITS,
   MAX_COMB_NOTE,
+  MAX_FOLLOW_MS,
+  MAX_SENSITIVITY,
+  MIN_FOLLOW_MS,
   MAX_REDUCTION,
   MAX_REPEATS,
   MIN_BITS,
@@ -36,6 +39,7 @@ import {
   noNotesBecause,
   MAX_RATE as MAX_MOD_RATE,
   MIN_RATE as MIN_MOD_RATE,
+  signalTargets,
   silentBecause,
   targetOf,
   targetsFor,
@@ -63,6 +67,7 @@ import {
   type IgniteBehaviour,
   type IgniteTrigger,
   type ModParams,
+  type SenseParams,
   type SieveParams,
   type WarpParams,
   type StartParams,
@@ -820,6 +825,14 @@ export function Inspector() {
     s.edges.some((e) => e.target === s.selectedId && (e.data?.kind ?? 'event') === 'event'),
   )
 
+  /**
+   * Whether anything is feeding the selected node, which for a follower is the whole difference between
+   * doing nothing and doing nothing yet. A SENSE with no input is silent however it is set.
+   */
+  const hearing = usePatchStore((s) =>
+    s.edges.some((e) => e.target === s.selectedId && e.data?.kind === 'audio'),
+  )
+
   const modWiring = usePatchStore((s) => {
     const edge = s.edges.find((e) => e.data?.kind === 'mod' && e.source === s.selectedId)
     const destination = edge ? s.nodes.find((node) => node.id === edge.target) : undefined
@@ -1213,6 +1226,127 @@ export function Inspector() {
         <p className="inspector-empty">
           {MOD_KIND_HINTS[kind]} {kind === 'env' && MOD_FIRES_HINTS[fires]} {described?.hint}
           {!destinationType && ' Wire it to the side of an oscillator or an effect.'}
+        </p>
+      </Panel>
+    )
+  }
+
+  if (node.type === 'sense') {
+    const sense = node.data.params as SenseParams
+    const target = sense.target ?? 'level'
+    // The same wiring a MOD reads, because it is the same cable: what it is pointed at decides what it
+    // can point at.
+    const [destinationType, destinationEffect, destinationFilter] = modWiring
+      ? modWiring.split(':')
+      : []
+    const destination: Destination = {
+      nodeType: destinationType,
+      effect: destinationEffect as never,
+      filterType: destinationFilter,
+    }
+    /*
+     * The narrower list, and the reason is the whole difference between this node and a MOD: a follower's
+     * level lives on the audio thread, so it can only reach a parameter that takes a connection. The ones
+     * that are rebuilt from a timer — a decay, a bit depth — need a phase to compute, and it has none.
+     */
+    const offered: readonly ModTarget[] = signalTargets(destinationType, destinationEffect as never)
+    const described = targetOf(target, destinationType, destinationEffect as never)
+    const silent = silentBecause(target, destination)
+
+    return (
+      <Panel>
+        <h2 className="inspector-title">
+          SENSE <span className="node-ordinal">{ordinal}</span>
+        </h2>
+
+        {/* Two groups, and the sentence they read as: **what it hears**, then **what that moves**. The
+            same division as the MOD's Shape and Destination, which is deliberate — the two nodes differ
+            only in where the shape comes from, and a panel that said so differently would hide that. */}
+        <Group title="LISTENING">
+          {/* How much of the branch becomes control signal, before the smoothing rather than after: it is
+              a gain on what is being measured, so it decides how soon the follower reaches the top of its
+              range and not merely how far the result goes. Depth is the other one, and it is a fact about
+              the destination. */}
+          <TypedSlider
+            label="Sensitivity"
+            value={sense.sensitivity ?? 1}
+            min={0}
+            max={MAX_SENSITIVITY}
+            step={0.05}
+            onChange={(sensitivity) => updateParams(node.id, { sensitivity })}
+          />
+          {/* Two speeds, which is the whole reason this cannot be a low-pass filter: how fast it follows a
+              sound getting louder and how fast it lets go once the sound stops. A quick attack catches the
+              hit, a slow release holds through the gaps between notes. */}
+          <TypedSlider
+            label="Attack"
+            value={sense.attack ?? 5}
+            min={MIN_FOLLOW_MS}
+            max={MAX_FOLLOW_MS}
+            step={1}
+            suffix="ms"
+            onChange={(attack) => updateParams(node.id, { attack })}
+          />
+          <TypedSlider
+            label="Release"
+            value={sense.release ?? 200}
+            min={MIN_FOLLOW_MS}
+            max={MAX_FOLLOW_MS}
+            step={5}
+            suffix="ms"
+            onChange={(release) => updateParams(node.id, { release })}
+          />
+        </Group>
+
+        <Group title="DESTINATION">
+          <label className="inspector-field">
+            <span>Target</span>
+            <select
+              value={target}
+              onChange={(e) => updateParams(node.id, { target: e.target.value })}
+            >
+              {offered.map((option) => {
+                const unavailable = silentBecause(option.key, destination) !== null
+                return (
+                  <option key={option.key} value={option.key} disabled={unavailable}>
+                    {option.label}
+                    {unavailable && ' — filter off'}
+                  </option>
+                )
+              })}
+            </select>
+          </label>
+
+          {/* Negative by default, which is the thing this node is for: something gets louder and something
+              else gets out of the way. Positive is the same reading the other way round — a branch that
+              opens a filter as it grows — so it is one signed control and not two modes. */}
+          <TypedSlider
+            label="Depth"
+            value={sense.depth ?? -0.7}
+            min={-1}
+            max={1}
+            step={0.01}
+            onChange={(depth) => updateParams(node.id, { depth })}
+          />
+        </Group>
+
+        {silent && (
+          <p className="inspector-warn">
+            Doing nothing: {silent}. Turn it on in the oscillator to hear this.
+          </p>
+        )}
+
+        {!hearing && (
+          <p className="inspector-warn">
+            Hearing nothing. Wire an oscillator or an effect into the port on its left — that is the
+            branch it listens to, and it is not the same as where it sends what it hears.
+          </p>
+        )}
+
+        <p className="inspector-empty">
+          It moves what it is pointed at with how loud the branch it is listening to gets.{' '}
+          {described?.hint}
+          {!destinationType && ' Wire its right port to an oscillator or an effect.'}
         </p>
       </Panel>
     )

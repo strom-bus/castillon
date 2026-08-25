@@ -1,6 +1,7 @@
 import { resolveTarget, type ModTargetKey } from './modulation'
 import { wouldFeedBack } from '../state/connections'
-import type { FxParams, ModParams, NodeId, Patch } from '../types/patch'
+import { defaultSenseParams } from '../nodes/registry'
+import type { FxParams, ModParams, NodeId, Patch, SenseParams } from '../types/patch'
 
 /**
  * Works out the smallest set of changes that takes the live audio graph to the one the patch
@@ -42,6 +43,16 @@ export interface AudioGraph {
   sends: Set<string>
   /** MOD node id → its parameters. */
   modulators: Map<NodeId, ModParams>
+  /** SENSE node id → its parameters. Kept apart from the MODs because it is built out of other parts. */
+  followers: Map<NodeId, SenseParams>
+  /**
+   * `sourceId>senseId`, one per audio cable into a follower.
+   *
+   * A tap and not a send: what a follower hears is not routed anywhere, so feeding one does **not** take
+   * the source off the master the way feeding an effect does. An oscillator wired only to a SENSE is
+   * heard exactly as it was — which is most of the point of the node.
+   */
+  taps: Set<string>
   /**
    * `modId>targetId`, one per modulation cable, with the target it resolved to.
    *
@@ -66,6 +77,11 @@ export type RouterOp =
   | { op: 'disposeMod'; id: NodeId }
   | { op: 'connectMod'; from: NodeId; to: NodeId; target: ModTargetKey; depth: number }
   | { op: 'disconnectMod'; from: NodeId; to: NodeId }
+  | { op: 'createFollow'; id: NodeId; params: SenseParams }
+  | { op: 'updateFollow'; id: NodeId; params: SenseParams }
+  | { op: 'disposeFollow'; id: NodeId }
+  | { op: 'tap'; from: NodeId; to: NodeId }
+  | { op: 'untap'; from: NodeId; to: NodeId }
 
 export const EMPTY_GRAPH: AudioGraph = {
   bpm: 0,
@@ -74,6 +90,8 @@ export const EMPTY_GRAPH: AudioGraph = {
   terminals: new Map(),
   sends: new Set(),
   modulators: new Map(),
+  followers: new Map(),
+  taps: new Set(),
   mods: new Map(),
 }
 
@@ -93,10 +111,17 @@ function splitSend(key: string): { from: NodeId; to: NodeId } {
 export function graphOf(patch: Patch): AudioGraph {
   const effects = new Map<NodeId, FxParams>()
   const oscillators = new Set<NodeId>()
+  const followers = new Map<NodeId, SenseParams>()
 
   for (const node of patch.nodes) {
     if (node.type === 'fx') effects.set(node.id, node.params as FxParams)
     else if (node.type === 'osc') oscillators.add(node.id)
+    // Merged over the defaults, unlike the others: a follower's depth is the one modulation control whose
+    // resting value is negative, so an absent key falling back to a generic 0.6 would turn a duck into a
+    // swell. Merging here means the engine and the diff both see a complete node.
+    else if (node.type === 'sense') {
+      followers.set(node.id, { ...defaultSenseParams(), ...(node.params as SenseParams) })
+    }
   }
 
   /*
@@ -113,11 +138,23 @@ export function graphOf(patch: Patch): AudioGraph {
   const sending = new Set<NodeId>()
   const chained = new Set<NodeId>()
   const accepted: { source: NodeId; target: NodeId; kind: 'audio' }[] = []
+  const taps = new Set<string>()
   for (const edge of patch.edges) {
     if (edge.kind !== 'audio') continue
     const fromOsc = oscillators.has(edge.source)
     const fromFx = effects.has(edge.source)
-    if (!(fromOsc || fromFx) || !effects.has(edge.target)) continue
+    if (!(fromOsc || fromFx)) continue
+    /*
+     * A follower listening, which is the other thing an audio cable can mean and the only one that
+     * changes nothing about where the sound goes. Taken before the loop check for the same reason it is
+     * kept out of `sends`: a tap has no output, so it cannot be part of a cycle and it cannot take an
+     * oscillator off the master.
+     */
+    if (followers.has(edge.target)) {
+      taps.add(sendKey(edge.source, edge.target))
+      continue
+    }
+    if (!effects.has(edge.target)) continue
     if (wouldFeedBack(edge.source, edge.target, accepted)) continue
 
     accepted.push({ source: edge.source, target: edge.target, kind: 'audio' })
@@ -150,7 +187,15 @@ export function graphOf(patch: Patch): AudioGraph {
   const mods = new Map<string, { target: ModTargetKey; depth: number }>()
   for (const edge of patch.edges) {
     if (edge.kind !== 'mod') continue
-    const params = modulators.get(edge.source)
+    /*
+     * A MOD or a SENSE: two nodes that make modulation, and from here down one path.
+     *
+     * They differ in where the shape comes from and in nothing else — a signal at unit amplitude through
+     * a depth, pointed at a parameter — so the cable, the resolving and the whole of the engine's
+     * destination machinery are shared. What a follower cannot do is drive a parameter that is rebuilt
+     * rather than connected, so it resolves against the narrower list.
+     */
+    const params = modulators.get(edge.source) ?? followers.get(edge.source)
     if (!params) continue
     const destination = effects.has(edge.target)
       ? 'fx'
@@ -159,14 +204,19 @@ export function graphOf(patch: Patch): AudioGraph {
         : undefined
     // The effect matters as much as the node type: which parameters exist depends on which effect it
     // is, so a MOD on a reverb resolves against a reverb's list (§18.4).
-    const target = resolveTarget(params.target, destination, effects.get(edge.target)?.effect)
+    const target = resolveTarget(
+      params.target as ModTargetKey | undefined,
+      destination,
+      effects.get(edge.target)?.effect,
+      followers.has(edge.source),
+    )
     if (!target) continue
     // Depth rides along because it is scaled to the target: the same 0.6 is half a hertz on one
     // parameter and thousands on another, so a change to either has to re-connect.
     mods.set(sendKey(edge.source, edge.target), { target, depth: params.depth ?? 0.6 })
   }
 
-  return { bpm: patch.bpm, effects, direct, terminals, sends, modulators, mods }
+  return { bpm: patch.bpm, effects, direct, terminals, sends, modulators, followers, taps, mods }
 }
 
 function sameMod(a: ModParams, b: ModParams): boolean {
@@ -178,6 +228,14 @@ function sameMod(a: ModParams, b: ModParams): boolean {
     // either shows up as a rewiring rather than as an update to the oscillator.
     a.wave === b.wave
   )
+}
+
+/**
+ * Depth and target are left out for the same reason they are on a MOD: both are carried by the cable, so
+ * a change to either arrives as a rewiring rather than as an update to the follower.
+ */
+function sameFollower(a: SenseParams, b: SenseParams): boolean {
+  return a.attack === b.attack && a.release === b.release && a.sensitivity === b.sensitivity
 }
 
 function sameParams(a: FxParams, b: FxParams): boolean {
@@ -220,6 +278,14 @@ export function diff(previous: AudioGraph, next: AudioGraph): RouterOp[] {
     if (!next.modulators.has(id)) removals.push({ op: 'disposeMod', id })
   }
 
+  for (const key of previous.taps) {
+    if (!next.taps.has(key)) removals.push({ op: 'untap', ...splitSend(key) })
+  }
+
+  for (const [id] of previous.followers) {
+    if (!next.followers.has(id)) removals.push({ op: 'disposeFollow', id })
+  }
+
   // A tempo change has to reach every effect: an echo's delay time is derived from it, and there
   // is no other signal that would tell the chain to recalculate.
   const retimed = previous.bpm !== next.bpm
@@ -247,6 +313,18 @@ export function diff(previous: AudioGraph, next: AudioGraph): RouterOp[] {
 
   for (const key of next.sends) {
     if (!previous.sends.has(key)) additions.push({ op: 'connect', ...splitSend(key) })
+  }
+
+  for (const [id, params] of next.followers) {
+    const before = previous.followers.get(id)
+    // No `retimed` here, and nothing else either: a follower has no tempo and no shape to rebuild, so
+    // every one of its settings is a number on a live parameter.
+    if (!before) additions.push({ op: 'createFollow', id, params })
+    else if (!sameFollower(before, params)) updates.push({ op: 'updateFollow', id, params })
+  }
+
+  for (const key of next.taps) {
+    if (!previous.taps.has(key)) additions.push({ op: 'tap', ...splitSend(key) })
   }
 
   for (const [key, link] of next.mods) {

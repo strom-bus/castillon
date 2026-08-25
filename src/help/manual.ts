@@ -1394,6 +1394,96 @@ export const MANUAL: Section[] = [
     ],
   },
   {
+    id: 'sense',
+    title: { en: 'SENSE — a branch listening', es: 'SENSE — una rama escuchando' },
+    body: [
+      {
+        en: 'A SENSE hangs off a node like a MOD does, and it is the same thing with one difference: its shape is not its own. It listens to a branch and moves a parameter with how loud that branch is. Nothing sets its speed but the sound going into it.',
+        es: 'Un SENSE se engancha a un nodo como un MOD, y es lo mismo con una diferencia: su forma no es propia. Escucha una rama y mueve un parámetro con lo fuerte que suene esa rama. Nada fija su velocidad más que el sonido que entra en él.',
+      },
+      {
+        en: 'Its two sides are not the same, and it is the only node here where that is true. Audio comes in the left. Modulation goes out the right. So one SENSE reads one branch and moves another, and the two cables are never confused for each other.',
+        es: 'Sus dos costados no son iguales, y es el único nodo de aquí donde eso pasa. El audio entra por la izquierda. La modulación sale por la derecha. Así un SENSE lee una rama y mueve otra, y los dos cables no se confunden nunca.',
+      },
+      {
+        en: 'What it is for: making one branch get out of the way of another, opening a filter with how hard something is being played, or holding an effect open while a line is busy and letting it close in the gaps. The DUCK preset does the first of those with a trigger instead, and it is worth hearing both — a trigger cannot mistime and a follower cannot miss a note it was not told about.',
+        es: 'Para qué sirve: que una rama se aparte de otra, abrir un filtro con lo fuerte que se esté tocando algo, o mantener un efecto abierto mientras una línea está ocupada y dejarlo cerrar en los huecos. El preset DUCK hace lo primero pero con un disparo, y vale la pena oír los dos — un disparo no puede desajustarse y un seguidor no puede perderse una nota de la que no le avisaron.',
+      },
+    ],
+    detail: [
+      {
+        title: 'LISTENING',
+        terms: [
+          {
+            term: { en: 'Sensitivity', es: 'Sensitivity' },
+            text: {
+              en: 'How much of what it hears becomes control signal. It is applied before the smoothing, so it decides how soon the follower reaches the top of its range rather than only how far the result goes — a quiet branch with this raised behaves like a loud one. Past about two it is squashing everything against the ceiling, which is a way of turning a follower into a gate.',
+              es: 'Cuánto de lo que oye se convierte en señal de control. Se aplica antes del suavizado, así que decide cuán pronto el seguidor llega al techo de su rango y no solo cuán lejos llega el resultado — una rama flojita con esto subido se comporta como una fuerte. Pasado el dos aplasta todo contra el techo, que es una manera de convertir un seguidor en una puerta.',
+            },
+          },
+          {
+            term: { en: 'Attack and Release', es: 'Attack y Release' },
+            text: {
+              en: 'The two speeds, and having two is the whole reason this node exists rather than a filter doing the same job. Attack is how fast it follows a sound getting louder; Release is how fast it lets go once the sound stops. A quick attack catches the front of a hit. A slow release holds through the gaps between notes, so what comes out is the shape of a phrase rather than of every note in it.',
+              es: 'Las dos velocidades, y tener dos es la razón entera de que este nodo exista en vez de un filtro haciendo lo mismo. Attack es lo rápido que sigue a un sonido subiendo; Release es lo rápido que suelta cuando el sonido para. Un ataque rápido pilla el frente de un golpe. Un release lento aguanta por los huecos entre notas, así que lo que sale es la forma de una frase y no de cada nota dentro de ella.',
+            },
+          },
+        ],
+      },
+      {
+        title: 'DESTINATION',
+        terms: [
+          {
+            term: { en: 'Target', es: 'Target' },
+            text: {
+              en: 'Which parameter it moves, out of whatever the thing on its right actually has. The list is shorter than a MOD’s, and on purpose: a follower can only reach a parameter that takes a signal. The ones that are rebuilt rather than connected — a reverb’s decay, a bitcrusher’s bit depth — need a clock to be computed from, and a follower has none. They are left out of the list rather than offered and ignored.',
+              es: 'Qué parámetro mueve, de lo que tenga de verdad la cosa a su derecha. La lista es más corta que la de un MOD, y a propósito: un seguidor solo puede alcanzar un parámetro que acepte una señal. Los que se reconstruyen en vez de conectarse — el decay de un reverb, los bits de un bitcrusher — necesitan un reloj del que calcularse, y un seguidor no tiene ninguno. Se quedan fuera de la lista en vez de ofrecerse y no hacer nada.',
+            },
+          },
+          {
+            term: { en: 'Depth', es: 'Depth' },
+            text: {
+              en: 'How much of the parameter’s range the follower covers, and it starts below zero because that is what this node is usually for: something gets louder and something else gets out of the way. Above zero is the same reading the other way round — a branch that opens a filter as it grows. It is one signed control and not two modes.',
+              es: 'Cuánto del rango del parámetro cubre el seguidor, y empieza por debajo de cero porque para eso se usa casi siempre: algo sube y otra cosa se aparta. Por encima de cero es lo mismo leído al revés — una rama que abre un filtro al crecer. Es un control con signo y no dos modos.',
+            },
+          },
+        ],
+      },
+      {
+        terms: [
+          {
+            term: { en: 'Which port is which', es: 'Qué puerto es cuál' },
+            text: {
+              en: 'The left port takes audio and the right port sends modulation, and the canvas will not let you draw either one the wrong way round. Every other side port in the instrument takes whichever it is given and works out the rest from what is at the other end; this one cannot, because both kinds of cable would be legal and only one of them would be what you meant.',
+              es: 'El puerto izquierdo recibe audio y el derecho manda modulación, y el lienzo no te deja dibujar ninguno del revés. Cualquier otro puerto lateral del instrumento acepta lo que le den y deduce el resto de lo que hay al otro extremo; este no puede, porque los dos tipos de cable serían legales y solo uno sería el que querías.',
+            },
+          },
+          {
+            term: { en: 'Listening costs nothing', es: 'Escuchar no cuesta nada' },
+            text: {
+              en: 'Feeding a SENSE does not take the sound anywhere. An oscillator wired into an effect is heard through that effect; an oscillator wired into a SENSE is heard exactly as it was, and the follower hears a copy. So you can listen to anything at any point without changing what comes out of it.',
+              es: 'Alimentar un SENSE no lleva el sonido a ningún sitio. Un oscilador cableado a un efecto se oye a través de ese efecto; un oscilador cableado a un SENSE se oye igual que antes, y el seguidor oye una copia. Así puedes escuchar lo que sea en cualquier punto sin cambiar lo que sale de ahí.',
+            },
+          },
+          {
+            term: { en: 'It follows peaks, not the average', es: 'Sigue los picos, no la media' },
+            text: {
+              en: 'Because the two speeds differ, what comes out tracks the top of the waveform rather than its mean. That is what makes it usable on a note: the average of a note is a number close to nothing, and the peak is the note.',
+              es: 'Como las dos velocidades son distintas, lo que sale sigue la cima de la onda y no su media. Eso es lo que lo hace útil sobre una nota: la media de una nota es un número cerca de nada, y el pico es la nota.',
+            },
+          },
+          {
+            term: { en: 'Feeding it from itself', es: 'Alimentarlo de sí mismo' },
+            text: {
+              en: 'A SENSE listening to the branch it is moving is a compressor built by hand, and it works: point it at that oscillator’s Level with the Depth below zero and louder notes are pulled down more than quiet ones. The FX module has a real compressor and it is easier to set, but this one can be pointed anywhere — the same arrangement on a filter cutoff is not a compressor at all.',
+              es: 'Un SENSE escuchando la rama que mueve es un compresor hecho a mano, y funciona: apúntalo al Level de ese oscilador con el Depth por debajo de cero y las notas fuertes bajan más que las flojas. El módulo FX tiene un compresor de verdad y es más fácil de ajustar, pero este se puede apuntar a cualquier sitio — el mismo arreglo sobre el corte de un filtro no es un compresor en absoluto.',
+            },
+          },
+        ],
+      },
+    ],
+  },
+  {
     id: 'playing',
     title: { en: 'Playing it', es: 'Tocarlo' },
     body: [

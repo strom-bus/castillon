@@ -137,23 +137,67 @@ describe('canConnect', () => {
     expect(canConnect(existing, audio('a', 'f', SIGNAL_LEFT, SIGNAL_RIGHT))).toBe(false)
   })
 
-  it('takes an effect-to-effect cable in the direction it was drawn', () => {
+  it('extends a chain whichever end of the cable is grabbed', () => {
     /*
-     * **The one place a drag can build something silent, and it is not a fault.**
+     * **The fault this replaced, and the argument I got wrong first.**
      *
-     * Between an oscillator and an effect only one direction is legal, so a drag either way can only have
-     * meant that one and is turned round. Between two effects *both* directions are legal — that is the
-     * whole point of the feature — so the direction of the drag is the statement, and drawing it the
-     * wrong way builds the chain backwards: the near effect feeds the far one, and whatever was at the
-     * near end has no input at all. Silent, and dark, and indistinguishable from broken.
+     * Between two effects both directions are legal, so I left the drag to decide — and drawing it the
+     * wrong way built a backwards chain: the new effect feeding the one already in the chain, itself fed
+     * by nothing. Silent, dark, and indistinguishable from broken. It cost Wilhelm two rounds of finding
+     * it, and my reason for refusing to turn it round was about a case that is not this one.
      *
-     * Turning it round on a guess was considered and rejected: an effect with no input yet is a perfectly
-     * ordinary thing to have while wiring a patch, so a rule that reversed the cable would break the
-     * middle of building one. The canvas already says it — an unfed effect reads `idle` — and that is
-     * where the answer belongs.
+     * Where one end is fed and the other is not, there is exactly one reading under which the cable does
+     * anything. Dragging from the new effect back to the one already in the chain is how a hand extends a
+     * chain, and it now means what it looks like it means.
+     */
+    const chain = rules([{ source: 'a', target: 'f', kind: 'audio' }])
+    // Drawn forwards, from the fed effect to the new one.
+    expect(connectionFor(chain, audio('f', 'g'))).toMatchObject({ source: 'f', target: 'g' })
+    // And drawn backwards, from the new one to the fed one — the same cable.
+    expect(connectionFor(chain, audio('g', 'f'))).toMatchObject({ source: 'f', target: 'g' })
+  })
+
+  it('leaves the direction alone when neither end is fed', () => {
+    /*
+     * The ambiguous case, and the reason the rule above is narrow. Two fresh effects say nothing about
+     * which comes first, and building a chain before anything feeds it is an ordinary thing to do — so the
+     * drag is the statement, as it is for every other cable here.
      */
     expect(connectionFor(rules(), audio('f', 'g'))).toMatchObject({ source: 'f', target: 'g' })
     expect(connectionFor(rules(), audio('g', 'f'))).toMatchObject({ source: 'g', target: 'f' })
+  })
+
+  it('leaves the direction alone when both ends are fed', () => {
+    // Equally ambiguous from the other side: two effects each hearing an oscillator, and putting one
+    // after the other is a real thing to want in either order.
+    const both = rules([
+      { source: 'a', target: 'f', kind: 'audio' },
+      { source: 'b', target: 'g', kind: 'audio' },
+    ])
+    expect(connectionFor(both, audio('f', 'g'))).toMatchObject({ source: 'f', target: 'g' })
+    expect(connectionFor(both, audio('g', 'f'))).toMatchObject({ source: 'g', target: 'f' })
+  })
+
+  it('does not turn a cable round into a loop', () => {
+    /*
+     * The two rules meeting, and the case that decides *where* the loop check goes.
+     *
+     * `f → g` alone: `g` is fed and `f` is not, so a drag from `f` to `g` gets turned round — and turning
+     * it round means `g → f`, which closes a loop against the cable that is already there. The check has
+     * to run on the direction the cable **ended up**, not the one it was drawn in: asked the other way it
+     * finds nothing downstream of `g` and lets the loop through.
+     */
+    const one = rules([{ source: 'f', target: 'g', kind: 'audio' }])
+    expect(canConnect(one, audio('f', 'g'))).toBe(false)
+    expect(canConnect(one, audio('g', 'f'))).toBe(false)
+
+    // And the long way round, where nothing is turned and the walk has to cover the whole path.
+    const chain = rules([
+      { source: 'a', target: 'f', kind: 'audio' },
+      { source: 'f', target: 'g', kind: 'audio' },
+      { source: 'g', target: 'h', kind: 'audio' },
+    ])
+    expect(canConnect(chain, audio('h', 'f'))).toBe(false)
   })
 
   it('joins effect to effect, which is how they go in series', () => {

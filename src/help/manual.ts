@@ -862,6 +862,10 @@ export const MANUAL: Section[] = [
         es: 'Un efecto también puede alimentar a **otro efecto**, y así van en serie. El orden lo cambia todo: un reverb hacia una distorsión es una cola distorsionada, una distorsión hacia un reverb es una nota sucia en una sala limpia. No hay ajuste para eso ni nada que numerar — el orden son los cables, y solo el último efecto de una cadena se oye directamente. El preset llamado ORDER son los mismos dos efectos cableados de las dos formas a la vez, para oír la diferencia en una pasada.',
       },
       {
+        en: 'It does not matter which end you drag from. Pull a cable from a new effect back to one that is already in the chain and it lands the way it has to — the chain extends. Where neither effect is fed by anything yet, the drag decides, because at that point nothing says which comes first.',
+        es: 'Da igual de qué extremo arrastres. Tira un cable desde un efecto nuevo hacia uno que ya está en la cadena y cae como tiene que caer — la cadena se extiende. Cuando ninguno de los dos recibe nada todavía, decide el arrastre, porque en ese momento nada dice cuál va primero.',
+      },
+      {
         en: 'A chain cannot come back on itself. Audio going round a loop is a gain adding to itself and nothing stops it, which is the one place this instrument refuses a cycle — triggers may go round as often as they like, because a trigger going round runs out of depth and a signal going round does not.',
         es: 'Una cadena no puede volver sobre sí misma. El audio dando vueltas es una ganancia sumándose a sí misma y nada la detiene, y es el único sitio donde este instrumento rechaza un ciclo — los disparos pueden dar todas las vueltas que quieran, porque un disparo dando vueltas se queda sin profundidad y una señal no.',
       },

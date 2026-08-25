@@ -297,32 +297,53 @@ export function connectionFor(
     if (decided === null) return null
 
     /*
-     * An audio cable that would close a loop is refused outright, whichever way round it was drawn. This
-     * is the audio graph: a loop here is a gain feeding itself, not a finite re-triggering, so there is no
-     * cap that saves it and nothing to be gained by allowing it (§45).
+     * Which way the cable ends up, and what kind it is, resolved once before anything is returned.
+     *
+     * Two reasons a drag is turned round, and they are different:
+     *
+     * - **Only one direction exists.** A MOD only ever drives, an oscillator only ever feeds. `orient`
+     *   answers `'reversed'` and the kind is read from the other direction.
+     * - **Only one direction can carry anything.** Between two effects *both* are legal — that is the
+     *   whole point of effects in series — so the drag decides. Except when the end it was drawn from is
+     *   fed by nothing and the other end is fed: then there is exactly one reading under which the cable
+     *   does something, and that is what was meant. Dragging from the new effect back to the one already
+     *   in the chain is how a hand extends a chain, and refusing to understand it built a backwards chain
+     *   that was silent and dark and looked broken.
+     *
+     * Only when it is unambiguous. Two effects both fed, or neither fed — which is what building a chain
+     * from scratch looks like — keep the direction they were drawn in, because there is nothing to go on.
+     * That distinction is why the first version of this rejected the whole idea: the objection was about
+     * the ambiguous case and the rule is only for the unambiguous one.
      */
-    const ends: [string, string] = decided === 'reversed' ? [target, source] : [source, target]
-    if (
-      (decided === 'audio' || orient(typeOf(target), typeOf(source)) === 'audio') &&
-      wouldFeedBack(ends[0], ends[1], rules.edges)
-    ) {
-      return null
+    const forwards = decided !== 'reversed'
+    const kind = forwards ? decided : orient(typeOf(target), typeOf(source))
+    if (kind === null || kind === 'reversed') return null
+
+    let turned = !forwards
+    if (kind === 'audio' && typeOf(source) === 'fx' && typeOf(target) === 'fx') {
+      const fed = (id: string) =>
+        rules.edges.some((edge) => edge.target === id && kindOf(edge) === 'audio')
+      if (!fed(source) && fed(target)) turned = true
     }
 
-    if (decided === 'reversed') {
-      return already(target, source)
-        ? null
-        : {
-            source: target,
-            target: source,
-            sourceHandle: targetHandle,
-            targetHandle: sourceHandle,
-            kind: orient(typeOf(target), typeOf(source)) as EdgeKind,
-          }
+    const from = turned ? target : source
+    const to = turned ? source : target
+
+    /*
+     * An audio cable that would close a loop is refused outright, whichever way round it ended up. This is
+     * the audio graph: a loop here is a gain feeding itself, not a finite re-triggering, so there is no cap
+     * that saves it and nothing to be gained by allowing it (§45).
+     */
+    if (kind === 'audio' && wouldFeedBack(from, to, rules.edges)) return null
+    if (already(from, to)) return null
+
+    return {
+      source: from,
+      target: to,
+      sourceHandle: turned ? targetHandle : sourceHandle,
+      targetHandle: turned ? sourceHandle : targetHandle,
+      kind,
     }
-    return already(source, target)
-      ? null
-      : { source, target, sourceHandle, targetHandle, kind: decided }
   }
 
   // Triggers run down the cascade: out of a bottom port and into a top one. Drawn the other way, it

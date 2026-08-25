@@ -14,8 +14,10 @@ import { cutoffToSlider, MAX_RESONANCE, MIN_RESONANCE, sliderToCutoff } from '..
 import { FILTER_TYPES } from '../audio/filter'
 import {
   MAX_BPM,
+  MAX_COMPRESS_ATTACK,
   MAX_DECAY,
   MAX_EQ_DB,
+  MAX_RATIO,
   MAX_DELAY_MS,
   MAX_EVERY,
   MAX_SLOP,
@@ -30,6 +32,7 @@ import {
   MAX_MOD_ATTACK,
   MAX_MOD_DECAY,
   MIN_DECAY,
+  MIN_THRESHOLD,
   MIN_DELAY_MS,
   MIN_MOD_ATTACK,
   MIN_MOD_DECAY,
@@ -193,6 +196,7 @@ const EFFECT_CODES: EffectKind[] = [
   'fold',
   'eq',
   'stutter',
+  'compress',
 ]
 
 const SHAPE_CODES: DistortionShape[] = ['overdrive', 'distortion', 'fuzz', 'octave']
@@ -400,6 +404,12 @@ const FX_FIELDS: Field<FxParams>[] = [
   // slotting it in beside the others would have shifted their positions, which is the one thing this
   // table is not allowed to do.
   scaledField('repeats', 3, 1, MIN_REPEATS, MAX_REPEATS),
+  // Whole decibels down to sixty, shifted so the sign needs no bit of its own.
+  scaledField('threshold', 6, 1, MIN_THRESHOLD, 0),
+  // Half-steps of ratio to twenty, which is finer than anybody sets one.
+  scaledField('ratio', 6, 2, 2, MAX_RATIO * 2),
+  // Milliseconds to a hundred, which is the whole useful range of a compressor attack.
+  scaledField('attack', 7, 1, 0, MAX_COMPRESS_ATTACK),
 ]
 
 /**
@@ -457,6 +467,9 @@ const FX_REFERENCE: FxParams = {
   mid: 0,
   high: 0,
   repeats: MIN_REPEATS,
+  threshold: 0,
+  ratio: 1,
+  attack: 10,
 }
 
 /**

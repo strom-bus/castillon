@@ -681,6 +681,11 @@ export function defaultFxParams(): FxParams {
     high: 0,
     // One, which is a wire: every slice live, nothing repeated.
     repeats: MIN_REPEATS,
+    // A compressor that is not compressing: nothing crosses a threshold at nought decibels, and a ratio
+    // of one passes what it hears whatever it hears. Neutral at rest, like everything else here.
+    threshold: 0,
+    ratio: 1,
+    attack: 10,
   }
 }
 

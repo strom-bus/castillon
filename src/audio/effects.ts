@@ -1,6 +1,9 @@
 import {
+  MAX_COMPRESS_ATTACK,
   MAX_DECAY,
   MAX_EQ_DB,
+  MAX_RATIO,
+  MIN_THRESHOLD,
   MAX_SWEEP,
   MIN_DECAY,
   MIN_SWEEP,
@@ -1230,6 +1233,77 @@ const stutterFx: EffectDescriptor = {
   },
 }
 
+const compress: EffectDescriptor = {
+  kind: 'compress',
+  /*
+   * One `DynamicsCompressorNode` and the wet/dry pair, which is the same shape as the filter effect — and
+   * the same node the master bus has used as a limiter since the engine was written.
+   *
+   * Started from the filter's measured 1.8 on the grounds that it is one native node plus the same two
+   * gains. A compressor does more arithmetic per sample than a biquad, so this is likely low rather than
+   * high; it wants a sweep with the other five priors.
+   */
+  cost: () => 2.5,
+  label: 'Compress',
+  params: ['threshold', 'ratio', 'attack', 'decay'],
+  // `decay` is a tail in seconds for a reverb, a ring for a resonator, and a release here — the same idea
+  // three times, which is why it is borrowed rather than duplicated.
+  labels: { decay: 'Release' },
+  defaults: { threshold: -18, ratio: 4, attack: 10, decay: 0.25 },
+  releaseTime: 0.02,
+  create(ctx) {
+    const shaper = ctx.createDynamicsCompressor()
+    /*
+     * The knee is fixed and soft, which is the one control left off on purpose. Five sliders is where a
+     * compressor starts wanting a manual of its own, and of the five the knee is the one nobody moves —
+     * a hard knee is a limiter, and the ratio already goes far enough to be one.
+     */
+    shaper.knee.value = 12
+
+    return {
+      input: shaper,
+      output: shaper,
+      update(params, { at }) {
+        /*
+         * Ramped rather than set, and the reason is louder here than anywhere else: every one of these
+         * decides how much gain the node is applying *right now*, so a stepped change is a step in the
+         * level of everything passing through it.
+         */
+        shaper.threshold.setTargetAtTime(
+          Math.min(0, Math.max(MIN_THRESHOLD, params.threshold ?? 0)),
+          at,
+          RAMP,
+        )
+        shaper.ratio.setTargetAtTime(Math.min(MAX_RATIO, Math.max(1, params.ratio ?? 1)), at, RAMP)
+        // Milliseconds on the panel and seconds on the node: an attack is counted in milliseconds
+        // everywhere in this instrument, and Web Audio wants seconds.
+        shaper.attack.setTargetAtTime(
+          Math.min(MAX_COMPRESS_ATTACK, Math.max(0, params.attack ?? 10)) / 1000,
+          at,
+          RAMP,
+        )
+        shaper.release.setTargetAtTime(
+          Math.min(MAX_DECAY, Math.max(MIN_DECAY, params.decay ?? 0.25)),
+          at,
+          RAMP,
+        )
+      },
+      paramFor(key) {
+        // All four are real parameters on the node, so all four take a cable. A threshold being swept is
+        // the one worth having: it is a compressor that tightens as something else gets louder.
+        if (key === 'threshold') return shaper.threshold
+        if (key === 'ratio') return shaper.ratio
+        if (key === 'attack') return shaper.attack
+        if (key === 'decay') return shaper.release
+        return null
+      },
+      dispose() {
+        shaper.disconnect()
+      },
+    }
+  },
+}
+
 export const EFFECTS: EffectDescriptor[] = [
   reverb,
   echo,
@@ -1246,6 +1320,7 @@ export const EFFECTS: EffectDescriptor[] = [
   fold,
   eq,
   stutterFx,
+  compress,
 ]
 
 const byKind = new Map(EFFECTS.map((e) => [e.kind, e]))

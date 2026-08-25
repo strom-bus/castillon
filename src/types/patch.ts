@@ -274,6 +274,7 @@ export type EffectKind =
   | 'fold'
   | 'eq'
   | 'stutter'
+  | 'compress'
 
 /**
  * One flat parameter set for every effect, with the inspector showing only the fields the current
@@ -337,6 +338,17 @@ export interface FxParams {
    * control that only said whether the effect was doing anything would be that number spelt twice.
    */
   repeats: number
+  /**
+   * The compressor's three, and the reason it needs three fields rather than none.
+   *
+   * `decay` carries its **release**, which is the same idea it already carries for a reverb and a
+   * resonator — a tail in seconds — so it is borrowed rather than duplicated. The other three have no
+   * equivalent anywhere: a threshold in decibels, a ratio, and an attack short enough to be counted in
+   * milliseconds like every other attack here.
+   */
+  threshold: number
+  ratio: number
+  attack: number
   /** Which flavour of distortion. */
   shape: DistortionShape
   /** Echo time, as a beat division. */
@@ -389,6 +401,18 @@ export type DistortionShape = 'overdrive' | 'distortion' | 'fuzz' | 'octave'
  * more often the right answer.
  */
 export const MAX_EQ_DB = 15
+
+/**
+ * The compressor's ranges.
+ *
+ * Threshold down to sixty decibels, which is past where anything here lives — a control that stops before
+ * the quiet end is a control that cannot be set wrong *and* cannot be set usefully. Ratio to twenty, which
+ * is limiting rather than compressing and is what the master bus does. Attack to a tenth of a second,
+ * beyond which a compressor stops catching transients and starts being a slow envelope.
+ */
+export const MIN_THRESHOLD = -60
+export const MAX_RATIO = 20
+export const MAX_COMPRESS_ATTACK = 100
 
 export const MIN_DECAY = 0.1
 export const MAX_DECAY = 10

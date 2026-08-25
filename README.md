@@ -167,9 +167,9 @@ refused, since between an oscillator and an effect there is only one direction t
 
 - **Whole-cascade loop.** When every branch has drained, the cascade fires again. Each pass lasts
   as long as its longest branch, so the cycle breathes rather than holding a fixed pulse.
-- **An FX node** with fifteen effects: reverb, distortion, bitcrush, echo, filter, chorus, phaser,
+- **An FX node** with sixteen effects: reverb, distortion, bitcrush, echo, filter, chorus, phaser,
   tremolo, ring modulation, stereo pan, an octave divider, a comb resonator, a wavefolder, a three-band
-  EQ and a synced stutter. The bitcrusher does both halves: bit depth through a
+  EQ, a synced stutter and a compressor. The bitcrusher does both halves: bit depth through a
   waveshaper, and sample rate through an `AudioWorklet`, since holding a sample between outputs is
   memory and a curve has none. No filtering on the way down — the aliasing is the sound. The **octave
   divider** is the other one that needs memory: a flip-flop clocked by the signal's own zero crossings
@@ -416,7 +416,7 @@ refused, since between an oscillator and an effect there is only one direction t
   it longer without making it clearer. Both languages live adjacent in one file so a half-finished
   edit shows up in the diff rather than as a blank paragraph months later.
 
-  Fourteen chapters and a hundred and fifty-seven entries, written for whoever is using the instrument
+  Fourteen chapters and a hundred and sixty entries, written for whoever is using the instrument
   rather than for whoever built it: no entry explains how something is implemented, and every one says
   what a control does to the sound and when you would reach for it. One chapter per module, each in
   the order its own panel is in and under the panel's own group headings, so reading the manual and
@@ -434,6 +434,17 @@ refused, since between an oscillator and an effect there is only one direction t
   it does, because a code shown before it exists is a code somebody writes down. Copy copies what is
   there and nothing else. The field takes either kind of code.
   The eight nodes it starts with come to 132 characters, against 3353 as JSON.
+
+- **A compressor**, and the only effect here that makes a sound _more_ even rather than more interesting
+  — which is exactly why a patch of five branches wants one: past a few voices the loud moments start
+  hiding the rest. A native `DynamicsCompressorNode`, the same node the master bus has used as a limiter
+  since the engine was written, with Threshold, Ratio, Attack and Release exposed and the knee fixed
+  soft. Five sliders is where a compressor starts wanting a manual of its own, and of the five the knee
+  is the one nobody moves.
+
+  It listens to **what passes through it** and nothing else. One branch controlling another is a
+  different thing and needs a node whose input is audio and whose output is modulation — which is the
+  one shape this instrument does not have yet.
 
 - **A synced stutter**, which takes a slice and plays it again _instead of_ what happened next. That is
   the whole difference from an echo — an echo adds a copy later while the original carries on underneath,

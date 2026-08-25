@@ -851,7 +851,7 @@ export const MANUAL: Section[] = [
   },
   {
     id: 'fx',
-    title: { en: 'FX — the fifteen effects', es: 'FX — los quince efectos' },
+    title: { en: 'FX — the sixteen effects', es: 'FX — los dieciséis efectos' },
     body: [
       {
         en: 'Wire an oscillator’s side port into an FX to feed it. Several oscillators can share one effect and one oscillator can feed several, because an effect is a send off the output rather than a stage in a chain — which is also why it does not matter where on the canvas you put it.',
@@ -881,8 +881,8 @@ export const MANUAL: Section[] = [
           {
             term: { en: 'Effect', es: 'Effect' },
             text: {
-              en: 'Which of the fifteen this node is. Changing it replaces the controls below with that effect’s own, and the Mix above stays where it was — which is why Mix is above them rather than below, where it would slide up and down the panel every time you changed your mind.',
-              es: 'Cuál de los quince es este nodo. Cambiarlo reemplaza los controles de abajo por los de ese efecto, y el Mix de arriba se queda donde estaba — por eso el Mix va encima y no debajo, donde se desplazaría por el panel cada vez que cambiaras de idea.',
+              en: 'Which of the sixteen this node is. Changing it replaces the controls below with that effect’s own, and the Mix above stays where it was — which is why Mix is above them rather than below, where it would slide up and down the panel every time you changed your mind.',
+              es: 'Cuál de los dieciséis es este nodo. Cambiarlo reemplaza los controles de abajo por los de ese efecto, y el Mix de arriba se queda donde estaba — por eso el Mix va encima y no debajo, donde se desplazaría por el panel cada vez que cambiaras de idea.',
             },
           },
           {
@@ -1000,6 +1000,27 @@ export const MANUAL: Section[] = [
             text: {
               en: 'How long it goes on sounding after it is struck, in seconds. A time and not an amount of feedback, which is not the same thing: one trip round a resonator is one cycle of the note, so a fixed feedback would ring eight times longer at the bottom of the range than at the top. Asking for a time means retuning it does not change the length of the note.',
               es: 'Cuánto sigue sonando después del golpe, en segundos. Un tiempo y no una cantidad de realimentación, que no es lo mismo: una vuelta al resonador es un ciclo de la nota, así que una realimentación fija sonaría ocho veces más en la parte baja del rango que en la alta. Pedir un tiempo hace que reafinarlo no cambie la duración de la nota.',
+            },
+          },
+          {
+            term: { en: 'Compress', es: 'Compress' },
+            text: {
+              en: 'Holds back whatever gets loud, so what was quiet is heard beside it. It is the only effect here that makes a sound *more* even rather than more interesting, which is exactly why a patch of five branches wants one: past a few voices the loud moments start hiding the rest. It listens to what passes through it and nothing else — one branch controlling another is a different thing, and needs a node that can listen.',
+              es: 'Retiene lo que se pone fuerte, para que lo que estaba suave se oiga a su lado. Es el único efecto de aquí que hace un sonido *más* parejo en vez de más interesante, y por eso justamente un patch de cinco ramas quiere uno: pasadas unas cuantas voces, los momentos fuertes empiezan a tapar el resto. Escucha lo que pasa por él y nada más — una rama controlando a otra es otra cosa, y necesita un nodo que sepa escuchar.',
+            },
+          },
+          {
+            term: { en: 'Threshold and Ratio', es: 'Threshold y Ratio' },
+            text: {
+              en: 'Threshold is how loud something has to get before it is held back, and Ratio is how firmly. At a ratio of one nothing happens whatever the threshold says, which is where it starts. Past about eight to one it stops compressing and starts limiting — the same thing the master bus does to keep a heavy patch from clipping. The knee is fixed and soft: it is the one control of the five that nobody moves.',
+              es: 'Threshold es cuán fuerte tiene que ponerse algo antes de que se lo retenga, y Ratio con cuánta firmeza. Con ratio uno no pasa nada diga lo que diga el threshold, que es donde empieza. Pasado ocho a uno deja de comprimir y empieza a limitar — lo mismo que hace el bus de master para que un patch cargado no recorte. El knee es fijo y suave: es el único de los cinco controles que nadie mueve.',
+            },
+          },
+          {
+            term: { en: 'Attack and Release', es: 'Attack y Release' },
+            text: {
+              en: 'How fast it grabs and how slowly it lets go. A fast attack catches the front of a note and flattens it; a slow one lets the transient through and holds back what follows, which is how a compressor makes something sound *punchier* rather than smaller. Release is the one to listen for: too short and it breathes audibly between notes, too long and it never recovers before the next one.',
+              es: 'Con qué rapidez agarra y con cuánta lentitud suelta. Un attack rápido caza el frente de una nota y lo achata; uno lento deja pasar el transitorio y retiene lo que viene detrás, que es como un compresor hace que algo suene *más contundente* en vez de más pequeño. El Release es el que hay que escuchar: demasiado corto y respira audiblemente entre notas, demasiado largo y no se recupera antes de la siguiente.',
             },
           },
           {

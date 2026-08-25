@@ -15,12 +15,15 @@ import { MAX_BITS, MAX_REDUCTION, MAX_REPEATS, MIN_BITS, MIN_REDUCTION, MIN_REPE
 import { effectOr } from './effects'
 import { MAX_CUTOFF, MAX_RESONANCE, MIN_CUTOFF, MIN_RESONANCE } from './filter'
 import {
+  MAX_COMPRESS_ATTACK,
   MAX_DECAY,
   MAX_EQ_DB,
+  MAX_RATIO,
   MAX_FEEDBACK,
   MAX_RATE as MAX_RATE_FX,
   MAX_SWEEP,
   MIN_DECAY,
+  MIN_THRESHOLD,
   MIN_RATE as MIN_RATE_FX,
   MIN_SWEEP,
   type EffectKind,
@@ -368,6 +371,34 @@ const FX_PARAM_TARGETS: Record<string, ModTarget> = {
     hint: 'Bends the pitch the resonator rings at. Wired to an envelope it is a string being pulled; wired to an LFO it is one being wobbled.',
   },
   /**
+   * The compressor's three, all real parameters on one native node and so all cheap.
+   *
+   * A **swept threshold** is the one worth having: a compressor that tightens as something else gets
+   * louder, which is the nearest this instrument comes to a sidechain until there is a node that can
+   * listen. Ratio and attack are here because they cost nothing to offer, not because anybody will reach
+   * for them often.
+   *
+   * Priced at nothing on the argument the cutoffs established: these are set once a block by a node that
+   * is doing its arithmetic either way.
+   */
+  threshold: {
+    key: 'threshold',
+    label: 'Threshold',
+    min: MIN_THRESHOLD,
+    max: 0,
+    via: 'audio',
+    surcharge: 0,
+  },
+  ratio: { key: 'ratio', label: 'Ratio', min: 1, max: MAX_RATIO, via: 'audio', surcharge: 0 },
+  attack: {
+    key: 'attack',
+    label: 'Attack',
+    min: 0,
+    max: MAX_COMPRESS_ATTACK,
+    via: 'audio',
+    surcharge: 0,
+  },
+  /**
    * A stutter's repeat count, which is the effect's switch as much as its depth.
    *
    * One is a wire and eight is a bar of the cascade turned into an eighth of itself, so a MOD here is the
@@ -435,6 +466,12 @@ const TARGET_OVERRIDES: Partial<Record<EffectKind, Record<string, Partial<ModTar
     decay: { via: 'audio', surcharge: 0, rebuildEvery: undefined },
     cutoff: { surcharge: 0 },
   },
+  /*
+   * A compressor's Release borrows `decay`, and on a reverb that means two channels of rebuilt impulse
+   * response — the dearest thing here to sweep. Here it is a parameter on a native node, connected and
+   * free. Same word, opposite cost, different route, which is what this table is for.
+   */
+  compress: { decay: { via: 'audio', surcharge: 0, rebuildEvery: undefined } },
   /*
    * A stutter's Slice borrows the echo's `time` field, and on the echo that is a `delayTime` — a real
    * parameter a signal can be added to. Here it is a *choice* of three divisions that decides how much

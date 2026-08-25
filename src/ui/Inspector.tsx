@@ -75,8 +75,10 @@ import { useManualWindow } from '../help/window'
 import { usePatchStore } from '../state/patchStore'
 import { NumberInput } from './NumberInput'
 import {
+  MAX_COMPRESS_ATTACK,
   MAX_DECAY,
   MAX_EQ_DB,
+  MAX_RATIO,
   MAX_DELAY_MS,
   MAX_FEEDBACK,
   MAX_RATE,
@@ -84,6 +86,7 @@ import {
   MIN_RATE,
   MIN_SWEEP,
   MIN_DECAY,
+  MIN_THRESHOLD,
   DIRECTIONS,
   DIRECTION_LABELS,
   MIN_DELAY_MS,
@@ -428,6 +431,47 @@ function EffectControl({
           step={1}
           suffix={(params.repeats ?? MIN_REPEATS) <= MIN_REPEATS ? ' · off' : '×'}
           onChange={(repeats) => onChange({ repeats })}
+        />
+      )
+    case 'threshold':
+      // Decibels, and negative all the way down: a threshold above nought would be a compressor that
+      // never engages, which is what a ratio of one is already for.
+      return (
+        <TypedSlider
+          label={name('Threshold')}
+          value={params.threshold ?? 0}
+          min={MIN_THRESHOLD}
+          max={0}
+          step={1}
+          suffix=" dB"
+          onChange={(threshold) => onChange({ threshold })}
+        />
+      )
+    case 'ratio':
+      // One is off. Past about eight it stops compressing and starts limiting, which is why the range
+      // goes as far as it does rather than stopping where a mixing engineer would.
+      return (
+        <TypedSlider
+          label={name('Ratio')}
+          value={params.ratio ?? 1}
+          min={1}
+          max={MAX_RATIO}
+          step={0.5}
+          suffix=":1"
+          onChange={(ratio) => onChange({ ratio })}
+        />
+      )
+    case 'attack':
+      // Milliseconds, like every other attack here. Web Audio wants seconds and the effect converts.
+      return (
+        <TypedSlider
+          label={name('Attack')}
+          value={params.attack ?? 10}
+          min={0}
+          max={MAX_COMPRESS_ATTACK}
+          step={1}
+          suffix="ms"
+          onChange={(attack) => onChange({ attack })}
         />
       )
     case 'bias':

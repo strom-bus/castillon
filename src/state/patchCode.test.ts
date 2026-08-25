@@ -82,6 +82,9 @@ const FX_CASES: Record<string, [unknown, number]> = {
   mid: [4.5, 0.25],
   high: [11, 0.25],
   repeats: [6, 0],
+  threshold: [-24, 0],
+  ratio: [6, 0],
+  attack: [35, 0],
 }
 
 describe('patch code', () => {

@@ -482,6 +482,7 @@ describe('patch code', () => {
     writer.write(1, 1) // loop
     writer.write(OSC_FIELD_TOTAL - 1, 6) // one field fewer than we know about
     writer.write(FX_FIELD_TOTAL, 6)
+    writer.write(STEP_COLUMN_TOTAL, 6) // and every step column this build knows about
     writer.write(0, 4) // reserved flags
     writer.writeVarint(1) // one node
     writer.write(1, 4) // type: osc
@@ -1062,5 +1063,57 @@ describe('a MIDI binding', () => {
     }
     const back = decodePatch(encodePatch(patch))!
     expect((back.nodes[0].params as StartParams).binding).toEqual({ source: 'key', code: 'KeyA' })
+  })
+})
+
+describe('a code written before a step column existed', () => {
+  /*
+   * The gap that cost two hand migrations of live patches in one day.
+   *
+   * The parameter lists have declared their own length since the format was written; the step columns
+   * had none of that, so appending one shifted every bit after it — and a code from an older build did
+   * not come back wrong, it came back *desynchronised*, the reader taking the next node's bits as this
+   * node's columns. It now says how many it wrote, and anything past that is left at rest.
+   */
+  function older(columns: number): string {
+    const writer = new BitWriter()
+    writer.write(1, 4)
+    writer.write(120 - 20, 10)
+    writer.write(1, 1)
+    writer.write(OSC_FIELD_TOTAL, 6)
+    writer.write(FX_FIELD_TOTAL, 6)
+    writer.write(columns, 6)
+    writer.write(0, 4)
+    writer.writeVarint(1)
+    writer.write(1, 4) // osc
+    writer.writeSignedVarint(0)
+    writer.writeSignedVarint(0)
+    for (let i = 0; i < OSC_FIELD_TOTAL; i++) writer.write(0, 1)
+    writer.write(4 - 1, 4)
+    for (let i = 0; i < 4; i++) {
+      writer.write(1, 1)
+      writer.write(60 - 24, 6)
+    }
+    for (let i = 0; i < columns; i++) writer.write(0, 1)
+    writer.writeVarint(0)
+    return toBase64Url(writer.finish())
+  }
+
+  it('reads a code that predates the per-step locks', () => {
+    // Five columns is what a step carried before a step could overrule its oscillator.
+    const decoded = decodePatch(older(5))
+    expect(decoded, 'a code from before the locks no longer decodes').not.toBeNull()
+    expect(decoded!.nodes).toHaveLength(1)
+
+    const steps = (decoded!.nodes[0]!.params as { steps: { cutoff?: number }[] }).steps
+    expect(steps).toHaveLength(4)
+    // The columns it never heard of come back at rest, which for a lock means "the oscillator's".
+    expect(steps.every((step) => step.cutoff === undefined)).toBe(true)
+  })
+
+  it('refuses a code from a build with more columns than this one', () => {
+    // There is no skipping a field of unknown width, so the only honest answers are "read it" and
+    // "this is not a patch I can read". Guessing is what produces a patch nobody wrote.
+    expect(decodePatch(older(STEP_COLUMN_TOTAL + 1))).toBeNull()
   })
 })

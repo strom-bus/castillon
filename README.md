@@ -396,6 +396,18 @@ refused, since between an oscillator and an effect there is only one direction t
   instead: a trigger cannot mistime and a follower cannot miss a note nobody told it about, and both are
   in the box so the difference can be heard.
 
+- **The step columns declare their own length**, which they should have done from the start. The
+  parameter lists have said how many fields they carry since the format was written, so a build that
+  grew one could still read a code that had not; the step columns were the same shape of list with none
+  of that protection. Appending one shifted every bit after it — and a code from an older build did not
+  come back wrong, it came back _desynchronised_, the reader taking the next node's bits as this node's
+  columns. Worse than a refusal: one live patch decoded to a valid, empty patch.
+
+  Adding the per-step locks is what made that concrete, at the cost of a second hand migration of the
+  published patches in one day. The header now carries the count, a code that predates a column reads
+  correctly with that column left at rest, and one from a newer build is refused rather than guessed at
+  — there is no skipping a field of unknown width.
+
 - **Per-step parameter locks.** Four of an oscillator's own settings — Wave, Cutoff, Gate and Decay —
   can be taken over by a single step, so one line of sixteen squares can hold one sawtooth, one note
   that rings while the rest are clipped, and one that keeps its peak instead of falling away. A
@@ -584,7 +596,7 @@ refused, since between an oscillator and an effect there is only one direction t
   patch changes it. **Generate** publishes and puts the code in the field; the field is empty until
   it does, because a code shown before it exists is a code somebody writes down. Copy copies what is
   there and nothing else. The field takes either kind of code.
-  The eight nodes it starts with come to 138 characters, against 3401 as JSON.
+  The eight nodes it starts with come to 139 characters, against 3401 as JSON.
 
 - **A compressor**, and the only effect here that makes a sound _more_ even rather than more interesting
   — which is exactly why a patch of five branches wants one: past a few voices the loud moments start

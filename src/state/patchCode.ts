@@ -753,7 +753,7 @@ function writeOsc(writer: BitWriter, raw: OscParams): void {
   }
 }
 
-function readOsc(reader: BitReader, declared: number): OscParams {
+function readOsc(reader: BitReader, declared: number, columns: number): OscParams {
   const params = readParams(reader, OSC_FIELDS, OSC_REFERENCE, declared)
   const count = reader.read(STEP_COUNT_BITS) + MIN_STEPS
 
@@ -764,7 +764,9 @@ function readOsc(reader: BitReader, declared: number): OscParams {
     steps.push({ note, active, velocity: 1 })
   }
 
-  for (const column of STEP_COLUMNS) {
+  // Only as many as the code says it wrote. A code from a build with fewer columns simply stops early,
+  // and every column past that is left at rest — which for all four locks means "the node's".
+  for (const column of STEP_COLUMNS.slice(0, columns)) {
     if (reader.read(1) !== 1) continue
     for (const step of steps) column.unpack(step, reader.read(column.bits))
   }
@@ -968,6 +970,19 @@ export function encodePatch(patch: Patch): string {
   // node of a type shares the count. Twelve bits for a format that survives new parameters.
   writer.write(OSC_FIELDS.length, FIELD_COUNT_BITS)
   writer.write(FX_FIELDS.length, FIELD_COUNT_BITS)
+  /*
+   * And how many columns a step carries, which was the one count the header did not declare.
+   *
+   * The parameter lists have said their own length since the format was written, so a build that grew a
+   * field could still read a code that had not. The step columns were the same shape of list with none
+   * of that protection: appending one shifted every bit after it, so a code from an older build did not
+   * come back wrong — it came back *desynchronised*, the reader taking the next node's bits as this
+   * node's columns. Adding the per-step locks is what made that concrete, and it is the second time a
+   * stored code has had to be migrated by hand in one day.
+   *
+   * Declared here so it is the last time.
+   */
+  writer.write(STEP_COLUMNS.length, FIELD_COUNT_BITS)
   // Only set when something needs it, so a patch of automatic Ignites still writes the byte it always
   // did and produces the same code it always produced.
   const anyBound = patch.nodes.some(
@@ -1056,6 +1071,10 @@ export function decodePatch(code: string): Patch | null {
     const loop = reader.read(1) === 1
     const oscFields = reader.read(FIELD_COUNT_BITS)
     const fxFields = reader.read(FIELD_COUNT_BITS)
+    const stepColumns = reader.read(FIELD_COUNT_BITS)
+    // A code from a newer build carries columns this one has never heard of, and there is no way to skip
+    // a field of unknown width. Refused rather than read into nonsense, as an over-long field list is.
+    if (stepColumns > STEP_COLUMNS.length) return null
     const flags = reader.read(HEADER_FLAG_BITS)
     const ignitesCarryTrigger = (flags & FLAG_IGNITE_TRIGGER) !== 0
     const hasModulation = (flags & FLAG_MODULATION) !== 0
@@ -1073,7 +1092,7 @@ export function decodePatch(code: string): Patch | null {
 
       let params: PatchNode['params'] = {}
       if (type === 'osc') {
-        params = readOsc(reader, oscFields)
+        params = readOsc(reader, oscFields, stepColumns)
       } else if (type === 'fx') {
         params = readFx(reader, fxFields)
       } else if (type === 'warp') {

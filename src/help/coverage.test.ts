@@ -96,12 +96,69 @@ describe('the manual against the panel', () => {
     expect(labelsOn(EFFECTS).length).toBeGreaterThan(10)
   })
 
-  it('gives every chapter of a module its groups, in the panel order', () => {
-    // A chapter whose entries are one flat list is a list. The point of the groups is that reading the
-    // manual and looking at the panel are the same act, so the module with five groups has five.
-    const osc = MANUAL.find((section) => section.id === 'osc')!
-    const titled = (osc.detail ?? []).map((group) => group.title).filter(Boolean)
-    expect(titled).toEqual(['SEQUENCE', 'VOICE', 'SHAPE', 'FILTER', 'NEXT'])
+  it('gives every chapter the groups its panel has, in the panel order', () => {
+    /*
+     * A chapter whose entries are one flat list is a list. The point of the groups is that reading the
+     * manual and looking at the panel are the same act.
+     *
+     * Asked of the panel's own source rather than of a list. This used to name the oscillator's five
+     * groups by hand, which was every group there was — so the day two more panels were grouped it went
+     * on passing and said nothing about either. The same fault as every other coverage list in this
+     * repository, in the file whose whole job is catching it.
+     *
+     * Every branch of the panel, and where each begins. The oscillator is the **fallback** rather than a
+     * branch — what the function returns once every other type is ruled out — so it has no `node.type ===`
+     * test of its own, and the last real branch would otherwise swallow it and inherit its five groups.
+     * Found by the line that begins it instead, which is where the panel stops asking what the node is.
+     */
+    const branches = [...PANEL.matchAll(/if \(node\.type === '(\w+)'\)/g)].map((m) => ({
+      type: m[1],
+      at: m.index ?? 0,
+    }))
+    const oscAt = PANEL.indexOf('const params = node.data.params as OscParams')
+    expect(oscAt, 'the oscillator panel could not be found').toBeGreaterThan(0)
+    branches.push({ type: 'osc', at: oscAt })
+    branches.sort((a, b) => a.at - b.at)
+
+    expect(
+      branches.length,
+      'no panel branches found — the reader has stopped working',
+    ).toBeGreaterThan(4)
+
+    for (const [index, branch] of branches.entries()) {
+      const to = branches[index + 1]?.at ?? PANEL.length
+      const drawn = [...PANEL.slice(branch.at, to).matchAll(/<Group title="([^"]+)">/g)].map(
+        (m) => m[1],
+      )
+
+      // `start` in the registry, `ignite` on the page: the type reads better in a stack trace and the
+      // label reads better on screen, and the registry holds both on purpose.
+      const chapter = MANUAL.find(
+        (section) => section.id === (branch.type === 'start' ? 'ignite' : branch.type),
+      )
+      if (!chapter) continue
+      const written = (chapter.detail ?? []).map((group) => group.title).filter(Boolean)
+
+      /*
+       * Every group the panel has must be in the manual, in the same order. **One direction only**: the
+       * manual is allowed more, because it has room to explain what a control cannot — the FX chapter
+       * documents fifteen effects as a section of their own where the panel packs them into a select, and
+       * demanding an exact match would mean deleting that.
+       *
+       * What this catches is the direction that matters: a heading somebody added to a panel and never
+       * wrote up, or wrote up in a different order. Those are the two ways looking at the panel and
+       * reading the page stop being the same act.
+       */
+      let at = 0
+      for (const title of drawn) {
+        const found = written.indexOf(title, at)
+        expect(
+          found,
+          `${branch.type}: the panel's ${title} group is not in the manual, in order`,
+        ).toBeGreaterThanOrEqual(0)
+        at = found + 1
+      }
+    }
   })
 
   it('renders a control for every parameter an effect declares', () => {

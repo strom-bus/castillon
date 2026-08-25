@@ -975,164 +975,177 @@ export function Inspector() {
           MOD <span className="node-ordinal">{ordinal}</span>
         </h2>
 
-        {/* What it is before what it points at, which is the sentence the panel should read as: an
-            envelope, fired on every note, sweeping the cutoff. It named the destination first and left
-            what kind of thing it was until second.
+        {/* Grouped as the sentence this panel is meant to read as: **what moves**, then **where it
+            goes**. The order inside each group is untouched.
 
-            Kind also decides which controls exist below it — a clock and a rate for an LFO, a trigger
-            and two times for an envelope — so it goes above them, where changing it disturbs nothing
-            that was already set. */}
-        <label className="inspector-field">
-          <span>Kind</span>
-          <select
-            value={kind}
-            onChange={(e) => updateParams(node.id, { kind: e.target.value as ModKind })}
-          >
-            {MOD_KINDS.map((option) => (
-              <option key={option} value={option}>
-                {MOD_KIND_LABELS[option]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="inspector-field">
-          <span>Target</span>
-          <select
-            value={target}
-            onChange={(e) => updateParams(node.id, { target: e.target.value })}
-          >
-            {offered.map((option) => {
-              // Shown and unselectable rather than hidden, with the reason in the option itself: a
-              // list that changes length as you change a filter type is harder to read than one where
-              // an entry is visibly out of reach.
-              const unavailable = silentBecause(option.key, destination) !== null
-              return (
-                <option key={option.key} value={option.key} disabled={unavailable}>
-                  {option.label}
-                  {unavailable && ' — filter off'}
+            What the headings buy is that the middle of this panel *changes shape*: an LFO has a clock
+            and a rate where an envelope has an attack and a decay. Without a name above them those
+            controls look as though they appeared from nowhere the moment Kind is switched. */}
+        <Group title="SHAPE">
+          {/* What it is before what it points at, which is the sentence the panel should read as: an
+              envelope, fired on every note, sweeping the cutoff. It named the destination first and left
+              what kind of thing it was until second.
+
+              Kind also decides which controls exist below it — a clock and a rate for an LFO, a trigger
+              and two times for an envelope — so it goes above them, where changing it disturbs nothing
+              that was already set. */}
+          <label className="inspector-field">
+            <span>Kind</span>
+            <select
+              value={kind}
+              onChange={(e) => updateParams(node.id, { kind: e.target.value as ModKind })}
+            >
+              {MOD_KINDS.map((option) => (
+                <option key={option} value={option}>
+                  {MOD_KIND_LABELS[option]}
                 </option>
-              )
-            })}
-          </select>
-        </label>
-
-        {kind === 'env' ? (
-          <>
-            <label className="inspector-field">
-              <span>Fires on</span>
-              <select
-                value={fires}
-                onChange={(e) => updateParams(node.id, { fires: e.target.value as ModFires })}
-              >
-                {MOD_FIRES.map((option) => (
-                  <option key={option} value={option}>
-                    {MOD_FIRES_LABELS[option]}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            {/* The box first and the words after it, which is the order a checkbox is read in: the
-                control is the sentence's subject and the label says what ticking it means. Every other
-                field here names a value and then shows it, and borrowing that layout put the box out at
-                the right margin, a long way from the thing it belongs to. */}
-            {fires === 'note' && (
-              <label className="inspector-check">
-                <input
-                  type="checkbox"
-                  checked={mod.byVelocity === true}
-                  onChange={(e) => updateParams(node.id, { byVelocity: e.target.checked })}
-                />
-                <span>Scale by velocity</span>
-              </label>
-            )}
-
-            <TypedSlider
-              label="Attack"
-              value={mod.attack ?? 40}
-              min={MIN_MOD_ATTACK}
-              max={MAX_MOD_ATTACK}
-              step={1}
-              suffix="ms"
-              onChange={(attack) => updateParams(node.id, { attack })}
-            />
-            <TypedSlider
-              label="Decay"
-              value={mod.decay ?? 600}
-              min={MIN_MOD_DECAY}
-              max={MAX_MOD_DECAY}
-              step={5}
-              suffix="ms"
-              onChange={(decay) => updateParams(node.id, { decay })}
-            />
-          </>
-        ) : (
-          <>
-            <label className="inspector-field">
-              <span>Shape</span>
-              <select
-                value={mod.wave ?? 'sine'}
-                onChange={(e) => updateParams(node.id, { wave: e.target.value as LfoShape })}
-              >
-                {LFO_SHAPES.map((shape) => (
-                  <option key={shape} value={shape}>
-                    {LFO_SHAPE_LABELS[shape]}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            {/* Beside the rate rather than replacing it, and a bypass in the same sense the swing's is:
-                the hertz are remembered while it is synced, so a wobble can be put on the grid and taken
-                off it again without losing the setting it had. */}
-            <label className="inspector-check">
-              <input
-                type="checkbox"
-                checked={mod.sync === true}
-                onChange={(e) => updateParams(node.id, { sync: e.target.checked })}
-              />
-              <span>Sync to tempo</span>
-            </label>
-
-            {mod.sync ? (
+              ))}
+            </select>
+          </label>
+          {kind === 'env' ? (
+            <>
               <label className="inspector-field">
-                <span className="inspector-label">Every</span>
+                <span>Fires on</span>
                 <select
-                  value={String(mod.beats ?? 4)}
-                  onChange={(e) => updateParams(node.id, { beats: Number(e.target.value) })}
+                  value={fires}
+                  onChange={(e) => updateParams(node.id, { fires: e.target.value as ModFires })}
                 >
-                  {MOD_BEATS.map((beats) => (
-                    <option key={beats} value={String(beats)}>
-                      {beatsLabel(beats)}
+                  {MOD_FIRES.map((option) => (
+                    <option key={option} value={option}>
+                      {MOD_FIRES_LABELS[option]}
                     </option>
                   ))}
                 </select>
               </label>
-            ) : (
-              <TypedSlider
-                label="Rate"
-                value={mod.rate ?? 2}
-                min={MIN_MOD_RATE}
-                max={MAX_MOD_RATE}
-                step={0.05}
-                suffix="Hz"
-                onChange={(rate) => updateParams(node.id, { rate })}
-              />
-            )}
-          </>
-        )}
 
-        {/* Signed, so a modulation can be read the other way round: an envelope that closes a filter
-            rather than opening one, or two LFOs set against each other. Inverting is not a second kind of
-            modulation, so it lives inside the number rather than beside it as a switch. */}
-        <TypedSlider
-          label="Depth"
-          value={mod.depth ?? 0.6}
-          min={-1}
-          max={1}
-          step={0.01}
-          onChange={(depth) => updateParams(node.id, { depth })}
-        />
+              <TypedSlider
+                label="Attack"
+                value={mod.attack ?? 40}
+                min={MIN_MOD_ATTACK}
+                max={MAX_MOD_ATTACK}
+                step={1}
+                suffix="ms"
+                onChange={(attack) => updateParams(node.id, { attack })}
+              />
+              <TypedSlider
+                label="Decay"
+                value={mod.decay ?? 600}
+                min={MIN_MOD_DECAY}
+                max={MAX_MOD_DECAY}
+                step={5}
+                suffix="ms"
+                onChange={(decay) => updateParams(node.id, { decay })}
+              />
+            </>
+          ) : (
+            <>
+              <label className="inspector-field">
+                <span>Shape</span>
+                <select
+                  value={mod.wave ?? 'sine'}
+                  onChange={(e) => updateParams(node.id, { wave: e.target.value as LfoShape })}
+                >
+                  {LFO_SHAPES.map((shape) => (
+                    <option key={shape} value={shape}>
+                      {LFO_SHAPE_LABELS[shape]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              {/* Beside the rate rather than replacing it, and a bypass in the same sense the swing's is:
+                  the hertz are remembered while it is synced, so a wobble can be put on the grid and taken
+                  off it again without losing the setting it had. */}
+              <label className="inspector-check">
+                <input
+                  type="checkbox"
+                  checked={mod.sync === true}
+                  onChange={(e) => updateParams(node.id, { sync: e.target.checked })}
+                />
+                <span>Sync to tempo</span>
+              </label>
+
+              {mod.sync ? (
+                <label className="inspector-field">
+                  <span className="inspector-label">Every</span>
+                  <select
+                    value={String(mod.beats ?? 4)}
+                    onChange={(e) => updateParams(node.id, { beats: Number(e.target.value) })}
+                  >
+                    {MOD_BEATS.map((beats) => (
+                      <option key={beats} value={String(beats)}>
+                        {beatsLabel(beats)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : (
+                <TypedSlider
+                  label="Rate"
+                  value={mod.rate ?? 2}
+                  min={MIN_MOD_RATE}
+                  max={MAX_MOD_RATE}
+                  step={0.05}
+                  suffix="Hz"
+                  onChange={(rate) => updateParams(node.id, { rate })}
+                />
+              )}
+            </>
+          )}
+        </Group>
+
+        {/* Where it lands and how far it goes. Depth belongs here rather than with the shape: it is a
+            fact about the *destination* — the same 0.6 is half a hertz on one parameter and thousands
+            on another — which is why the parameter table scales it and not the modulator. */}
+        <Group title="DESTINATION">
+          <label className="inspector-field">
+            <span>Target</span>
+            <select
+              value={target}
+              onChange={(e) => updateParams(node.id, { target: e.target.value })}
+            >
+              {offered.map((option) => {
+                // Shown and unselectable rather than hidden, with the reason in the option itself: a
+                // list that changes length as you change a filter type is harder to read than one where
+                // an entry is visibly out of reach.
+                const unavailable = silentBecause(option.key, destination) !== null
+                return (
+                  <option key={option.key} value={option.key} disabled={unavailable}>
+                    {option.label}
+                    {unavailable && ' — filter off'}
+                  </option>
+                )
+              })}
+            </select>
+          </label>
+
+          {/* Beside Depth rather than up with the firing mode, because what it scales is the depth: a hard
+              step opens the filter further than a soft one. The box first and the words after it, which is
+              the order a checkbox is read in — the control is the sentence's subject and the label says
+              what ticking it means. */}
+          {kind === 'env' && fires === 'note' && (
+            <label className="inspector-check">
+              <input
+                type="checkbox"
+                checked={mod.byVelocity === true}
+                onChange={(e) => updateParams(node.id, { byVelocity: e.target.checked })}
+              />
+              <span>Scale by velocity</span>
+            </label>
+          )}
+
+          {/* Signed, so a modulation can be read the other way round: an envelope that closes a filter
+              rather than opening one, or two LFOs set against each other. Inverting is not a second kind of
+              modulation, so it lives inside the number rather than beside it as a switch. */}
+          <TypedSlider
+            label="Depth"
+            value={mod.depth ?? 0.6}
+            min={-1}
+            max={1}
+            step={0.01}
+            onChange={(depth) => updateParams(node.id, { depth })}
+          />
+        </Group>
 
         {silent && (
           <p className="inspector-warn">
@@ -1184,9 +1197,13 @@ export function Inspector() {
           WARP <span className="node-ordinal">{ordinal}</span>
         </h2>
 
-        {/* Four dimensions, each named for what it bends rather than for the operation that bends it,
-            and each at a neutral point so a warp just added does nothing. Pitch adds where the rest
-            multiply — two warps a third up each come to a sixth up, two at half speed each come to a
+        {/* Grouped by **what a warp bends**, and ordered by what is reached for rather than by what was
+            built first. Pitch stands alone above them: it is one control, it needs no heading, and it is
+            the dimension this module was made for — the same place Mix sits in the FX panel, above the
+            controls that come and go.
+
+            Every dimension is at a neutral point, so a warp just added does nothing. Pitch adds where the
+            rest multiply — two warps a third up each come to a sixth up, two at half speed each come to a
             quarter — which is what lets any number of them stack without deciding which one wins. */}
         <Slider
           label="Pitch"
@@ -1198,106 +1215,116 @@ export function Inspector() {
           onChange={(transpose) => updateParams(node.id, { transpose })}
         />
 
-        {/* A list rather than a slider, because a half and a third are worth having and 0.87 is not:
-            against a musical grid an arbitrary ratio is only out of time. */}
-        <label className="inspector-field">
-          <span className="inspector-label">Speed</span>
-          <select
-            value={String(warpParams.speed ?? 1)}
-            onChange={(e) => updateParams(node.id, { speed: Number(e.target.value) })}
-          >
-            {SPEEDS.map((ratio) => (
-              <option key={ratio} value={String(ratio)}>
-                {ratioLabel(ratio)}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        {/* Beside its ratio rather than inside it, and that is not a second way of saying straight — 1 is
-            already straight. It is a bypass: what you do with a groove is listen straight, then swung,
-            then straight again, and a control walked back to 1 loses the setting every time. Off to begin
-            with, so a warp added and untouched still does nothing at all. */}
-        <label className="inspector-check">
-          <input
-            type="checkbox"
-            checked={warpParams.useSwing === true}
-            onChange={(e) => updateParams(node.id, { useSwing: e.target.checked })}
+        {/* How much of the branch you get, all three of them ratios. Before TIME because balancing a
+            branch is the commonest thing anybody wants from a warp, and pitch and level are the two
+            things every instrument has — speed and feel are the specialities. */}
+        <Group title="AMOUNT">
+          {/* Above Velocity, because it is the one most people are reaching for. The two look alike and
+              are not — see `WarpParams.level`. Velocity is a source and closes filters with it; this only
+              changes how loud the branch is. */}
+          <Slider
+            label="Level"
+            value={Math.round((warpParams.level ?? 1) * 100) / 100}
+            min={0}
+            max={2}
+            step={0.05}
+            suffix="x"
+            onChange={(level) => updateParams(node.id, { level })}
           />
-          <span>Swing</span>
-        </label>
 
-        {warpParams.useSwing && (
+          <Slider
+            label="Velocity"
+            value={Math.round((warpParams.velocity ?? 1) * 100) / 100}
+            min={0}
+            max={2}
+            step={0.05}
+            suffix="x"
+            onChange={(velocity) => updateParams(node.id, { velocity })}
+          />
+
+          <Slider
+            label="Chance"
+            value={Math.round((warpParams.chance ?? 1) * 100) / 100}
+            min={0}
+            max={2}
+            step={0.05}
+            suffix="x"
+            onChange={(chance) => updateParams(node.id, { chance })}
+          />
+        </Group>
+
+        {/* When the notes fall, and how strictly. Two of the three are behind a switch, so this group
+            shrinks to two rows on a warp nobody has asked for a groove — which is the argument for the
+            heading rather than against it: a group that changes height needs a name above it or the panel
+            reads as though controls appeared from nowhere. */}
+        <Group title="TIME">
+          {/* A list rather than a slider, because a half and a third are worth having and 0.87 is not:
+              against a musical grid an arbitrary ratio is only out of time. */}
           <label className="inspector-field">
-            <span className="inspector-label">Feel</span>
+            <span className="inspector-label">Speed</span>
             <select
-              value={String(warpParams.swing ?? 1)}
-              onChange={(e) => updateParams(node.id, { swing: Number(e.target.value) })}
+              value={String(warpParams.speed ?? 1)}
+              onChange={(e) => updateParams(node.id, { speed: Number(e.target.value) })}
             >
-              {SWINGS.map((ratio) => (
+              {SPEEDS.map((ratio) => (
                 <option key={ratio} value={String(ratio)}>
-                  {swingLabel(ratio)}
+                  {ratioLabel(ratio)}
                 </option>
               ))}
             </select>
           </label>
-        )}
 
-        {/* Beside the swing rather than instead of it: the two act on different things, so they compose.
-            Swing decides the shape of the bar and this decides how closely it is respected, which is a
-            drummer with a shuffle who is not perfectly tight. */}
-        <label className="inspector-check">
-          <input
-            type="checkbox"
-            checked={warpParams.useSlop === true}
-            onChange={(e) => updateParams(node.id, { useSlop: e.target.checked })}
-          />
-          <span>Slop</span>
-        </label>
+          {/* Beside its ratio rather than inside it, and that is not a second way of saying straight — 1
+              is already straight. It is a bypass: what you do with a groove is listen straight, then
+              swung, then straight again, and a control walked back to 1 loses the setting every time. */}
+          <label className="inspector-check">
+            <input
+              type="checkbox"
+              checked={warpParams.useSwing === true}
+              onChange={(e) => updateParams(node.id, { useSwing: e.target.checked })}
+            />
+            <span>Swing</span>
+          </label>
 
-        {warpParams.useSlop && (
-          <Slider
-            label="Looseness"
-            value={Math.round((warpParams.slop ?? 0) * 100) / 100}
-            min={0}
-            max={MAX_SLOP}
-            step={0.01}
-            onChange={(slop) => updateParams(node.id, { slop })}
-          />
-        )}
+          {warpParams.useSwing && (
+            <label className="inspector-field">
+              <span className="inspector-label">Feel</span>
+              <select
+                value={String(warpParams.swing ?? 1)}
+                onChange={(e) => updateParams(node.id, { swing: Number(e.target.value) })}
+              >
+                {SWINGS.map((ratio) => (
+                  <option key={ratio} value={String(ratio)}>
+                    {swingLabel(ratio)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
 
-        {/* Above Velocity, because it is the one most people are reaching for: balancing a branch. The two
-            look alike and are not — see `WarpParams.level`. Velocity is a source and closes filters with
-            it; this only changes how loud the branch is. */}
-        <Slider
-          label="Level"
-          value={Math.round((warpParams.level ?? 1) * 100) / 100}
-          min={0}
-          max={2}
-          step={0.05}
-          suffix="x"
-          onChange={(level) => updateParams(node.id, { level })}
-        />
+          {/* Beside the swing rather than instead of it: the two act on different things, so they
+              compose. Swing decides the shape of the bar and this decides how closely it is respected,
+              which is a drummer with a shuffle who is not perfectly tight. */}
+          <label className="inspector-check">
+            <input
+              type="checkbox"
+              checked={warpParams.useSlop === true}
+              onChange={(e) => updateParams(node.id, { useSlop: e.target.checked })}
+            />
+            <span>Slop</span>
+          </label>
 
-        <Slider
-          label="Velocity"
-          value={Math.round((warpParams.velocity ?? 1) * 100) / 100}
-          min={0}
-          max={2}
-          step={0.05}
-          suffix="x"
-          onChange={(velocity) => updateParams(node.id, { velocity })}
-        />
-
-        <Slider
-          label="Chance"
-          value={Math.round((warpParams.chance ?? 1) * 100) / 100}
-          min={0}
-          max={2}
-          step={0.05}
-          suffix="x"
-          onChange={(chance) => updateParams(node.id, { chance })}
-        />
+          {warpParams.useSlop && (
+            <Slider
+              label="Looseness"
+              value={Math.round((warpParams.slop ?? 0) * 100) / 100}
+              min={0}
+              max={MAX_SLOP}
+              step={0.01}
+              onChange={(slop) => updateParams(node.id, { slop })}
+            />
+          )}
+        </Group>
 
         {/* The same habit the MOD panel has of saying why a cable is not doing what its owner expects.
             This one has two ways of failing in silence, and the second is worse than useless: wired

@@ -1110,7 +1110,7 @@ export const MANUAL: Section[] = [
     ],
     detail: [
       {
-        title: 'THE PANEL',
+        title: 'SHAPE',
         terms: [
           {
             term: { en: 'Kind', es: 'Kind' },
@@ -1120,31 +1120,10 @@ export const MANUAL: Section[] = [
             },
           },
           {
-            term: { en: 'Pitch, as a target', es: 'Pitch, como destino' },
-            text: {
-              en: 'Pointed at an oscillator, a MOD can bend its pitch — which is vibrato with an LFO, and the drop at the front of a percussive sound with a per-note envelope. At full depth it reaches a semitone either way, so the useful settings are low: a tenth is ten cents, which is the shimmer most patches want. It is built per note, so each one wobbles on its own rather than the whole oscillator sliding together. On the noise waveforms it shifts the grain instead of a pitch, which is a texture rather than a note.',
-              es: 'Apuntado a un oscilador, un MOD puede doblar su altura — que es vibrato con un LFO, y la caída del principio de un sonido percusivo con una envolvente por nota. A profundidad plena llega a un semitono a cada lado, así que los ajustes útiles son bajos: una décima son diez centésimas, que es el temblor que quiere casi todo patch. Se construye por nota, así que cada una tiembla por su cuenta en vez de deslizarse el oscilador entero. En las ondas de ruido desplaza el grano en lugar de una altura, que es una textura y no una nota.',
-            },
-          },
-          {
-            term: { en: 'Target', es: 'Target' },
-            text: {
-              en: 'Which parameter it moves. The list is whatever the thing at the other end of the cable actually has, so a MOD on a reverb offers that reverb’s decay and one on a chorus offers its sweep. An entry that cannot work right now is shown greyed with the reason on it rather than hidden.',
-              es: 'Qué parámetro mueve. La lista es lo que de verdad tiene la cosa al otro extremo del cable, así que un MOD en un reverb ofrece el decay de ese reverb y uno en un chorus ofrece su sweep. Una entrada que ahora no puede funcionar se muestra en gris con el motivo puesto, en vez de esconderse.',
-            },
-          },
-          {
             term: { en: 'Fires on', es: 'Fires on' },
             text: {
               en: 'For an envelope only. A trigger means one sweep each time something reaches the port on its top — under an IGNITE that is once a pass, under a node deep in a branch it is once when that branch lights up. Every note means one sweep per note, which is the classic filter envelope.',
               es: 'Solo para una envolvente. A trigger significa un barrido cada vez que algo llega al puerto de arriba — bajo un IGNITE eso es una vez por pasada, bajo un nodo hondo en una rama es una vez cuando esa rama se enciende. Every note significa un barrido por nota, que es la envolvente de filtro clásica.',
-            },
-          },
-          {
-            term: { en: 'Scale by velocity', es: 'Scale by velocity' },
-            text: {
-              en: 'Only on an envelope firing per note. With it ticked, a quiet step gets a smaller sweep and a loud one gets a bigger one, so the sequence’s accents move the filter as well as the volume. It is the single fastest way to make a line sound played rather than programmed.',
-              es: 'Solo en una envolvente que dispara por nota. Marcado, un paso suave recibe un barrido más pequeño y uno fuerte uno más grande, así que los acentos de la secuencia mueven también el filtro y no solo el volumen. Es la manera más rápida de que una línea suene tocada y no programada.',
             },
           },
           {
@@ -1180,6 +1159,32 @@ export const MANUAL: Section[] = [
             text: {
               en: 'How fast an LFO runs, in cycles a second. Under about one it is a shape you follow; over about five it is a texture you hear as part of the tone. The cable pulses at the rate so you can see it, up to the speed where a flickering cable would read as broken.',
               es: 'Lo rápido que corre un LFO, en ciclos por segundo. Por debajo de uno es una forma que sigues; por encima de cinco es una textura que oyes como parte del timbre. El cable pulsa a ese ritmo para que lo veas, hasta la velocidad en la que un cable parpadeando parecería roto.',
+            },
+          },
+        ],
+      },
+      {
+        title: 'DESTINATION',
+        terms: [
+          {
+            term: { en: 'Target', es: 'Target' },
+            text: {
+              en: 'Which parameter it moves. The list is whatever the thing at the other end of the cable actually has, so a MOD on a reverb offers that reverb’s decay and one on a chorus offers its sweep. An entry that cannot work right now is shown greyed with the reason on it rather than hidden.',
+              es: 'Qué parámetro mueve. La lista es lo que de verdad tiene la cosa al otro extremo del cable, así que un MOD en un reverb ofrece el decay de ese reverb y uno en un chorus ofrece su sweep. Una entrada que ahora no puede funcionar se muestra en gris con el motivo puesto, en vez de esconderse.',
+            },
+          },
+          {
+            term: { en: 'Pitch, as a target', es: 'Pitch, como destino' },
+            text: {
+              en: 'Pointed at an oscillator, a MOD can bend its pitch — which is vibrato with an LFO, and the drop at the front of a percussive sound with a per-note envelope. At full depth it reaches a semitone either way, so the useful settings are low: a tenth is ten cents, which is the shimmer most patches want. It is built per note, so each one wobbles on its own rather than the whole oscillator sliding together. On the noise waveforms it shifts the grain instead of a pitch, which is a texture rather than a note.',
+              es: 'Apuntado a un oscilador, un MOD puede doblar su altura — que es vibrato con un LFO, y la caída del principio de un sonido percusivo con una envolvente por nota. A profundidad plena llega a un semitono a cada lado, así que los ajustes útiles son bajos: una décima son diez centésimas, que es el temblor que quiere casi todo patch. Se construye por nota, así que cada una tiembla por su cuenta en vez de deslizarse el oscilador entero. En las ondas de ruido desplaza el grano en lugar de una altura, que es una textura y no una nota.',
+            },
+          },
+          {
+            term: { en: 'Scale by velocity', es: 'Scale by velocity' },
+            text: {
+              en: 'Only on an envelope firing per note. With it ticked, a quiet step gets a smaller sweep and a loud one gets a bigger one, so the sequence’s accents move the filter as well as the volume. It is the single fastest way to make a line sound played rather than programmed.',
+              es: 'Solo en una envolvente que dispara por nota. Marcado, un paso suave recibe un barrido más pequeño y uno fuerte uno más grande, así que los acentos de la secuencia mueven también el filtro y no solo el volumen. Es la manera más rápida de que una línea suene tocada y no programada.',
             },
           },
           {
@@ -1250,7 +1255,6 @@ export const MANUAL: Section[] = [
     ],
     detail: [
       {
-        title: 'THE PANEL',
         terms: [
           {
             term: { en: 'Pitch', es: 'Pitch' },
@@ -1259,6 +1263,44 @@ export const MANUAL: Section[] = [
               es: 'Mueve todas las notas de debajo. En un oscilador con escala se mueve por grados de esa escala, y en uno libre por semitonos — así un bajo en Pentatonic y un lead en Minor pueden moverse los dos una tercera y quedarse los dos en tono. Un control que transporta una rama entera sin editar ni un paso.',
             },
           },
+        ],
+      },
+      {
+        title: 'AMOUNT',
+        terms: [
+          {
+            term: { en: 'Level', es: 'Level' },
+            text: {
+              en: 'How loud the branch below is, as a multiplier. One leaves it alone; a half is half as loud; two is twice, which is worth having because most oscillators sit well under full scale. It is the control for balancing a branch — turning four oscillators down by hand is four edits, and that is the argument this whole module rests on. Stacks by multiplying, so two warps each halving come to a quarter, and stops at full scale rather than asking for more than there is.',
+              es: 'Cuánto suena la rama de abajo, como multiplicador. Uno la deja igual; un medio es la mitad; dos es el doble, que merece la pena porque la mayoría de los osciladores están bastante por debajo de la escala plena. Es el control para equilibrar una rama — bajar cuatro osciladores a mano son cuatro ediciones, y ese es el argumento sobre el que se apoya este módulo entero. Se acumula multiplicando, así que dos warps a la mitad dan un cuarto, y se detiene en escala plena en vez de pedir más de lo que hay.',
+            },
+          },
+          {
+            term: { en: 'Level or Velocity', es: 'Level o Velocity' },
+            text: {
+              en: 'They look alike and are not. **Velocity is a source**: it decides how loud a note lands *and*, wherever a MOD takes its depth from velocity, how far that filter opens — so it stops at one, because past that the loudness would only clip while the filter went on opening. **Level is a level**: it changes how loud the branch is and nothing else, so it can push above one. If you want a branch quieter, reach for Level. If you want it played softer — quieter *and* darker, the way a hand plays softer — reach for Velocity.',
+              es: 'Se parecen y no son lo mismo. **Velocity es una fuente**: decide cuán fuerte cae una nota *y*, allí donde un MOD toma su profundidad de la velocidad, cuánto abre ese filtro — así que se detiene en uno, porque más allá la sonoridad solo recortaría mientras el filtro seguiría abriendo. **Level es un nivel**: cambia cuánto suena la rama y nada más, así que puede pasar de uno. Si quieres una rama más baja, usa Level. Si la quieres *tocada* más suave — más baja **y** más oscura, como toca una mano — usa Velocity.',
+            },
+          },
+          {
+            term: { en: 'Velocity', es: 'Velocity' },
+            text: {
+              en: 'Scales what every note below is worth. It is the way to duck a whole branch under another without touching either oscillator’s gain — and wherever an envelope takes its depth from velocity, a quieter branch also gets smaller sweeps.',
+              es: 'Escala lo que vale cada nota de debajo. Es la manera de meter una rama entera por debajo de otra sin tocar el gain de ningún oscilador — y donde una envolvente tome su profundidad de la velocidad, una rama más suave recibe además barridos más pequeños.',
+            },
+          },
+          {
+            term: { en: 'Chance', es: 'Chance' },
+            text: {
+              en: 'Thins the branch out. It applies whether or not the oscillators below use per-step chance, which is the useful part: "this whole branch happens half the time" is worth wanting without setting a chance on sixteen steps first.',
+              es: 'Ralea la rama. Se aplica usen o no los osciladores de debajo la probabilidad por paso, y eso es lo útil: «esta rama entera pasa la mitad de las veces» merece la pena sin haber puesto antes una probabilidad en dieciséis pasos.',
+            },
+          },
+        ],
+      },
+      {
+        title: 'TIME',
+        terms: [
           {
             term: { en: 'Speed', es: 'Speed' },
             text: {
@@ -1292,34 +1334,6 @@ export const MANUAL: Section[] = [
             text: {
               en: 'How far a note may fall from its place — measured against the shortest gap in that oscillator’s own sequence, not in milliseconds. Which is why one setting sounds the same everywhere: thirty milliseconds is nothing in a slow bass and total chaos in a fast line with a heavy swing, so a fixed time would have to be re-dialled on every branch. At its most, two notes can meet and never cross: a note landing before the one in front of it does not sound loose, it sounds broken.',
               es: 'Cuánto puede caerse una nota de su sitio — medido contra el hueco más corto de la secuencia de ese oscilador, no en milisegundos. Por eso un mismo ajuste suena igual en todas partes: treinta milisegundos no son nada en un bajo lento y son un caos en una línea rápida con swing fuerte, así que un tiempo fijo habría que reajustarlo en cada rama. Al máximo, dos notas pueden juntarse y nunca cruzarse: una nota que cae antes que la anterior no suena floja, suena rota.',
-            },
-          },
-          {
-            term: { en: 'Level', es: 'Level' },
-            text: {
-              en: 'How loud the branch below is, as a multiplier. One leaves it alone; a half is half as loud; two is twice, which is worth having because most oscillators sit well under full scale. It is the control for balancing a branch — turning four oscillators down by hand is four edits, and that is the argument this whole module rests on. Stacks by multiplying, so two warps each halving come to a quarter, and stops at full scale rather than asking for more than there is.',
-              es: 'Cuánto suena la rama de abajo, como multiplicador. Uno la deja igual; un medio es la mitad; dos es el doble, que merece la pena porque la mayoría de los osciladores están bastante por debajo de la escala plena. Es el control para equilibrar una rama — bajar cuatro osciladores a mano son cuatro ediciones, y ese es el argumento sobre el que se apoya este módulo entero. Se acumula multiplicando, así que dos warps a la mitad dan un cuarto, y se detiene en escala plena en vez de pedir más de lo que hay.',
-            },
-          },
-          {
-            term: { en: 'Level or Velocity', es: 'Level o Velocity' },
-            text: {
-              en: 'They look alike and are not. **Velocity is a source**: it decides how loud a note lands *and*, wherever a MOD takes its depth from velocity, how far that filter opens — so it stops at one, because past that the loudness would only clip while the filter went on opening. **Level is a level**: it changes how loud the branch is and nothing else, so it can push above one. If you want a branch quieter, reach for Level. If you want it played softer — quieter *and* darker, the way a hand plays softer — reach for Velocity.',
-              es: 'Se parecen y no son lo mismo. **Velocity es una fuente**: decide cuán fuerte cae una nota *y*, allí donde un MOD toma su profundidad de la velocidad, cuánto abre ese filtro — así que se detiene en uno, porque más allá la sonoridad solo recortaría mientras el filtro seguiría abriendo. **Level es un nivel**: cambia cuánto suena la rama y nada más, así que puede pasar de uno. Si quieres una rama más baja, usa Level. Si la quieres *tocada* más suave — más baja **y** más oscura, como toca una mano — usa Velocity.',
-            },
-          },
-          {
-            term: { en: 'Velocity', es: 'Velocity' },
-            text: {
-              en: 'Scales what every note below is worth. It is the way to duck a whole branch under another without touching either oscillator’s gain — and wherever an envelope takes its depth from velocity, a quieter branch also gets smaller sweeps.',
-              es: 'Escala lo que vale cada nota de debajo. Es la manera de meter una rama entera por debajo de otra sin tocar el gain de ningún oscilador — y donde una envolvente tome su profundidad de la velocidad, una rama más suave recibe además barridos más pequeños.',
-            },
-          },
-          {
-            term: { en: 'Chance', es: 'Chance' },
-            text: {
-              en: 'Thins the branch out. It applies whether or not the oscillators below use per-step chance, which is the useful part: "this whole branch happens half the time" is worth wanting without setting a chance on sixteen steps first.',
-              es: 'Ralea la rama. Se aplica usen o no los osciladores de debajo la probabilidad por paso, y eso es lo útil: «esta rama entera pasa la mitad de las veces» merece la pena sin haber puesto antes una probabilidad en dieciséis pasos.',
             },
           },
         ],

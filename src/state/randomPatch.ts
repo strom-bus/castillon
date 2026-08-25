@@ -1,6 +1,6 @@
 import { EFFECTS } from '../audio/effects'
 import { effectCost, estimatePeakLoad } from '../audio/load'
-import { LFO_SHAPES, signalTargets, silentBecause, targetsFor } from '../audio/modulation'
+import { LFO_SHAPES, silentBecause, targetsFrom } from '../audio/modulation'
 import { DEGREES, type ScaleName } from '../audio/scales'
 import { defaultFxParams, defaultOscParams } from '../nodes/registry'
 import type {
@@ -555,7 +555,7 @@ export function randomPatch(random: () => number = Math.random): Patch {
   for (let i = 0; i < modulators && destinations.length > 0; i++) {
     const destination = c.pick(destinations)
     const effect = destination.type === 'fx' ? (destination.params as FxParams).effect : undefined
-    const offered = targetsFor(destination.type, effect).filter(
+    const offered = targetsFrom('mod', destination.type, effect).filter(
       (target) =>
         !silentBecause(target.key, {
           nodeType: destination.type,
@@ -672,7 +672,7 @@ export function randomPatch(random: () => number = Math.random): Patch {
     const effect = destination.type === 'fx' ? (destination.params as FxParams).effect : undefined
     // The narrower list: a follower can only reach a parameter that takes a connection, and one that
     // would do nothing on this destination is dropped the same way a modulator's is.
-    const offered = signalTargets(destination.type, effect).filter(
+    const offered = targetsFrom('sense', destination.type, effect).filter(
       (target) =>
         !silentBecause(target.key, {
           nodeType: destination.type,
@@ -702,6 +702,31 @@ export function randomPatch(random: () => number = Math.random): Patch {
       wire(heard, sense, 'audio')
       wire(sense, destination, 'mod')
     }
+  }
+
+  /*
+   * An FM node, rarely, and only where there are two oscillators to put between.
+   *
+   * Rarer than the follower on purpose. FM changes what a branch *is* rather than how it moves, and a
+   * rolled patch with two of them is two branches nobody can place — the same reasoning that gives a
+   * rolled warp one dimension out of six and never two warps.
+   *
+   * The modulator is always a different oscillator from the carrier: pointed at the one it is hearing it
+   * would be feeding a voice's own output back into its pitch, which the audio graph refuses anyway.
+   */
+  if (c.chance(0.18) && oscillators.length > 1) {
+    const carrier = c.pick(oscillators)
+    const modulator = c.pick(oscillators.filter((one) => one.id !== carrier.id))
+    const fm = add({
+      type: 'fm',
+      // To the left, like the modulators, so its modulation port faces the carrier.
+      position: beside(carrier, -1),
+      // Well short of the ceiling: at four octaves everything is a siren, and a rolled patch should be
+      // playable. Away from zero on both sides, since a node at nothing is a node doing nothing.
+      params: { index: c.chance(0.8) ? c.range(150, 900, 10) : -c.range(150, 900, 10) },
+    })
+    wire(modulator, fm, 'audio')
+    wire(fm, carrier, 'mod')
   }
 
   return trimToBudget({

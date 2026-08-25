@@ -7,6 +7,7 @@ import {
   silentBecause,
   targetOf,
   targetsFor,
+  targetsFrom,
 } from './modulation'
 
 /**
@@ -16,7 +17,14 @@ import {
 
 describe('targetsFor', () => {
   it('offers an oscillator its output, its pitch and its filter', () => {
-    expect(targetsFor('osc').map((t) => t.key)).toEqual(['level', 'pitch', 'cutoff', 'resonance'])
+    // `fm` is in the table and is not in this list: it belongs to one kind of source, and what a MOD may
+    // point at is `targetsFrom`'s question rather than this one. See the FM tests.
+    expect(targetsFrom('mod', 'osc').map((t) => t.key)).toEqual([
+      'level',
+      'pitch',
+      'cutoff',
+      'resonance',
+    ])
   })
 
   it('opens on level, since that is what a fallback lands on', () => {

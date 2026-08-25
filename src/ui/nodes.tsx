@@ -11,6 +11,7 @@ import type {
   HoldParams,
   WarpParams,
   EffectKind,
+  FmParams,
   FxParams,
   ModParams,
   OscParams,
@@ -503,6 +504,67 @@ export function SenseNode({ id, data, selected }: NodeProps<FlowNode>) {
  * whole of what it does — two of them alternating are two nodes taking turns, and that is a thing to see
  * across a canvas rather than to look up one at a time.
  */
+/**
+ * An FM node on the canvas: how far it bends what it is pointed at.
+ *
+ * The same shape as a SENSE, because it is the same kind of thing wired the same way — audio in the left,
+ * modulation out the right — and showing it differently would hide that. What differs is that it has one
+ * number instead of a destination, since it has only ever had one destination.
+ */
+export function FmNode({ id, data, selected }: NodeProps<FlowNode>) {
+  const ordinal = useOrdinal(id)
+  const params = data.params as FmParams
+  const index = Math.round(params.index ?? 0)
+
+  // Both ends, because either one missing makes it silent: nothing to hear, or nothing to bend.
+  const hearing = usePatchStore((s) =>
+    s.edges.some((edge) => edge.target === id && (edge.data?.kind ?? 'event') === 'audio'),
+  )
+  const attached = usePatchStore((s) =>
+    s.edges
+      .filter((edge) => edge.source === id && edge.data?.kind === 'mod')
+      .map((edge) => edge.target)
+      .join('|'),
+  )
+  const targets = attached ? attached.split('|') : []
+  const live = useAnyNodeActivity(targets)
+  const wired = hearing && targets.length > 0
+  const state = wired && live ? ' active' : wired ? ' wired' : ' idle'
+
+  return (
+    <div className={`node node-fm${state}${selected ? ' selected' : ''}`}>
+      {/* Directed, like a SENSE and for the same reason: audio into it and modulation out of it are both
+          legal between the same pair of nodes, so only the side can say which was meant. */}
+      <Handle
+        type="target"
+        id={SIGNAL_LEFT}
+        position={Position.Left}
+        className="port port-signal"
+      />
+      <Handle
+        type="source"
+        id={SIGNAL_RIGHT}
+        position={Position.Right}
+        className="port port-signal"
+      />
+      <div className="node-header">
+        <span className="node-title">
+          FM <span className="node-ordinal">{ordinal}</span>
+        </span>
+        <span className="node-meta">cents</span>
+      </div>
+      <div className="delay-body">
+        {/* Signed, because it reads the other way round below zero — the same waveform inverted, which on
+            a symmetrical modulator sounds the same and on an asymmetrical one does not. */}
+        <span className="delay-value">
+          {index > 0 ? '+' : ''}
+          {index}
+        </span>
+      </div>
+    </div>
+  )
+}
+
 export function HoldNode({ id, data, selected }: NodeProps<FlowNode>) {
   const { pulsing, runId, duration } = useNodeActivity(id)
   const colors = useNodeColors(id)

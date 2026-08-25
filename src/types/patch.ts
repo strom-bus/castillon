@@ -529,6 +529,29 @@ export interface HoldParams {
 }
 
 /**
+ * An FM node: one oscillator's audio bending another's pitch.
+ *
+ * The other occupant of the cell a SENSE fills. Both take audio in and put modulation out, and the whole
+ * difference is what they do with what they hear: a SENSE measures **how loud** it is — rectified and
+ * smoothed into a control — where this uses **the waveform itself**, at audio rate, unchanged. One is a
+ * gesture and the other is a timbre.
+ *
+ * One control, because there is one thing to say. Where a MOD chooses among a destination's parameters,
+ * an FM node has exactly one meaning — the carrier's pitch — so the cable is the setting and the number
+ * is how far.
+ */
+export interface FmParams {
+  /**
+   * How far the modulator bends the carrier, in cents, at the modulator's full level.
+   *
+   * A ceiling rather than a fixed amount: what arrives is the modulator's audio, so its own envelope and
+   * its own Level scale this from moment to moment. That is not a compromise — an index shaped by the
+   * modulator's envelope is what makes FM sound played rather than switched on.
+   */
+  index?: number
+}
+
+/**
  * A SENSE: the one node whose input is audio and whose output is modulation.
  *
  * Everything else here is trigger-in/audio-out (an oscillator), audio-in/audio-out (an effect) or
@@ -758,7 +781,7 @@ export interface ModParams {
 }
 
 export type NodeParams =
-  OscParams | FxParams | StartParams | ModParams | WarpParams | HoldParams | SenseParams
+  OscParams | FxParams | StartParams | ModParams | WarpParams | HoldParams | SenseParams | FmParams
 
 /**
  * The longest a HOLD will wait. There is no minimum: nought is a legal setting and it is where one

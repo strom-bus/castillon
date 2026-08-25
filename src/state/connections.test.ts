@@ -587,3 +587,44 @@ describe('a follower’s sides', () => {
     expect(permits('sense', 'osc', 'event')).toBe(false)
   })
 })
+
+/**
+ * An FM node's sides, which are a SENSE's sides and one narrower rule.
+ *
+ * It hears the same two things a follower does and reaches **only an oscillator**: its one control is a
+ * deviation in cents against a note, and an effect has no note. A comb resonator has a pitch and could be
+ * bent this way, which is a different node's job — a cable that meant this *sometimes* would break the
+ * invariant this file exists to hold.
+ */
+describe('an FM node’s sides', () => {
+  const withFm = [...nodes, { id: 'q', type: 'fm' }, { id: 'r', type: 'fm' }]
+  const at = (source: string, target: string, sourceHandle: string, targetHandle: string) =>
+    connectionFor({ nodes: withFm, edges: [] }, { source, target, sourceHandle, targetHandle })
+
+  it('takes audio in the left, from an oscillator or an effect', () => {
+    expect(at('a', 'q', SIGNAL_RIGHT, SIGNAL_LEFT)).toMatchObject({ kind: 'audio', target: 'q' })
+    expect(at('f', 'q', SIGNAL_RIGHT, SIGNAL_LEFT)?.kind).toBe('audio')
+  })
+
+  it('sends modulation out the right, to an oscillator', () => {
+    expect(at('q', 'a', SIGNAL_RIGHT, SIGNAL_LEFT)).toMatchObject({ kind: 'mod', source: 'q' })
+  })
+
+  it('will not point at an effect, which has no note to bend', () => {
+    expect(at('q', 'f', SIGNAL_RIGHT, SIGNAL_LEFT)).toBeNull()
+  })
+
+  it('refuses a cable leaving its left port or arriving at its right', () => {
+    expect(at('q', 'a', SIGNAL_LEFT, SIGNAL_LEFT)).toBeNull()
+    expect(at('a', 'q', SIGNAL_RIGHT, SIGNAL_RIGHT)).toBeNull()
+  })
+
+  it('will not listen to another FM node, which makes no sound', () => {
+    expect(at('q', 'r', SIGNAL_RIGHT, SIGNAL_LEFT)).toBeNull()
+  })
+
+  it('is not in the cascade at either end', () => {
+    expect(permits('start', 'fm', 'event')).toBe(false)
+    expect(permits('fm', 'osc', 'event')).toBe(false)
+  })
+})

@@ -123,6 +123,13 @@ const sense = (id: string, column: number, row: number, params: SenseParams): Pa
   params,
 })
 
+const fm = (id: string, column: number, row: number, index: number): PatchNode => ({
+  id,
+  type: 'fm',
+  position: at(column, row),
+  params: { index },
+})
+
 const warp = (id: string, column: number, row: number, params: WarpParams): PatchNode => ({
   id,
   type: 'warp',
@@ -809,6 +816,83 @@ const shadow: Preset = {
 }
 
 /**
+ * Two oscillators, and only one of them is a note.
+ *
+ * The other is bending it. An FM node takes the audio of one oscillator and puts it on the pitch of
+ * another at audio rate, which is not a wobble — past a few hundred cents the ear stops hearing "a note
+ * being bent" and starts hearing a different instrument. Bells, struck metal, and the growl underneath.
+ *
+ * **The modulator's envelope is the shape of the index**, because what reaches the FM node is audio and
+ * audio has a level. A short decay on the modulator is a bell: bright at the strike, clean as it rings
+ * out. That is why its decay is a fifth of the carrier's here, and it is the one setting to move first
+ * if you want to hear what this node does.
+ *
+ * The modulator plays a fifth above the carrier rather than in unison — with both oscillators sequenced,
+ * the interval between them is the FM ratio, and a fifth is the one that stays recognisably tuned while
+ * still being inharmonic enough to sound like metal.
+ */
+const iron: Preset = {
+  id: 'iron',
+  name: 'IRON',
+  about: 'One oscillator bending another’s pitch at audio rate: struck metal from two sine waves.',
+  patch: patchOf(
+    88,
+    [
+      ignite('i', 1, 0),
+      /*
+       * The carrier. A sine, because FM's whole point is that the sidebands make the timbre — a
+       * sawtooth carrier arrives with its own harmonics and the modulation muddies them instead of
+       * building anything.
+       */
+      osc('bell', 2, 1, {
+        waveform: 'sine',
+        steps: steps([note(0, 0), null, note(4, 0), null, note(2, 0), null, null, note(0, 1)]),
+        division: '1/8',
+        gain: 0.34,
+        attack: 2,
+        decay: 900,
+        release: 700,
+        gate: 0.9,
+        filterType: 'off',
+        cutoff: 8000,
+        resonance: 1,
+      }),
+      /*
+       * The modulator, and it is heard as well as used — an FM node is a tap, so this oscillator is
+       * still on the master. At this level that is deliberate: a little of it under the bell is the
+       * strike, and turning Level to nothing leaves the FM exactly as it is.
+       */
+      osc('mod', 0, 1, {
+        waveform: 'sine',
+        steps: steps([note(4, 0), null, note(1, 1), null, note(6, 0), null, null, note(4, 1)]),
+        division: '1/8',
+        gain: 0.08,
+        attack: 1,
+        // A fifth of the carrier's, which is what makes this a bell rather than a drone.
+        decay: 180,
+        release: 160,
+        gate: 0.5,
+        filterType: 'off',
+        cutoff: 8000,
+        resonance: 1,
+      }),
+      // Well past a semitone, which is where the sidebands start being the sound rather than a detune.
+      fm('f', 1, 2, 950),
+      fx('rv', 3, 2, { effect: 'reverb', mix: 0.34, decay: 4.5, cutoff: 3200 }),
+    ],
+    [
+      wire('i', 'bell'),
+      wire('i', 'mod'),
+      // Audio in the left, modulation out the right — the same two cables a SENSE has, carrying the
+      // waveform itself instead of a reading of how loud it is.
+      wire('mod', 'f', 'audio'),
+      wire('f', 'bell', 'mod'),
+      wire('bell', 'rv', 'audio'),
+    ],
+  ),
+}
+
+/**
  * One line, sifted three ways.
  *
  * A sixteen-step tick sends a trigger down on **every step**, and each branch takes a different share of
@@ -1275,5 +1359,6 @@ export const PRESETS: Preset[] = [
   order,
   duck,
   shadow,
+  iron,
   stress,
 ]

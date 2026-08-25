@@ -202,6 +202,16 @@ export interface ModTarget {
    * connected. Left out means every tick of the driver, twenty times a second.
    */
   rebuildEvery?: number
+  /**
+   * The one kind of node that may point at this, where it is not for everybody.
+   *
+   * Only `fm` uses it. An FM node's whole meaning is one destination — a carrier's pitch, over a range
+   * forty-eight times wider than a vibrato's — so the target exists for it and would be a mistake in a
+   * MOD's list, where Pitch already sits and means something a person can use. Withdrawn here rather
+   * than filtered at each call site, for the same reason `via` is: a list built from what the source
+   * *may* have is one truth, and a list built by hand beside it is two.
+   */
+  only?: string
 }
 
 /** The two the engine owns, offered wherever they apply. */
@@ -521,9 +531,46 @@ const PITCH: ModTarget = {
   hint: 'Bends the pitch of every note the oscillator plays. On the noise waveforms it shifts the grain instead, which is a texture rather than a note.',
 }
 
+/**
+ * How far an FM node can bend a carrier: four octaves either way.
+ *
+ * A vibrato reaches a semitone because that is where a vibrato stops being one. FM is the opposite
+ * question — the sidebands that make the sound only appear once the deviation is comparable to the
+ * carrier's own frequency, so the useful range starts about where Pitch's ends.
+ */
+export const MAX_FM_CENTS = 4800
+
+/**
+ * The carrier's pitch, as an FM node reaches it.
+ *
+ * The same `detune` the vibrato uses, and deliberately: one per-voice path, already built and already
+ * tested, that works on every waveform — including the noise ones, where there is no frequency at all
+ * and it shifts the grain instead. What differs is only the span, which is what makes this a separate
+ * entry rather than a wider Pitch: widening Pitch would turn every existing vibrato into a siren.
+ *
+ * That also makes this **exponential** FM: the deviation is in cents, so a symmetric swing is wider
+ * upward in hertz than downward, and the carrier's perceived pitch rises as the index opens. Classic FM
+ * is linear, in hertz, and it is the reason this is worth writing down — if that drift turns out to be
+ * the thing that spoils it, linear becomes a second mode on the node rather than a rewrite of this.
+ */
+const FM: ModTarget = {
+  key: 'fm',
+  label: 'Index',
+  min: -MAX_FM_CENTS,
+  max: MAX_FM_CENTS,
+  via: 'audio',
+  perVoice: true,
+  only: 'fm',
+  // The same reasoning as Pitch's, which this shares a parameter with: an oscillator reading an a-rate
+  // detune recomputes its phase increment, one multiply against a biquad's five.
+  surcharge: 0.5,
+  hint: 'How far the modulator bends the carrier, in cents. The modulator’s own level scales it, so its envelope is the shape of the index.',
+}
+
 const OSC_TARGETS: readonly ModTarget[] = [
   LEVEL,
   PITCH,
+  FM,
   {
     ...FX_PARAM_TARGETS.cutoff,
     hint: 'Sweeps the filter of every note the oscillator plays.',
@@ -597,22 +644,40 @@ export function targetsFor(
 }
 
 /**
- * The targets a destination offers *a signal*, which is not all of them.
+ * What one kind of source may point at on one kind of destination, which is narrower than what the
+ * destination *has* in two different ways.
  *
- * A follower's level lives on the audio thread and nothing on the main thread can read it, so a SENSE can
- * only reach a parameter that is an `AudioParam`. The ones marked `via: 'value'` are driven by
- * recomputation from a timer — a decay or a bit depth rebuilds something rather than taking a connection
- * — and a modulator that knows its own phase can do that arithmetic where a follower cannot.
+ * **A follower cannot reach a parameter that is rebuilt rather than connected.** Its level lives on the
+ * audio thread and nothing on this side can read it, where the ones marked `via: 'value'` are driven by
+ * a timer computing the modulator's own phase — arithmetic a MOD can do and a SENSE cannot.
  *
- * Withdrawn here rather than refused in the engine: a control that offers a destination and then does
- * nothing with it is the shape of fault this codebase keeps finding, so the list a SENSE is chosen from
- * is the list a SENSE can serve.
+ * **And a target may belong to one source alone**, which is `only`: an FM node's Index is the carrier's
+ * pitch over four octaves, and offering that in a MOD's list beside Pitch would be offering a siren.
+ *
+ * One function rather than a filter at each call site. Both of these were about to be written twice —
+ * the panel, the dice and the router all ask the same question — and a list built by hand beside the
+ * table it is derived from is this repository's most familiar bug.
  */
-export function signalTargets(
+export function targetsFrom(
+  sourceType: string | undefined,
   nodeType: string | undefined,
   effect?: EffectKind,
 ): readonly ModTarget[] {
-  return targetsFor(nodeType, effect).filter((target) => target.via !== 'value')
+  const all = targetsFor(nodeType, effect)
+
+  /*
+   * A source with a target of its own gets that and nothing else.
+   *
+   * An FM node has one destination — it is what the node *is* — so its list is one entry rather than the
+   * general one with an extra on the end. That also means it never has a target to choose, which is why
+   * it carries an index and no target at all.
+   */
+  const mine = all.filter((target) => target.only === sourceType)
+  if (mine.length > 0) return mine
+
+  return all.filter(
+    (target) => target.only === undefined && (sourceType !== 'sense' || target.via !== 'value'),
+  )
 }
 
 /**
@@ -643,10 +708,10 @@ export function resolveTarget(
   key: ModTargetKey | undefined,
   nodeType: string | undefined,
   effect?: EffectKind,
-  /** A follower asking, which can only reach the ones that take a connection. See `signalTargets`. */
-  signalOnly = false,
+  /** Which kind of node is asking, since that narrows what it may point at. See `targetsFrom`. */
+  sourceType = 'mod',
 ): ModTargetKey | null {
-  const offered = signalOnly ? signalTargets(nodeType, effect) : targetsFor(nodeType, effect)
+  const offered = targetsFrom(sourceType, nodeType, effect)
   if (offered.length === 0) return null
   if (offered.some((target) => target.key === key)) return key as ModTargetKey
 
@@ -705,3 +770,13 @@ export const MOD_COST = 0.5
  * the two: this one does two multiplies and a compare per sample and keeps no buffer.
  */
 export const FOLLOW_COST = 4
+
+/**
+ * An FM node is two gains and a connection, which is the cheapest thing in this file.
+ *
+ * A prior like the follower's, and a much safer one: there is no processor, no buffer and no per-sample
+ * work of its own — the whole cost is the carrier reading an a-rate `detune`, and that is already priced
+ * on the target as a surcharge. Half a point for the pair of gains, which is what a MOD costs for the
+ * same reason.
+ */
+export const FM_COST = 0.5

@@ -247,6 +247,17 @@ function orient(from: string | undefined, to: string | undefined): EdgeKind | 'r
   if ((from === 'osc' || from === 'fx') && to === 'sense') return 'audio'
   if (from === 'sense' && (to === 'osc' || to === 'fx')) return 'mod'
 
+  /*
+   * An FM node hears the same two things a SENSE does and reaches **only an oscillator**.
+   *
+   * Not an effect, and that is a rule rather than an omission: its one control is a deviation in cents
+   * against a note, and an effect has no note. A comb resonator has a pitch and could in principle be
+   * bent this way, which is a real sound and a different node's job — this one means one thing, and a
+   * cable that meant it *sometimes* would be the invariant this file exists to protect, broken again.
+   */
+  if ((from === 'osc' || from === 'fx') && to === 'fm') return 'audio'
+  if (from === 'fm' && to === 'osc') return 'mod'
+
   return null
 }
 

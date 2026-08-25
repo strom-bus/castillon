@@ -187,6 +187,29 @@ describe('the manual against the panel', () => {
     expect(EFFECT_TABLE.flatMap((descriptor) => descriptor.params).length).toBeGreaterThan(20)
   })
 
+  it("reads its node chapters in the palette's own order", () => {
+    /*
+     * The manual says in as many words that each node "has its own chapter here, in the order the palette
+     * is in". That sentence was true when it was written and nothing was holding it to the palette — so
+     * reordering one and not the other leaves a claim that reads as fact and is not, which is this file's
+     * whole subject.
+     *
+     * Only the chapters that *are* nodes take part. The manual has others between them — the step editor
+     * sits inside the oscillator's half of the book — and demanding they line up would be demanding the
+     * manual be a list of nodes, which it is not.
+     */
+    const chapters = MANUAL.map((section) => section.id)
+    const wanted = NODE_DEFINITIONS.map((definition) =>
+      definition.type === 'start' ? 'ignite' : definition.type,
+    ).filter((id) => chapters.includes(id))
+    const written = chapters.filter((id) => wanted.includes(id))
+
+    expect(written, 'the manual orders its node chapters differently from the palette').toEqual(
+      wanted,
+    )
+    expect(wanted.length).toBeGreaterThan(5)
+  })
+
   it('has a chapter for every kind of node, asked of the registry and not of a list', () => {
     /*
      * The list this replaced had six entries and the registry had seven — the SIEVE shipped, the list

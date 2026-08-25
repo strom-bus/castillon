@@ -1,6 +1,8 @@
 import { SCALES, type ScaleName } from '../audio/scales'
+import { MAX_FM_CENTS } from '../audio/modulation'
 import {
   defaultSenseParams,
+  defaultFmParams,
   defaultHoldParams,
   defaultWarpParams,
   defaultFxParams,
@@ -57,6 +59,7 @@ import {
   MAX_RATCHET,
   type Step,
   type SenseParams,
+  type FmParams,
   type HoldParams,
 } from '../types/patch'
 import {
@@ -153,6 +156,14 @@ const HOLD_CHANCE_BITS = 7
 /** And what it counts: passes, or the triggers reaching it. */
 const HOLD_COUNTS_BITS = 1
 /**
+ * An FM node's index, in whole cents, offset so the sign travels without a bit of its own.
+ *
+ * Fourteen bits hold the whole span either way with room to spare, and one node's worth of bits is not
+ * worth being clever about.
+ */
+const FM_INDEX_BITS = 14
+
+/**
  * And its wait, in whole milliseconds.
  *
  * Twelve bits rather than the nine the DELAY used, which stored it in tens. Three bits on one node is
@@ -193,12 +204,12 @@ const SENSE_SENSITIVITY_BITS = 10
 const SENSE_TIME_BITS = 11
 
 // Appended, never reordered: the index is what travels, so moving an entry would rewrite history and a
-// new type goes on the end. Four bits hold sixteen, of which seven are used.
+// new type goes on the end. Four bits hold sixteen, of which eight are used.
 //
 // Reordered once, when DELAY and SIEVE became one HOLD. That does rewrite history, and it was the right
 // moment for it: nothing was stored anywhere but the presets and the starting patch, both of which live
 // in this repository and were rewritten with it.
-const NODE_TYPES = ['start', 'osc', 'hold', 'fx', 'mod', 'warp', 'sense'] as const
+const NODE_TYPES = ['start', 'osc', 'hold', 'fx', 'mod', 'warp', 'sense', 'fm'] as const
 
 const EFFECT_CODES: EffectKind[] = [
   'reverb',
@@ -908,7 +919,8 @@ export function encodePatch(patch: Patch): string {
   // were three when it was named and there are four now, and the question it answers is the same one.
   const anyModulation =
     patch.nodes.some(
-      (node) => node.type === 'mod' || node.type === 'warp' || node.type === 'sense',
+      (node) =>
+        node.type === 'mod' || node.type === 'warp' || node.type === 'sense' || node.type === 'fm',
     ) || patch.edges.some((e) => e.kind === 'mod' || e.kind === 'warp')
   const anyClimbing = patch.edges.some((e) => e.kind === 'event' && e.up === true)
   writer.write(
@@ -948,6 +960,9 @@ export function encodePatch(patch: Patch): string {
       writeMod(writer, node.params as ModParams)
     } else if (node.type === 'sense') {
       writeSense(writer, node.params as SenseParams)
+    } else if (node.type === 'fm') {
+      const { index } = { ...defaultFmParams(), ...(node.params as FmParams) }
+      writer.write(quantise(index + MAX_FM_CENTS, 1, 0, MAX_FM_CENTS * 2), FM_INDEX_BITS)
     }
   }
 
@@ -1019,6 +1034,8 @@ export function decodePatch(code: string): Patch | null {
         params = readMod(reader)
       } else if (type === 'sense') {
         params = readSense(reader)
+      } else if (type === 'fm') {
+        params = { index: reader.read(FM_INDEX_BITS) - MAX_FM_CENTS }
       }
 
       nodes.push({ id: `n${i}`, type, position: { x, y }, params })

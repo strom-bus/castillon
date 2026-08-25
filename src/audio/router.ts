@@ -1,7 +1,7 @@
-import { resolveTarget, type ModTargetKey } from './modulation'
+import { MAX_FM_CENTS, resolveTarget, type ModTargetKey } from './modulation'
 import { wouldFeedBack } from '../state/connections'
-import { defaultSenseParams } from '../nodes/registry'
-import type { FxParams, ModParams, NodeId, Patch, SenseParams } from '../types/patch'
+import { defaultFmParams, defaultSenseParams } from '../nodes/registry'
+import type { FmParams, FxParams, ModParams, NodeId, Patch, SenseParams } from '../types/patch'
 
 /**
  * Works out the smallest set of changes that takes the live audio graph to the one the patch
@@ -46,11 +46,20 @@ export interface AudioGraph {
   /** SENSE node id → its parameters. Kept apart from the MODs because it is built out of other parts. */
   followers: Map<NodeId, SenseParams>
   /**
-   * `sourceId>senseId`, one per audio cable into a follower.
+   * FM node id → its parameters.
    *
-   * A tap and not a send: what a follower hears is not routed anywhere, so feeding one does **not** take
+   * Its own map for the same reason, and it holds only an index — which the cable carries, so nothing
+   * here ever needs updating. A node whose whole setting travels on its connection is created, connected
+   * and disposed, and never changed in place.
+   */
+  fms: Map<NodeId, FmParams>
+  /**
+   * `sourceId>listenerId`, one per audio cable into a SENSE or an FM node.
+   *
+   * A tap and not a send: what a listener hears is not routed anywhere, so feeding one does **not** take
    * the source off the master the way feeding an effect does. An oscillator wired only to a SENSE is
-   * heard exactly as it was — which is most of the point of the node.
+   * heard exactly as it was — which is most of the point of the node — and an FM modulator you can also
+   * hear is a sound somebody may want, so Level is what silences it rather than the cable.
    */
   taps: Set<string>
   /**
@@ -77,6 +86,8 @@ export type RouterOp =
   | { op: 'disposeMod'; id: NodeId }
   | { op: 'connectMod'; from: NodeId; to: NodeId; target: ModTargetKey; depth: number }
   | { op: 'disconnectMod'; from: NodeId; to: NodeId }
+  | { op: 'createFm'; id: NodeId }
+  | { op: 'disposeFm'; id: NodeId }
   | { op: 'createFollow'; id: NodeId; params: SenseParams }
   | { op: 'updateFollow'; id: NodeId; params: SenseParams }
   | { op: 'disposeFollow'; id: NodeId }
@@ -91,6 +102,7 @@ export const EMPTY_GRAPH: AudioGraph = {
   sends: new Set(),
   modulators: new Map(),
   followers: new Map(),
+  fms: new Map(),
   taps: new Set(),
   mods: new Map(),
 }
@@ -112,10 +124,13 @@ export function graphOf(patch: Patch): AudioGraph {
   const effects = new Map<NodeId, FxParams>()
   const oscillators = new Set<NodeId>()
   const followers = new Map<NodeId, SenseParams>()
+  const fms = new Map<NodeId, FmParams>()
 
   for (const node of patch.nodes) {
     if (node.type === 'fx') effects.set(node.id, node.params as FxParams)
     else if (node.type === 'osc') oscillators.add(node.id)
+    else if (node.type === 'fm')
+      fms.set(node.id, { ...defaultFmParams(), ...(node.params as FmParams) })
     // Merged over the defaults, unlike the others: a follower's depth is the one modulation control whose
     // resting value is negative, so an absent key falling back to a generic 0.6 would turn a duck into a
     // swell. Merging here means the engine and the diff both see a complete node.
@@ -150,7 +165,7 @@ export function graphOf(patch: Patch): AudioGraph {
      * kept out of `sends`: a tap has no output, so it cannot be part of a cycle and it cannot take an
      * oscillator off the master.
      */
-    if (followers.has(edge.target)) {
+    if (followers.has(edge.target) || fms.has(edge.target)) {
       taps.add(sendKey(edge.source, edge.target))
       continue
     }
@@ -195,20 +210,36 @@ export function graphOf(patch: Patch): AudioGraph {
      * destination machinery are shared. What a follower cannot do is drive a parameter that is rebuilt
      * rather than connected, so it resolves against the narrower list.
      */
+    const fm = fms.get(edge.source)
     const params = modulators.get(edge.source) ?? followers.get(edge.source)
-    if (!params) continue
+    if (!fm && !params) continue
     const destination = effects.has(edge.target)
       ? 'fx'
       : oscillators.has(edge.target)
         ? 'osc'
         : undefined
+
+    /*
+     * An FM node names no target: it has one, and the cable is what says so. Its index is in cents and
+     * the depth every cable carries is a share of the target's own span, so the conversion happens here
+     * — the one place that knows both numbers — rather than as a second range inside the engine.
+     */
+    if (fm) {
+      const target = resolveTarget('fm', destination, undefined, 'fm')
+      if (target !== 'fm') continue
+      const index = Math.min(MAX_FM_CENTS, Math.max(-MAX_FM_CENTS, fm.index ?? 0))
+      mods.set(sendKey(edge.source, edge.target), { target, depth: index / MAX_FM_CENTS })
+      continue
+    }
+    if (!params) continue
+
     // The effect matters as much as the node type: which parameters exist depends on which effect it
     // is, so a MOD on a reverb resolves against a reverb's list (§18.4).
     const target = resolveTarget(
       params.target as ModTargetKey | undefined,
       destination,
       effects.get(edge.target)?.effect,
-      followers.has(edge.source),
+      followers.has(edge.source) ? 'sense' : 'mod',
     )
     if (!target) continue
     // Depth rides along because it is scaled to the target: the same 0.6 is half a hertz on one
@@ -216,7 +247,18 @@ export function graphOf(patch: Patch): AudioGraph {
     mods.set(sendKey(edge.source, edge.target), { target, depth: params.depth ?? 0.6 })
   }
 
-  return { bpm: patch.bpm, effects, direct, terminals, sends, modulators, followers, taps, mods }
+  return {
+    bpm: patch.bpm,
+    effects,
+    direct,
+    terminals,
+    sends,
+    modulators,
+    followers,
+    fms,
+    taps,
+    mods,
+  }
 }
 
 function sameMod(a: ModParams, b: ModParams): boolean {
@@ -286,6 +328,10 @@ export function diff(previous: AudioGraph, next: AudioGraph): RouterOp[] {
     if (!next.followers.has(id)) removals.push({ op: 'disposeFollow', id })
   }
 
+  for (const [id] of previous.fms) {
+    if (!next.fms.has(id)) removals.push({ op: 'disposeFm', id })
+  }
+
   // A tempo change has to reach every effect: an echo's delay time is derived from it, and there
   // is no other signal that would tell the chain to recalculate.
   const retimed = previous.bpm !== next.bpm
@@ -313,6 +359,15 @@ export function diff(previous: AudioGraph, next: AudioGraph): RouterOp[] {
 
   for (const key of next.sends) {
     if (!previous.sends.has(key)) additions.push({ op: 'connect', ...splitSend(key) })
+  }
+
+  /*
+   * Only ever created or disposed, never updated. An FM node's one setting is carried by its cable — the
+   * same rule a MOD's depth follows — so changing the index arrives as a rewiring, and comparing the
+   * parameters here would emit an operation with nothing to do.
+   */
+  for (const [id] of next.fms) {
+    if (!previous.fms.has(id)) additions.push({ op: 'createFm', id })
   }
 
   for (const [id, params] of next.followers) {

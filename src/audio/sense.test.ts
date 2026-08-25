@@ -3,7 +3,7 @@ import { defaultFxParams, defaultOscParams, defaultSenseParams } from '../nodes/
 import type { Patch, PatchEdge, PatchNode, SenseParams } from '../types/patch'
 import { AudioEngine } from './engine'
 import { fakeAudio, type FakeAudio } from './fakeAudio'
-import { amountFor, signalTargets, targetsFor } from './modulation'
+import { amountFor, targetsFor, targetsFrom } from './modulation'
 import { diff, EMPTY_GRAPH, graphOf } from './router'
 
 /**
@@ -140,7 +140,7 @@ describe('a follower in the graph', () => {
 
   it('offers fewer targets than a modulator, and only the ones it can serve', () => {
     const all = targetsFor('fx', 'reverb')
-    const signal = signalTargets('fx', 'reverb')
+    const signal = targetsFrom('sense', 'fx', 'reverb')
     expect(signal.length).toBeGreaterThan(0)
     expect(signal.length).toBeLessThan(all.length)
     expect(signal.every((target) => target.via !== 'value')).toBe(true)
@@ -227,7 +227,7 @@ describe('a follower in the engine', () => {
 
   it('refuses a target that is rebuilt rather than connected', () => {
     /*
-     * The floor under `signalTargets`: even handed one directly, nothing is set up for it. Watched
+     * The floor under `targetsFrom`: even handed one directly, nothing is set up for it. Watched
      * through the disconnect rather than the connect, because that is where a link nobody meant to make
      * shows itself — letting go of a value link puts the parameter back where it was, which for a reverb
      * means building a fresh impulse response. Nothing was ever connected, so nothing should be rebuilt.

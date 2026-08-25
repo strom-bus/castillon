@@ -117,6 +117,12 @@ describe('the presets', () => {
     for (const edge of patch.edges.filter((one) => one.kind === 'mod')) {
       const source = nodeOf(patch, edge.source)!
       const destination = nodeOf(patch, edge.target)!
+      /*
+       * An FM node names no target: it has exactly one and the cable is what says so, which is why it
+       * carries an index and not a target. Nothing to check here, and inventing a target for it so that
+       * this line had something to read would be the test asking the code to be shaped for the test.
+       */
+      if (source.type === 'fm') continue
       const target = (source.params as { target?: string }).target
       const effect = (destination.params as { effect?: string }).effect
       const offered = targetsFor(destination.type, effect as never).map((one) => one.key)

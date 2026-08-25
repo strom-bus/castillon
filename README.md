@@ -396,6 +396,31 @@ refused, since between an oscillator and an effect there is only one direction t
   instead: a trigger cannot mistime and a follower cannot miss a note nobody told it about, and both are
   in the box so the difference can be heard.
 
+- **An FM node**, the other occupant of that same cell: audio in the left, modulation out the right, and
+  the whole difference from a SENSE is what it does with what it hears. A SENSE measures **how loud** a
+  branch is; this uses **the waveform itself**, at audio rate, unchanged — which is frequency modulation,
+  and past a few hundred cents the ear stops hearing a note being bent and starts hearing a different
+  instrument.
+
+  It reaches the carrier through the same `detune` the vibrato uses, so the per-voice machinery came free
+  — one path, already tested, that works on every waveform including the noise ones, where there is no
+  frequency at all and it shifts the grain instead. What differs from Pitch is only the span: a semitone
+  against four octaves, which is why it is a separate entry in the target table rather than a wider
+  Pitch. Widening Pitch would have turned every existing vibrato into a siren.
+
+  It bends in **cents**, so it is exponential FM and the carrier drifts upward as the index opens.
+  Classic FM works in hertz and stays put. The trade is deliberate and worth stating: cents are the unit
+  everything else here bends in, and one path that works on every waveform is worth more than the classic
+  behaviour — on a bell the drift is inaudible, and past a couple of thousand cents it is a tuning
+  decision rather than a fault. If it turns out to be the thing that spoils it, linear arrives as a second
+  mode on the node rather than a rewrite.
+
+  Both oscillators are ordinary sequenced oscillators, so **the interval you write is the FM ratio** —
+  unison thickens, a fifth sounds like metal, anything unrelated rings like something struck, and the
+  timbre moves as the two sequences drift against each other, which no ratio-locked synthesiser can do.
+  And because what arrives is audio, **the modulator's envelope is the index**: a short decay on it is a
+  bell, a long one is a growl that opens. The preset called IRON is two sine waves and one of these.
+
 - **Ignite modes.** An Ignite either fires by itself with the transport, or waits for a key. Bound to
   a key it can hold — sounding while the key is down — or toggle, starting on one press and stopping
   on the next. Built so the Ignite does not know it was a keyboard: a source emits press and release
@@ -416,7 +441,7 @@ refused, since between an oscillator and an effect there is only one direction t
 - **A patch gallery**, a window over the canvas rather than a page — so choosing a patch loads it into
   the instrument already underneath. Cards draw their own cascade, and stars decay with age so the
   popular sort does not freeze on whatever was published first. Two tabs: the patches people have
-  shared, and **thirteen presets** that come with the machine.
+  shared, and **fourteen presets** that come with the machine.
 
   Six are built around one idea that is hard to arrive at by rolling and small enough to read at a
   glance — the plain cascade, why there is no clock, one phrase driving another note by note, a figure
@@ -461,7 +486,7 @@ refused, since between an oscillator and an effect there is only one direction t
   it longer without making it clearer. Both languages live adjacent in one file so a half-finished
   edit shows up in the diff rather than as a blank paragraph months later.
 
-  Fourteen chapters and a hundred and sixty-eight entries, written for whoever is using the instrument
+  Fifteen chapters and a hundred and seventy-five entries, written for whoever is using the instrument
   rather than for whoever built it: no entry explains how something is implemented, and every one says
   what a control does to the sound and when you would reach for it. One chapter per module, each in
   the order its own panel is in and under the panel's own group headings, so reading the manual and

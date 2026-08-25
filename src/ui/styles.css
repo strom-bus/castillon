@@ -56,8 +56,12 @@
    *
    * The last of the tracking is taken off the right edge below, since letter-spacing adds a gap after
    * the final letter that the padding then doubles.
+   *
+   * The right edge is a pixel tighter than the left, on top of that correction. Not symmetry for its own
+   * sake: the A ends on a diagonal that leaves its own white beneath the apex, where the B starts on a
+   * flat stem that gives none — so an even padding reads as more air on the right than on the left.
    */
-  padding: 3px 2px 2px;
+  padding: 3px 1px 2px 2px;
   background: var(--text);
   color: var(--surface);
   /*
@@ -1839,6 +1843,34 @@ input[type='range'] {
 }
 
 .node-sense.active {
+  border: 1px solid var(--text);
+}
+
+/* An FM node wears what a SENSE wears, which is what a WARP wears: no depth hue, three tones, and the
+   only thing it can report is what it is doing somewhere else. */
+.node-fm {
+  --accent: var(--text);
+  border-image: none;
+  transition:
+    border-color 120ms linear,
+    color 120ms linear;
+}
+
+.node-fm.idle {
+  border: 1px solid var(--border-strong);
+}
+
+.node-fm.idle .node-title,
+.node-fm.idle .node-meta,
+.node-fm.idle .delay-value {
+  color: var(--muted);
+}
+
+.node-fm.wired {
+  border: 1px solid var(--muted);
+}
+
+.node-fm.active {
   border: 1px solid var(--text);
 }
 

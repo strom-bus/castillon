@@ -5,6 +5,7 @@ import type { Engine } from '../audio/engine'
 import { MIN_REDUCTION, MIN_REPEATS } from '../audio/dsp'
 import { LAYER_THRESHOLD, MAX_LOAD } from '../audio/load'
 import type {
+  FmParams,
   HoldParams,
   SenseParams,
   Direction,
@@ -776,6 +777,40 @@ const sense: NodeDefinition = {
   defaults: defaultSenseParams,
 }
 
+export function defaultFmParams(): Required<FmParams> {
+  /*
+   * Not neutral, and deliberately — the same reasoning a SENSE's depth follows.
+   *
+   * "A node arrives doing nothing" is the rule for anything that stands in a path that already works: a
+   * HOLD or a WARP dropped in must not change what was there. An FM node stands in no path. It is only
+   * ever added *because* somebody wants FM, and at an index of nought it is a node that has been wired
+   * at both ends and is silent — which is indistinguishable from one that is broken.
+   *
+   * Four hundred cents: enough that the first note after wiring it is audibly not the note it was, low
+   * enough to still be a timbre rather than a siren.
+   */
+  return { index: 400 }
+}
+
+/**
+ * An FM node: one oscillator's audio bending another's pitch.
+ *
+ * The other occupant of the cell a SENSE fills, and the two differ only in what they do with what they
+ * hear — a SENSE measures how loud it is, this uses the waveform itself. Same ports, same direction,
+ * different idea, which is why it is a second node and not a mode on the first: the controls have nothing
+ * in common, and a SENSE with an "FM" switch would hide the whole feature inside a dropdown.
+ *
+ * Like a SENSE it is not in the cascade and has no schedule. What it does happens because a cable is
+ * there and a modulator is sounding.
+ */
+const fm: NodeDefinition = {
+  type: 'fm',
+  label: 'FM',
+  place: 'side',
+  ports: { side: 'directed' },
+  defaults: defaultFmParams,
+}
+
 const mod: NodeDefinition = {
   type: 'mod',
   label: 'MOD',
@@ -818,7 +853,24 @@ const clamp = (value: number, min: number, max: number) => Math.min(max, Math.ma
  * Within each, the order a patch is built in — a cascade starts, then sounds, then waits; and a sound is
  * shaped, then swept, then moved.
  */
-export const NODE_DEFINITIONS: NodeDefinition[] = [start, osc, hold, fx, mod, warp, sense]
+/**
+ * The palette, in the order it is read.
+ *
+ * Two halves, and the seam is the one thing anybody has to hold to use any of this: a node either
+ * **stands in the cascade**, wired top to bottom and part of what fires what, or it **hangs off one** and
+ * changes it without being in the order at all.
+ *
+ * Within the second half the order is by *what a node makes*, not by how often it is reached. Ordering a
+ * row of buttons by frequency buys nothing — every one of them is one click away wherever it sits —
+ * where grouping buys the thing a palette is for: seeing that MOD, SENSE and FM stand together tells you
+ * they are three answers to one question without reading a word. So: the one that changes **sound**, then
+ * the one that changes **what is played**, then the three that make **modulation** — and among those, by
+ * where each takes its shape from: its own clock, the loudness of a branch, the waveform of a branch.
+ *
+ * The last two are also the only nodes whose sides mean different things, and putting them next to each
+ * other is what makes that visible rather than a surprise on the second one.
+ */
+export const NODE_DEFINITIONS: NodeDefinition[] = [start, osc, hold, fx, warp, mod, sense, fm]
 
 const byType = new Map(NODE_DEFINITIONS.map((d) => [d.type, d]))
 

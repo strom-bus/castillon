@@ -17,6 +17,7 @@ import type {
   HoldParams,
   EdgeKind,
   EffectKind,
+  FmParams,
   FxParams,
   ModParams,
   NodeParams,
@@ -112,7 +113,14 @@ interface PatchState {
   updateParams(
     id: string,
     partial: Partial<
-      OscParams & FxParams & HoldParams & StartParams & ModParams & WarpParams & SenseParams
+      OscParams &
+        FxParams &
+        HoldParams &
+        StartParams &
+        ModParams &
+        WarpParams &
+        SenseParams &
+        FmParams
     >,
   ): void
   setEffect(id: string, effect: EffectKind): void

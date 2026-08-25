@@ -39,10 +39,10 @@ import {
   noNotesBecause,
   MAX_RATE as MAX_MOD_RATE,
   MIN_RATE as MIN_MOD_RATE,
-  signalTargets,
+  targetsFrom,
   silentBecause,
+  MAX_FM_CENTS,
   targetOf,
-  targetsFor,
   type Destination,
   type LfoShape,
   type ModFires,
@@ -67,6 +67,7 @@ import {
   type IgniteBehaviour,
   type IgniteTrigger,
   type ModParams,
+  type FmParams,
   type SenseParams,
   type HoldParams,
   type WarpParams,
@@ -1015,7 +1016,11 @@ export function Inspector() {
       effect: destinationEffect as never,
       filterType: destinationFilter,
     }
-    const offered: readonly ModTarget[] = targetsFor(destinationType, destinationEffect as never)
+    const offered: readonly ModTarget[] = targetsFrom(
+      'mod',
+      destinationType,
+      destinationEffect as never,
+    )
     const described = targetOf(target, destinationType, destinationEffect as never)
     const silent = silentBecause(target, destination)
     const kind: ModKind = mod.kind === 'env' ? 'env' : 'lfo'
@@ -1229,6 +1234,60 @@ export function Inspector() {
     )
   }
 
+  if (node.type === 'fm') {
+    const fmParams = node.data.params as FmParams
+    const carrier = usePatchStore
+      .getState()
+      .edges.some((e) => e.source === node.id && e.data?.kind === 'mod')
+
+    return (
+      <Panel>
+        <h2 className="inspector-title">
+          FM <span className="node-ordinal">{ordinal}</span>
+        </h2>
+
+        {/* One control, so no group: a heading over a single slider names a group of one. The same
+            reason Pitch stands alone above the WARP's groups. */}
+        <TypedSlider
+          label="Index"
+          value={Math.round(fmParams.index ?? 0)}
+          min={-MAX_FM_CENTS}
+          max={MAX_FM_CENTS}
+          step={10}
+          suffix=" cents"
+          onChange={(index) => updateParams(node.id, { index })}
+        />
+
+        {!hearing && (
+          <p className="inspector-warn">
+            Hearing nothing. Wire an oscillator into the port on its left — that is the modulator,
+            and it has to be sounding for anything to happen.
+          </p>
+        )}
+
+        {!carrier && (
+          <p className="inspector-warn">
+            Pointing at nothing. Wire its right port to the oscillator you want bent.
+          </p>
+        )}
+
+        <p className="inspector-empty">
+          One oscillator bending another’s pitch, at audio rate — which is what makes a timbre
+          rather than a wobble. A hundred cents is a semitone, and the sound only starts to change
+          character well past that.
+        </p>
+        <p className="inspector-empty">
+          The modulator’s own level scales it, so its envelope is the shape of the index: a short
+          decay on the modulator is a bell, a long one is a growl that opens.
+        </p>
+        <p className="inspector-empty">
+          It bends in cents rather than in hertz, so the carrier drifts upward as the index opens.
+          That is the difference from classic FM, and on most patches it is a feature.
+        </p>
+      </Panel>
+    )
+  }
+
   if (node.type === 'sense') {
     const sense = node.data.params as SenseParams
     const target = sense.target ?? 'level'
@@ -1247,7 +1306,11 @@ export function Inspector() {
      * level lives on the audio thread, so it can only reach a parameter that takes a connection. The ones
      * that are rebuilt from a timer — a decay, a bit depth — need a phase to compute, and it has none.
      */
-    const offered: readonly ModTarget[] = signalTargets(destinationType, destinationEffect as never)
+    const offered: readonly ModTarget[] = targetsFrom(
+      'sense',
+      destinationType,
+      destinationEffect as never,
+    )
     const described = targetOf(target, destinationType, destinationEffect as never)
     const silent = silentBecause(target, destination)
 

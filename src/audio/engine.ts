@@ -1,5 +1,6 @@
 import {
   amountFor,
+  FM_COST,
   FOLLOW_COST,
   MAX_RATE,
   MIN_RATE,
@@ -118,18 +119,21 @@ interface ModInstance {
    * Which of the three this is.
    *
    * Wider than the MOD's own `ModKind`, deliberately: `lfo` and `env` are a setting on a MOD node and
-   * carry a label and a hint in its panel, where `sense` is a different node altogether. Naming it in
-   * the user-facing union would have put a third entry in the MOD's kind selector.
+   * carry a label and a hint in its panel, where `sense` and `fm` are different nodes altogether. Naming
+   * them in the user-facing union would have put two more entries in the MOD's kind selector.
    */
-  kind: ModKind | 'sense'
+  kind: ModKind | 'sense' | 'fm'
   /**
-   * The parts only a follower has: the gain the branch is tapped into, and the processor listening to it.
+   * The parts a node that *listens* has: the gain a branch is tapped into, and whatever stands between
+   * that and the depth.
    *
-   * `null` where the browser has no `AudioWorklet`. There is nothing to fall back to — two speeds needs
-   * memory of the last value it put out — so the instance exists, takes cables and moves nothing, which
-   * is the same shape of degradation as a comb on a context that cannot register its processor.
+   * Two nodes have this and they differ only in `through`. A SENSE puts the follower processor there —
+   * `null` where the browser has no `AudioWorklet`, in which case the instance exists, takes cables and
+   * moves nothing, the same degradation as a comb on a context that cannot register its processor. An FM
+   * node puts nothing there at all: the waveform reaches the depth unchanged, which is the whole
+   * difference between measuring a branch and using it.
    */
-  follower?: { input: GainNode; node: AudioWorkletNode | null }
+  listening?: { input: GainNode; through: AudioWorkletNode | null }
   /** What starts an envelope: a trigger in the cascade, or every note. Absent on a follower. */
   fires?: ModFires
   /** The oscillator, where there is one, so a rate change can reach it. */
@@ -330,8 +334,13 @@ export interface Engine {
  * off filter do nothing rather than throw.
  */
 function voiceParam(voice: Voice, key: string): AudioParam | null {
-  if (key === 'pitch') {
-    // Both `OscillatorNode` and `AudioBufferSourceNode` carry one; the union type does not say so.
+  /*
+   * Pitch and FM are the same parameter and differ only in how far they reach — a semitone against four
+   * octaves — which is why they are two entries in the target table and one line here. Both
+   * `OscillatorNode` and `AudioBufferSourceNode` carry a detune; the union type does not say so, and on
+   * a noise voice it shifts the grain rather than a pitch.
+   */
+  if (key === 'pitch' || key === 'fm') {
     const source = voice.source as unknown as { detune?: AudioParam }
     return source.detune ?? null
   }
@@ -1070,9 +1079,10 @@ export class AudioEngine implements Engine {
       // Never started, or already stopped.
     }
     instance.runner?.disconnect()
-    // A follower's own hardware: the tap it listens through and the processor doing the listening.
-    instance.follower?.input.disconnect()
-    instance.follower?.node?.disconnect()
+    // A listener's own hardware: the tap it hears through, and whatever stands between that and the
+    // depth — a follower's processor, or nothing at all on an FM node.
+    instance.listening?.input.disconnect()
+    instance.listening?.through?.disconnect()
     // The shape only exists for an envelope, and for one it is a second node between the two.
     instance.shape?.disconnect()
     instance.depth.disconnect()
@@ -1124,7 +1134,7 @@ export class AudioEngine implements Engine {
       // link connects from, and connecting from a node that feeds nothing is silence rather than a crash.
       source: node ?? input,
       kind: 'sense',
-      follower: { input, node },
+      listening: { input, through: node },
       depth,
       cost: FOLLOW_COST,
       startedAt: ctx.currentTime,
@@ -1138,6 +1148,43 @@ export class AudioEngine implements Engine {
   }
 
   /**
+   * Builds an FM node: a tap, a depth, and nothing in between.
+   *
+   * The shortest modulator here, and that is the point of it. A SENSE puts a processor between what it
+   * hears and what it moves, because measuring a level is work; this passes the waveform through
+   * unchanged at audio rate, which is exactly what makes it frequency modulation rather than a control.
+   *
+   * It carries no settings of its own. The index is a share of the target's span, so it rides the cable
+   * like every other depth here, and changing it arrives as a rewiring rather than as an update.
+   */
+  createFmNode(nodeId: NodeId): void {
+    if (!this.ctx) return
+    this.disposeModulator(nodeId)
+
+    const ctx = this.ctx as BaseAudioContext
+    const input = ctx.createGain()
+    const depth = ctx.createGain()
+    // Nothing until a cable says what it is pointing at, as with every other modulator: depth is a share
+    // of a range and there is no range without a target.
+    depth.gain.value = 0
+    input.connect(depth)
+
+    this.modulators.set(nodeId, {
+      source: input,
+      kind: 'fm',
+      listening: { input, through: null },
+      depth,
+      cost: FM_COST,
+      startedAt: ctx.currentTime,
+      // No times of its own: what shapes the index is the modulator's envelope, which belongs to the
+      // oscillator being tapped and not to this node.
+      attack: 0,
+      decay: 0,
+      byVelocity: false,
+    })
+  }
+
+  /**
    * A follower's settings, all three of them live.
    *
    * Nothing is rebuilt and nothing is scheduled: they are `AudioParam`s on the processor, so a drag on a
@@ -1146,7 +1193,7 @@ export class AudioEngine implements Engine {
    */
   updateFollower(nodeId: NodeId, params: SenseParams): void {
     const instance = this.modulators.get(nodeId)
-    if (!instance?.follower) return
+    if (!instance?.listening) return
     instance.attack = clamp(params.attack ?? 5, MIN_FOLLOW_MS, MAX_FOLLOW_MS) / 1000
     instance.decay = clamp(params.release ?? 200, MIN_FOLLOW_MS, MAX_FOLLOW_MS) / 1000
     this.writeFollower(nodeId, params.sensitivity ?? 1)
@@ -1155,7 +1202,7 @@ export class AudioEngine implements Engine {
   /** The three parameters, written from the instance so the held times and the processor cannot drift. */
   private writeFollower(nodeId: NodeId, sensitivity: number): void {
     const instance = this.modulators.get(nodeId)
-    const node = instance?.follower?.node
+    const node = instance?.listening?.through
     if (!instance || !node || !this.ctx) return
     const at = this.ctx.currentTime
     node.parameters.get('attack')?.setTargetAtTime(instance.attack * 1000, at, RAMP)
@@ -1175,21 +1222,21 @@ export class AudioEngine implements Engine {
    * A **tap**, not a send: it takes nothing off the master. An oscillator wired only to a SENSE is heard
    * exactly as it was, which is most of what the node is for.
    */
-  connectTap(fromId: NodeId, senseId: NodeId): void {
-    const instance = this.modulators.get(senseId)
-    if (!this.ctx || !instance?.follower) return
+  connectTap(fromId: NodeId, listenerId: NodeId): void {
+    const instance = this.modulators.get(listenerId)
+    if (!this.ctx || !instance?.listening) return
     const upstream = this.effects.get(fromId)
-    if (upstream) upstream.output.connect(instance.follower.input)
-    else this.busFor(fromId).bus.connect(instance.follower.input)
+    if (upstream) upstream.output.connect(instance.listening.input)
+    else this.busFor(fromId).bus.connect(instance.listening.input)
   }
 
-  disconnectTap(fromId: NodeId, senseId: NodeId): void {
-    const instance = this.modulators.get(senseId)
-    if (!instance?.follower) return
+  disconnectTap(fromId: NodeId, listenerId: NodeId): void {
+    const instance = this.modulators.get(listenerId)
+    if (!instance?.listening) return
     const upstream = this.effects.get(fromId)
     const source = upstream ? upstream.output : this.buses.get(fromId)?.bus
     try {
-      source?.disconnect(instance.follower.input)
+      source?.disconnect(instance.listening.input)
     } catch {
       // Already gone, or never connected: a tap is torn down by whichever end goes first.
     }
@@ -1250,7 +1297,7 @@ export class AudioEngine implements Engine {
     /*
      * A parameter that rebuilds something rather than taking a connection, driven from a timer that
      * computes the modulator's own phase. A follower has no phase to compute — its level is on the audio
-     * thread — so it does not take one of these at all, and `signalTargets` is what keeps one from being
+     * thread — so it does not take one of these at all, and `targetsFrom` is what keeps one from being
      * offered in the first place. This is the floor under that, not a second decision about it.
      */
     if (descriptor?.via === 'value' && instance.kind === 'sense') return
@@ -1899,6 +1946,14 @@ export function applyOps(target: AudioEngine, ops: RouterOp[], bpm: number): voi
         break
       case 'disconnectMod':
         target.disconnectMod(op.from, op.to)
+        break
+      case 'createFm':
+        target.createFmNode(op.id)
+        break
+      case 'disposeFm':
+        // The same teardown every modulator gets: it is registered as one, so releasing its cables and
+        // its two gains is already written.
+        target.disposeModulator(op.id)
         break
       case 'createFollow':
         target.createFollower(op.id, op.params)

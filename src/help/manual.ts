@@ -108,10 +108,10 @@ export const MANUAL: Section[] = [
             },
           },
           {
-            term: { en: 'Seven kinds of node', es: 'Siete tipos de nodo' },
+            term: { en: 'Eight kinds of node', es: 'Ocho tipos de nodo' },
             text: {
-              en: 'IGNITE starts a cascade. OSC is the only one that makes a sound. HOLD catches a trigger and lets it go late, or only sometimes, or both. FX processes what it is fed. MOD moves a parameter while you listen. WARP bends everything below where it is attached. Each has its own chapter here, in that order of how often you will touch it.',
-              es: 'IGNITE arranca una cascada. OSC es el único que produce sonido. HOLD atrapa un disparo y lo suelta tarde, o solo a veces, o ambas. FX procesa lo que se le alimenta. MOD mueve un parámetro mientras escuchas. WARP dobla todo lo que hay por debajo de donde está enganchado. Cada uno tiene aquí su capítulo, en ese orden de cuánto lo vas a tocar.',
+              en: 'IGNITE starts a cascade. OSC is the only one that makes a sound. HOLD catches a trigger and lets it go late, or only sometimes, or both. FX processes what it is fed. WARP bends everything below where it is attached. MOD, SENSE and FM all make modulation and differ in where its shape comes from — its own clock, the loudness of a branch, the waveform of a branch. Each has its own chapter here, in the order the palette is in: what changes the sound, then what changes what is played, then what moves things.',
+              es: 'IGNITE arranca una cascada. OSC es el único que produce sonido. HOLD atrapa un disparo y lo suelta tarde, o solo a veces, o ambas. FX procesa lo que se le alimenta. WARP dobla todo lo que hay por debajo de donde está enganchado. MOD, SENSE y FM producen modulación y se diferencian en de dónde sale su forma — su propio reloj, lo fuerte que suena una rama, la onda de una rama. Cada uno tiene aquí su capítulo, en el orden de la paleta: lo que cambia el sonido, luego lo que cambia lo que se toca, luego lo que mueve las cosas.',
             },
           },
           {
@@ -1108,6 +1108,138 @@ export const MANUAL: Section[] = [
     ],
   },
   {
+    id: 'warp',
+    title: { en: 'WARP — bending a whole branch', es: 'WARP — doblar una rama entera' },
+    body: [
+      {
+        en: 'A WARP attaches to the side of an oscillator and bends that oscillator and everything the cascade reaches from it. Attach it to the one at the top of a branch and it takes the branch; attach it to the last one and it takes only that. An oscillator, because an oscillator is the thing that plays notes — there is nothing in a trigger or a wait for a warp to bend.',
+        es: 'Un WARP se engancha al costado de un oscilador y dobla ese oscilador y todo lo que la cascada alcanza desde él. Engánchalo al de arriba de una rama y se lleva la rama; engánchalo al último y se lleva solo ese. Un oscilador, porque un oscilador es lo que toca notas — en un disparo o en una espera no hay nada que un warp pueda doblar.',
+      },
+      {
+        en: 'It is not part of the chain, which is the whole point of it: nothing gets rewired and nothing fires twice. Every control starts at a neutral point, so a WARP you have just added leaves the patch exactly as it was until you move something.',
+        es: 'No forma parte de la cadena, y en eso está su gracia: no se recablea nada y nada dispara dos veces. Cada control arranca en un punto neutro, así que un WARP recién añadido deja el patch tal como estaba hasta que muevas algo.',
+      },
+    ],
+    detail: [
+      {
+        terms: [
+          {
+            term: { en: 'Pitch', es: 'Pitch' },
+            text: {
+              en: 'Moves every note below it. On an oscillator with a scale it moves by degrees of that scale, and on a free one by semitones — so a bass in Pentatonic and a lead in Minor can both move a third and both stay in key. One control, transposing a whole branch, without editing a single step.',
+              es: 'Mueve todas las notas de debajo. En un oscilador con escala se mueve por grados de esa escala, y en uno libre por semitonos — así un bajo en Pentatonic y un lead en Minor pueden moverse los dos una tercera y quedarse los dos en tono. Un control que transporta una rama entera sin editar ni un paso.',
+            },
+          },
+        ],
+      },
+      {
+        title: 'AMOUNT',
+        terms: [
+          {
+            term: { en: 'Level', es: 'Level' },
+            text: {
+              en: 'How loud the branch below is, as a multiplier. One leaves it alone; a half is half as loud; two is twice, which is worth having because most oscillators sit well under full scale. It is the control for balancing a branch — turning four oscillators down by hand is four edits, and that is the argument this whole module rests on. Stacks by multiplying, so two warps each halving come to a quarter, and stops at full scale rather than asking for more than there is.',
+              es: 'Cuánto suena la rama de abajo, como multiplicador. Uno la deja igual; un medio es la mitad; dos es el doble, que merece la pena porque la mayoría de los osciladores están bastante por debajo de la escala plena. Es el control para equilibrar una rama — bajar cuatro osciladores a mano son cuatro ediciones, y ese es el argumento sobre el que se apoya este módulo entero. Se acumula multiplicando, así que dos warps a la mitad dan un cuarto, y se detiene en escala plena en vez de pedir más de lo que hay.',
+            },
+          },
+          {
+            term: { en: 'Level or Velocity', es: 'Level o Velocity' },
+            text: {
+              en: 'They look alike and are not. **Velocity is a source**: it decides how loud a note lands *and*, wherever a MOD takes its depth from velocity, how far that filter opens — so it stops at one, because past that the loudness would only clip while the filter went on opening. **Level is a level**: it changes how loud the branch is and nothing else, so it can push above one. If you want a branch quieter, reach for Level. If you want it played softer — quieter *and* darker, the way a hand plays softer — reach for Velocity.',
+              es: 'Se parecen y no son lo mismo. **Velocity es una fuente**: decide cuán fuerte cae una nota *y*, allí donde un MOD toma su profundidad de la velocidad, cuánto abre ese filtro — así que se detiene en uno, porque más allá la sonoridad solo recortaría mientras el filtro seguiría abriendo. **Level es un nivel**: cambia cuánto suena la rama y nada más, así que puede pasar de uno. Si quieres una rama más baja, usa Level. Si la quieres *tocada* más suave — más baja **y** más oscura, como toca una mano — usa Velocity.',
+            },
+          },
+          {
+            term: { en: 'Velocity', es: 'Velocity' },
+            text: {
+              en: 'Scales what every note below is worth. It is the way to duck a whole branch under another without touching either oscillator’s gain — and wherever an envelope takes its depth from velocity, a quieter branch also gets smaller sweeps.',
+              es: 'Escala lo que vale cada nota de debajo. Es la manera de meter una rama entera por debajo de otra sin tocar el gain de ningún oscilador — y donde una envolvente tome su profundidad de la velocidad, una rama más suave recibe además barridos más pequeños.',
+            },
+          },
+          {
+            term: { en: 'Chance', es: 'Chance' },
+            text: {
+              en: 'Thins the branch out. It applies whether or not the oscillators below use per-step chance, which is the useful part: "this whole branch happens half the time" is worth wanting without setting a chance on sixteen steps first.',
+              es: 'Ralea la rama. Se aplica usen o no los osciladores de debajo la probabilidad por paso, y eso es lo útil: «esta rama entera pasa la mitad de las veces» merece la pena sin haber puesto antes una probabilidad en dieciséis pasos.',
+            },
+          },
+        ],
+      },
+      {
+        title: 'TIME',
+        terms: [
+          {
+            term: { en: 'Speed', es: 'Speed' },
+            text: {
+              en: 'Stretches or squeezes every step below it. This is the thing a HOLD cannot do: a wait sets two branches a fixed distance apart, and a ratio makes them drift and keep drifting. A list of musical ratios rather than a slider, because against a grid a half and a third are worth having and 0.87 is only out of time.',
+              es: 'Estira o comprime todos los pasos de debajo. Esto es lo que un HOLD no puede hacer: una espera separa dos ramas a una distancia fija, y una razón las hace desfasarse y seguir desfasándose. Es una lista de razones musicales y no un slider, porque contra una rejilla un medio y un tercio valen la pena y 0.87 solo está a contratiempo.',
+            },
+          },
+          {
+            term: { en: 'Swing', es: 'Swing' },
+            text: {
+              en: 'Makes each pair of steps below it uneven: the first long, the second late and short. It is a switch beside its own value rather than a value with an off end, because what you do with a groove is listen straight, then swung, then straight again — and a control you had to walk back to straight would lose the setting every time. Off to begin with, so a WARP you have just added still does nothing.',
+              es: 'Vuelve desigual cada par de pasos de debajo: el primero largo, el segundo tarde y corto. Es un interruptor al lado de su valor y no un valor con un extremo apagado, porque lo que haces con un groove es escucharlo recto, luego con swing, luego recto otra vez — y un control que hubiera que devolver a recto perdería el ajuste cada vez. Empieza apagado, así que un WARP recién puesto sigue sin hacer nada.',
+            },
+          },
+          {
+            term: { en: 'Feel', es: 'Feel' },
+            text: {
+              en: 'How uneven, as the long half against the short. Shuffle is the one most machines call swing; Triplet is the long half lasting twice the short, which is the jazz feel; past that it stops being a groove and becomes two hits with a gap. Whatever you choose, a pair keeps its total — so a sequence takes exactly as long swung as straight, and hands the cascade on at the same moment. Swing changes how a branch feels, never when it ends.',
+              es: 'Cuánto de desigual, como la mitad larga contra la corta. Shuffle es el que casi todas las máquinas llaman swing; Triplet es la mitad larga durando el doble que la corta, el aire del jazz; más allá deja de ser un groove y son dos golpes con un hueco. Elijas lo que elijas, un par conserva su total — así que una secuencia dura exactamente lo mismo con swing que recta, y pasa la cascada en el mismo momento. El swing cambia cómo se siente una rama, nunca cuándo termina.',
+            },
+          },
+          {
+            term: { en: 'Slop', es: 'Slop' },
+            text: {
+              en: 'Plays every note below a little away from where it was written, differently each time. It sits beside Swing rather than instead of it, and the two compose: Swing decides the shape of the bar and this decides how closely it is respected — a drummer with a shuffle who is not perfectly tight. Off to begin with, and its own switch, so a groove can be heard tight and loose without losing the setting.',
+              es: 'Toca cada nota de debajo un poco fuera de donde estaba escrita, distinto cada vez. Va al lado de Swing y no en su lugar, y los dos se combinan: Swing decide la forma del compás y esto decide cuánto se respeta — un baterista con shuffle que no va perfectamente apretado. Empieza apagado, y con su propio interruptor, para poder oír un groove apretado y flojo sin perder el ajuste.',
+            },
+          },
+          {
+            term: { en: 'Looseness', es: 'Looseness' },
+            text: {
+              en: 'How far a note may fall from its place — measured against the shortest gap in that oscillator’s own sequence, not in milliseconds. Which is why one setting sounds the same everywhere: thirty milliseconds is nothing in a slow bass and total chaos in a fast line with a heavy swing, so a fixed time would have to be re-dialled on every branch. At its most, two notes can meet and never cross: a note landing before the one in front of it does not sound loose, it sounds broken.',
+              es: 'Cuánto puede caerse una nota de su sitio — medido contra el hueco más corto de la secuencia de ese oscilador, no en milisegundos. Por eso un mismo ajuste suena igual en todas partes: treinta milisegundos no son nada en un bajo lento y son un caos en una línea rápida con swing fuerte, así que un tiempo fijo habría que reajustarlo en cada rama. Al máximo, dos notas pueden juntarse y nunca cruzarse: una nota que cae antes que la anterior no suena floja, suena rota.',
+            },
+          },
+        ],
+      },
+      {
+        terms: [
+          {
+            term: { en: 'How far it reaches', es: 'Hasta dónde llega' },
+            text: {
+              en: 'Downward only, from the oscillator it is attached to. Everything the cascade can reach from there is bent; everything above it and everything on another branch is untouched. So a whole cascade is one warp on the oscillator at the top of it, and a phrase inside that cascade is another further down. Attach the same WARP to two oscillators and it reaches both.',
+              es: 'Solo hacia abajo, desde el oscilador al que está enganchado. Todo lo que la cascada alcance desde ahí se dobla; todo lo de arriba y todo lo de otra rama queda intacto. Así que una cascada entera es un warp en el oscilador de arriba, y una frase de dentro es otro más abajo. Engancha el mismo WARP a dos osciladores y llega a los dos.',
+            },
+          },
+          {
+            term: { en: 'Stacking two of them', es: 'Apilar dos de ellos' },
+            text: {
+              en: 'Any number can reach the same notes and they combine without one winning. Pitch adds — two warps of a third up come to a sixth up — and the three ratios multiply, so two at half speed come to a quarter. That is why you can put one at the top of a branch for all of it and another further down for part of it, and read the result off the two.',
+              es: 'Cualquier número puede llegar a las mismas notas y se combinan sin que uno gane. El Pitch suma — dos warps de una tercera arriba dan una sexta arriba — y las tres razones multiplican, así que dos a media velocidad dan un cuarto. Por eso puedes poner uno arriba de una rama para toda ella y otro más abajo para una parte, y leer el resultado de los dos.',
+            },
+          },
+          {
+            term: { en: 'It waits for the next pass', es: 'Espera la pasada siguiente' },
+            text: {
+              en: 'Because the oscillators it bends have already booked their sequences. Move a WARP control while a patch is playing and you hear it on the next lap, not in the middle of this one. Its cable is drawn still and dashed for that reason — a cable that pulsed would be promising something live.',
+              es: 'Porque los osciladores que dobla ya reservaron sus secuencias. Mueve un control de WARP mientras suena un patch y lo oyes en la vuelta siguiente, no en medio de esta. Su cable se dibuja quieto y a trazos por eso — un cable que pulsara estaría prometiendo algo en vivo.',
+            },
+          },
+          {
+            term: { en: 'A common mistake', es: 'Un error común' },
+            text: {
+              en: 'Looking for somewhere to attach it other than an oscillator. There is nowhere: an IGNITE and a HOLD have no side port, because neither has anything a warp could bend — a wait is a number in milliseconds that no ratio scales, and a trigger has no pitch. To bend a whole cascade, attach it to the oscillator at the top. The panel warns you when it is attached to nothing that makes a note.',
+              es: 'Buscar dónde engancharlo que no sea un oscilador. No hay otro sitio: un IGNITE y un HOLD no tienen puerto lateral, porque ninguno tiene nada que un warp pueda doblar — una espera es un número en milisegundos que ninguna razón escala, y un disparo no tiene altura. Para doblar una cascada entera, engánchalo al oscilador de arriba. El panel avisa cuando no está enganchado a nada que haga una nota.',
+            },
+          },
+        ],
+      },
+    ],
+  },
+  {
     id: 'mod',
     title: { en: 'MOD — the only live control', es: 'MOD — el único control vivo' },
     body: [
@@ -1253,138 +1385,6 @@ export const MANUAL: Section[] = [
     ],
   },
   {
-    id: 'warp',
-    title: { en: 'WARP — bending a whole branch', es: 'WARP — doblar una rama entera' },
-    body: [
-      {
-        en: 'A WARP attaches to the side of an oscillator and bends that oscillator and everything the cascade reaches from it. Attach it to the one at the top of a branch and it takes the branch; attach it to the last one and it takes only that. An oscillator, because an oscillator is the thing that plays notes — there is nothing in a trigger or a wait for a warp to bend.',
-        es: 'Un WARP se engancha al costado de un oscilador y dobla ese oscilador y todo lo que la cascada alcanza desde él. Engánchalo al de arriba de una rama y se lleva la rama; engánchalo al último y se lleva solo ese. Un oscilador, porque un oscilador es lo que toca notas — en un disparo o en una espera no hay nada que un warp pueda doblar.',
-      },
-      {
-        en: 'It is not part of the chain, which is the whole point of it: nothing gets rewired and nothing fires twice. Every control starts at a neutral point, so a WARP you have just added leaves the patch exactly as it was until you move something.',
-        es: 'No forma parte de la cadena, y en eso está su gracia: no se recablea nada y nada dispara dos veces. Cada control arranca en un punto neutro, así que un WARP recién añadido deja el patch tal como estaba hasta que muevas algo.',
-      },
-    ],
-    detail: [
-      {
-        terms: [
-          {
-            term: { en: 'Pitch', es: 'Pitch' },
-            text: {
-              en: 'Moves every note below it. On an oscillator with a scale it moves by degrees of that scale, and on a free one by semitones — so a bass in Pentatonic and a lead in Minor can both move a third and both stay in key. One control, transposing a whole branch, without editing a single step.',
-              es: 'Mueve todas las notas de debajo. En un oscilador con escala se mueve por grados de esa escala, y en uno libre por semitonos — así un bajo en Pentatonic y un lead en Minor pueden moverse los dos una tercera y quedarse los dos en tono. Un control que transporta una rama entera sin editar ni un paso.',
-            },
-          },
-        ],
-      },
-      {
-        title: 'AMOUNT',
-        terms: [
-          {
-            term: { en: 'Level', es: 'Level' },
-            text: {
-              en: 'How loud the branch below is, as a multiplier. One leaves it alone; a half is half as loud; two is twice, which is worth having because most oscillators sit well under full scale. It is the control for balancing a branch — turning four oscillators down by hand is four edits, and that is the argument this whole module rests on. Stacks by multiplying, so two warps each halving come to a quarter, and stops at full scale rather than asking for more than there is.',
-              es: 'Cuánto suena la rama de abajo, como multiplicador. Uno la deja igual; un medio es la mitad; dos es el doble, que merece la pena porque la mayoría de los osciladores están bastante por debajo de la escala plena. Es el control para equilibrar una rama — bajar cuatro osciladores a mano son cuatro ediciones, y ese es el argumento sobre el que se apoya este módulo entero. Se acumula multiplicando, así que dos warps a la mitad dan un cuarto, y se detiene en escala plena en vez de pedir más de lo que hay.',
-            },
-          },
-          {
-            term: { en: 'Level or Velocity', es: 'Level o Velocity' },
-            text: {
-              en: 'They look alike and are not. **Velocity is a source**: it decides how loud a note lands *and*, wherever a MOD takes its depth from velocity, how far that filter opens — so it stops at one, because past that the loudness would only clip while the filter went on opening. **Level is a level**: it changes how loud the branch is and nothing else, so it can push above one. If you want a branch quieter, reach for Level. If you want it played softer — quieter *and* darker, the way a hand plays softer — reach for Velocity.',
-              es: 'Se parecen y no son lo mismo. **Velocity es una fuente**: decide cuán fuerte cae una nota *y*, allí donde un MOD toma su profundidad de la velocidad, cuánto abre ese filtro — así que se detiene en uno, porque más allá la sonoridad solo recortaría mientras el filtro seguiría abriendo. **Level es un nivel**: cambia cuánto suena la rama y nada más, así que puede pasar de uno. Si quieres una rama más baja, usa Level. Si la quieres *tocada* más suave — más baja **y** más oscura, como toca una mano — usa Velocity.',
-            },
-          },
-          {
-            term: { en: 'Velocity', es: 'Velocity' },
-            text: {
-              en: 'Scales what every note below is worth. It is the way to duck a whole branch under another without touching either oscillator’s gain — and wherever an envelope takes its depth from velocity, a quieter branch also gets smaller sweeps.',
-              es: 'Escala lo que vale cada nota de debajo. Es la manera de meter una rama entera por debajo de otra sin tocar el gain de ningún oscilador — y donde una envolvente tome su profundidad de la velocidad, una rama más suave recibe además barridos más pequeños.',
-            },
-          },
-          {
-            term: { en: 'Chance', es: 'Chance' },
-            text: {
-              en: 'Thins the branch out. It applies whether or not the oscillators below use per-step chance, which is the useful part: "this whole branch happens half the time" is worth wanting without setting a chance on sixteen steps first.',
-              es: 'Ralea la rama. Se aplica usen o no los osciladores de debajo la probabilidad por paso, y eso es lo útil: «esta rama entera pasa la mitad de las veces» merece la pena sin haber puesto antes una probabilidad en dieciséis pasos.',
-            },
-          },
-        ],
-      },
-      {
-        title: 'TIME',
-        terms: [
-          {
-            term: { en: 'Speed', es: 'Speed' },
-            text: {
-              en: 'Stretches or squeezes every step below it. This is the thing a HOLD cannot do: a wait sets two branches a fixed distance apart, and a ratio makes them drift and keep drifting. A list of musical ratios rather than a slider, because against a grid a half and a third are worth having and 0.87 is only out of time.',
-              es: 'Estira o comprime todos los pasos de debajo. Esto es lo que un HOLD no puede hacer: una espera separa dos ramas a una distancia fija, y una razón las hace desfasarse y seguir desfasándose. Es una lista de razones musicales y no un slider, porque contra una rejilla un medio y un tercio valen la pena y 0.87 solo está a contratiempo.',
-            },
-          },
-          {
-            term: { en: 'Swing', es: 'Swing' },
-            text: {
-              en: 'Makes each pair of steps below it uneven: the first long, the second late and short. It is a switch beside its own value rather than a value with an off end, because what you do with a groove is listen straight, then swung, then straight again — and a control you had to walk back to straight would lose the setting every time. Off to begin with, so a WARP you have just added still does nothing.',
-              es: 'Vuelve desigual cada par de pasos de debajo: el primero largo, el segundo tarde y corto. Es un interruptor al lado de su valor y no un valor con un extremo apagado, porque lo que haces con un groove es escucharlo recto, luego con swing, luego recto otra vez — y un control que hubiera que devolver a recto perdería el ajuste cada vez. Empieza apagado, así que un WARP recién puesto sigue sin hacer nada.',
-            },
-          },
-          {
-            term: { en: 'Feel', es: 'Feel' },
-            text: {
-              en: 'How uneven, as the long half against the short. Shuffle is the one most machines call swing; Triplet is the long half lasting twice the short, which is the jazz feel; past that it stops being a groove and becomes two hits with a gap. Whatever you choose, a pair keeps its total — so a sequence takes exactly as long swung as straight, and hands the cascade on at the same moment. Swing changes how a branch feels, never when it ends.',
-              es: 'Cuánto de desigual, como la mitad larga contra la corta. Shuffle es el que casi todas las máquinas llaman swing; Triplet es la mitad larga durando el doble que la corta, el aire del jazz; más allá deja de ser un groove y son dos golpes con un hueco. Elijas lo que elijas, un par conserva su total — así que una secuencia dura exactamente lo mismo con swing que recta, y pasa la cascada en el mismo momento. El swing cambia cómo se siente una rama, nunca cuándo termina.',
-            },
-          },
-          {
-            term: { en: 'Slop', es: 'Slop' },
-            text: {
-              en: 'Plays every note below a little away from where it was written, differently each time. It sits beside Swing rather than instead of it, and the two compose: Swing decides the shape of the bar and this decides how closely it is respected — a drummer with a shuffle who is not perfectly tight. Off to begin with, and its own switch, so a groove can be heard tight and loose without losing the setting.',
-              es: 'Toca cada nota de debajo un poco fuera de donde estaba escrita, distinto cada vez. Va al lado de Swing y no en su lugar, y los dos se combinan: Swing decide la forma del compás y esto decide cuánto se respeta — un baterista con shuffle que no va perfectamente apretado. Empieza apagado, y con su propio interruptor, para poder oír un groove apretado y flojo sin perder el ajuste.',
-            },
-          },
-          {
-            term: { en: 'Looseness', es: 'Looseness' },
-            text: {
-              en: 'How far a note may fall from its place — measured against the shortest gap in that oscillator’s own sequence, not in milliseconds. Which is why one setting sounds the same everywhere: thirty milliseconds is nothing in a slow bass and total chaos in a fast line with a heavy swing, so a fixed time would have to be re-dialled on every branch. At its most, two notes can meet and never cross: a note landing before the one in front of it does not sound loose, it sounds broken.',
-              es: 'Cuánto puede caerse una nota de su sitio — medido contra el hueco más corto de la secuencia de ese oscilador, no en milisegundos. Por eso un mismo ajuste suena igual en todas partes: treinta milisegundos no son nada en un bajo lento y son un caos en una línea rápida con swing fuerte, así que un tiempo fijo habría que reajustarlo en cada rama. Al máximo, dos notas pueden juntarse y nunca cruzarse: una nota que cae antes que la anterior no suena floja, suena rota.',
-            },
-          },
-        ],
-      },
-      {
-        terms: [
-          {
-            term: { en: 'How far it reaches', es: 'Hasta dónde llega' },
-            text: {
-              en: 'Downward only, from the oscillator it is attached to. Everything the cascade can reach from there is bent; everything above it and everything on another branch is untouched. So a whole cascade is one warp on the oscillator at the top of it, and a phrase inside that cascade is another further down. Attach the same WARP to two oscillators and it reaches both.',
-              es: 'Solo hacia abajo, desde el oscilador al que está enganchado. Todo lo que la cascada alcance desde ahí se dobla; todo lo de arriba y todo lo de otra rama queda intacto. Así que una cascada entera es un warp en el oscilador de arriba, y una frase de dentro es otro más abajo. Engancha el mismo WARP a dos osciladores y llega a los dos.',
-            },
-          },
-          {
-            term: { en: 'Stacking two of them', es: 'Apilar dos de ellos' },
-            text: {
-              en: 'Any number can reach the same notes and they combine without one winning. Pitch adds — two warps of a third up come to a sixth up — and the three ratios multiply, so two at half speed come to a quarter. That is why you can put one at the top of a branch for all of it and another further down for part of it, and read the result off the two.',
-              es: 'Cualquier número puede llegar a las mismas notas y se combinan sin que uno gane. El Pitch suma — dos warps de una tercera arriba dan una sexta arriba — y las tres razones multiplican, así que dos a media velocidad dan un cuarto. Por eso puedes poner uno arriba de una rama para toda ella y otro más abajo para una parte, y leer el resultado de los dos.',
-            },
-          },
-          {
-            term: { en: 'It waits for the next pass', es: 'Espera la pasada siguiente' },
-            text: {
-              en: 'Because the oscillators it bends have already booked their sequences. Move a WARP control while a patch is playing and you hear it on the next lap, not in the middle of this one. Its cable is drawn still and dashed for that reason — a cable that pulsed would be promising something live.',
-              es: 'Porque los osciladores que dobla ya reservaron sus secuencias. Mueve un control de WARP mientras suena un patch y lo oyes en la vuelta siguiente, no en medio de esta. Su cable se dibuja quieto y a trazos por eso — un cable que pulsara estaría prometiendo algo en vivo.',
-            },
-          },
-          {
-            term: { en: 'A common mistake', es: 'Un error común' },
-            text: {
-              en: 'Looking for somewhere to attach it other than an oscillator. There is nowhere: an IGNITE and a HOLD have no side port, because neither has anything a warp could bend — a wait is a number in milliseconds that no ratio scales, and a trigger has no pitch. To bend a whole cascade, attach it to the oscillator at the top. The panel warns you when it is attached to nothing that makes a note.',
-              es: 'Buscar dónde engancharlo que no sea un oscilador. No hay otro sitio: un IGNITE y un HOLD no tienen puerto lateral, porque ninguno tiene nada que un warp pueda doblar — una espera es un número en milisegundos que ninguna razón escala, y un disparo no tiene altura. Para doblar una cascada entera, engánchalo al oscilador de arriba. El panel avisa cuando no está enganchado a nada que haga una nota.',
-            },
-          },
-        ],
-      },
-    ],
-  },
-  {
     id: 'sense',
     title: { en: 'SENSE — a branch listening', es: 'SENSE — una rama escuchando' },
     body: [
@@ -1468,6 +1468,90 @@ export const MANUAL: Section[] = [
             text: {
               en: 'A SENSE listening to the branch it is moving is a compressor built by hand, and it works: point it at that oscillator’s Level with the Depth below zero and louder notes are pulled down more than quiet ones. The FX module has a real compressor and it is easier to set, but this one can be pointed anywhere — the same arrangement on a filter cutoff is not a compressor at all.',
               es: 'Un SENSE escuchando la rama que mueve es un compresor hecho a mano, y funciona: apúntalo al Level de ese oscilador con el Depth por debajo de cero y las notas fuertes bajan más que las flojas. El módulo FX tiene un compresor de verdad y es más fácil de ajustar, pero este se puede apuntar a cualquier sitio — el mismo arreglo sobre el corte de un filtro no es un compresor en absoluto.',
+            },
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'fm',
+    title: { en: 'FM — one oscillator bending another', es: 'FM — un oscilador doblando a otro' },
+    body: [
+      {
+        en: 'An FM node takes the audio of one oscillator and puts it on the pitch of another. Not as a wobble — at audio rate, thousands of times a second, which is fast enough that the ear stops hearing a note being bent and starts hearing a different instrument. Bells, struck metal, and the growl underneath a bass.',
+        es: 'Un nodo FM toma el audio de un oscilador y lo pone sobre la altura de otro. No como un temblor — a rate de audio, miles de veces por segundo, lo bastante rápido para que el oído deje de oír una nota doblándose y empiece a oír otro instrumento. Campanas, metal golpeado, y el gruñido debajo de un bajo.',
+      },
+      {
+        en: 'It is wired exactly like a SENSE, and for the same reason: audio comes in the left, modulation goes out the right. The two nodes are the same shape and differ in what they do with what they hear — a SENSE measures how loud it is, this uses the waveform itself.',
+        es: 'Se cablea exactamente como un SENSE, y por lo mismo: el audio entra por la izquierda, la modulación sale por la derecha. Los dos nodos tienen la misma forma y se diferencian en qué hacen con lo que oyen — un SENSE mide cuán fuerte suena, este usa la onda misma.',
+      },
+      {
+        en: 'The oscillator feeding it is called the **modulator** and the one it points at is the **carrier**. Both are ordinary oscillators with their own sequences, so the interval you write between them is the relationship the FM is built on — which means you play the timbre rather than dialling it.',
+        es: 'Al oscilador que lo alimenta se le llama **modulador** y al que apunta, **portadora**. Los dos son osciladores normales con sus propias secuencias, así que el intervalo que escribas entre ellos es la relación sobre la que se construye la FM — o sea que el timbre se toca, no se ajusta.',
+      },
+    ],
+    detail: [
+      {
+        title: 'THE PANEL',
+        terms: [
+          {
+            term: { en: 'Index', es: 'Index' },
+            text: {
+              en: 'How far the modulator bends the carrier, in cents, at the modulator’s full level. A hundred is a semitone and sounds like a detune; the character only starts changing several hundred in, and by a couple of thousand it is a texture rather than a note. It goes below zero, which inverts the modulator — on a sine that sounds the same, and on anything lopsided it does not.',
+              es: 'Cuánto dobla el modulador a la portadora, en centésimas, cuando el modulador está a pleno nivel. Cien es un semitono y suena a desafinación; el carácter solo empieza a cambiar varios cientos más allá, y por un par de miles ya es una textura y no una nota. Baja de cero, lo que invierte el modulador — en una sinusoide suena igual, en cualquier cosa asimétrica no.',
+            },
+          },
+        ],
+      },
+      {
+        terms: [
+          {
+            term: {
+              en: 'The modulator’s envelope is the index',
+              es: 'La envolvente del modulador es el índice',
+            },
+            text: {
+              en: 'What arrives at an FM node is audio, and audio has a level — so the Index is a ceiling reached only while the modulator is at full volume, and its envelope shapes the bending from moment to moment. A short decay on the modulator is a bell: bright at the strike and clean as it rings out. A long one is a growl that opens. This is the first thing to move when you want to hear what the node does, and it is not on the node at all — it is on the oscillator feeding it.',
+              es: 'Lo que llega a un nodo FM es audio, y el audio tiene nivel — así que el Index es un techo que solo se alcanza mientras el modulador está a pleno volumen, y su envolvente moldea el doblado momento a momento. Un decay corto en el modulador es una campana: brillante en el golpe y limpia al resonar. Uno largo es un gruñido que se abre. Es lo primero que hay que mover para oír qué hace el nodo, y no está en el nodo — está en el oscilador que lo alimenta.',
+            },
+          },
+          {
+            term: { en: 'The interval is the ratio', es: 'El intervalo es la razón' },
+            text: {
+              en: 'In most FM synthesisers the modulator is locked to a ratio of the carrier — two to one, three to two — and the ratio decides whether the result is harmonic or metallic. Here both are oscillators with sequences, so the ratio is whatever interval you wrote. In unison it is harmonic and thickens the note; a fifth stays recognisably tuned while sounding like metal; anything unrelated is inharmonic and rings like something struck. It also means the timbre changes as the two sequences move against each other, which no ratio-locked synthesiser can do.',
+              es: 'En casi todos los sintetizadores FM el modulador va fijado a una razón de la portadora — dos a uno, tres a dos — y esa razón decide si el resultado es armónico o metálico. Aquí los dos son osciladores con secuencia, así que la razón es el intervalo que hayas escrito. Al unísono es armónico y engorda la nota; una quinta sigue sonando afinada y a la vez a metal; cualquier cosa sin relación es inarmónica y suena a algo golpeado. Además el timbre cambia según las dos secuencias se mueven una contra otra, que es algo que ningún sintetizador de razón fija puede hacer.',
+            },
+          },
+          {
+            term: {
+              en: 'A silent modulator is silent FM',
+              es: 'Un modulador callado es FM callada',
+            },
+            text: {
+              en: 'The modulator has to be sounding. If its sequence has a rest where the carrier has a note, the bending stops for that note and the carrier comes out plain — which is a rhythm you can write on purpose, and a puzzle if you did not mean it. The commonest reason an FM node seems to do nothing is that the modulator was never triggered at all.',
+              es: 'El modulador tiene que estar sonando. Si su secuencia tiene un silencio donde la portadora tiene nota, el doblado se detiene en esa nota y la portadora sale limpia — que es un ritmo que puedes escribir a propósito, y un enigma si no era la intención. La razón más común de que un nodo FM parezca no hacer nada es que el modulador nunca se disparó.',
+            },
+          },
+          {
+            term: { en: 'You still hear the modulator', es: 'El modulador se sigue oyendo' },
+            text: {
+              en: 'Feeding an FM node takes nothing off the output, exactly as feeding a SENSE does not — so the modulator is still heard unless you turn its Level down. That is deliberate: a little of it under the carrier is often the strike of the sound. Take its Level to nothing and the FM carries on unchanged, because what the node hears is the oscillator before the master.',
+              es: 'Alimentar un nodo FM no le quita nada a la salida, igual que alimentar un SENSE tampoco — así que el modulador se sigue oyendo salvo que le bajes el Level. Es a propósito: un poco de él debajo de la portadora suele ser el golpe del sonido. Baja su Level a cero y la FM sigue igual, porque lo que el nodo oye es el oscilador antes del máster.',
+            },
+          },
+          {
+            term: { en: 'Why the pitch drifts up', es: 'Por qué la afinación sube' },
+            text: {
+              en: 'It bends in cents, and cents are a ratio — so a swing that is even in cents reaches further up in hertz than it does down, and the carrier’s perceived pitch rises as you open the Index. Classic FM works in hertz instead and stays put. This does not, on purpose: cents are the unit everything else here bends in, and one path that works on every waveform — including the noise ones, where there is no frequency at all — is worth more than the classic behaviour. On a bell it is inaudible. Past a couple of thousand cents it is a tuning decision.',
+              es: 'Dobla en centésimas, y las centésimas son una razón — así que un vaivén parejo en centésimas llega más lejos hacia arriba en hercios que hacia abajo, y la altura percibida de la portadora sube según abres el Index. La FM clásica trabaja en hercios y se queda quieta. Esta no, a propósito: la centésima es la unidad en la que dobla todo lo demás aquí, y un solo camino que funciona en todas las ondas — incluidas las de ruido, donde no hay frecuencia ninguna — vale más que el comportamiento clásico. En una campana es inaudible. Pasadas un par de miles de centésimas es una decisión de afinación.',
+            },
+          },
+          {
+            term: { en: 'It only points at an oscillator', es: 'Solo apunta a un oscilador' },
+            text: {
+              en: 'Not at an effect. Its one control is a deviation in cents against a note, and an effect has no note — a comb resonator has a pitch and could in principle be bent this way, but a cable that meant one thing on some destinations and something else on others is exactly what the wiring rules here exist to prevent. The preset called IRON is two sine waves and one of these, and nothing else.',
+              es: 'No a un efecto. Su único control es una desviación en centésimas contra una nota, y un efecto no tiene nota — un resonador comb sí tiene altura y en principio podría doblarse así, pero un cable que significara una cosa en unos destinos y otra en otros es justo lo que las reglas de cableado de aquí existen para impedir. El preset llamado IRON son dos sinusoides y uno de estos, y nada más.',
             },
           },
         ],

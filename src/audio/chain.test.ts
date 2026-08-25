@@ -4,6 +4,9 @@ import type { FxParams, Patch, PatchEdge, PatchNode } from '../types/patch'
 import { applyOps, AudioEngine } from './engine'
 import { fakeAudio } from './fakeAudio'
 import { diff, EMPTY_GRAPH, graphOf } from './router'
+import { CascadeScheduler } from './scheduler'
+import { ActivityBus } from '../viz/activity'
+import type { Engine } from './engine'
 
 /**
  * Effects in series.
@@ -245,5 +248,89 @@ describe('the engine building a chain', () => {
     // patch is reloaded and a second `connect` into the same node would double the effect's level.
     engine.setToMaster('f', true)
     expect(master.incoming.length).toBe(both)
+  })
+})
+
+describe('the canvas showing a chain', () => {
+  /**
+   * That every effect a sound passes through lights up.
+   *
+   * The flash followed osc→fx edges and stopped there, which was the whole story when the audio graph was
+   * one hop deep. With effects in series the **second** effect in a chain never lit: it was carrying the
+   * sound and looked as dead as a node wired to nothing, which from the outside is indistinguishable from
+   * it not working. Reported as "the bitcrusher does not sound and does not light either", and the not
+   * lighting was the half that was true.
+   *
+   * Third time in three days that a feature was right and the surface showing it was not — the lit step
+   * bar (§42.3) and the pulse direction (§44.8) were the other two.
+   */
+  function litBy(edges: PatchEdge[]) {
+    const engine: Engine = {
+      now: () => 0,
+      chance: () => 0,
+      playNote: () => {},
+      voiceLoadAt: () => 0,
+      effectLoad: () => 0,
+      nodeBusyUntil: () => 0,
+      releaseNodeVoices: () => {},
+      restartLfo: () => {},
+      fireEnvelope: () => {},
+    }
+    const seen: string[] = []
+    const activity = new ActivityBus(() => 0)
+    activity.push = (event) => {
+      if (event.kind === 'node') seen.push(event.id)
+    }
+    const patch: Patch = {
+      version: 1,
+      bpm: 120,
+      loop: false,
+      nodes: [
+        { id: 'i', type: 'start', position: { x: 0, y: 0 }, params: {} },
+        osc('a'),
+        fx('f'),
+        fx('g'),
+        fx('h'),
+      ],
+      edges: [{ id: 'i->a', kind: 'event', source: 'i', target: 'a' }, ...edges],
+    }
+    const scheduler = new CascadeScheduler({ engine, activity, getPatch: () => patch })
+    scheduler.start()
+    scheduler.drain(3)
+    scheduler.stop()
+    return [...new Set(seen)].sort()
+  }
+
+  it('lights every effect in a chain, not only the first', () => {
+    expect(litBy([audio('a', 'f'), audio('f', 'g'), audio('g', 'h')])).toEqual([
+      'a',
+      'f',
+      'g',
+      'h',
+      'i',
+    ])
+  })
+
+  it('lights both when they sit side by side, as it always did', () => {
+    expect(litBy([audio('a', 'f'), audio('a', 'g')])).toEqual(['a', 'f', 'g', 'i'])
+  })
+
+  it('leaves a chain the oscillator does not reach dark', () => {
+    /*
+     * The other direction, and the easy wrong fix: flashing every effect in the patch would pass every
+     * check above and make the canvas useless, since a lit node would stop meaning anything.
+     *
+     * A *second* chain, unreachable from the oscillator, is what it takes to see that — an effect merely
+     * wired to nothing is not enough, because the wrong fix walks the sources and an oscillator is one.
+     */
+    expect(litBy([audio('a', 'f'), audio('g', 'h')])).toEqual(['a', 'f', 'i'])
+  })
+
+  it('does not hang on a loop it was handed', () => {
+    /*
+     * The rules refuse to draw one and the router drops one, but this map is built from the raw edges and
+     * cannot assume either has run — a patch code or a paste reaches it first.
+     */
+    expect(litBy([audio('a', 'f'), audio('f', 'g'), audio('g', 'f')])).toEqual(['a', 'f', 'g', 'i'])
   })
 })

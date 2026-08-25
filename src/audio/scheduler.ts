@@ -339,11 +339,38 @@ export class CascadeScheduler {
       }
     }
 
+    /*
+     * Every effect a node reaches, not only the ones it is cabled straight to.
+     *
+     * Effects go in series now, so an oscillator's sound passes through a whole chain — and the flash has
+     * to follow it. Built as one hop before series existed, which meant the *second* effect in a chain
+     * never lit at all: it was carrying the sound and looked as dead as a node wired to nothing, which
+     * from the outside is indistinguishable from it not working.
+     *
+     * `seen` per source rather than a global visited set, since two oscillators can share a chain and
+     * both must light it. It also stops a loop — the router drops looping cables and the rules refuse to
+     * draw them, but this map is built from the raw edges and cannot assume either has run.
+     */
+    const reaches = new Map<NodeId, NodeId[]>()
+    for (const source of fxBySource.keys()) {
+      const found: NodeId[] = []
+      const seen = new Set<NodeId>()
+      const queue = [...(fxBySource.get(source) ?? [])]
+      while (queue.length > 0) {
+        const id = queue.shift() as NodeId
+        if (seen.has(id)) continue
+        seen.add(id)
+        found.push(id)
+        for (const next of fxBySource.get(id) ?? []) queue.push(next)
+      }
+      reaches.set(source, found)
+    }
+
     let processed = 0
     while (this.queue.length > 0 && this.queue[0].time <= horizon) {
       if (++processed > (this.deps.maxEventsPerDrain ?? MAX_EVENTS_PER_TICK)) break
       const event = this.queue.shift() as TriggerEvent
-      this.process(event, patch, nodeById, edgesBySource, edgesByTarget, fxBySource)
+      this.process(event, patch, nodeById, edgesBySource, edgesByTarget, reaches)
     }
   }
 

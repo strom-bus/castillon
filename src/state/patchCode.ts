@@ -761,6 +761,8 @@ function writeWarp(writer: BitWriter, raw: WarpParams): void {
   // Free numbers, so hundredths of their range rather than an index.
   writer.write(quantise((raw.velocity ?? 1) * 50, 1, 0, 200), WARP_LEVEL_BITS)
   writer.write(quantise((raw.chance ?? 1) * 50, 1, 0, 200), WARP_LEVEL_BITS)
+  // On the end, where a new warp field goes. Fiftieths over nought to four, the same as the two above.
+  writer.write(quantise((raw.level ?? 1) * 50, 1, 0, 200), WARP_LEVEL_BITS)
 }
 
 function readWarp(reader: BitReader): WarpParams {
@@ -772,7 +774,8 @@ function readWarp(reader: BitReader): WarpParams {
   const useSlop = reader.read(1) === 1
   const velocity = reader.read(WARP_LEVEL_BITS) / 50
   const chance = reader.read(WARP_LEVEL_BITS) / 50
-  return { transpose, speed, swing, useSwing, slop, useSlop, velocity, chance }
+  const level = reader.read(WARP_LEVEL_BITS) / 50
+  return { transpose, speed, swing, useSwing, slop, useSlop, velocity, chance, level }
 }
 
 /**

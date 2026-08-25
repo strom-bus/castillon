@@ -273,9 +273,19 @@ describe('the presets', () => {
       for (const key of Object.keys(defaults)) {
         const name = `${definition.type}.${key}`
         if (NOT_DEMONSTRABLE.has(name)) continue
-        const moved = mine.some(
-          (params) => JSON.stringify(params[key]) !== JSON.stringify(defaults[key]),
-        )
+        /*
+         * Merged over the defaults before comparing, which this did not do and should have.
+         *
+         * A preset names only the parameters it cares about, so every other key is *absent* — and an
+         * absent key is not the same as a moved one, though `undefined !== 1` says it is. The check was
+         * passing on omission: adding a parameter to a node type satisfied it the moment any preset of
+         * that type existed, whatever the preset actually set. Which is what `fromPatch` does anyway,
+         * since a patch loaded from a code carries a value for every field.
+         */
+        const moved = mine.some((params) => {
+          const merged = { ...defaults, ...params }
+          return JSON.stringify(merged[key]) !== JSON.stringify(defaults[key])
+        })
         if (!moved) missing.push(name)
       }
     }

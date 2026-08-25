@@ -1295,6 +1295,20 @@ export const MANUAL: Section[] = [
             },
           },
           {
+            term: { en: 'Level', es: 'Level' },
+            text: {
+              en: 'How loud the branch below is, as a multiplier. One leaves it alone; a half is half as loud; two is twice, which is worth having because most oscillators sit well under full scale. It is the control for balancing a branch — turning four oscillators down by hand is four edits, and that is the argument this whole module rests on. Stacks by multiplying, so two warps each halving come to a quarter, and stops at full scale rather than asking for more than there is.',
+              es: 'Cuánto suena la rama de abajo, como multiplicador. Uno la deja igual; un medio es la mitad; dos es el doble, que merece la pena porque la mayoría de los osciladores están bastante por debajo de la escala plena. Es el control para equilibrar una rama — bajar cuatro osciladores a mano son cuatro ediciones, y ese es el argumento sobre el que se apoya este módulo entero. Se acumula multiplicando, así que dos warps a la mitad dan un cuarto, y se detiene en escala plena en vez de pedir más de lo que hay.',
+            },
+          },
+          {
+            term: { en: 'Level or Velocity', es: 'Level o Velocity' },
+            text: {
+              en: 'They look alike and are not. **Velocity is a source**: it decides how loud a note lands *and*, wherever a MOD takes its depth from velocity, how far that filter opens — so it stops at one, because past that the loudness would only clip while the filter went on opening. **Level is a level**: it changes how loud the branch is and nothing else, so it can push above one. If you want a branch quieter, reach for Level. If you want it played softer — quieter *and* darker, the way a hand plays softer — reach for Velocity.',
+              es: 'Se parecen y no son lo mismo. **Velocity es una fuente**: decide cuán fuerte cae una nota *y*, allí donde un MOD toma su profundidad de la velocidad, cuánto abre ese filtro — así que se detiene en uno, porque más allá la sonoridad solo recortaría mientras el filtro seguiría abriendo. **Level es un nivel**: cambia cuánto suena la rama y nada más, así que puede pasar de uno. Si quieres una rama más baja, usa Level. Si la quieres *tocada* más suave — más baja **y** más oscura, como toca una mano — usa Velocity.',
+            },
+          },
+          {
             term: { en: 'Velocity', es: 'Velocity' },
             text: {
               en: 'Scales what every note below is worth. It is the way to duck a whole branch under another without touching either oscillator’s gain — and wherever an envelope takes its depth from velocity, a quieter branch also gets smaller sweeps.',

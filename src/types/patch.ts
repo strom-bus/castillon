@@ -559,6 +559,20 @@ export interface WarpParams {
    */
   velocity?: number
   /**
+   * What to multiply every oscillator's output level by below here. 1 leaves it alone.
+   *
+   * **Not the same control as `velocity`, and the difference is the reason for having both.** Velocity is
+   * a *source*: it decides how loud a note is and, wherever a per-note envelope takes its depth from it,
+   * how far that envelope opens — so it is clamped at one, because past that the loudness would only clip
+   * while the envelope went on climbing and the two would part company. This one is a *level*: it scales
+   * the oscillator's own gain and touches nothing else, so it can be pushed above one where velocity
+   * cannot.
+   *
+   * Which is what makes it the control for balancing a branch. Turning down four oscillators by hand is
+   * four edits, and doing it through velocity would quietly close every filter in the branch as well.
+   */
+  level?: number
+  /**
    * What to multiply the chance of every step below by. 1 leaves it alone.
    *
    * It applies whether or not the oscillator uses per-step chance, which is deliberate: "this branch

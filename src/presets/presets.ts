@@ -515,7 +515,8 @@ const chance: Preset = {
 const bend: Preset = {
   id: 'bend',
   name: 'BEND',
-  about: 'One phrase, twice, bent from the side: one moved in pitch, one running at another speed.',
+  about:
+    'One phrase, twice, bent from the side: one moved in pitch, one at another speed, one pulled back.',
   patch: patchOf(
     100,
     [
@@ -557,7 +558,16 @@ const bend: Preset = {
       warp('slow', 3, 1, { transpose: 0, speed: 2 / 3 }),
       // On the bass, which is already being moved by the warp above it. Attached in two places and
       // both arrive: the pitch from up the branch, the thinning from here.
-      warp('thin', 2, 2, { transpose: 0, chance: 0.85 }),
+      /*
+       * Thinner *and* softer, on the branch below — two dimensions of one warp doing what a warp is for:
+       * one node balancing a whole branch that four edits would otherwise take.
+       *
+       * Level and Velocity are both here on purpose, and they are not the same control. Velocity makes the
+       * notes land softer *and* closes any per-note filter it feeds, because velocity is a source. Level
+       * only changes how loud the branch is. Set together they read as one gesture — pull the low line back
+       * — and each is doing a different half of it.
+       */
+      warp('thin', 2, 2, { transpose: 0, chance: 0.85, velocity: 0.8, level: 0.7 }),
       osc('low', 1, 2, {
         waveform: 'sawtooth',
         steps: steps([note(0, -1), null, note(5, -2), null]),

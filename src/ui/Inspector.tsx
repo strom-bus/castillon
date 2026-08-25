@@ -1266,6 +1266,19 @@ export function Inspector() {
           />
         )}
 
+        {/* Above Velocity, because it is the one most people are reaching for: balancing a branch. The two
+            look alike and are not — see `WarpParams.level`. Velocity is a source and closes filters with
+            it; this only changes how loud the branch is. */}
+        <Slider
+          label="Level"
+          value={Math.round((warpParams.level ?? 1) * 100) / 100}
+          min={0}
+          max={2}
+          step={0.05}
+          suffix="x"
+          onChange={(level) => updateParams(node.id, { level })}
+        />
+
         <Slider
           label="Velocity"
           value={Math.round((warpParams.velocity ?? 1) * 100) / 100}

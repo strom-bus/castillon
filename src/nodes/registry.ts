@@ -226,7 +226,7 @@ const sieve: NodeDefinition = {
 
 export function defaultWarpParams(): WarpParams {
   // Every dimension at its neutral point, so a warp just added does nothing until it is asked to.
-  return { transpose: 0, speed: 1, velocity: 1, chance: 1 }
+  return { transpose: 0, speed: 1, velocity: 1, chance: 1, level: 1 }
 }
 
 /**
@@ -281,6 +281,8 @@ export interface Warping {
   speed: number
   velocity: number
   chance: number
+  /** Output level, multiplied — which is not velocity. See `WarpParams.level`. */
+  level: number
   /** The long half of a step pair against the short. 1 is straight, and also multiplied. */
   swing: number
   /** How far a note may fall from where it was written, as a share of the shortest gap. Added. */
@@ -292,6 +294,7 @@ export const NO_WARPING: Warping = {
   speed: 1,
   velocity: 1,
   chance: 1,
+  level: 1,
   swing: 1,
   slop: 0,
 }
@@ -315,6 +318,7 @@ export function warpingOf(nodes: PatchNode[], applying: readonly NodeId[]): Warp
     total.speed *= clamp(params.speed ?? 1, MIN_WARP_RATIO, MAX_WARP_RATIO)
     total.velocity *= clamp(params.velocity ?? 1, 0, MAX_WARP_RATIO)
     total.chance *= clamp(params.chance ?? 1, 0, MAX_WARP_RATIO)
+    total.level *= clamp(params.level ?? 1, 0, MAX_WARP_RATIO)
     // Only where the switch is on, which is what makes it a bypass rather than a second neutral point:
     // the ratio is remembered while off, so a groove can be listened to straight and put back.
     if (params.useSwing) total.swing *= clamp(params.swing ?? 1, MIN_SWING, MAX_SWING)
@@ -592,7 +596,16 @@ const osc: NodeDefinition = {
           waveform: params.waveform ?? 'square',
           pulseWidth: params.pulseWidth ?? 0.5,
           duration: slot * params.gate,
-          gain: params.gain * rolled,
+          /*
+           * The oscillator's own gain, the step's rolled velocity, and whatever the branch is being
+           * levelled by. Clamped at one, which is full scale: a branch already there cannot be made
+           * louder, and one at a quarter — which is where most of them sit — has four times to give.
+           *
+           * Clamped here and not in `warpingOf`, because the ceiling belongs to the *note* and not to the
+           * warp: two warps each asking for double is a fourfold ask, and whether that fits depends on
+           * how loud the oscillator was to begin with.
+           */
+          gain: clamp(params.gain * rolled * warping.level, 0, 1),
           velocity: rolled,
           attack: params.attack,
           decay: params.decay ?? 0,

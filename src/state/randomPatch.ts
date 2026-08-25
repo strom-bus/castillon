@@ -639,6 +639,9 @@ export function randomPatch(random: () => number = Math.random): Patch {
       [{ transpose: 0, speed: c.pick([0.5, 2 / 3, 1.5, 2]) }, 3],
       [{ transpose: 0, chance: c.range(55, 90) / 100 }, 2],
       [{ transpose: 0, velocity: c.range(40, 80) / 100 }, 1],
+      // Balancing a branch, which is what most warps are actually for. Down more often than up, since a
+      // rolled patch that pushes a branch past the others reads as a mistake rather than as a mix.
+      [{ transpose: 0, level: c.pick([0.4, 0.55, 0.7, 1.4]) }, 2],
     ])
 
     const warp = add({

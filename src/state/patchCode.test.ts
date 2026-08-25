@@ -721,15 +721,17 @@ describe('modulation in the code', () => {
       return back.nodes.find((node) => node.type === 'warp')!.params as WarpParams
     }
 
-    it('keeps all five, not just the one it started with', () => {
+    it('keeps every one of them, not just the one it started with', () => {
       const out = through({
         transpose: 3,
         speed: 0.5,
         velocity: 0.6,
         chance: 0.7,
+        level: 1.4,
         swing: 1.5,
         useSwing: true,
       })
+      expect(out.level).toBeCloseTo(1.4, 5)
       expect(out.transpose).toBe(3)
       expect(out.speed).toBeCloseTo(0.5, 5)
       expect(out.velocity).toBeCloseTo(0.6, 5)
@@ -769,6 +771,7 @@ describe('modulation in the code', () => {
       expect(out.speed).toBeCloseTo(1, 5)
       expect(out.velocity).toBeCloseTo(1, 5)
       expect(out.chance).toBeCloseTo(1, 5)
+      expect(out.level).toBeCloseTo(1, 5)
       expect(out.useSwing).toBe(false)
     })
   })

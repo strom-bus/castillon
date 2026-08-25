@@ -96,6 +96,21 @@ refused, since between an oscillator and an effect there is only one direction t
   is that a climbing wave will not follow an upward cable, or it would arrive straight back at the IGNITE
   it came from.
 
+- **A WARP's Level**, which turns a whole branch up or down from one node. Turning four oscillators down
+  by hand is four edits, and that is the argument the whole module rests on.
+
+  It looks like the Velocity that was already there and is not the same control, which is the reason for
+  having both. **Velocity is a source**: it decides how loud a note lands _and_, wherever a MOD takes its
+  depth from velocity, how far that filter opens — so it stops at one, because past that the loudness
+  would only clip while the filter went on opening. **Level is a level**: it scales the oscillator's own
+  gain and touches nothing else, so it can push above one, which is worth having because most oscillators
+  sit well under full scale. Want a branch quieter, reach for Level; want it _played_ softer — quieter and
+  darker, the way a hand plays softer — reach for Velocity.
+
+  Multiplies like every other ratio here, so two warps each halving come to a quarter, and the ceiling is
+  applied to the **note** rather than to the warp: two warps each asking for double is a fourfold ask, and
+  whether that fits depends on how loud the oscillator was to begin with.
+
 - **Sequence direction** — forward, reverse or ping-pong — and **only the notes turn round.** Where each
   slot falls, how long it lasts and which half of a swung pair it is are all decided by position in the
   pass; what moves is the content of the slot. So a reversed phrase still swings forward, which is what a
@@ -401,7 +416,7 @@ refused, since between an oscillator and an effect there is only one direction t
   it longer without making it clearer. Both languages live adjacent in one file so a half-finished
   edit shows up in the diff rather than as a blank paragraph months later.
 
-  Fourteen chapters and a hundred and fifty-five entries, written for whoever is using the instrument
+  Fourteen chapters and a hundred and fifty-seven entries, written for whoever is using the instrument
   rather than for whoever built it: no entry explains how something is implemented, and every one says
   what a control does to the sound and when you would reach for it. One chapter per module, each in
   the order its own panel is in and under the panel's own group headings, so reading the manual and

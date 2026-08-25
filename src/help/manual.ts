@@ -1433,12 +1433,12 @@ export const MANUAL: Section[] = [
         es: 'Un FOLLOW se engancha a un nodo como un MOD, y es lo mismo con una diferencia: su forma no es propia. Escucha una rama y mueve un parámetro con lo fuerte que suene esa rama. Nada fija su velocidad más que el sonido que entra en él.',
       },
       {
-        en: 'Its two sides are not the same, and it is the only node here where that is true. Audio comes in the left. Modulation goes out the right. So one FOLLOW reads one branch and moves another, and the two cables are never confused for each other.',
-        es: 'Sus dos costados no son iguales, y es el único nodo de aquí donde eso pasa. El audio entra por la izquierda. La modulación sale por la derecha. Así un FOLLOW lee una rama y mueve otra, y los dos cables no se confunden nunca.',
+        en: 'Its two sides are not the same, which is true of this and of FM and of nothing else here. Audio comes in the left. Modulation goes out the right. So one FOLLOW reads one branch and moves another, and the two cables are never confused for each other.',
+        es: 'Sus dos costados no son iguales, cosa que pasa en este y en FM y en ningún otro de aquí. El audio entra por la izquierda. La modulación sale por la derecha. Así un FOLLOW lee una rama y mueve otra, y los dos cables no se confunden nunca.',
       },
       {
-        en: 'What it is for: making one branch get out of the way of another, opening a filter with how hard something is being played, or holding an effect open while a line is busy and letting it close in the gaps. The DUCK preset does the first of those with a trigger instead, and it is worth hearing both — a trigger cannot mistime and a follower cannot miss a note it was not told about.',
-        es: 'Para qué sirve: que una rama se aparte de otra, abrir un filtro con lo fuerte que se esté tocando algo, o mantener un efecto abierto mientras una línea está ocupada y dejarlo cerrar en los huecos. El preset DUCK hace lo primero pero con un disparo, y vale la pena oír los dos — un disparo no puede desajustarse y un seguidor no puede perderse una nota de la que no le avisaron.',
+        en: 'What it is for: making one branch get out of the way of another, opening a filter with how hard something is being played, or holding an effect open while a line is busy and letting it close in the gaps. Two presets are the same idea keyed two ways — SHADOW listens, DUCK is fired by a trigger — and it is worth hearing both: a trigger cannot mistime, and a follower cannot miss a note it was not told about.',
+        es: 'Para qué sirve: que una rama se aparte de otra, abrir un filtro con lo fuerte que se esté tocando algo, o mantener un efecto abierto mientras una línea está ocupada y dejarlo cerrar en los huecos. Dos presets son la misma idea disparada de dos maneras — SHADOW escucha, DUCK va con un disparo — y vale la pena oír los dos: un disparo no puede desajustarse, y un seguidor no puede perderse una nota de la que no le avisaron.',
       },
     ],
     detail: [
@@ -1648,6 +1648,13 @@ export const MANUAL: Section[] = [
             text: {
               en: 'How loud the whole thing is. It is not a mixer: use an oscillator’s Gain to balance one voice against another, and leave this for the room.',
               es: 'Lo fuerte que suena todo. No es una mesa de mezclas: usa el Gain de un oscilador para equilibrar una voz frente a otra, y deja esto para la sala.',
+            },
+          },
+          {
+            term: { en: 'The dot beside VOL', es: 'El punto al lado de VOL' },
+            text: {
+              en: 'It lights when the output is loud enough that the limiter starts holding it back. Nothing is breaking — the master runs into a limiter before the speakers, so a signal past what fits is squashed rather than torn — but a squashed mix is not the mix you wrote, and nothing else on screen would say so. Turn VOL down, or the branch that is doing it. It is here rather than on the load meter on purpose: that bar measures *work*, and this is *level*. A patch can light this at a tenth of the budget with one loud oscillator, and sit at ninety-five per cent without ever reaching the limiter.',
+              es: 'Se enciende cuando la salida está lo bastante fuerte como para que el limitador empiece a retenerla. No se rompe nada — el máster pasa por un limitador antes de los altavoces, así que una señal pasada se aplasta en vez de romperse — pero una mezcla aplastada no es la mezcla que escribiste, y nada más en pantalla lo diría. Baja el VOL, o la rama que lo está provocando. Está aquí y no en el medidor de carga a propósito: esa barra mide *trabajo* y esto es *nivel*. Un patch puede encender esto con un décimo del presupuesto y un oscilador fuerte, y estar al noventa y cinco por ciento sin llegar nunca al limitador.',
             },
           },
         ],

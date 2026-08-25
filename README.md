@@ -581,7 +581,7 @@ refused, since between an oscillator and an effect there is only one direction t
   it longer without making it clearer. Both languages live adjacent in one file so a half-finished
   edit shows up in the diff rather than as a blank paragraph months later.
 
-  Fifteen chapters and a hundred and eighty entries, written for whoever is using the instrument
+  Fifteen chapters and a hundred and eighty-one entries, written for whoever is using the instrument
   rather than for whoever built it: no entry explains how something is implemented, and every one says
   what a control does to the sound and when you would reach for it. One chapter per module, each in
   the order its own panel is in and under the panel's own group headings, so reading the manual and

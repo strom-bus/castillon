@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { readFileSync } from 'node:fs'
 import { detailTerms, MANUAL, type Passage } from './manual'
 import { preferredLanguage } from './language'
 
@@ -124,10 +125,18 @@ describe('the examples under a control', () => {
     // translation of three words is not something anybody notices.
     for (const { section, term } of withExamples) {
       for (const example of term.examples!) {
-        expect(example.at.trim().length, `${section}/${term.term.en}: a setting with no value`)
-          .toBeGreaterThan(0)
-        expect(example.is.en.trim().length, `${section}/${term.term.en}: no English`).toBeGreaterThan(0)
-        expect(example.is.es.trim().length, `${section}/${term.term.en}: no Spanish`).toBeGreaterThan(0)
+        expect(
+          example.at.trim().length,
+          `${section}/${term.term.en}: a setting with no value`,
+        ).toBeGreaterThan(0)
+        expect(
+          example.is.en.trim().length,
+          `${section}/${term.term.en}: no English`,
+        ).toBeGreaterThan(0)
+        expect(
+          example.is.es.trim().length,
+          `${section}/${term.term.en}: no Spanish`,
+        ).toBeGreaterThan(0)
       }
     }
   })
@@ -145,8 +154,12 @@ describe('the examples under a control', () => {
     // scannable — which was the entire reason for taking these out of the paragraph.
     for (const { section, term } of withExamples) {
       for (const example of term.examples!) {
-        expect(example.is.en.length, `${section}/${term.term.en}: "${example.is.en}"`).toBeLessThan(60)
-        expect(example.is.es.length, `${section}/${term.term.en}: "${example.is.es}"`).toBeLessThan(60)
+        expect(example.is.en.length, `${section}/${term.term.en}: "${example.is.en}"`).toBeLessThan(
+          60,
+        )
+        expect(example.is.es.length, `${section}/${term.term.en}: "${example.is.es}"`).toBeLessThan(
+          60,
+        )
         expect(example.at.length, `${section}/${term.term.en}: "${example.at}"`).toBeLessThan(12)
       }
     }
@@ -168,5 +181,33 @@ describe('the examples under a control', () => {
         ).toBe(false)
       }
     }
+  })
+})
+
+/**
+ * That an entry carries at most one set of readings, read out of the source rather than the data.
+ *
+ * A duplicate key in an object literal is legal JavaScript — the last one silently wins — so by the time
+ * the manual is a value there is nothing left to find. It has to be caught in the text, and it is worth
+ * catching: writing these rows put two `examples` on one entry three separate times, and TypeScript,
+ * the linter and the formatter all passed it through without a word. The reader would simply have seen
+ * one control's readings under another's name.
+ */
+describe('the source of the manual', () => {
+  const source = readFileSync('src/help/manual.ts', 'utf8')
+
+  it('never gives one entry two sets of readings', () => {
+    const doubled: string[] = []
+    for (const match of source.matchAll(/term: \{ en: '([^']+)'/g)) {
+      const next = source.indexOf("term: { en: '", match.index! + 10)
+      const entry = source.slice(match.index!, next < 0 ? source.length : next)
+      if ((entry.match(/examples: \[/g) ?? []).length > 1) doubled.push(match[1]!)
+    }
+    expect(doubled, `two sets of readings on: ${doubled.join(', ')}`).toEqual([])
+  })
+
+  it('found entries to check, so a broken reader cannot pass by finding none', () => {
+    expect([...source.matchAll(/term: \{ en: '/g)].length).toBeGreaterThan(100)
+    expect([...source.matchAll(/examples: \[/g)].length).toBeGreaterThan(10)
   })
 })

@@ -145,3 +145,43 @@ describe('why a transform may be doing nothing', () => {
     expect(why).toBeNull()
   })
 })
+
+/**
+ * A warp on a branch the fire **climbs**, which the reach was never taught about.
+ *
+ * The engine carries a warp along the trigger — `warpsOn` adds whatever hangs on each node the trigger
+ * reaches, and the trigger reaches upward as readily as down since the IGNITE grew a second port. This
+ * reach walks event cables from source to target only, so on a climbing branch it walks them backwards
+ * and credits the warp to nothing.
+ *
+ * The failure is the quiet kind: the notes *are* transposed, and the canvas says they are not. Nothing
+ * throws, nothing looks wrong, and the panel will tell you a warp that is working is doing nothing.
+ */
+describe('a warp on a branch that climbs', () => {
+  /** An IGNITE lighting `a` from its upward port; the fire then climbs the cable drawn from `b` to `a`. */
+  const climbing = (): { nodes: PatchNode[]; edges: PatchEdge[] } => ({
+    nodes: [node('i', 'start'), node('a', 'osc'), node('b', 'osc'), node('w', 'warp', 5)],
+    edges: [{ ...edge('i', 'a'), up: true }, edge('b', 'a'), shift('w', 'a')],
+  })
+
+  it('moves the node it is attached to', () => {
+    const { nodes, edges } = climbing()
+    expect(transposeByNode(nodes, edges).get('a')).toBe(5)
+  })
+
+  it('moves what the fire reaches from there, upward included', () => {
+    // The trigger goes i → a and then climbs a → b, so `b` is under the warp exactly as it would be
+    // under a warp on a descending branch.
+    const { nodes, edges } = climbing()
+    expect(transposeByNode(nodes, edges).get('b')).toBe(5)
+  })
+
+  it('still stops at a branch the fire never reaches', () => {
+    // The other direction, so the fix is not "reach everywhere": a node hanging below `a` is not on the
+    // climb and must stay untouched.
+    const { nodes, edges } = climbing()
+    nodes.push(node('c', 'osc'))
+    edges.push(edge('a', 'c'))
+    expect(transposeByNode(nodes, edges).get('c') ?? 0).toBe(0)
+  })
+})

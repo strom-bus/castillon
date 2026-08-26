@@ -868,9 +868,26 @@ export const MANUAL: Section[] = [
           {
             term: { en: 'Volume', es: 'Volume' },
             text: {
-              en: 'How loud this one note is. It is how a flat row of notes becomes a line with an accent in it, and it does two jobs at once: wherever a MOD envelope is set to scale by velocity, a quiet step also gets a smaller sweep.',
-              es: 'Lo fuerte que suena esta nota. Es como una fila plana de notas se convierte en una línea con acento, y hace dos trabajos a la vez: donde una envolvente de MOD esté puesta para escalar por velocidad, un paso suave recibe además un barrido más pequeño.',
+              en: 'How loud this one note is, from 0 to 1. It is how a flat row of notes becomes a line with an accent in it, and it does two jobs at once: wherever a MOD envelope is set to scale by velocity, a quiet step also gets a smaller sweep.',
+              es: 'Lo fuerte que suena esta nota, de 0 a 1. Es como una fila plana de notas se convierte en una línea con acento, y hace dos trabajos a la vez: donde una envolvente de MOD esté puesta para escalar por velocidad, un paso suave recibe además un barrido más pequeño.',
             },
+            examples: [
+              {
+                at: '0.4',
+                is: { en: 'a ghost note under the line', es: 'una nota fantasma bajo la línea' },
+              },
+              {
+                at: '0.7',
+                is: { en: 'where an unaccented step sits', es: 'donde vive un paso sin acento' },
+              },
+              {
+                at: '1',
+                is: {
+                  en: 'the accent the rest are measured against',
+                  es: 'el acento contra el que se miden los demás',
+                },
+              },
+            ],
           },
           {
             term: { en: 'Mute', es: 'Mute' },
@@ -889,16 +906,44 @@ export const MANUAL: Section[] = [
           {
             term: { en: 'Ratchet', es: 'Ratchet' },
             text: {
-              en: 'How many hits this step fires, one to four. They divide the step between them, so the sequence stays in time and the step gets faster inside itself. One hit on a sixteen-step line is an accent; four is a snare roll.',
-              es: 'Cuántos golpes dispara este paso, de uno a cuatro. Se reparten el paso entre ellos, así que la secuencia sigue en tiempo y el paso se acelera por dentro. Un golpe en una línea de dieciséis pasos es un acento; cuatro son un redoble de caja.',
+              en: 'How many hits this step fires, one to four. They divide the step between them, so the sequence stays in time and the step gets faster inside itself.',
+              es: 'Cuántos golpes dispara este paso, de uno a cuatro. Se reparten el paso entre ellos, así que la secuencia sigue en tiempo y el paso se acelera por dentro.',
             },
+            examples: [
+              { at: '1', is: { en: 'an ordinary note', es: 'una nota normal' } },
+              {
+                at: '2',
+                is: { en: 'a flam: the step doubles', es: 'un mordente: el paso se dobla' },
+              },
+              {
+                at: '4',
+                is: { en: 'a snare roll inside one step', es: 'un redoble dentro de un paso' },
+              },
+            ],
           },
           {
             term: { en: 'Roll', es: 'Roll' },
             text: {
-              en: 'How the hits of a roll change in level, and it only appears once there are two of them. Zero is flat, upward fades the roll away, downward makes it swell into the next step. A fading roll is the one that sounds like a real one — four even hits sound like four notes stuck together.',
-              es: 'Cómo cambian de nivel los golpes de un redoble, y solo aparece cuando hay dos. Cero es plano, hacia arriba lo desvanece, hacia abajo lo hace crecer hacia el paso siguiente. Un redoble que se apaga es el que suena de verdad — cuatro golpes iguales suenan a cuatro notas pegadas.',
+              en: 'How the hits of a roll change in level, from −1 to 1, and it only appears once there are two of them. A fading roll is the one that sounds like a real one — four even hits sound like four notes stuck together.',
+              es: 'Cómo cambian de nivel los golpes de un redoble, de −1 a 1, y solo aparece cuando hay dos. Un redoble que se apaga es el que suena de verdad — cuatro golpes iguales suenan a cuatro notas pegadas.',
             },
+            examples: [
+              {
+                at: '0',
+                is: { en: 'flat: four notes stuck together', es: 'plano: cuatro notas pegadas' },
+              },
+              {
+                at: '0.6',
+                is: {
+                  en: 'fades away, like a real roll',
+                  es: 'se apaga, como un redoble de verdad',
+                },
+              },
+              {
+                at: '-0.6',
+                is: { en: 'swells into the next step', es: 'crece hacia el paso siguiente' },
+              },
+            ],
           },
           {
             term: { en: 'Glide', es: 'Glide' },
@@ -994,9 +1039,23 @@ export const MANUAL: Section[] = [
           {
             term: { en: 'Wait', es: 'Wait' },
             text: {
-              en: 'How long it holds the trigger, in milliseconds. Nought passes it straight on, which is where it starts. Type a figure into the readout when you want an exact one and drag when you are listening for it. Short waits thicken a doubled line; long ones turn a second branch into an answer to the first.',
-              es: 'Cuánto retiene el disparo, en milisegundos. Cero lo pasa directo, que es donde empieza. Escribe una cifra en el lector cuando quieras una exacta y arrastra cuando la busques de oído. Las esperas cortas engordan una línea doblada; las largas convierten una segunda rama en una respuesta a la primera.',
+              en: 'How long it holds the trigger, from 0 to 4000 ms. Nought passes it straight on, which is where it starts. Type a figure into the readout when you want an exact one and drag when you are listening for it.',
+              es: 'Cuánto retiene el disparo, de 0 a 4000 ms. Cero lo pasa directo, que es donde empieza. Escribe una cifra en el lector cuando quieras una exacta y arrastra cuando la busques de oído.',
             },
+            examples: [
+              { at: '0', is: { en: 'a wire: straight through', es: 'un cable: pasa directo' } },
+              {
+                at: '20 ms',
+                is: { en: 'thickens a doubled line', es: 'engorda una línea doblada' },
+              },
+              {
+                at: '600 ms',
+                is: {
+                  en: 'a second branch answers the first',
+                  es: 'una segunda rama responde a la primera',
+                },
+              },
+            ],
           },
         ],
       },
@@ -1013,9 +1072,20 @@ export const MANUAL: Section[] = [
           {
             term: { en: 'Every', es: 'Every' },
             text: {
-              en: 'How long the run is. At one it counts nothing and everything goes through, which is where it starts. At two the branch below happens every other time round, at four every fourth, and past about eight it stops being a rhythm and becomes a surprise.',
-              es: 'Cuánto dura la tanda. En uno no cuenta nada y pasa todo, que es donde empieza. En dos, la rama de abajo ocurre una vuelta sí y otra no; en cuatro, una de cada cuatro; y pasado ocho deja de ser un ritmo y se vuelve una sorpresa.',
+              en: 'How long the run is, from 1 to 16. At one it counts nothing and everything goes through, which is where it starts.',
+              es: 'Cuánto dura la tanda, de 1 a 16. En uno no cuenta nada y pasa todo, que es donde empieza.',
             },
+            examples: [
+              { at: '1', is: { en: 'everything goes through', es: 'pasa todo' } },
+              { at: '2', is: { en: 'every other time round', es: 'una vuelta sí y otra no' } },
+              {
+                at: '8+',
+                is: {
+                  en: 'stops being a rhythm, becomes a surprise',
+                  es: 'deja de ser ritmo, se vuelve sorpresa',
+                },
+              },
+            ],
           },
           {
             term: { en: 'On pass', es: 'On pass' },
@@ -1027,9 +1097,26 @@ export const MANUAL: Section[] = [
           {
             term: { en: 'Chance', es: 'Chance' },
             text: {
-              en: 'And how often it lets one through when the count says it may. A hundred per cent is always, which is where it starts. All three conditions compose: a branch can happen on every other pass, only most of the time, and a quarter of a second late — which is a thing that repeats without being predictable.',
-              es: 'Y cada cuánto deja pasar cuando la cuenta lo permite. Cien por cien es siempre, que es donde empieza. Las tres condiciones se combinan: una rama puede ocurrir una vuelta sí y otra no, solo casi siempre, y un cuarto de segundo tarde — que es algo que se repite sin ser previsible.',
+              en: 'And how often it lets one through when the count says it may, from 0 to 100 per cent. All three conditions compose: a branch can happen on every other pass, only most of the time, and a quarter of a second late — which is a thing that repeats without being predictable.',
+              es: 'Y cada cuánto deja pasar cuando la cuenta lo permite, de 0 a 100 por ciento. Las tres condiciones se combinan: una rama puede ocurrir una vuelta sí y otra no, solo casi siempre, y un cuarto de segundo tarde — que es algo que se repite sin ser previsible.',
             },
+            examples: [
+              {
+                at: '100%',
+                is: { en: 'always, which is where it starts', es: 'siempre, que es donde empieza' },
+              },
+              {
+                at: '75%',
+                is: { en: 'reliable with the odd gap', es: 'fiable con algún hueco suelto' },
+              },
+              {
+                at: '25%',
+                is: {
+                  en: 'rare enough to be an event',
+                  es: 'raro como para ser un acontecimiento',
+                },
+              },
+            ],
           },
         ],
       },
@@ -1377,9 +1464,32 @@ export const MANUAL: Section[] = [
           {
             term: { en: 'Pitch', es: 'Pitch' },
             text: {
-              en: 'Moves every note below it. On an oscillator with a scale it moves by degrees of that scale, and on a free one by semitones — so a bass in Pentatonic and a lead in Minor can both move a third and both stay in key. One control, transposing a whole branch, without editing a single step.',
-              es: 'Mueve todas las notas de debajo. En un oscilador con escala se mueve por grados de esa escala, y en uno libre por semitonos — así un bajo en Pentatonic y un lead en Minor pueden moverse los dos una tercera y quedarse los dos en tono. Un control que transporta una rama entera sin editar ni un paso.',
+              en: 'Moves every note the fire reaches from here, by up to fourteen steps either way. On an oscillator with a scale it moves by degrees of that scale, and on a free one by semitones — so a bass in Pentatonic and a lead in Minor can both move a third and both stay in key. One control, transposing a whole branch, without editing a single step.',
+              es: 'Mueve todas las notas que el fuego alcance desde aquí, hasta catorce grados a cada lado. En un oscilador con escala se mueve por grados de esa escala, y en uno libre por semitonos — así un bajo en Pentatonic y un lead en Minor pueden moverse los dos una tercera y quedarse los dos en tono. Un control que transporta una rama entera sin editar ni un paso.',
             },
+            examples: [
+              {
+                at: '+2',
+                is: {
+                  en: 'a second up: a lift you barely name',
+                  es: 'una segunda arriba: un realce que ni nombras',
+                },
+              },
+              {
+                at: '+4',
+                is: {
+                  en: 'a third: the branch is a harmony now',
+                  es: 'una tercera: la rama ya es una armonía',
+                },
+              },
+              {
+                at: '-7',
+                is: {
+                  en: 'an octave down in most scales',
+                  es: 'una octava abajo en casi toda escala',
+                },
+              },
+            ],
           },
         ],
       },
@@ -1389,9 +1499,32 @@ export const MANUAL: Section[] = [
           {
             term: { en: 'Level', es: 'Level' },
             text: {
-              en: 'How loud the branch below is, as a multiplier. One leaves it alone; a half is half as loud; two is twice, which is worth having because most oscillators sit well under full scale. It is the control for balancing a branch — turning four oscillators down by hand is four edits, and that is the argument this whole module rests on. Stacks by multiplying, so two warps each halving come to a quarter, and stops at full scale rather than asking for more than there is.',
-              es: 'Cuánto suena la rama de abajo, como multiplicador. Uno la deja igual; un medio es la mitad; dos es el doble, que merece la pena porque la mayoría de los osciladores están bastante por debajo de la escala plena. Es el control para equilibrar una rama — bajar cuatro osciladores a mano son cuatro ediciones, y ese es el argumento sobre el que se apoya este módulo entero. Se acumula multiplicando, así que dos warps a la mitad dan un cuarto, y se detiene en escala plena en vez de pedir más de lo que hay.',
+              en: 'How loud the branch is, as a multiplier from 0 to 2. It is the control for balancing a branch — turning four oscillators down by hand is four edits, and that is the argument this whole module rests on. Stacks by multiplying, so two warps each halving come to a quarter, and stops at full scale rather than asking for more than there is.',
+              es: 'Cuánto suena la rama, como multiplicador de 0 a 2. Es el control para equilibrar una rama — bajar cuatro osciladores a mano son cuatro ediciones, y ese es el argumento sobre el que se apoya este módulo entero. Se acumula multiplicando, así que dos warps a la mitad dan un cuarto, y se detiene en escala plena en vez de pedir más de lo que hay.',
             },
+            examples: [
+              {
+                at: '0.5',
+                is: {
+                  en: 'half as loud: the branch steps back',
+                  es: 'la mitad: la rama da un paso atrás',
+                },
+              },
+              {
+                at: '1',
+                is: {
+                  en: 'left alone, which is where it starts',
+                  es: 'tal cual, que es donde empieza',
+                },
+              },
+              {
+                at: '2',
+                is: {
+                  en: 'twice, if the oscillators had room',
+                  es: 'el doble, si a los osciladores les sobraba sitio',
+                },
+              },
+            ],
           },
           {
             term: { en: 'Level or Velocity', es: 'Level o Velocity' },
@@ -1403,16 +1536,44 @@ export const MANUAL: Section[] = [
           {
             term: { en: 'Velocity', es: 'Velocity' },
             text: {
-              en: 'Scales what every note below is worth. It is the way to duck a whole branch under another without touching either oscillator’s gain — and wherever an envelope takes its depth from velocity, a quieter branch also gets smaller sweeps.',
-              es: 'Escala lo que vale cada nota de debajo. Es la manera de meter una rama entera por debajo de otra sin tocar el gain de ningún oscilador — y donde una envolvente tome su profundidad de la velocidad, una rama más suave recibe además barridos más pequeños.',
+              en: 'Scales what every note is worth, as a multiplier from 0 to 2. It is the way to duck a whole branch under another without touching either oscillator’s gain — and wherever an envelope takes its depth from velocity, a quieter branch also gets smaller sweeps. Which is the difference from Level, and the reason both exist.',
+              es: 'Escala lo que vale cada nota, como multiplicador de 0 a 2. Es la manera de meter una rama entera por debajo de otra sin tocar el gain de ningún oscilador — y donde una envolvente tome su profundidad de la velocidad, una rama más suave recibe además barridos más pequeños. Que es la diferencia con Level, y la razón de que existan los dos.',
             },
+            examples: [
+              {
+                at: '0.4',
+                is: {
+                  en: 'played softer: quieter and darker',
+                  es: 'tocada más suave: más baja y más oscura',
+                },
+              },
+              { at: '1', is: { en: 'as written', es: 'tal como está escrito' } },
+              {
+                at: '2',
+                is: { en: 'leans on it, up to full scale', es: 'se apoya, hasta la escala plena' },
+              },
+            ],
           },
           {
             term: { en: 'Chance', es: 'Chance' },
             text: {
-              en: 'Thins the branch out. It applies whether or not the oscillators below use per-step chance, which is the useful part: "this whole branch happens half the time" is worth wanting without setting a chance on sixteen steps first.',
-              es: 'Ralea la rama. Se aplica usen o no los osciladores de debajo la probabilidad por paso, y eso es lo útil: «esta rama entera pasa la mitad de las veces» merece la pena sin haber puesto antes una probabilidad en dieciséis pasos.',
+              en: 'Thins the branch out, as a multiplier from 0 to 2. It applies whether or not the oscillators below use per-step chance, which is the useful part: "this whole branch happens half the time" is worth wanting without setting a chance on sixteen steps first. Above one it makes unlikely steps likelier, which is how one warp turns a sparse branch dense.',
+              es: 'Ralea la rama, como multiplicador de 0 a 2. Se aplica usen o no los osciladores de debajo la probabilidad por paso, y eso es lo útil: «esta rama entera pasa la mitad de las veces» merece la pena sin haber puesto antes una probabilidad en dieciséis pasos. Por encima de uno hace más probables los pasos improbables, que es como un warp vuelve densa una rama rala.',
             },
+            examples: [
+              { at: '0', is: { en: 'the branch never happens', es: 'la rama no ocurre nunca' } },
+              {
+                at: '0.5',
+                is: { en: 'about half the time', es: 'alrededor de la mitad de las veces' },
+              },
+              {
+                at: '2',
+                is: {
+                  en: 'doubles the odds of every step',
+                  es: 'dobla las probabilidades de cada paso',
+                },
+              },
+            ],
           },
         ],
       },
@@ -1450,9 +1611,26 @@ export const MANUAL: Section[] = [
           {
             term: { en: 'Looseness', es: 'Looseness' },
             text: {
-              en: 'How far a note may fall from its place — measured against the shortest gap in that oscillator’s own sequence, not in milliseconds. Which is why one setting sounds the same everywhere: thirty milliseconds is nothing in a slow bass and total chaos in a fast line with a heavy swing, so a fixed time would have to be re-dialled on every branch. At its most, two notes can meet and never cross: a note landing before the one in front of it does not sound loose, it sounds broken.',
-              es: 'Cuánto puede caerse una nota de su sitio — medido contra el hueco más corto de la secuencia de ese oscilador, no en milisegundos. Por eso un mismo ajuste suena igual en todas partes: treinta milisegundos no son nada en un bajo lento y son un caos en una línea rápida con swing fuerte, así que un tiempo fijo habría que reajustarlo en cada rama. Al máximo, dos notas pueden juntarse y nunca cruzarse: una nota que cae antes que la anterior no suena floja, suena rota.',
+              en: 'How far a note may fall from its place, from 0 to 0.5 — measured against the shortest gap in that oscillator’s own sequence, not in milliseconds. Which is why one setting sounds the same everywhere: thirty milliseconds is nothing in a slow bass and total chaos in a fast line with a heavy swing, so a fixed time would have to be re-dialled on every branch. At its most, two notes can meet and never cross: a note landing before the one in front of it does not sound loose, it sounds broken.',
+              es: 'Cuánto puede caerse una nota de su sitio, de 0 a 0.5 — medido contra el hueco más corto de la secuencia de ese oscilador, no en milisegundos. Por eso un mismo ajuste suena igual en todas partes: treinta milisegundos no son nada en un bajo lento y son un caos en una línea rápida con swing fuerte, así que un tiempo fijo habría que reajustarlo en cada rama. Al máximo, dos notas pueden juntarse y nunca cruzarse: una nota que cae antes que la anterior no suena floja, suena rota.',
             },
+            examples: [
+              { at: '0.05', is: { en: 'a hand, not a machine', es: 'una mano, no una máquina' } },
+              {
+                at: '0.2',
+                is: {
+                  en: 'audibly loose, still in time',
+                  es: 'audiblemente floja, todavía a tiempo',
+                },
+              },
+              {
+                at: '0.5',
+                is: {
+                  en: 'notes crowd right up to each other',
+                  es: 'las notas se apiñan unas contra otras',
+                },
+              },
+            ],
           },
         ],
       },
@@ -1461,8 +1639,8 @@ export const MANUAL: Section[] = [
           {
             term: { en: 'How far it reaches', es: 'Hasta dónde llega' },
             text: {
-              en: 'Downward only, from the oscillator it is attached to. Everything the cascade can reach from there is bent; everything above it and everything on another branch is untouched. So a whole cascade is one warp on the oscillator at the top of it, and a phrase inside that cascade is another further down. Attach the same WARP to two oscillators and it reaches both.',
-              es: 'Solo hacia abajo, desde el oscilador al que está enganchado. Todo lo que la cascada alcance desde ahí se dobla; todo lo de arriba y todo lo de otra rama queda intacto. Así que una cascada entera es un warp en el oscilador de arriba, y una frase de dentro es otro más abajo. Engancha el mismo WARP a dos osciladores y llega a los dos.',
+              en: 'As far as the fire goes from the oscillator it is attached to — and no further. Everything the trigger reaches from there is bent; another branch, or anything the fire never visits, is untouched. On an ordinary cascade that means downward, so a whole cascade is one warp on the oscillator at the top of it and a phrase inside that cascade is another further down. On a branch lit from the IGNITE’s upward port it means upward, for the same reason: a warp travels with the trigger, not with the screen. Attach the same WARP to two oscillators and it reaches both.',
+              es: 'Hasta donde llegue el fuego desde el oscilador al que está enganchado — y ni un paso más. Todo lo que el disparo alcance desde ahí se dobla; otra rama, o cualquier cosa que el fuego no visite, queda intacta. En una cascada normal eso significa hacia abajo, así que una cascada entera es un warp en el oscilador de arriba y una frase de dentro es otro más abajo. En una rama encendida desde el puerto de arriba del IGNITE significa hacia arriba, por lo mismo: un warp viaja con el disparo, no con la pantalla. Engancha el mismo WARP a dos osciladores y llega a los dos.',
             },
           },
           {
@@ -1524,9 +1702,26 @@ export const MANUAL: Section[] = [
           {
             term: { en: 'Attack and Decay', es: 'Attack y Decay' },
             text: {
-              en: 'An envelope’s two times: how long it takes to reach full depth and how long it takes to fall back. A short attack and a medium decay is a plucked, snapping filter; a long attack is a swell that arrives after the note it belongs to.',
-              es: 'Los dos tiempos de una envolvente: cuánto tarda en llegar a su profundidad plena y cuánto en volver. Un ataque corto con un decay medio es un filtro punteado y chasqueante; un ataque largo es un crescendo que llega después de la nota a la que pertenece.',
+              en: 'An envelope’s two times: how long it takes to reach full depth, from 1 to 2000 ms, and how long it takes to fall back, from 5 to 8000 ms. The decay reaches much further than the attack because a sweep that *arrives* slowly is rare and one that *leaves* slowly is most of what an envelope is for.',
+              es: 'Los dos tiempos de una envolvente: cuánto tarda en llegar a su profundidad plena, de 1 a 2000 ms, y cuánto en volver, de 5 a 8000 ms. El decay llega mucho más lejos que el ataque porque un barrido que *llega* despacio es raro y uno que *se va* despacio es casi todo lo que una envolvente hace.',
             },
+            examples: [
+              {
+                at: '2/300 ms',
+                is: { en: 'a plucked, snapping filter', es: 'un filtro punteado y chasqueante' },
+              },
+              {
+                at: '2/2000 ms',
+                is: { en: 'one long opening per trigger', es: 'una apertura larga por disparo' },
+              },
+              {
+                at: '600/600 ms',
+                is: {
+                  en: 'a swell that arrives after its note',
+                  es: 'un crescendo que llega tras su nota',
+                },
+              },
+            ],
           },
           {
             term: { en: 'Shape', es: 'Shape' },
@@ -1552,9 +1747,32 @@ export const MANUAL: Section[] = [
           {
             term: { en: 'Rate', es: 'Rate' },
             text: {
-              en: 'How fast an LFO runs, in cycles a second. Under about one it is a shape you follow; over about five it is a texture you hear as part of the tone. The cable pulses at the rate so you can see it, up to the speed where a flickering cable would read as broken.',
-              es: 'Lo rápido que corre un LFO, en ciclos por segundo. Por debajo de uno es una forma que sigues; por encima de cinco es una textura que oyes como parte del timbre. El cable pulsa a ese ritmo para que lo veas, hasta la velocidad en la que un cable parpadeando parecería roto.',
+              en: 'How fast an LFO runs, in cycles a second, from 0.05 to 20. The cable pulses at the rate so you can see it, up to the speed where a flickering cable would read as broken.',
+              es: 'Lo rápido que corre un LFO, en ciclos por segundo, de 0.05 a 20. El cable pulsa a ese ritmo para que lo veas, hasta la velocidad en la que un cable parpadeando parecería roto.',
             },
+            examples: [
+              {
+                at: '0.1 Hz',
+                is: {
+                  en: 'a shape the whole patch moves through',
+                  es: 'una forma por la que atraviesa todo el patch',
+                },
+              },
+              {
+                at: '1 Hz',
+                is: {
+                  en: 'a wobble you can follow by eye',
+                  es: 'un temblor que puedes seguir con la vista',
+                },
+              },
+              {
+                at: '8 Hz+',
+                is: {
+                  en: 'a texture heard as part of the tone',
+                  es: 'una textura que se oye como parte del timbre',
+                },
+              },
+            ],
           },
         ],
       },
@@ -1578,9 +1796,32 @@ export const MANUAL: Section[] = [
           {
             term: { en: 'Pitch, as a target', es: 'Pitch, como destino' },
             text: {
-              en: 'Pointed at an oscillator, a MOD can bend its pitch — which is vibrato with an LFO, and the drop at the front of a percussive sound with a per-note envelope. At full depth it reaches a semitone either way, so the useful settings are low: a tenth is ten cents, which is the shimmer most patches want. It is built per note, so each one wobbles on its own rather than the whole oscillator sliding together. On the noise waveforms it shifts the grain instead of a pitch, which is a texture rather than a note.',
-              es: 'Apuntado a un oscilador, un MOD puede doblar su altura — que es vibrato con un LFO, y la caída del principio de un sonido percusivo con una envolvente por nota. A profundidad plena llega a un semitono a cada lado, así que los ajustes útiles son bajos: una décima son diez centésimas, que es el temblor que quiere casi todo patch. Se construye por nota, así que cada una tiembla por su cuenta en vez de deslizarse el oscilador entero. En las ondas de ruido desplaza el grano en lugar de una altura, que es una textura y no una nota.',
+              en: 'Pointed at an oscillator, a MOD can bend its pitch — vibrato with an LFO, and the drop at the front of a percussive sound with a per-note envelope. At full depth it reaches a semitone either way, so the useful settings are low. It is built per note, so each one wobbles on its own rather than the whole oscillator sliding together. On the noise waveforms it shifts the grain instead of a pitch, which is a texture rather than a note.',
+              es: 'Apuntado a un oscilador, un MOD puede doblar su altura — vibrato con un LFO, y la caída del principio de un sonido percusivo con una envolvente por nota. A profundidad plena llega a un semitono a cada lado, así que los ajustes útiles son bajos. Se construye por nota, así que cada una tiembla por su cuenta en vez de deslizarse el oscilador entero. En las ondas de ruido desplaza el grano en lugar de una altura, que es una textura y no una nota.',
             },
+            examples: [
+              {
+                at: 'depth 0.1',
+                is: {
+                  en: 'ten cents: the shimmer most patches want',
+                  es: 'diez centésimas: el brillo que casi todo patch quiere',
+                },
+              },
+              {
+                at: 'depth 0.3',
+                is: {
+                  en: 'a vibrato you notice as vibrato',
+                  es: 'un vibrato que se nota como vibrato',
+                },
+              },
+              {
+                at: 'depth 1',
+                is: {
+                  en: 'a semitone either way — a siren',
+                  es: 'un semitono a cada lado — una sirena',
+                },
+              },
+            ],
           },
           {
             term: { en: 'Scale by velocity', es: 'Scale by velocity' },
@@ -1592,9 +1833,29 @@ export const MANUAL: Section[] = [
           {
             term: { en: 'Depth', es: 'Depth' },
             text: {
-              en: 'How much of the parameter’s range the sweep covers, so one control means the same thing wherever it is pointed. It goes below zero as well, which reads the modulation the other way round — an envelope that closes a filter rather than opening one, or two LFOs set against each other. At zero the MOD is running and doing nothing, which is worth remembering when a cable is drawn and lit and you cannot hear it.',
-              es: 'Cuánto del rango del parámetro cubre el barrido, así que un solo control significa lo mismo apunte donde apunte. Baja de cero también, lo que lee la modulación al revés — una envolvente que cierra un filtro en vez de abrirlo, o dos LFO puestos en contra. En cero el MOD está corriendo y no hace nada, que conviene recordar cuando un cable está dibujado y encendido y no lo oyes.',
+              en: 'How much of the parameter’s range the sweep covers, from −1 to 1, so one control means the same thing wherever it is pointed. Below zero reads the modulation the other way round — an envelope that closes a filter rather than opening one, or two LFOs set against each other. At zero the MOD is running and doing nothing, which is worth remembering when a cable is drawn and lit and you cannot hear it.',
+              es: 'Cuánto del rango del parámetro cubre el barrido, de −1 a 1, así que un solo control significa lo mismo apunte donde apunte. Por debajo de cero lee la modulación al revés — una envolvente que cierra un filtro en vez de abrirlo, o dos LFO puestos en contra. En cero el MOD está corriendo y no hace nada, que conviene recordar cuando un cable está dibujado y encendido y no lo oyes.',
             },
+            examples: [
+              {
+                at: '0.15',
+                is: {
+                  en: 'a shimmer you would not point at',
+                  es: 'un brillo que no sabrías señalar',
+                },
+              },
+              {
+                at: '0.6',
+                is: {
+                  en: 'plainly audible, still musical',
+                  es: 'claramente audible, todavía musical',
+                },
+              },
+              {
+                at: '-0.8',
+                is: { en: 'the same size, the other way round', es: 'el mismo tamaño, al revés' },
+              },
+            ],
           },
         ],
       },
@@ -1666,16 +1927,56 @@ export const MANUAL: Section[] = [
           {
             term: { en: 'Sensitivity', es: 'Sensitivity' },
             text: {
-              en: 'How much of what it hears becomes control signal. It is applied before the smoothing, so it decides how soon the follower reaches the top of its range rather than only how far the result goes — a quiet branch with this raised behaves like a loud one. Past about two it is squashing everything against the ceiling, which is a way of turning a follower into a gate.',
-              es: 'Cuánto de lo que oye se convierte en señal de control. Se aplica antes del suavizado, así que decide cuán pronto el seguidor llega al techo de su rango y no solo cuán lejos llega el resultado — una rama flojita con esto subido se comporta como una fuerte. Pasado el dos aplasta todo contra el techo, que es una manera de convertir un seguidor en una puerta.',
+              en: 'How much of what it hears becomes control signal, from 0 to 8. It is applied before the smoothing, so it decides how soon the follower reaches the top of its range rather than only how far the result goes — a quiet branch with this raised behaves like a loud one.',
+              es: 'Cuánto de lo que oye se convierte en señal de control, de 0 a 8. Se aplica antes del suavizado, así que decide cuán pronto el seguidor llega al techo de su rango y no solo cuán lejos llega el resultado — una rama flojita con esto subido se comporta como una fuerte.',
             },
+            examples: [
+              {
+                at: '1',
+                is: { en: 'what it hears is what it reads', es: 'lo que oye es lo que lee' },
+              },
+              {
+                at: '2',
+                is: {
+                  en: 'a quiet branch behaves like a loud one',
+                  es: 'una rama floja actúa como una fuerte',
+                },
+              },
+              {
+                at: '5+',
+                is: {
+                  en: 'everything squashed against the ceiling',
+                  es: 'todo aplastado contra el techo',
+                },
+              },
+            ],
           },
           {
             term: { en: 'Attack and Release', es: 'Attack y Release' },
             text: {
-              en: 'The two speeds, and having two is the whole reason this node exists rather than a filter doing the same job. Attack is how fast it follows a sound getting louder; Release is how fast it lets go once the sound stops. A quick attack catches the front of a hit. A slow release holds through the gaps between notes, so what comes out is the shape of a phrase rather than of every note in it.',
-              es: 'Las dos velocidades, y tener dos es la razón entera de que este nodo exista en vez de un filtro haciendo lo mismo. Attack es lo rápido que sigue a un sonido subiendo; Release es lo rápido que suelta cuando el sonido para. Un ataque rápido pilla el frente de un golpe. Un release lento aguanta por los huecos entre notas, así que lo que sale es la forma de una frase y no de cada nota dentro de ella.',
+              en: 'The two speeds, both from 1 to 2000 ms, and having two is the whole reason this node exists rather than a filter doing the same job. Attack is how fast it follows a sound getting louder; Release is how fast it lets go once the sound stops.',
+              es: 'Las dos velocidades, las dos de 1 a 2000 ms, y tener dos es la razón entera de que este nodo exista en vez de un filtro haciendo lo mismo. Attack es lo rápido que sigue a un sonido subiendo; Release es lo rápido que suelta cuando el sonido para.',
             },
+            examples: [
+              {
+                at: '5/200 ms',
+                is: {
+                  en: 'catches the hit, holds through the note',
+                  es: 'pilla el golpe, aguanta la nota',
+                },
+              },
+              {
+                at: '1/40 ms',
+                is: { en: 'follows every wiggle: a tremolo', es: 'sigue cada meneo: un trémolo' },
+              },
+              {
+                at: '50/900 ms',
+                is: {
+                  en: 'the shape of a phrase, not a note',
+                  es: 'la forma de una frase, no de una nota',
+                },
+              },
+            ],
           },
         ],
       },
@@ -1692,9 +1993,23 @@ export const MANUAL: Section[] = [
           {
             term: { en: 'Depth', es: 'Depth' },
             text: {
-              en: 'How much of the parameter’s range the follower covers, and it starts below zero because that is what this node is usually for: something gets louder and something else gets out of the way. Above zero is the same reading the other way round — a branch that opens a filter as it grows. It is one signed control and not two modes.',
-              es: 'Cuánto del rango del parámetro cubre el seguidor, y empieza por debajo de cero porque para eso se usa casi siempre: algo sube y otra cosa se aparta. Por encima de cero es lo mismo leído al revés — una rama que abre un filtro al crecer. Es un control con signo y no dos modos.',
+              en: 'How much of the parameter’s range the follower covers, from −1 to 1. It starts below zero because that is what this node is usually for: something gets louder and something else gets out of the way. Above zero is the same reading the other way round — a branch that opens a filter as it grows. One signed control, not two modes.',
+              es: 'Cuánto del rango del parámetro cubre el seguidor, de −1 a 1. Empieza por debajo de cero porque para eso se usa casi siempre: algo sube y otra cosa se aparta. Por encima de cero es lo mismo leído al revés — una rama que abre un filtro al crecer. Un control con signo, no dos modos.',
             },
+            examples: [
+              {
+                at: '-0.7',
+                is: {
+                  en: 'the usual duck: it gets out of the way',
+                  es: 'el ducking normal: se aparta',
+                },
+              },
+              {
+                at: '-0.2',
+                is: { en: 'a lean, not a move', es: 'una inclinación, no un movimiento' },
+              },
+              { at: '0.6', is: { en: 'grows with what it hears', es: 'crece con lo que oye' } },
+            ],
           },
         ],
       },
@@ -1756,9 +2071,29 @@ export const MANUAL: Section[] = [
           {
             term: { en: 'Index', es: 'Index' },
             text: {
-              en: 'How far the modulator bends the carrier, in cents, at the modulator’s full level. A hundred is a semitone and sounds like a detune; the character only starts changing several hundred in, and by a couple of thousand it is a texture rather than a note. It goes below zero, which inverts the modulator — on a sine that sounds the same, and on anything lopsided it does not.',
-              es: 'Cuánto dobla el modulador a la portadora, en centésimas, cuando el modulador está a pleno nivel. Cien es un semitono y suena a desafinación; el carácter solo empieza a cambiar varios cientos más allá, y por un par de miles ya es una textura y no una nota. Baja de cero, lo que invierte el modulador — en una sinusoide suena igual, en cualquier cosa asimétrica no.',
+              en: 'How far the modulator bends the carrier, in cents, at the modulator’s full level — up to 4800 either way, which is four octaves. It goes below zero, which inverts the modulator: on a sine that sounds the same, and on anything lopsided it does not.',
+              es: 'Cuánto dobla el modulador a la portadora, en centésimas, cuando el modulador está a pleno nivel — hasta 4800 a cada lado, que son cuatro octavas. Baja de cero, lo que invierte el modulador: en una sinusoide suena igual, en cualquier cosa asimétrica no.',
             },
+            examples: [
+              {
+                at: '100',
+                is: {
+                  en: 'a semitone: sounds like a detune',
+                  es: 'un semitono: suena a desafinación',
+                },
+              },
+              {
+                at: '900',
+                is: {
+                  en: 'metal — the sidebands are the sound',
+                  es: 'metal — las bandas laterales son el sonido',
+                },
+              },
+              {
+                at: '3000+',
+                is: { en: 'a texture rather than a note', es: 'una textura y no una nota' },
+              },
+            ],
           },
         ],
       },

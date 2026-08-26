@@ -15,19 +15,42 @@ import type { PatchEdge, PatchNode, WarpParams } from '../types/patch'
 
 /** How many steps each node is being moved by, for every node a trigger can reach. */
 export function transposeByNode(nodes: PatchNode[], edges: PatchEdge[]): Map<string, number> {
-  const children = new Map<string, string[]>()
+  /*
+   * Where a trigger goes next, **in the direction it is actually travelling**.
+   *
+   * Two maps rather than one, because a cascade has two directions now. A descending trigger crosses an
+   * event cable from its source to its target, as it always did. A climbing one crosses the same cable
+   * the other way — so the node it reaches next is the cable's *source*, and following the map for the
+   * other direction walks it backwards.
+   *
+   * This walked source to target only, which was right for as long as the fire could only fall. On a
+   * patch wired from the IGNITE's upward port it credited a warp to the branch hanging **below** the
+   * node it is attached to, which the fire never visits, and to nothing above, which it does. The notes
+   * were bent correctly the whole time — the engine carries a warp along the trigger — and the canvas
+   * said they were not, which is the quiet half of a disagreement between two computations of one fact.
+   */
+  const down = new Map<string, string[]>()
+  const up = new Map<string, string[]>()
   const attached = new Map<string, string[]>()
+  const add = (into: Map<string, string[]>, from: string, to: string) => {
+    const list = into.get(from)
+    if (list) list.push(to)
+    else into.set(from, [to])
+  }
+
   for (const edge of edges) {
     if (edge.kind === 'event') {
-      const list = children.get(edge.source)
-      if (list) list.push(edge.target)
-      else children.set(edge.source, [edge.target])
+      add(down, edge.source, edge.target)
+      add(up, edge.target, edge.source)
     } else if (edge.kind === 'warp') {
-      const list = attached.get(edge.target)
-      if (list) list.push(edge.source)
-      else attached.set(edge.target, [edge.source])
+      add(attached, edge.target, edge.source)
     }
   }
+
+  /** The cables that *start* a climb, which are crossed the ordinary way and turn the walk around. */
+  const climbs = new Set(
+    edges.filter((edge) => edge.kind === 'event' && edge.up === true).map((e) => e.id),
+  )
 
   /*
    * Which transforms reach each node, rather than what they come to.
@@ -47,15 +70,41 @@ export function transposeByNode(nodes: PatchNode[], edges: PatchEdge[]): Map<str
     return here.size !== before
   }
 
-  let frontier = nodes.filter((node) => node.type === 'start').map((node) => node.id)
-  for (const id of frontier) spread(id, new Set())
+  /*
+   * A walk that carries its direction with it, since which way a trigger is going is a fact about the
+   * trigger and not about the node it is at — the same thing the scheduler and the depth colours both
+   * say, and the third place that has to agree with them.
+   */
+  type Step = { id: string; climbing: boolean }
+  let frontier: Step[] = nodes
+    .filter((node) => node.type === 'start')
+    .map((node) => ({ id: node.id, climbing: false }))
+  for (const step of frontier) spread(step.id, new Set())
 
   for (let depth = 0; depth < 64 && frontier.length > 0; depth++) {
-    const next: string[] = []
-    for (const id of frontier) {
-      const here = reaching.get(id) ?? new Set<string>()
-      for (const child of children.get(id) ?? []) {
-        if (spread(child, here)) next.push(child)
+    const next: Step[] = []
+    for (const step of frontier) {
+      const here = reaching.get(step.id) ?? new Set<string>()
+      for (const edge of edges) {
+        if (edge.kind !== 'event') continue
+        /*
+         * Which cable is next, and which way the fire is going after it.
+         *
+         * Descending, a trigger crosses a cable from its source to its target — and a cable drawn from
+         * the IGNITE's upward port is crossed the ordinary way too. What that cable changes is
+         * everything *after* it: from there on the fire climbs, and climbing means crossing ordinary
+         * cables the other way round, from target to source.
+         */
+        const onward = step.climbing
+          ? edge.target === step.id
+            ? edge.source
+            : null
+          : edge.source === step.id
+            ? edge.target
+            : null
+        if (onward === null) continue
+        const climbing = step.climbing || climbs.has(edge.id)
+        if (spread(onward, here)) next.push({ id: onward, climbing })
       }
     }
     frontier = next

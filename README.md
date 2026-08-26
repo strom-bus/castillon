@@ -782,7 +782,7 @@ of it. Split, a release of app code leaves the two vendor chunks in cache untouc
 | `canvas`  | ~59 kB  | First visit, then cached until React Flow moves |
 | `index`   | ~49 kB  | Every release                                   |
 | `Manual`  | ~61 kB  | Only if the manual is opened                    |
-| `Gallery` | ~7 kB   | Only if the gallery is opened                   |
+| `Gallery` | ~9 kB   | Only if the gallery is opened                   |
 
 Two vendor chunks rather than one because they change at different rates, and a chunk is only worth
 having if it can go stale independently. Everything else is left to Rollup: hand-naming chunks for our

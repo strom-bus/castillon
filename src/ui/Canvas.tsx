@@ -136,7 +136,20 @@ function CanvasInner() {
       <div className="dice-corner">
         <RandomButton />
       </div>
-      <span className="colophon">COLMENA / STROMBUS</span>
+      {/*
+       * Both names lead somewhere, and the slash between them does not — it is punctuation rather than
+       * a third thing. `rel` on both: a tab opened from here must not be handed a way back into this
+       * one, and there is unsaved work on the canvas behind it.
+       */}
+      <span className="colophon">
+        <a href="https://linktr.ee/_COLMENA" target="_blank" rel="noreferrer">
+          COLMENA
+        </a>
+        {' / '}
+        <a href="https://github.com/strom-bus" target="_blank" rel="noreferrer">
+          STROMBUS
+        </a>
+      </span>
     </div>
   )
 }

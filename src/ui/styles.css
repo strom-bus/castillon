@@ -286,6 +286,76 @@ input[type='range'] {
 .btn-icon.gallery-button {
   margin-left: auto;
   color: var(--brand-lit);
+  /* The label is placed against this, and the icon must not move when it appears. */
+  position: relative;
+}
+
+/*
+ * The word, tucked behind the icon and sliding out to the left on a hover.
+ *
+ * Out of the flow on purpose. In it, the titlebar would grow a word every time the pointer crossed the
+ * corner and the icon would jump left as it did — a control that moves away from the pointer reaching
+ * for it. Absolute, it slides across the empty stretch this button's `margin-left: auto` has already
+ * pushed open, and nothing else in the row knows it happened.
+ *
+ * `right: 100%` puts its right edge on the icon's left, so the offset below is measured from touching:
+ * it starts a few pixels *past* that, under the icon, and travels out to a gap.
+ */
+.gallery-label {
+  position: absolute;
+  right: 100%;
+  top: 50%;
+  /* Under the icon and invisible. Small: this is a word appearing, not a word thrown. */
+  transform: translate(8px, -50%);
+  opacity: 0;
+  /* Or the word takes the pointer and the button stops being the thing under it. */
+  pointer-events: none;
+  white-space: nowrap;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  /*
+   * The same white the icon goes to, not the grey the icon came from. There is no resting state to be
+   * quiet against — the word exists only while it is being looked at — so a dimmer colour here would buy
+   * no hierarchy and cost legibility at ten pixels.
+   */
+  color: var(--text);
+  /*
+   * Both properties, and the same easing, so the word arrives where it stops. Ninety milliseconds is
+   * what every other icon in this row takes to change colour; this is a longer move, and matching that
+   * exactly would read as a flick rather than as something sliding.
+   */
+  transition:
+    opacity 140ms ease-out,
+    transform 140ms ease-out;
+}
+
+/*
+ * Only where there is a real pointer. On a touch screen `:hover` sticks after a tap, so the word would
+ * slide out as the gallery opened and still be sitting there on the way back.
+ */
+@media (hover: hover) {
+  .gallery-button:hover .gallery-label {
+    transform: translate(-8px, -50%);
+    opacity: 1;
+  }
+}
+
+/* Outside that, since a keyboard reaches this button on every device. */
+.gallery-button:focus-visible .gallery-label {
+  transform: translate(-8px, -50%);
+  opacity: 1;
+}
+
+/*
+ * Reduced motion takes the travel and keeps the word. What somebody has asked not to see is the thing
+ * moving, and a label that simply is not there on a hover is a worse answer than one that fades.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .gallery-label {
+    transform: translate(-8px, -50%);
+    transition: opacity 140ms ease-out;
+  }
 }
 
 /* All the way to white, the same as every other icon button. The two differ where it means
@@ -302,6 +372,44 @@ input[type='range'] {
   height: 18px;
   background: var(--border-strong);
   flex-shrink: 0;
+}
+
+/*
+ * The die tips over and catches the light on a hover.
+ *
+ * Orange rather than the white every other icon goes to, and for the same reason the gallery button is
+ * orange at rest: this is the one control in the canvas that *replaces* what is on it. White would put
+ * it in the same sentence as Play and Stop, which act on the patch you have rather than on whether you
+ * still have it.
+ *
+ * A twelve-degree tilt, anticlockwise, with the smallest overshoot the easing can be given — a die
+ * settling rather than a panel sliding. Any further and the pips leave the square they belong to; any
+ * flatter and it reads as a rendering fault rather than as a movement.
+ */
+.btn-icon.dice-button:hover,
+.btn-icon.dice-button:focus-visible {
+  color: var(--brand-lit);
+}
+
+.btn-icon.dice-button svg {
+  transition: transform 200ms cubic-bezier(0.34, 1.4, 0.64, 1);
+}
+
+.btn-icon.dice-button:hover svg,
+.btn-icon.dice-button:focus-visible svg {
+  transform: rotate(-12deg);
+}
+
+/* The colour is not motion, so it stays. What was asked for is the thing that moves. */
+@media (prefers-reduced-motion: reduce) {
+  .btn-icon.dice-button svg {
+    transition: none;
+  }
+
+  .btn-icon.dice-button:hover svg,
+  .btn-icon.dice-button:focus-visible svg {
+    transform: none;
+  }
 }
 
 /* The far corner from React Flow's own controls, which sit bottom-left. */
@@ -1455,16 +1563,27 @@ input[type='range'] {
   opacity: 1;
 }
 
+/*
+ * The two names in the colophon, which lead away from the instrument.
+ *
+ * The span above refuses the pointer so that a click near the bottom of the canvas lands on the patch;
+ * these two take it back for themselves, and the slash between them stays as unclickable as the rest of
+ * the background.
+ *
+ * No underline. At this tracking a rule under the word runs a third of a letter past its end, and the
+ * chrome does not underline anything anywhere else — the colour and the cursor are the whole signal, as
+ * they are on every icon in the titlebar.
+ */
 .colophon a {
-  margin-left: 12px;
-  color: var(--border-strong);
+  color: inherit;
   text-decoration: none;
   pointer-events: auto;
+  transition: color 90ms linear;
 }
 
-.colophon a:hover {
-  color: var(--muted);
-  text-decoration: underline;
+.colophon a:hover,
+.colophon a:focus-visible {
+  color: var(--text);
 }
 
 /* Dimmer than the name: it identifies the node without competing with what the node is. */

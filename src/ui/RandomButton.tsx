@@ -44,7 +44,7 @@ export function RandomButton() {
   return (
     <button
       type="button"
-      className="btn btn-icon"
+      className="btn btn-icon dice-button"
       onClick={randomisePatch}
       aria-label="Random patch"
       title="Roll a random patch"

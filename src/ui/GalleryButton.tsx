@@ -31,8 +31,22 @@ export function GalleryButton({ onClick }: { onClick: () => void }) {
       className="btn btn-icon gallery-button"
       onClick={onClick}
       aria-label="Patch gallery"
-      title="Browse shared patches"
     >
+      {/*
+       * The word slides out from under the icon on a hover, leftwards into the empty half of the
+       * titlebar. Hidden from readers rather than announced: the button already has an accessible name
+       * and this is the same word said twice.
+       *
+       * Before the icon in the markup so that it reads in the order it appears once it is out — the
+       * label then the mark — though it is taken out of the flow and placed by the stylesheet, so the
+       * order here changes nothing on screen.
+       *
+       * The `title` that used to be here is gone. A native tooltip would arrive a second after this
+       * one, in the operating system's own type, saying the same thing in different words.
+       */}
+      <span className="gallery-label" aria-hidden="true">
+        Gallery
+      </span>
       <GridIcon />
     </button>
   )

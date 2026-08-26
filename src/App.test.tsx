@@ -20,7 +20,18 @@ describe('App', () => {
     // rather than becoming a version of it — but still real text, so a reader says it out loud.
     expect(screen.getByText('BETA')).toBeDefined()
     expect(screen.getByRole('heading', { level: 1 }).textContent).not.toContain('BETA')
-    expect(screen.getByText('COLMENA / STROMBUS')).toBeDefined()
+    /*
+     * Two links and a slash, which still reads as one line. Asked for by where each one goes rather than
+     * by its text: the names are the label and the author, and a colophon that says them without leading
+     * anywhere is a signature nobody can follow.
+     */
+    expect(screen.getByRole('link', { name: 'COLMENA' }).getAttribute('href')).toBe(
+      'https://linktr.ee/_COLMENA',
+    )
+    expect(screen.getByRole('link', { name: 'STROMBUS' }).getAttribute('href')).toBe(
+      'https://github.com/strom-bus',
+    )
+    expect(document.querySelector('.colophon')!.textContent).toBe('COLMENA / STROMBUS')
     // AGPL §13: anyone using the hosted app has to be able to reach its source.
     expect(screen.getByText('source')).toBeDefined()
     expect(screen.getByText('▶ PLAY')).toBeDefined()

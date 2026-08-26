@@ -803,18 +803,48 @@ input[type='range'] {
    it, so what you see is one step divided and not one step with lines on it. */
 /* The notes the scale allows, drawn faintly across the track so the grid is seen before a bar is let
    go of rather than felt afterwards. Under the bar, since it is the paper and not the mark. */
-/* A step that overrules its oscillator, said on the canvas so it can be found without clicking through
-   every step. One mark for all four locks: which of them is what the panel is for. */
-.step-locked {
-  position: absolute;
-  top: 2px;
-  left: 50%;
-  width: 3px;
-  height: 3px;
-  margin-left: -1.5px;
+/*
+ * A step that overrules its oscillator, said on the canvas so it can be found without clicking through
+ * every step. One mark for all four locks: which of them is what the panel is for.
+ *
+ * It sat inside the bar until it was found to be unclickable there, which it always had been — the bar
+ * is a drag target and the mark was three pixels of `pointer-events: none` on top of it. Now it is in
+ * the column, over the bar, opposite the mute below: round against that square, because one says whether
+ * a step sounds and the other says whether it sounds like the others.
+ */
+.step-lock {
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* The empty half. It holds the space so sixteen bars keep one baseline, and shows nothing — a ring on
+   every step that has no locks would be furniture over every sequence in the patch. */
+span.step-lock {
+  visibility: hidden;
+}
+
+button.step-lock {
+  position: relative;
+  padding: 0;
+  border: none;
   background: var(--accent);
-  pointer-events: none;
+  cursor: pointer;
+  transition: background 90ms linear;
+}
+
+/* Seven pixels to see and seventeen to hit, as with the release in the panel: the size that reads well
+   inside a 26px column is not a size anybody can point at. */
+button.step-lock::after {
+  content: '';
+  position: absolute;
+  inset: -5px;
+}
+
+button.step-lock:hover,
+button.step-lock:focus-visible {
+  background: var(--text);
 }
 
 .step-guide {

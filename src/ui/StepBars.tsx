@@ -111,6 +111,37 @@ export function StepBars({
           step.decay !== undefined
         return (
           <div className={`step${open ? ' open' : ''}`} key={index}>
+            {/*
+             * Over the bar rather than on it, in the column with the mute below — because it was drawn
+             * on the bar and the bar is a drag target, so the mark that says a step is different was the
+             * one thing on it you could not reach. Round where the mute is square: one says whether the
+             * step sounds, the other says whether it sounds like the rest of them.
+             *
+             * A click hands back **all four**. It is one mark for four locks and always has been —
+             * *which* of them is what the panel is for — so the only unambiguous thing it can do is
+             * release them together, and undo is there for a change of mind. A step with none of them
+             * keeps the space and shows nothing, or sixteen empty rings would be furniture over every
+             * sequence in the patch.
+             */}
+            {locked ? (
+              <button
+                type="button"
+                className="step-lock"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  updateStep(nodeId, index, {
+                    waveform: undefined,
+                    cutoff: undefined,
+                    gate: undefined,
+                    decay: undefined,
+                  })
+                }}
+                aria-label={`Release step ${index + 1}`}
+                title="Has its own settings. Click to let it follow the oscillator again."
+              />
+            ) : (
+              <span className="step-lock" />
+            )}
             <div
               className={`step-track${index === currentStep ? ' playing' : ''}${
                 step.active ? '' : ' muted'
@@ -128,7 +159,7 @@ export function StepBars({
                 (chance < 1 ? ` · ${Math.round(chance * 100)}% of the time` : '') +
                 (hits > 1 ? ` · ${hits} hits` : '') +
                 (step.slide ? ' · glides in' : '') +
-                (locked ? ' · has its own settings — release them in the panel' : '')
+                (locked ? ' · has its own settings' : '')
               }
             >
               {/* A roll draws as that many stacked pieces, which is what a roll is: the step divided.
@@ -136,12 +167,6 @@ export function StepBars({
               {guides.map((at) => (
                 <span key={at} className="step-guide" style={{ bottom: `${at}%` }} />
               ))}
-              {/* Above the bar rather than on it, so it is legible whatever the note's height. It takes
-                no pointer of its own: the bar under it is the target, and clicking anywhere on a bar is
-                already what opens the step in the panel — where the four can be released one at a time.
-                A mark that answered a click would have to decide which of the four it was releasing, and
-                it is one mark precisely because that question belongs to the panel. */}
-              {locked && <span className="step-locked" />}
               <div className="step-bar" style={{ height: `${Math.round(ratio * 100)}%` }}>
                 {hits > 1 &&
                   Array.from({ length: hits - 1 }, (_, line) => (

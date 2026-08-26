@@ -992,8 +992,8 @@ export const MANUAL: Section[] = [
           {
             term: { en: 'A locked step shows itself', es: 'Un paso con lo suyo se ve' },
             text: {
-              en: 'A step that overrules its oscillator in any of the four carries a small dot above its bar, so a sequence can be read for them without clicking through it. One dot for all four — which of them is what the panel is for. The preset called MASK is one oscillator with one of each, so the four are audible side by side.',
-              es: 'Un paso que manda sobre su oscilador en cualquiera de los cuatro lleva un punto pequeño encima de su barra, así una secuencia se puede leer de un vistazo sin ir pulsando paso por paso. Un punto para los cuatro — cuál de ellos es lo que dice el panel. El preset llamado MASK es un oscilador con uno de cada, para oír los cuatro seguidos.',
+              en: 'A step that overrules its oscillator in any of the four carries a small round dot over its bar, opposite the square below it, so a sequence can be read for them without clicking through it. Click the dot and that step hands back all four at once. One dot for all four — which of them is what the panel is for, where they come back one at a time. The preset called MASK is one oscillator with one of each, so the four are audible side by side.',
+              es: 'Un paso que manda sobre su oscilador en cualquiera de los cuatro lleva un punto redondo encima de su barra, enfrente del cuadrado de debajo, así una secuencia se puede leer de un vistazo sin ir pulsando paso por paso. Pulsa el punto y ese paso devuelve los cuatro de golpe. Un punto para los cuatro — cuál de ellos es lo que dice el panel, donde vuelven de uno en uno. El preset llamado MASK es un oscilador con uno de cada, para oír los cuatro seguidos.',
             },
           },
         ],

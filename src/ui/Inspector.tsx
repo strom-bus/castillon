@@ -1,4 +1,4 @@
-import { ROOT_NAMES, SCALES, SCALE_NAMES, snapToScale, type ScaleName } from '../audio/scales'
+import { pitchesOf, ROOT_NAMES, SCALES, SCALE_NAMES, type ScaleName } from '../audio/scales'
 import type { ReactNode } from 'react'
 import { DIVISIONS } from '../audio/clock'
 import {
@@ -678,6 +678,23 @@ function EffectControl({
  * anybody could read off the screen.
  */
 /**
+ * Every note the list offers, which is every note the scale allows and the one this step is on.
+ *
+ * The second half is not a nicety. Changing an oscillator's scale deliberately leaves its sequence
+ * alone — what is on the screen has to be what plays — so a step can be sitting on a note its own scale
+ * would not choose, and a list without it would show an empty box and turn that note into whatever the
+ * browser picked first the moment anybody touched it.
+ */
+function notesOffered(current: number, scale: ScaleName, root: number): number[] {
+  const allowed = pitchesOf(scale, root)
+  const notes: number[] = []
+  for (let note = MIN_NOTE; note <= MAX_NOTE; note++) {
+    if (!allowed || allowed.has(((note % 12) + 12) % 12) || note === current) notes.push(note)
+  }
+  return notes
+}
+
+/**
  * One step of one sequencer.
  *
  * It exists because a step already carried more than the bars could show. Velocity has been in the file
@@ -721,29 +738,35 @@ function StepPanel({
       </h2>
 
       <Group title="THIS STEP">
+        {/*
+         * A list rather than a slider, which is what a pitch is.
+         *
+         * Sixty-one semitones across a panel two hundred pixels wide is three pixels a note, and the one
+         * place somebody comes to the panel for a note instead of dragging the bar is when they want a
+         * *particular* one — the bar is already the good way to move by feel. Naming them is also the
+         * only way to be sure: a slider reads D#3 and there is nothing to do but nudge it and look
+         * again.
+         *
+         * And a scale can then be obeyed by *offering* rather than by correcting. Snapping is right on a
+         * drag, where the pointer is somewhere between two notes and one of them has to win; a list that
+         * held notes it would refuse afterwards would be a list that lies.
+         */}
         <label className="inspector-field">
           <span className="inspector-label">
             Note
             <em>{noteName(step.note)}</em>
           </span>
-          <input
-            type="range"
-            min={MIN_NOTE}
-            max={MAX_NOTE}
-            step={1}
+          <select
+            aria-label="Note"
             value={step.note}
-            // Snapped here as well as on the bar. There are two ways to change a note and a scale that
-            // only one of them consults is not a scale — it is a scale you can walk around.
-            onChange={(e) =>
-              set({
-                note: snapToScale(
-                  Number(e.target.value),
-                  params.scale ?? 'free',
-                  params.scaleRoot ?? 0,
-                ),
-              })
-            }
-          />
+            onChange={(e) => set({ note: Number(e.target.value) })}
+          >
+            {notesOffered(step.note, params.scale ?? 'free', params.scaleRoot ?? 0).map((note) => (
+              <option key={note} value={note}>
+                {noteName(note)}
+              </option>
+            ))}
+          </select>
         </label>
 
         <Slider

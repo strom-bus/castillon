@@ -872,8 +872,8 @@ export const MANUAL: Section[] = [
           {
             term: { en: 'Note', es: 'Note' },
             text: {
-              en: 'The same value the bar shows, named as you drag it. Use the slider when you know the note you want and the bar when you are looking for it by ear. If the oscillator has a scale, both obey it.',
-              es: 'El mismo valor que muestra la barra, con su nombre mientras arrastras. Usa el slider cuando sepas la nota que quieres y la barra cuando la estés buscando de oído. Si el oscilador tiene escala, las dos la respetan.',
+              en: 'The same value the bar shows, as a list of named notes. Use the list when you know the note you want and the bar when you are looking for it by ear. If the oscillator has a scale, the list offers only the notes in it — plus whichever one this step is already on, since changing a scale leaves the sequence where it was.',
+              es: 'El mismo valor que muestra la barra, como una lista de notas con nombre. Usa la lista cuando sepas la nota que quieres y la barra cuando la estés buscando de oído. Si el oscilador tiene escala, la lista solo ofrece las notas que hay en ella — más aquella en la que ya está este paso, porque cambiar la escala deja la secuencia donde estaba.',
             },
           },
           {

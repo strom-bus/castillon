@@ -37,6 +37,12 @@
      in columns down the inspector, and a proportional face would break that alignment. */
   --display: 'Unbounded', ui-sans-serif, system-ui, sans-serif;
 
+  /* The gap between controls that answer the same question: one run of the palette, and the two
+     transport buttons that act on the patch as it is. Declared once rather than as two eights that
+     happen to agree — the whole point is that the reader is meant to see them as the same distance,
+     and two copies of a number are two numbers that drift. */
+  --gap-run: 8px;
+
   font-family: ui-monospace, 'SF Mono', Menlo, monospace;
   color-scheme: dark;
 }

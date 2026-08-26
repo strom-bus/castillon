@@ -144,6 +144,21 @@
   letter-spacing: 0.08em;
 }
 
+/*
+ * PLAY and RESET, at the same distance as two buttons inside one family of the palette.
+ *
+ * They are the pair that acts on the patch as it stands — start it, or throw it away and start again —
+ * where undo and redo beside them act on how it got here. Everything else in this row is a setting. The
+ * transport's own 14px then falls between the runs instead of inside one, which is the same argument
+ * the palette makes with a wider gap: the spacing says what goes with what, and it can only say it if
+ * the two distances differ.
+ */
+.transport-run {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-run);
+}
+
 .spacer {
   flex: 1;
 }
@@ -578,7 +593,7 @@ input[type='range'] {
 
 .palette-family {
   display: flex;
-  gap: 8px;
+  gap: var(--gap-run);
 }
 
 .react-flow__controls button {

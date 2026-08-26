@@ -35,12 +35,17 @@ export function Transport() {
 
   return (
     <div className="transport">
-      <button type="button" className={`btn primary${playing ? ' on' : ''}`} onClick={toggle}>
-        {playing ? '■ STOP' : '▶ PLAY'}
-      </button>
-      <button type="button" className="btn" onClick={resetPatch}>
-        RESET
-      </button>
+      {/* The two that act on the patch as it stands, kept as close together as two buttons inside one
+          family of the palette. Undo and redo are outside the run on purpose: they act on how the patch
+          got here rather than on what it is now. */}
+      <div className="transport-run">
+        <button type="button" className={`btn primary${playing ? ' on' : ''}`} onClick={toggle}>
+          {playing ? '■ STOP' : '▶ PLAY'}
+        </button>
+        <button type="button" className="btn" onClick={resetPatch}>
+          RESET
+        </button>
+      </div>
       <UndoRedo />
 
       <span className="divider" />

@@ -599,7 +599,7 @@ refused, since between an oscillator and an effect there is only one direction t
   looking for a filter — and the filter was fifth, the EQ fourteenth. The grouping is read off each
   effect rather than written out beside the list, and a family with nothing in it is not rendered, so
   removing the last of a kind cannot leave a heading over an empty shelf.
-  Sixteen chapters and a hundred and eighty-five entries, written for whoever is using the instrument
+  Sixteen chapters and a hundred and eighty-six entries, written for whoever is using the instrument
   rather than for whoever built it: no entry explains how something is implemented, and every one says
   what a control does to the sound and when you would reach for it. One chapter per module, each in
   the order its own panel is in and under the panel's own group headings, so reading the manual and

@@ -71,8 +71,12 @@ export const MANUAL: Section[] = [
     title: { en: 'The one idea', es: 'La idea' },
     body: [
       {
-        en: 'Most patchers run everything at once. This one runs downward. An IGNITE fires, the oscillator wired below it plays its sequence, and when that finishes it triggers whatever is wired below *it*. The patch lights up and branches down, and you watch the flow travel while you hear it.',
-        es: 'La mayoría de los entornos modulares lo ejecutan todo a la vez. Este lo ejecuta hacia abajo. Un IGNITE dispara, el oscilador cableado debajo toca su secuencia, y cuando termina dispara lo que esté cableado debajo de *él*. El patch se enciende y se ramifica hacia abajo, y ves viajar el flujo mientras lo oyes.',
+        en: 'Most patchers run everything at once. This one runs **in order**, and the order is the cables. An IGNITE is lit; whatever is wired to it plays; when that finishes it lights the next thing, and the next, until nothing is still burning. Nothing here waits for a clock — everything waits for its neighbour to finish.',
+        es: 'La mayoría de los entornos modulares lo ejecutan todo a la vez. Este lo ejecuta **en orden**, y el orden son los cables. Se enciende un IGNITE; lo que esté cableado a él suena; cuando termina enciende lo siguiente, y lo siguiente, hasta que ya no queda nada ardiendo. Aquí nada espera a un reloj — todo espera a que su vecino acabe.',
+      },
+      {
+        en: 'And it spreads **from where it is lit**, which is why the node is an IGNITE and not a START. The port underneath sends the fire down the patch; the port on top sends it up. An IGNITE in the middle of a cascade burns both ways at once — everything below it falling, everything above it climbing. Downward is the common case, not the rule.',
+        es: 'Y se propaga **desde donde se enciende**, que es por lo que el nodo es un IGNITE y no un START. El puerto de abajo manda el fuego hacia abajo por el patch; el de arriba lo manda hacia arriba. Un IGNITE en mitad de una cascada arde en las dos direcciones a la vez — todo lo que tiene debajo cayendo, todo lo que tiene encima trepando. Hacia abajo es lo habitual, no la regla.',
       },
       {
         en: 'That is why a pass has no fixed length. Each one lasts as long as its longest branch, so the cycle breathes instead of holding a pulse. Everything else in here follows from that: there is no bar to fill, and two branches of different lengths will drift against each other for as long as you let them run.',
@@ -89,15 +93,22 @@ export const MANUAL: Section[] = [
           {
             term: { en: 'A pass', es: 'Una pasada' },
             text: {
-              en: 'One run of the whole cascade, from every IGNITE down to the last branch that has anything left to do. It ends when nothing is still travelling, not after a set number of bars — so adding a longer branch makes the pass longer. With LOOP on, the next one starts as soon as the last has drained.',
+              en: 'One run of the whole cascade, from every IGNITE out to the last branch that has anything left to do. It ends when nothing is still travelling, not after a set number of bars — so adding a longer branch makes the pass longer. With LOOP on, the next one starts as soon as the last has drained.',
               es: 'Una ejecución de la cascada entera, desde cada IGNITE hasta la última rama que le quede algo por hacer. Termina cuando ya no viaja nada, no tras un número fijo de compases — así que añadir una rama más larga alarga la pasada. Con LOOP puesto, la siguiente arranca en cuanto la anterior se vacía.',
             },
           },
           {
             term: { en: 'Firing', es: 'Disparar' },
             text: {
-              en: 'A node does its work and then passes a trigger to whatever hangs below it. That trigger is an instant, not a sound: it carries no audio at all. Two branches under one node fire together and then run independently, which is how a patch grows sideways as well as downward.',
-              es: 'Un nodo hace su trabajo y luego pasa un disparo a lo que cuelgue debajo. Ese disparo es un instante, no un sonido: no lleva audio ninguno. Dos ramas bajo un mismo nodo disparan a la vez y luego corren por separado, que es como un patch crece también a lo ancho.',
+              en: 'A node does its work and then passes the trigger on — to whatever hangs below it, or to whatever sits above it where the fire is climbing. The trigger is an instant, not a sound: it carries no audio at all. Two branches off one node fire together and then run independently, which is how a patch grows sideways as well as along.',
+              es: 'Un nodo hace su trabajo y luego pasa el disparo — a lo que cuelgue debajo, o a lo que esté encima cuando el fuego trepa. El disparo es un instante, no un sonido: no lleva audio ninguno. Dos ramas de un mismo nodo disparan a la vez y luego corren por separado, que es como un patch crece también a lo ancho.',
+            },
+          },
+          {
+            term: { en: 'Which way it travels', es: 'Hacia dónde viaja' },
+            text: {
+              en: 'Down, up, or both. The IGNITE has a port at the bottom and one at the top, and a cable from each starts a fire going that way — so a patch can be read from the top like a waterfall, or from the bottom like something climbing, or from the middle with both happening at once. Everything else is the same either way: a node still fires the next one when it finishes, and a pass still ends when nothing is left travelling. Direction is a fact about the trigger, not about the instrument.',
+              es: 'Abajo, arriba, o las dos. El IGNITE tiene un puerto abajo y otro arriba, y un cable desde cada uno enciende un fuego que va por ahí — así que un patch se puede leer desde arriba como una cascada, o desde abajo como algo que trepa, o desde el medio con las dos cosas a la vez. Todo lo demás es igual en cualquier caso: un nodo sigue disparando al siguiente cuando termina, y una pasada sigue acabando cuando ya no viaja nada. La dirección es un hecho del disparo, no del instrumento.',
             },
           },
           {
@@ -416,8 +427,8 @@ export const MANUAL: Section[] = [
           {
             term: { en: 'Gate', es: 'Gate' },
             text: {
-              en: 'What share of its step each note holds. Low is short and detached, one is a note that lasts until the next one begins. It is the difference between a plucked line and a legato one, and on a slow division a low gate leaves audible silence between notes.',
-              es: 'Qué parte de su paso ocupa cada nota. Bajo es corto y separado, uno es una nota que dura hasta que empieza la siguiente. Es la diferencia entre una línea punteada y una ligada, y con una división lenta un gate bajo deja silencio audible entre notas.',
+              en: 'What share of its step each note holds, from 0.05 to 1. At **0.1** the note is a tenth of its slot — a click with silence after it. At **0.5** it is half, which is where a line sounds played. At **1** each note lasts until the next begins and the line is legato. On a slow division a low gate leaves audible silence between notes; on a fast one it is the difference between a pluck and a pad.',
+              es: 'Qué parte de su paso ocupa cada nota, de 0.05 a 1. En **0.1** la nota es una décima de su hueco — un clic con silencio detrás. En **0.5** es la mitad, que es donde una línea suena tocada. En **1** cada nota dura hasta que empieza la siguiente y la línea queda ligada. Con una división lenta un gate bajo deja silencio audible entre notas; con una rápida es la diferencia entre un punteo y un pad.',
             },
           },
           {
@@ -491,8 +502,8 @@ export const MANUAL: Section[] = [
           {
             term: { en: 'Pulse width', es: 'Pulse width' },
             text: {
-              en: 'Only on Pulse, and it is the reason to choose Pulse over Square. It sets how lopsided the wave is: in the middle it *is* a square, and towards either end it thins out into something nasal and small. This is where it rests; point a MOD at Width to sweep it while the note is sounding, which is the classic way to make one voice sound like two.',
-              es: 'Solo en Pulse, y es la razón de elegir Pulse en vez de Square. Fija lo desigual que es la onda: en el centro *es* una cuadrada, y hacia los extremos se adelgaza en algo nasal y pequeño. Aquí es donde descansa; apunta un MOD a Width para barrerlo mientras la nota suena, que es la manera clásica de hacer que una voz suene como dos.',
+              en: 'Only on Pulse, and it is the reason to choose Pulse over Square. It sets how lopsided the wave is, from 0.05 to 0.95. At **0.5** it *is* a square — hollow and even. At **0.25** it thins and turns reedy, like a clarinet with an attitude. At **0.1** it is nasal and small and sits a long way back in a mix. The two ends sound the same as each other, since a pulse and its mirror image are the same wave upside down. This is where it rests; point a MOD at Width to sweep it while the note is sounding, which is the classic way to make one voice sound like two.',
+              es: 'Solo en Pulse, y es la razón de elegir Pulse en vez de Square. Fija lo desigual que es la onda, de 0.05 a 0.95. En **0.5** *es* una cuadrada — hueca y pareja. En **0.25** adelgaza y se vuelve aguda, como un clarinete con mala leche. En **0.1** es nasal y pequeña y se queda muy atrás en una mezcla. Los dos extremos suenan igual entre sí, porque un pulso y su espejo son la misma onda del revés. Aquí es donde descansa; apunta un MOD a Width para barrerlo mientras la nota suena, que es la manera clásica de hacer que una voz suene como dos.',
             },
           },
           {
@@ -505,8 +516,8 @@ export const MANUAL: Section[] = [
           {
             term: { en: 'Gain', es: 'Gain' },
             text: {
-              en: 'How loud this oscillator is against the others. It is the balance control: reach for it when one voice is burying another, and leave the master volume for how loud the whole thing is in the room.',
-              es: 'Lo fuerte que suena este oscilador frente a los demás. Es el control de balance: úsalo cuando una voz esté enterrando a otra, y deja el volumen general para lo fuerte que suena todo en la sala.',
+              en: 'How loud this oscillator is against the others, from 0 to 1. Most voices in a patch of several sit between **0.15 and 0.35** — anything at 1 is asking to be the only thing you hear, which is what a lead does and a pad should not. At **0** the oscillator still runs and still costs its place in the budget; it is simply silent. It is the balance control: reach for it when one voice is burying another, and leave the master volume for how loud the whole thing is in the room.',
+              es: 'Lo fuerte que suena este oscilador frente a los demás, de 0 a 1. En un patch de varias voces casi todas viven entre **0.15 y 0.35** — algo en 1 está pidiendo ser lo único que oigas, que es lo que hace un lead y lo que un pad no debería. En **0** el oscilador sigue corriendo y sigue costando su sitio en el presupuesto; simplemente no suena. Es el control de balance: úsalo cuando una voz esté enterrando a otra, y deja el volumen general para lo fuerte que suena todo en la sala.',
             },
           },
         ],
@@ -517,29 +528,29 @@ export const MANUAL: Section[] = [
           {
             term: { en: 'Attack', es: 'Attack' },
             text: {
-              en: 'How long a note takes to arrive at full volume. A few milliseconds is a hard edge and a percussive hit; a couple of hundred is a swell that has no attack you can point to. On a fast division a long attack means no note ever reaches full loudness, which is a usable sound rather than a mistake.',
-              es: 'Cuánto tarda una nota en llegar a su volumen pleno. Unos pocos milisegundos es un canto duro y un golpe percusivo; un par de cientos es un crescendo sin ataque que puedas señalar. Con una división rápida un ataque largo significa que ninguna nota llega nunca a sonar del todo, que es un sonido utilizable y no un error.',
+              en: 'How long a note takes to arrive at full volume, from 1 to 500 ms. At **1–5 ms** the note simply appears: a hard edge, a percussive hit. At **40 ms** the front is rounded off and the line sounds blown rather than struck. At **300 ms** it is a swell with no attack you can point to. On a fast division a long attack means no note ever reaches full loudness — a usable sound rather than a mistake.',
+              es: 'Cuánto tarda una nota en llegar a su volumen pleno, de 1 a 500 ms. En **1–5 ms** la nota simplemente aparece: un canto duro, un golpe percusivo. En **40 ms** el frente se redondea y la línea suena soplada y no golpeada. En **300 ms** es un crescendo sin ataque que puedas señalar. Con una división rápida un ataque largo significa que ninguna nota llega nunca a sonar del todo — un sonido utilizable y no un error.',
             },
           },
           {
             term: { en: 'Decay', es: 'Decay' },
             text: {
-              en: 'How long it takes to fall away *while the note is still held*. At zero a note sits at full level for its whole gate; open it and every note leans downward from its own attack, which is what makes a line sound plucked rather than blown.',
-              es: 'Cuánto tarda en caer *mientras la nota sigue sostenida*. En cero una nota se queda a nivel pleno todo su gate; ábrelo y cada nota se inclina hacia abajo desde su propio ataque, que es lo que hace que una línea suene punteada y no soplada.',
+              en: 'How long it takes to fall away *while the note is still held*, from 0 to 2000 ms. At **0** a note sits at full level for its whole gate — a held tone. At **150 ms** it plucks: loud at the front, gone by the middle. At **800 ms** it leans gently and still has body when the gate closes. Past a second or so it barely falls at all within a fast step, so the number stops meaning anything until the division slows down.',
+              es: 'Cuánto tarda en caer *mientras la nota sigue sostenida*, de 0 a 2000 ms. En **0** la nota se queda a nivel pleno todo su gate — un tono sostenido. En **150 ms** puntea: fuerte al principio, ida por la mitad. En **800 ms** se inclina suave y aún tiene cuerpo cuando el gate se cierra. Pasado el segundo apenas cae dentro de un paso rápido, así que el número deja de significar nada hasta que la división se hace lenta.',
             },
           },
           {
             term: { en: 'Release', es: 'Release' },
             text: {
-              en: 'How long a note takes to die after its gate closes. Long releases are what makes a sequence sound like a chord: notes overlap with the ones after them. That is also where the budget goes, since every note still fading is still a voice.',
-              es: 'Cuánto tarda una nota en morir después de que su gate se cierra. Los release largos son lo que hace que una secuencia suene a acorde: las notas se solapan con las siguientes. Ahí es también donde se va el presupuesto, porque cada nota que aún se apaga sigue siendo una voz.',
+              en: 'How long a note takes to die after its gate closes, from 5 to 2000 ms. At **20 ms** each note stops where it ends and the line is dry and separated. At **300 ms** notes bleed into the ones after them and the sequence starts to sound like one instrument rather than a row of hits. At **1500 ms** four or five notes are sounding at once and a line becomes a chord. That is also where the budget goes: every note still fading is still a voice.',
+              es: 'Cuánto tarda una nota en morir después de que su gate se cierra, de 5 a 2000 ms. En **20 ms** cada nota para donde acaba y la línea queda seca y separada. En **300 ms** las notas se derraman sobre las siguientes y la secuencia empieza a sonar a un instrumento en vez de a una fila de golpes. En **1500 ms** hay cuatro o cinco notas sonando a la vez y una línea se vuelve un acorde. Ahí es también donde se va el presupuesto: cada nota que aún se apaga sigue siendo una voz.',
             },
           },
           {
             term: { en: 'Glide', es: 'Glide' },
             text: {
-              en: 'How long a slide between two notes takes. On its own it does nothing: it is the *time*, and which notes slide is a switch on each step. Set the time here, then tick Glide on the steps you want to arrive from below — that split is what lets one line have both slides and stabs.',
-              es: 'Cuánto tarda un deslizamiento entre dos notas. Por sí solo no hace nada: es el *tiempo*, y qué notas se deslizan es un interruptor de cada paso. Pon el tiempo aquí y luego marca Glide en los pasos que quieras que lleguen desde abajo — ese reparto es lo que permite que una línea tenga deslizamientos y golpes a la vez.',
+              en: 'How long a slide between two notes takes, from 0 to 1000 ms. At **30 ms** it is a scoop you feel rather than hear. At **120 ms** it is the classic slide, arriving just as the note settles. Past **400 ms** the note spends most of its life travelling and never really lands, which is a sound of its own. On its own the number does nothing: it is the *time*, and which notes slide is a switch on each step. Set it here, then tick Glide on the steps you want to arrive from below — that split is what lets one line have both slides and stabs.',
+              es: 'Cuánto tarda un deslizamiento entre dos notas, de 0 a 1000 ms. En **30 ms** es un quiebro que se siente más que se oye. En **120 ms** es el deslizamiento clásico, que llega justo cuando la nota se asienta. Pasados **400 ms** la nota se pasa la vida viajando y no llega a posarse nunca, que es un sonido en sí mismo. Por sí solo el número no hace nada: es el *tiempo*, y qué notas se deslizan es un interruptor de cada paso. Ponlo aquí y luego marca Glide en los pasos que quieras que lleguen desde abajo — ese reparto es lo que permite que una línea tenga deslizamientos y golpes a la vez.',
             },
           },
         ],
@@ -557,15 +568,15 @@ export const MANUAL: Section[] = [
           {
             term: { en: 'Cutoff', es: 'Cutoff' },
             text: {
-              en: 'Where the filter acts. On a Low pass, everything above it is taken away, so bringing it down darkens and eventually muffles the voice. The slider moves in octaves rather than in a straight line, which is why the low end has as much travel as the top.',
-              es: 'Dónde actúa el filtro. En un Low pass se quita todo lo que esté por encima, así que bajarlo oscurece y al final ahoga la voz. El slider se mueve en octavas y no en línea recta, y por eso la zona baja tiene tanto recorrido como la alta.',
+              en: 'Where the filter acts, from 20 Hz to 18 kHz. On a Low pass, everything above it is taken away: at **300 Hz** only the body of the note is left and the line sounds muffled and far away; at **2 kHz** it is present but tamed; above **8 kHz** almost everything passes and you can barely tell the filter is there. The useful stretch on most patches is **400 Hz to 3 kHz**, which is where a sweep is heard as a sweep. The slider moves in octaves rather than in a straight line, which is why the low end has as much travel as the top.',
+              es: 'Dónde actúa el filtro, de 20 Hz a 18 kHz. En un Low pass se quita todo lo que esté por encima: en **300 Hz** solo queda el cuerpo de la nota y la línea suena sorda y lejana; en **2 kHz** está presente pero domada; por encima de **8 kHz** pasa casi todo y apenas se nota que hay filtro. El tramo útil en casi todos los patches va de **400 Hz a 3 kHz**, que es donde un barrido se oye como un barrido. El slider se mueve en octavas y no en línea recta, y por eso la zona baja tiene tanto recorrido como la alta.',
             },
           },
           {
             term: { en: 'Resonance', es: 'Resonance' },
             text: {
-              en: 'How much the filter emphasises the cutoff itself. A little adds a vocal edge; a lot makes the filter whistle and turns a slow cutoff sweep into the most recognisable sound a synthesiser has. Combine it with a MOD on the cutoff before you try anything else.',
-              es: 'Cuánto realza el filtro su propio corte. Un poco añade un canto vocal; mucho hace que el filtro pite y convierte un barrido lento del corte en el sonido más reconocible que tiene un sintetizador. Combínalo con un MOD en el corte antes de probar otra cosa.',
+              en: 'How much the filter emphasises the cutoff itself, from 0.1 to 24. Below **2** it is a tilt you would not name. Around **6** it adds the vocal edge that makes a sweep audible as a sweep. Past **15** the filter whistles at its own cutoff and starts to sound like a second oscillator — the most recognisable sound a synthesiser has, and also where a resonant sweep can get loud enough to want the Gain pulled down. Combine it with a MOD on the cutoff before you try anything else.',
+              es: 'Cuánto realza el filtro su propio corte, de 0.1 a 24. Por debajo de **2** es una inclinación que ni nombrarías. Cerca de **6** añade el canto vocal que hace que un barrido se oiga como un barrido. Pasado **15** el filtro pita en su propio corte y empieza a sonar como un segundo oscilador — el sonido más reconocible que tiene un sintetizador, y también donde un barrido resonante puede subir lo bastante como para querer bajarle el Gain. Combínalo con un MOD en el corte antes de probar otra cosa.',
             },
           },
           {

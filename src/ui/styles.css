@@ -1404,9 +1404,24 @@ button.step-lock:focus-visible {
    panel, and a box that is nearly the same as those reads as a mistake rather than as a distinction. */
 .lock-check {
   position: relative;
-  margin-right: var(--gap-tick);
   flex-shrink: 0;
   align-self: center;
+}
+
+/*
+ * And the same distance from its word as those two, by the same means — a `gap` on the row.
+ *
+ * It was a margin on the box, and it did nothing: the shared rule is `input[type='checkbox']`, which
+ * outranks a class, and it sets `margin: 0`. So the box sat against the word while Mute and Glide, whose
+ * gap is on their row rather than on their box, sat correctly nine pixels off — the same declaration
+ * losing in one place and winning in the other, which is what a specificity fight looks like from the
+ * screen. Put where the two rows that already worked put it, there is nothing to outrank.
+ *
+ * The readout is unaffected: it takes the right margin for itself, and a gap is a floor rather than a
+ * distance.
+ */
+.inspector-field.locked .inspector-label {
+  gap: var(--gap-tick);
 }
 
 /*

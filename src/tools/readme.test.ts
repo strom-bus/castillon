@@ -84,12 +84,13 @@ describe('the README against the code', () => {
     ['overlaid graphs', EDGE_KINDS.length, 'overlaid graphs'],
   ])('says there are %s and there are', (_what, count, noun) => {
     /*
-     * Read out of the same table that spells the long counts, rather than the sparse one that used to sit
-     * beside it. That one held eight numbers somebody had needed at some point, so adding a twelfth
-     * effect failed here with `no english word for 12` — a test about the README, broken by the README
-     * being right and the table not.
+     * Read out of the same speller the long counts use, rather than by indexing a table. Twice now this
+     * has failed with `no english word for N` — a test about the README, broken by the README being
+     * right and the lookup not: first at twelve, when it read a sparse list of eight; then at twenty-one,
+     * when it read the table underneath the speller instead of the speller itself. Reaching past a
+     * function into the array it is built on is how a fault outlives the fix for it.
      */
-    const word = UNITS[count]
+    const word = underAHundred(count)
     expect(word, `no english word for ${count}`).toBeTruthy()
     expect(says(`${word} ${noun}`), `README does not say "${word} ${noun}"`).toBe(true)
   })

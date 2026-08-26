@@ -647,6 +647,621 @@ const stress: Preset = {
 }
 
 /**
+ * A groove, which is two controls nothing else in the box uses.
+ *
+ * **Swing** makes each pair of steps uneven — the first long, the second late and short — and **Slop**
+ * plays every note a little away from wherever that put it, differently each time. They compose rather
+ * than compete: swing decides the shape of the bar and slop decides how closely it is respected, which
+ * together is a drummer with a shuffle who is not perfectly tight.
+ *
+ * The pair is set differently on each of the three voices, which is the part worth hearing. A groove
+ * belongs to a line and not to a patch: the hats are shuffled hard and played loose, the bass is shuffled
+ * the same and played tight, and the chord is straight. Three feels at once, from three numbers, with no
+ * grid anywhere for them to agree with — which is the whole reason this instrument can have them.
+ *
+ * Slop is measured against each sequence's own shortest gap rather than in milliseconds, so the same
+ * 0.18 on the hats and on the bass is a different number of milliseconds and the same amount of *loose*.
+ * A fixed time would have to be re-dialled for every division.
+ */
+const hand: Preset = {
+  id: 'hand',
+  name: 'HAND',
+  about: 'Three voices, three grooves: shuffled hard, shuffled tight, and dead straight.',
+  patch: patchOf(
+    96,
+    [
+      ignite('i', 1, 0),
+      /*
+       * The hats. Shuffled hard and the loosest thing here — a hand keeping time rather than a clock, and
+       * the voice where a listener notices looseness first because there are the most of them.
+       */
+      osc('hats', 2, 1, {
+        waveform: 'white',
+        steps: steps(
+          Array.from({ length: 16 }, () => note(0, 1)),
+          [0.5, 0.18, 0.32, 0.22],
+        ),
+        division: '1/16',
+        gain: 0.1,
+        attack: 1,
+        decay: 26,
+        release: 30,
+        gate: 0.1,
+        filterType: 'highpass',
+        cutoff: 5200,
+        resonance: 2,
+        swing: 1.75,
+        useSwing: true,
+        slop: 0.18,
+        useSlop: true,
+        propagateMode: 'onStart',
+      }),
+      /*
+       * The bass. The same shuffle so it agrees with the hats, and almost none of the looseness so there
+       * is something underneath that does not move — a groove needs one thing to be late *against*.
+       */
+      osc('bass', 0, 1, {
+        waveform: 'square',
+        pulseWidth: 0.35,
+        steps: steps([note(0, -1), null, note(0, -1), note(4, -1), null, note(2, -1), null, null]),
+        division: '1/8',
+        gain: 0.3,
+        attack: 3,
+        decay: 180,
+        release: 140,
+        gate: 0.5,
+        filterType: 'lowpass',
+        cutoff: 900,
+        resonance: 5,
+        keyTrack: 0.3,
+        swing: 1.75,
+        useSwing: true,
+        slop: 0.03,
+        useSlop: true,
+        propagateMode: 'onStart',
+      }),
+      /*
+       * And a chord that is dead straight, with the swing switched off rather than set to one — which is
+       * what the bypass is for: the 1.75 is remembered, so the whole patch can be heard swung and straight
+       * without losing what it was.
+       */
+      osc('keys', 1, 2, {
+        waveform: 'sawtooth',
+        detune: -5,
+        steps: steps([note(0, 0), null, null, note(4, 0)]),
+        division: '1/4',
+        gain: 0.15,
+        attack: 90,
+        decay: 500,
+        release: 700,
+        gate: 0.9,
+        filterType: 'lowpass',
+        cutoff: 1600,
+        resonance: 3,
+        keyTrack: 0.4,
+        swing: 1.75,
+        useSwing: false,
+        slop: 0,
+      }),
+      fx('rv', 3, 2, { effect: 'reverb', mix: 0.2, decay: 1.8, cutoff: 3600 }),
+    ],
+    [
+      wire('i', 'hats'),
+      wire('i', 'bass'),
+      wire('i', 'keys'),
+      wire('hats', 'rv', 'audio'),
+      wire('keys', 'rv', 'audio'),
+    ],
+  ),
+}
+
+/**
+ * Movement, which is the one family of effects that does nothing to a single note.
+ *
+ * A chorus, a phaser, a tremolo and a pan all work by *changing over time*, so a still note through any
+ * of them is a still note through nothing at all — which is why they are gathered here rather than
+ * demonstrated one at a time. Two chords and a bell, and not one of the notes is doing anything but
+ * being held; everything a listener hears move is one of the four moving it.
+ *
+ * They also move at four speeds, on purpose, because that is what tells them apart by ear. The chorus
+ * wobbles fast and shallow and reads as *width*; the phaser sweeps slowly through the bell and reads as
+ * *a sweep*; the tremolo pulses at note speed and reads as *rhythm*; the pan crosses the stereo field
+ * once every eight seconds and is the only one you have to wait for. Set to the same rate they collapse
+ * into one indistinct wobble, which is the mistake this preset exists to argue against.
+ *
+ * And the fifth movement is inside the oscillator rather than after it: a MOD on the pad's **Width**
+ * walks the pulse from thin to square and back. This is the only place in the box where a waveform
+ * itself changes shape while a note is sounding, and it costs the voice an extra delay to do — which is
+ * why it is here on a pad of two notes rather than on something playing sixteen.
+ */
+const spin: Preset = {
+  id: 'spin',
+  name: 'SPIN',
+  about: 'Five kinds of movement over notes that never move: width, chorus, phaser, tremolo, pan.',
+  patch: patchOf(
+    84,
+    [
+      ignite('i', 1, 0),
+      /*
+       * The pad. Long attack and long release so the notes overlap into one held thing, which is the
+       * condition under which any of this is audible — movement needs something sustained to move.
+       */
+      osc('pad', 1, 1, {
+        waveform: 'pulse',
+        pulseWidth: 0.5,
+        steps: steps([note(0, 0), null, null, null, note(4, 0), null, null, null]),
+        division: '1/8',
+        gain: 0.18,
+        attack: 240,
+        decay: 900,
+        release: 900,
+        gate: 0.95,
+        filterType: 'lowpass',
+        cutoff: 2400,
+        resonance: 4,
+        keyTrack: 0.3,
+        propagateMode: 'onStart',
+      }),
+      // Slow enough to be a shape rather than a buzz, and short of full depth so the pulse never reaches
+      // the thin end where it nearly disappears.
+      mod('pwm', 0, 1, { kind: 'lfo', wave: 'triangle', rate: 0.22, depth: 0.7, target: 'width' }),
+      fx('ch', 2, 1, {
+        effect: 'chorus',
+        mix: 0.5,
+        sweep: 26,
+        rate: 1.1,
+        depth: 0.45,
+        feedback: 0.1,
+      }),
+      fx('pn', 3, 1, { effect: 'pan', mix: 1, pan: 0, width: 0.6 }),
+      /*
+       * The pan is the one movement with no rate of its own — a Pan is a *position*, and a MOD is what
+       * makes a position into a journey. Which is the general shape of this instrument: rather than every
+       * effect growing its own LFO, one node sweeps anything.
+       */
+      mod('turn', 4, 0, { kind: 'lfo', wave: 'sine', rate: 0.12, depth: 0.9, target: 'pan' }),
+      // The bell, fired after the pad and much sparser, so the two slow effects on it have room.
+      osc('bell', 1, 3, {
+        waveform: 'triangle',
+        steps: steps([note(6, 1), null, null, null, null, null, null, null]),
+        division: '1/4',
+        gain: 0.22,
+        attack: 4,
+        decay: 700,
+        release: 900,
+        gate: 0.3,
+        filterType: 'off',
+      }),
+      fx('tr', 2, 3, { effect: 'tremolo', mix: 1, rate: 6.5, depth: 0.85 }),
+      fx('ph', 3, 3, {
+        effect: 'phaser',
+        mix: 0.7,
+        rate: 0.28,
+        depth: 0.8,
+        feedback: 0.45,
+        cutoff: 700,
+      }),
+    ],
+    [
+      wire('i', 'pad'),
+      wire('pad', 'bell'),
+      wire('pwm', 'pad', 'mod'),
+      wire('pad', 'ch', 'audio'),
+      wire('ch', 'pn', 'audio'),
+      wire('turn', 'pn', 'mod'),
+      wire('bell', 'tr', 'audio'),
+      wire('tr', 'ph', 'audio'),
+    ],
+  ),
+}
+
+/**
+ * Dirt, which is the other family that only makes sense heard against itself.
+ *
+ * Five ways to damage a signal, in the order they damage it: **Distortion** rounds the peaks off and
+ * makes it louder and thicker; **Fold** turns the peaks back on themselves and makes it harmonically
+ * wrong rather than merely loud; **Crush** throws away resolution and sample rate and makes it *cheap*;
+ * **Octave** adds a rectified copy an octave down; **Ring** multiplies it by a sine and makes it
+ * metallic, keeping none of the original pitch relationships. Played one after another on the same
+ * three notes, the differences are obvious. Described in words they all sound like "distortion".
+ *
+ * The order is the argument. Dirt is not commutative: fold *after* distortion has almost nothing left to
+ * fold, because distortion has already flattened the peaks it needed, so the pair is worth much more the
+ * way round it is wired here than the other. And every one of these is louder out than in, which is why
+ * each stage's mix is short of the whole and the oscillator starts quiet.
+ *
+ * The lead is also where **per-step locks** earn themselves. Its sequence changes waveform, cutoff, gate
+ * and decay step by step — a square that stabs, a saw that is left open, a noise burst — so what arrives
+ * at the dirt is a different signal every step, and each effect can be heard doing a different thing to
+ * each one. A single waveform through this chain teaches much less.
+ */
+const grit: Preset = {
+  id: 'grit',
+  name: 'GRIT',
+  about: 'Five ways to ruin a sound, in a row, on a sequence that changes shape every step.',
+  patch: patchOf(
+    104,
+    [
+      ignite('i', 0, 0),
+      /*
+       * Quiet on purpose. Everything downstream adds level, and a lead that arrives at unity comes out of
+       * the fifth stage against the limiter — where all five sound the same, which is exactly what this
+       * is trying to distinguish.
+       */
+      osc('lead', 0, 1, {
+        waveform: 'square',
+        pulseWidth: 0.5,
+        steps: locks(
+          steps([
+            note(0, -1),
+            note(0, -1),
+            null,
+            note(3, -1),
+            null,
+            note(2, -1),
+            note(5, -1),
+            null,
+          ]),
+          {
+            // A saw left wide open, which the fold has the most to work with.
+            1: { waveform: 'sawtooth', cutoff: 7000, gate: 0.9, decay: 300 },
+            // A short stab, so the crush is heard on a transient rather than on a held note.
+            3: { gate: 0.12, decay: 40 },
+            // And a noise burst, which is where the ring modulator stops sounding like a pitch at all.
+            6: { waveform: 'white', cutoff: 4000, gate: 0.2, decay: 90 },
+          },
+        ),
+        division: '1/8',
+        gain: 0.12,
+        attack: 2,
+        decay: 220,
+        release: 90,
+        gate: 0.45,
+        filterType: 'lowpass',
+        cutoff: 1800,
+        resonance: 6,
+        keyTrack: 0.4,
+        propagateMode: 'onStart',
+      }),
+      fx('ds', 1, 1, {
+        effect: 'distortion',
+        mix: 0.8,
+        shape: 'overdrive',
+        drive: 0.55,
+        cutoff: 3800,
+      }),
+      fx('fd', 2, 1, { effect: 'fold', mix: 0.5, drive: 0.45, bias: 0.1, cutoff: 5000 }),
+      fx('cr', 3, 1, { effect: 'crush', mix: 0.45, bits: 7, reduction: 6, cutoff: 6000 }),
+      /*
+       * The last two hang off a second voice rather than off the end of the chain. Octave and Ring both
+       * want something with a clear pitch to work on, and what leaves the crusher no longer has one.
+       */
+      osc('sub', 0, 3, {
+        waveform: 'triangle',
+        steps: steps([note(0, -1), null, note(5, -2), null]),
+        division: '1/4',
+        gain: 0.3,
+        attack: 6,
+        decay: 400,
+        release: 200,
+        gate: 0.7,
+        filterType: 'off',
+      }),
+      fx('oc', 1, 3, { effect: 'octave', mix: 0.6, cutoff: 2400 }),
+      fx('rg', 2, 3, { effect: 'ring', mix: 0.3, cutoff: 220 }),
+      // Something clean at the end to hear the damage against. A room does not undo dirt, it frames it.
+      fx('rv', 3, 3, { effect: 'reverb', mix: 0.18, decay: 1.6, cutoff: 3000 }),
+    ],
+    [
+      wire('i', 'lead'),
+      wire('lead', 'sub'),
+      wire('lead', 'ds', 'audio'),
+      wire('ds', 'fd', 'audio'),
+      wire('fd', 'cr', 'audio'),
+      wire('sub', 'oc', 'audio'),
+      wire('oc', 'rg', 'audio'),
+      wire('rg', 'rv', 'audio'),
+    ],
+  ),
+}
+
+/**
+ * The three effects that are not sounds: **Compress**, **EQ** and **Stutter**.
+ *
+ * Everything else in the box changes what a note is. These three change how notes sit *together*, which
+ * is a different job and the reason they are worth a patch of their own — none of them is impressive on
+ * one voice, and all three are the difference between four voices and a mix.
+ *
+ * The kick and the hats share a compressor, and sharing it is the whole point: a compressor listens to
+ * the sum, so every kick pushes the hats down and lets them back up, and the two become one part that
+ * breathes rather than two parts that overlap. Fed the hats alone it would do almost nothing audible.
+ *
+ * The EQ then takes back what the compressing cost. Squeezing the peaks flattens the top and bottom
+ * along with them, so a little low and a little high after it is not decoration — it is putting back the
+ * ends of the range that the middle just ate. Its **Mid Hz** is parked where the hats live rather than
+ * at the default, and pulled down, which is how two bright things stop fighting.
+ *
+ * And the stutter is on the chord, alone, because it is the one effect here you are meant to notice. It
+ * catches a slice and repeats it, so a chord that was held becomes a chord that was held *and then
+ * jammed* — a rhythm made out of a sound that had none, with no extra notes in the sequence at all.
+ */
+const glue: Preset = {
+  id: 'glue',
+  name: 'GLUE',
+  about:
+    'The three that mix rather than sound: a shared compressor, an EQ that repays it, a stutter.',
+  patch: patchOf(
+    112,
+    [
+      ignite('i', 0, 0),
+      // Loud and short, so it is the thing the compressor reacts to rather than a thing it smooths.
+      osc('kick', 0, 1, {
+        waveform: 'sine',
+        steps: steps([note(0, -2), null, null, null, note(0, -2), null, note(0, -2), null]),
+        division: '1/8',
+        gain: 0.55,
+        attack: 1,
+        decay: 90,
+        release: 60,
+        gate: 0.2,
+        filterType: 'lowpass',
+        cutoff: 400,
+        resonance: 1,
+        propagateMode: 'onStart',
+      }),
+      osc('hats', 0, 2, {
+        waveform: 'white',
+        steps: steps(
+          Array.from({ length: 16 }, () => note(0, 1)),
+          [0.55, 0.3, 0.4, 0.3],
+        ),
+        division: '1/16',
+        gain: 0.14,
+        attack: 1,
+        decay: 30,
+        release: 24,
+        gate: 0.1,
+        filterType: 'highpass',
+        cutoff: 6000,
+        resonance: 2,
+      }),
+      /*
+       * Threshold well under the kick and ratio high enough to hear: a compressor set gently is a
+       * compressor nobody can tell is on, which teaches nothing. The release is what makes it *pump* —
+       * long enough that the hats are still climbing back when the next kick lands.
+       */
+      fx('cmp', 1, 1, {
+        effect: 'compress',
+        mix: 1,
+        threshold: -26,
+        ratio: 8,
+        attack: 4,
+        decay: 0.22,
+      }),
+      fx('eq', 2, 1, { effect: 'eq', mix: 1, low: 4, mid: -5, high: 3, cutoff: 3200 }),
+      // The chord: held, straight, and given its rhythm entirely by the effect after it.
+      osc('chord', 0, 3, {
+        waveform: 'sawtooth',
+        detune: -6,
+        steps: steps([note(0, 0), null, null, null, note(5, 0), null, null, null]),
+        division: '1/8',
+        gain: 0.16,
+        attack: 30,
+        decay: 600,
+        release: 500,
+        gate: 0.95,
+        filterType: 'lowpass',
+        cutoff: 2000,
+        resonance: 4,
+        keyTrack: 0.4,
+      }),
+      fx('st', 1, 3, { effect: 'stutter', mix: 0.85, time: '1/16', repeats: 4, cutoff: 7000 }),
+      fx('rv', 2, 3, { effect: 'reverb', mix: 0.2, decay: 1.4, cutoff: 3400 }),
+    ],
+    [
+      wire('i', 'kick'),
+      wire('kick', 'hats'),
+      wire('kick', 'chord'),
+      wire('kick', 'cmp', 'audio'),
+      wire('hats', 'cmp', 'audio'),
+      wire('cmp', 'eq', 'audio'),
+      wire('chord', 'st', 'audio'),
+      wire('st', 'rv', 'audio'),
+    ],
+  ),
+}
+
+/**
+ * One filter over a whole chord, which is not the same thing as the filter every voice already has.
+ *
+ * Every oscillator carries its own, and it is *per voice*: sixteen notes ringing get sixteen filters,
+ * each resonating against one note and hearing nothing of the other fifteen. That is what you want for a
+ * plucked line, and it is why the control lives on the oscillator.
+ *
+ * A filter placed in the cascade as an effect is one filter over the **sum**. The resonance rings
+ * against the whole chord at once, notes beat against the peak instead of each carrying it with them,
+ * and a sweep is a single sweep rather than sixteen private ones that happen to be in step. Turn the
+ * oscillator's own filter off, as it is here, and the difference is not subtle — it is the sound of most
+ * records with a synthesiser on them.
+ *
+ * The resonance is set high enough to whistle and the sweep is slow enough to be a shape, both on
+ * purpose: a resonant peak is how you *hear* that there is only one filter, because there is only one
+ * whistle. Sixteen private filters at this setting would be sixteen whistles, and that is a different
+ * and much worse sound.
+ */
+const sweep: Preset = {
+  id: 'sweep',
+  name: 'SWEEP',
+  about: 'One resonant filter over the whole chord, swept slowly — not the one each voice carries.',
+  patch: patchOf(
+    92,
+    [
+      ignite('i', 0, 0),
+      /*
+       * Filter off at the oscillator, which is the point rather than an omission: leave it on and each
+       * note arrives already shaped, and the effect below is a second filter rather than the filter.
+       */
+      osc('chord', 0, 1, {
+        waveform: 'sawtooth',
+        detune: 7,
+        steps: steps([
+          note(0, 0),
+          note(2, 0),
+          note(4, 0),
+          note(6, 0),
+          note(4, 0),
+          note(2, 0),
+          note(4, 1),
+          note(2, 0),
+        ]),
+        division: '1/8',
+        gain: 0.13,
+        attack: 6,
+        // Long decay and long release, so notes pile up and there is a chord for one filter to work on
+        // rather than a line of separate notes.
+        decay: 1400,
+        release: 1200,
+        gate: 0.95,
+        filterType: 'off',
+        propagateMode: 'onStart',
+      }),
+      // A sub underneath, unfiltered and out of the sweep's way, so the bottom does not vanish each time
+      // the cutoff comes down.
+      osc('sub', 0, 3, {
+        waveform: 'triangle',
+        steps: steps([note(0, -2), null, null, null]),
+        division: '1/4',
+        gain: 0.28,
+        attack: 8,
+        decay: 700,
+        release: 400,
+        gate: 0.8,
+        filterType: 'off',
+      }),
+      fx('flt', 1, 1, {
+        effect: 'filter',
+        mix: 1,
+        filterType: 'lowpass',
+        cutoff: 500,
+        resonance: 14,
+      }),
+      mod('slow', 2, 0, {
+        kind: 'lfo',
+        wave: 'triangle',
+        rate: 0.09,
+        depth: 0.8,
+        target: 'cutoff',
+      }),
+      fx('rv', 2, 1, { effect: 'reverb', mix: 0.26, decay: 2.6, cutoff: 3200 }),
+    ],
+    [
+      wire('i', 'chord'),
+      wire('chord', 'sub'),
+      wire('chord', 'flt', 'audio'),
+      wire('slow', 'flt', 'mod'),
+      wire('flt', 'rv', 'audio'),
+      wire('sub', 'rv', 'audio'),
+    ],
+  ),
+}
+
+/**
+ * Two oscillators firing each other, which is a **cycle** — and cycles are allowed here.
+ *
+ * Nothing else in the box shows this, and it is one of the load-bearing decisions in the instrument: the
+ * event graph permits a loop where the audio graph refuses one. An audio loop is a gain feeding itself,
+ * which is not a glitch but a sound nobody can stop. An event loop is bounded — a trigger goes round at
+ * most sixteen times before the depth cap ends the pass — so it is a shape with an end, not a runaway.
+ *
+ * What comes out is a **round**: three notes and four notes handing to each other, alternating until the
+ * cap — measured at fifty-six notes over thirteen seconds, from seven written ones. Neither sequence
+ * contains that line. Change one note and the whole spiral changes.
+ *
+ * **The bell counts triggers, not passes**, and that is the other half of it. It hangs off the loop and
+ * fires on every fourth arrival — and inside a cycle, arrivals are the only thing there is to count.
+ * "Which pass is this" has stopped meaning anything: every arrival in one pass carries the same pass
+ * number, so a hold counting passes would let all thirty-eight through or none. Counting what has
+ * reached it is defined everywhere and cannot deadlock, which is exactly why this instrument counts
+ * rather than waits (§34).
+ */
+const round: Preset = {
+  id: 'round',
+  name: 'ROUND',
+  about: 'Two oscillators firing each other, spiralling until the depth cap ends the pass.',
+  patch: patchOf(
+    124,
+    [
+      ignite('i', 1, 0),
+      /*
+       * Three steps against four, so the pair never lines up the same way twice on the way round — the
+       * same reason two branches of different lengths drift, folded into one loop instead of two branches.
+       */
+      osc('a', 0, 1, {
+        waveform: 'triangle',
+        steps: steps([note(0, 0), note(4, 0), note(2, 0)]),
+        division: '1/8',
+        gain: 0.22,
+        attack: 2,
+        decay: 220,
+        release: 320,
+        gate: 0.45,
+        filterType: 'lowpass',
+        cutoff: 2600,
+        resonance: 4,
+        keyTrack: 0.4,
+      }),
+      osc('b', 2, 2, {
+        waveform: 'square',
+        steps: steps([note(6, 0), note(4, 0), note(1, 1), note(4, 0)]),
+        division: '1/8',
+        gain: 0.16,
+        attack: 2,
+        decay: 160,
+        release: 260,
+        gate: 0.35,
+        filterType: 'lowpass',
+        cutoff: 1800,
+        resonance: 6,
+        keyTrack: 0.4,
+      }),
+      /*
+       * One arrival in four, hung off the loop rather than inside it. In the return path it strangled the
+       * spiral — measured at fourteen notes against fifty-six — because a loop thinned at its own hinge
+       * barely turns. Off to the side it thins nothing and marks time instead, twice a pass.
+       */
+      hold('g', 1, 3, { counts: 'triggers', every: 4, offset: 1 }),
+      // The bell. One long note against a line that never settles, so the spiral has something to be
+      // measured against.
+      osc('bell', 1, 4, {
+        waveform: 'sine',
+        steps: steps([note(0, 1)]),
+        division: '1/4',
+        gain: 0.2,
+        attack: 3,
+        decay: 900,
+        release: 1400,
+        gate: 1,
+        filterType: 'off',
+        cutoff: 6000,
+        resonance: 1,
+      }),
+      fx('rv', 3, 1, { effect: 'reverb', mix: 0.3, decay: 3.4, cutoff: 3000 }),
+    ],
+    [
+      wire('i', 'a'),
+      wire('a', 'b'),
+      // The cable that closes the loop. Nothing thins it: the depth cap is what ends the pass.
+      wire('b', 'a'),
+      wire('a', 'g'),
+      wire('g', 'bell'),
+      wire('a', 'rv', 'audio'),
+      wire('b', 'rv', 'audio'),
+      wire('bell', 'rv', 'audio'),
+    ],
+  ),
+}
+
+/**
  * Ducking, whose key is the cascade rather than a track of audio.
  *
  * The thing this instrument can do that no other one can, and it turned out to be already built — a MOD
@@ -1448,6 +2063,12 @@ export const PRESETS: Preset[] = [
   rise,
   order,
   duck,
+  round,
+  hand,
+  spin,
+  grit,
+  glue,
+  sweep,
   shadow,
   iron,
   mask,

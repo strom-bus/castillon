@@ -13,6 +13,7 @@ import { PRESETS } from './presets'
 import { estimatePeakLoad } from '../audio/load'
 import { stressLoad } from '../tools/stressPatch'
 import { LAYER_THRESHOLD, MAX_LOAD } from '../audio/load'
+import { EFFECTS } from '../audio/effects'
 import { silentBecause, targetsFor } from '../audio/modulation'
 import { permits } from '../state/connections'
 import { defaultFxParams, NODE_DEFINITIONS } from '../nodes/registry'
@@ -20,6 +21,7 @@ import { decodePatch, encodePatch, STEP_COLUMN_USAGE } from '../state/patchCode'
 import { warpDoingNothing } from '../state/transpose'
 import { DIRECTIONS } from '../types/patch'
 import type {
+  FxParams,
   ModParams,
   OscParams,
   Patch,
@@ -307,6 +309,32 @@ describe('the presets', () => {
 
     const unused = STEP_COLUMN_USAGE.filter((column) => !steps.some(column.used)).map((c) => c.name)
     expect(unused, `no preset uses: ${unused.join(', ')}`).toEqual([])
+  })
+
+  it('play every effect there is, somewhere a listener would meet it', () => {
+    /*
+     * Asked of the effect list rather than of a list here, for the reason the parameter check above is:
+     * an effect nobody has wired into a preset is an entry in a dropdown, and the only way to find out
+     * what it does is to pick it at random and hope. Three shipped that way — the compressor, the EQ and
+     * the stutter — and none of them is a sound, which is exactly why none of them got a patch.
+     *
+     * The load test is excluded on purpose. It reaches for effects by the handful to make the machine
+     * work hard, so counting it would let any effect be "demonstrated" by appearing in a patch that is
+     * explicitly not music and that nobody opens to learn anything.
+     */
+    const played = new Set(
+      PRESETS.filter((preset) => !preset.loadTest)
+        .flatMap((preset) => preset.patch.nodes)
+        .filter((node) => node.type === 'fx')
+        .map((node) => (node.params as FxParams).effect),
+    )
+
+    const unheard = EFFECTS.map((one) => one.kind).filter((kind) => !played.has(kind))
+    expect(unheard, `no preset plays: ${unheard.join(', ')}`).toEqual([])
+    expect(
+      EFFECTS.length,
+      'the effect list answered with nothing, so this checked nothing',
+    ).toBeGreaterThan(10)
   })
 
   it('found parameters to check, so a broken reader cannot pass by finding none', () => {

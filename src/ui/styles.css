@@ -1371,6 +1371,7 @@ input[type='range'] {
  * than one that visibly cannot.
  */
 .lock-dot {
+  position: relative;
   width: 6px;
   height: 6px;
   padding: 0;
@@ -1383,10 +1384,42 @@ input[type='range'] {
   cursor: pointer;
 }
 
+/*
+ * The target, which is three times the mark.
+ *
+ * Six pixels is the right size for something that has to sit inside a line of type without becoming
+ * furniture, and it is a hopeless thing to aim at — the panel says elsewhere that a five-pixel box is a
+ * poor thing to point at, and then this was six. So the circle stays six and the area that answers a
+ * click is eighteen, which is what a pointer is actually asked to hit.
+ */
+.lock-dot::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
+}
+
+.lock-dot:disabled::after {
+  /* Nothing to press, so nothing reaches out for the pointer either. */
+  content: none;
+}
+
 .lock-dot:disabled {
   background: transparent;
   border-color: var(--border-strong);
   cursor: default;
+}
+
+/*
+ * The readout to the far right, and the dot beside the name rather than adrift from it.
+ *
+ * Every other row in the panel is two things — a name and what it currently says — and `space-between`
+ * puts one at each margin. These four rows are three things, and the same rule then spread all three
+ * out evenly: the dot at the left margin, the *name floating in the middle of the row*, the readout at
+ * the right. It read as a fault in the panel rather than as a control, which is a fair reading, and it
+ * is the likeliest reason somebody would look at these rows and not find the thing to click.
+ */
+.inspector-field.locked .inspector-label em {
+  margin-left: auto;
 }
 
 /* And the whole row reads back a step lighter while it is only showing what the node says, so a panel of

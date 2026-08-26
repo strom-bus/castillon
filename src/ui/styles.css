@@ -567,8 +567,18 @@ input[type='range'] {
   left: 12px;
   z-index: 5;
   display: flex;
-  gap: 8px;
+  /*
+   * Between the families, and a little over three times the gap inside one. Proximity only reads as a
+   * grouping when the two distances are plainly different: at twice, the row looked unevenly spaced
+   * rather than divided, which is a rule drawn in whitespace and just as wrong as a rule drawn in ink.
+   */
+  gap: 26px;
   font-size: 11px;
+}
+
+.palette-family {
+  display: flex;
+  gap: 8px;
 }
 
 .react-flow__controls button {

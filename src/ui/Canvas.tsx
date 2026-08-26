@@ -9,7 +9,7 @@ import {
   type IsValidConnection,
 } from '@xyflow/react'
 import { useCallback, useMemo, useRef } from 'react'
-import { NODE_DEFINITIONS } from '../nodes/registry'
+import { NODE_DEFINITIONS, NODE_FAMILIES } from '../nodes/registry'
 import { canConnect } from '../state/connections'
 import { usePatchStore, type FlowEdge } from '../state/patchStore'
 import { computeDepths, DepthContext, EMPTY_DEPTHS, sameDepths } from '../viz/depth'
@@ -76,20 +76,26 @@ function CanvasInner() {
   return (
     <div className="canvas" ref={wrapper}>
       {/* Driven by the registry, so adding a node type really is one file plus one line. */}
+      {/* Three runs with a wider gap between them and nothing drawn at the seams. A rule through a row
+          of buttons read as a break in the row rather than as a division of it, and the eye groups by
+          proximity before it reads anything — so the space is the whole of the argument. Read from the
+          registry rather than counted out here, or the grouping is a fact declared twice. */}
       <div className="palette">
-        {/* The grouping stays and the line between the groups does not: what stands in a cascade is
-            still listed before what hangs off one, which is the order a patch is built in, and a rule
-            drawn through a row of buttons turned out to read as a break in the row rather than as a
-            division of it. */}
-        {NODE_DEFINITIONS.map((definition) => (
-          <button
-            key={definition.type}
-            type="button"
-            className="btn"
-            onClick={() => addAtCenter(definition.type)}
-          >
-            + {definition.label}
-          </button>
+        {NODE_FAMILIES.map((family) => (
+          <div className="palette-family" key={family}>
+            {NODE_DEFINITIONS.filter((definition) => definition.family === family).map(
+              (definition) => (
+                <button
+                  key={definition.type}
+                  type="button"
+                  className="btn"
+                  onClick={() => addAtCenter(definition.type)}
+                >
+                  + {definition.label}
+                </button>
+              ),
+            )}
+          </div>
         ))}
       </div>
       {/* Opposite the palette: on the left what a patch can gain, on the right what it costs. */}

@@ -8,7 +8,7 @@
  */
 
 import { describe, expect, it } from 'vitest'
-import { NODE_DEFINITIONS } from '../nodes/registry'
+import { NODE_DEFINITIONS, NODE_FAMILIES } from '../nodes/registry'
 
 describe('the palette', () => {
   it('says where every node stands', () => {
@@ -28,6 +28,45 @@ describe('the palette', () => {
       (definition, i) => i > 0 && definition.place !== NODE_DEFINITIONS[i - 1]!.place,
     )
     expect(changes).toHaveLength(1)
+  })
+
+  it('groups every node into a family that has members', () => {
+    /*
+     * The palette renders a run per family and fills it by filtering, so a family nobody belongs to is a
+     * gap in the row with nothing on either side of it — a division of nothing from nothing. The other
+     * direction, a node whose family is not on the list, the type checker refuses.
+     */
+    for (const family of NODE_FAMILIES) {
+      const mine = NODE_DEFINITIONS.filter((definition) => definition.family === family)
+      expect(mine.length, `nothing is in the ${family} family`).toBeGreaterThan(0)
+    }
+  })
+
+  it('never lets a family straddle the seam between the two places', () => {
+    /*
+     * The finer division may refine the coarser one and may not contradict it. A family holding one node
+     * that is fired and another that is attached would put a wider gap somewhere *inside* the one
+     * distinction a person actually has to hold, and a narrower one across it — the palette arguing
+     * against itself in whitespace.
+     */
+    for (const family of NODE_FAMILIES) {
+      const places = new Set(
+        NODE_DEFINITIONS.filter((one) => one.family === family).map((one) => one.place),
+      )
+      expect([...places], `the ${family} family is on both sides of the seam`).toHaveLength(1)
+    }
+  })
+
+  it('keeps each family contiguous, so the row is not reordered by being grouped', () => {
+    /*
+     * The palette filters the registry once per family, which quietly rewrites the order if a family is
+     * interleaved: the buttons would come out grouped and no longer in the order the registry argues
+     * for. Contiguous, the two orders are the same order.
+     */
+    const runs = NODE_DEFINITIONS.filter(
+      (definition, i) => i === 0 || definition.family !== NODE_DEFINITIONS[i - 1]!.family,
+    ).map((definition) => definition.family)
+    expect(runs).toEqual([...NODE_FAMILIES])
   })
 
   it('puts what stands in a cascade first', () => {

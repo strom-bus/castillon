@@ -81,6 +81,19 @@ export interface ScheduleResult {
   withheld?: boolean
 }
 
+/**
+ * The runs the palette is read in, in the order they are offered.
+ *
+ * Nothing is drawn between them and nothing labels them — a rule through a row of buttons read as a
+ * break in the row rather than as a division of it, and a heading over three buttons is more furniture
+ * than the three buttons are. A wider gap is the whole of it, which is as much as this needs: the eye
+ * groups by proximity before it reads anything, so the arrangement is doing the work the words would
+ * have claimed credit for.
+ */
+export const NODE_FAMILIES = ['cascade', 'shaping', 'modulation'] as const
+
+export type NodeFamily = (typeof NODE_FAMILIES)[number]
+
 export interface NodeDefinition {
   /** Identifies the type in a patch and in the patch code. */
   type: string
@@ -95,6 +108,19 @@ export interface NodeDefinition {
    * palette says it once instead of leaving it to be worked out six times.
    */
   place: 'cascade' | 'side'
+  /**
+   * Which run of buttons it is offered in, which is a finer question than `place` and a separate one.
+   *
+   * `place` is a fact about cables — whether a node is fired or attached — and it splits these eight
+   * into three and five. Five buttons in a row is a list, and a list is what the palette stopped being
+   * when the order was changed to say something. So the side half is split again by *what a node makes*:
+   * FX and WARP change a branch directly, one its sound and one what it plays, while MOD, FOLLOW and FM
+   * make a control signal and change nothing on their own.
+   *
+   * A family may never straddle the seam `place` draws, which is checked rather than trusted. The finer
+   * division is allowed to refine the coarser one and not to contradict it.
+   */
+  family: NodeFamily
   /**
    * Which ports the node has, declared here rather than left to be read off its JSX.
    *
@@ -152,6 +178,7 @@ const start: NodeDefinition = {
   type: 'start',
   label: 'IGNITE',
   place: 'cascade',
+  family: 'cascade',
   ports: { trigger: 'out', up: true },
   defaults: () => ({}),
   schedule({ node, time, activity }) {
@@ -226,6 +253,7 @@ const hold: NodeDefinition = {
   type: 'hold',
   label: 'HOLD',
   place: 'cascade',
+  family: 'cascade',
   ports: { trigger: 'both' },
   defaults: defaultHoldParams,
   schedule({ node, time, activity, engine, lap = 1, arrival = 1 }) {
@@ -280,6 +308,7 @@ const warp: NodeDefinition = {
   type: 'warp',
   label: 'WARP',
   place: 'side',
+  family: 'shaping',
   ports: { side: 'either' },
   defaults: defaultWarpParams,
 }
@@ -461,6 +490,7 @@ const osc: NodeDefinition = {
   type: 'osc',
   label: 'OSC',
   place: 'cascade',
+  family: 'cascade',
   ports: { trigger: 'both', side: 'either' },
   defaults: defaultOscParams,
   schedule({ node, time, bpm, engine, activity, warping = NO_WARPING, lap = 1 }) {
@@ -742,6 +772,7 @@ const fx: NodeDefinition = {
   type: 'fx',
   label: 'FX',
   place: 'side',
+  family: 'shaping',
   ports: { side: 'either' },
   defaults: defaultFxParams,
 }
@@ -804,6 +835,7 @@ const sense: NodeDefinition = {
   type: 'follow',
   label: 'FOLLOW',
   place: 'side',
+  family: 'modulation',
   ports: { side: 'directed' },
   defaults: defaultFollowParams,
 }
@@ -838,6 +870,7 @@ const fm: NodeDefinition = {
   type: 'fm',
   label: 'FM',
   place: 'side',
+  family: 'modulation',
   ports: { side: 'directed' },
   defaults: defaultFmParams,
 }
@@ -846,6 +879,7 @@ const mod: NodeDefinition = {
   type: 'mod',
   label: 'MOD',
   place: 'side',
+  family: 'modulation',
   ports: { trigger: 'both', side: 'either' },
   defaults: defaultModParams,
   schedule({ node, time, engine, activity }) {
@@ -878,12 +912,6 @@ const mod: NodeDefinition = {
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
 
-/**
- * The palette's order, and its grouping: what stands in a cascade first, then what hangs off one.
- *
- * Within each, the order a patch is built in — a cascade starts, then sounds, then waits; and a sound is
- * shaped, then swept, then moved.
- */
 /**
  * The palette, in the order it is read.
  *

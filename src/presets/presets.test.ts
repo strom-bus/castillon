@@ -13,6 +13,8 @@ import { PRESETS } from './presets'
 import { estimatePeakLoad } from '../audio/load'
 import { stressLoad } from '../tools/stressPatch'
 import { LAYER_THRESHOLD, MAX_LOAD } from '../audio/load'
+import { CascadeScheduler } from '../audio/scheduler'
+import { ActivityBus } from '../viz/activity'
 import { EFFECTS } from '../audio/effects'
 import { silentBecause, targetsFor } from '../audio/modulation'
 import { permits } from '../state/connections'
@@ -20,6 +22,7 @@ import { defaultFxParams, NODE_DEFINITIONS } from '../nodes/registry'
 import { decodePatch, encodePatch, STEP_COLUMN_USAGE } from '../state/patchCode'
 import { warpDoingNothing } from '../state/transpose'
 import { DIRECTIONS } from '../types/patch'
+import type { Engine, NoteRequest } from '../audio/engine'
 import type {
   FxParams,
   ModParams,
@@ -29,6 +32,61 @@ import type {
   HoldParams,
   StartParams,
 } from '../types/patch'
+
+/**
+ * A gap this long reads as the patch having stopped rather than as a rest in it.
+ *
+ * Generous on purpose. This is not a judgement about phrasing — plenty of good music leaves a bar empty
+ * — it is a floor under the one mistake it was written for, a lap held open by a branch with nothing in
+ * it. Tightened much further it would start having opinions about rhythm.
+ */
+const QUIET = 1.5
+
+/** Twenty-four seconds of a preset, played by the real scheduler into an engine that only writes down. */
+function played(patch: Patch): NoteRequest[] {
+  const notes: NoteRequest[] = []
+  let now = 0
+  const engine = {
+    now: () => now,
+    playNote: (request: NoteRequest) => notes.push({ ...request }),
+    voiceLoadAt: () => 0,
+    effectLoad: () => 0,
+    nodeBusyUntil: () => 0,
+    releaseNodeVoices: () => {},
+    // Halfway, so a step that sounds sometimes sounds, and slop lands a note exactly where it was aimed.
+    // A gap that only opens on an unlucky draw is not what this is looking for.
+    chance: () => 0.5,
+    fireEnvelope: () => {},
+    restartLfo: () => {},
+  } as unknown as Engine
+
+  const scheduler = new CascadeScheduler({
+    engine,
+    activity: new ActivityBus(() => now),
+    getPatch: () => patch,
+  })
+  scheduler.start()
+  for (let tick = 0; tick < 480; tick++) {
+    now += 0.05
+    scheduler.tick()
+  }
+  scheduler.stop()
+  return notes.sort((a, b) => a.time - b.time)
+}
+
+/** How long sound goes on past a node's own release, following its audio cables to the end of them. */
+function tailBeyond(patch: Patch, id: string, seen = new Set<string>()): number {
+  let longest = 0
+  for (const edge of patch.edges.filter((one) => one.kind === 'audio' && one.source === id)) {
+    if (seen.has(edge.target)) continue
+    seen.add(edge.target)
+    const params = nodeOf(patch, edge.target)!.params as FxParams
+    const descriptor = EFFECTS.find((one) => one.kind === params.effect)
+    const mine = descriptor?.tail?.(params, patch.bpm) ?? 0
+    longest = Math.max(longest, mine + tailBeyond(patch, edge.target, seen))
+  }
+  return longest
+}
 
 /** Everything a trigger can reach from an Ignite, which is everything that will ever make a sound. */
 function reachable(patch: Patch): Set<string> {
@@ -161,6 +219,54 @@ describe('the presets', () => {
       })
     expect(sounding.length).toBeGreaterThan(0)
   })
+
+  it.each(PRESETS.filter((one) => !one.loadTest))(
+    '$name never goes quiet in the middle of itself',
+    ({ patch }) => {
+      /*
+       * The fault this was written for: a preset whose effects are slow — a pan crossing once every eight
+       * seconds, a phaser sweeping once every four — needs something to be sounding while they do it, and
+       * one of them had three seconds of silence in the middle of every lap. Nothing else here could see
+       * it. Every node made a sound, every cable landed, the budget was fine, and it played a note, a
+       * gap, and another note.
+       *
+       * The cause is worth naming because it is not obvious from reading a patch: a branch holds the
+       * whole lap open until its last step, active or not, so eight steps of a quarter behind one bell
+       * keeps the lap running for six seconds after the last thing in it stopped.
+       */
+      const sung = played(patch)
+      expect(sung.length, 'nothing sounded at all').toBeGreaterThan(0)
+
+      /*
+       * Counting where the sound really stops, which is not where the note does — a plucked resonator is
+       * twenty milliseconds of click and three and a half seconds of ringing, and judged on its notes
+       * alone it is the quietest patch here. So each note is followed through its cables and given the
+       * tail of everything it reaches.
+       */
+      const tails = new Map<string, number>()
+      const spans = sung
+        .map((note) => {
+          if (!tails.has(note.nodeId)) tails.set(note.nodeId, tailBeyond(patch, note.nodeId))
+          return {
+            from: note.time,
+            to: note.time + note.duration + note.release / 1000 + tails.get(note.nodeId)!,
+          }
+        })
+        .sort((a, b) => a.from - b.from)
+
+      let heardUntil = 0
+      let worst = 0
+      let at = 0
+      for (const span of spans) {
+        if (heardUntil > 0 && span.from - heardUntil > worst) {
+          worst = span.from - heardUntil
+          at = heardUntil
+        }
+        heardUntil = Math.max(heardUntil, span.to)
+      }
+      expect(worst, `${worst.toFixed(2)}s of silence at ${at.toFixed(1)}s`).toBeLessThan(QUIET)
+    },
+  )
 
   it.each(PRESETS.filter((one) => !one.loadTest))(
     '$name stays well inside the budget',

@@ -765,7 +765,7 @@ const hand: Preset = {
  *
  * They also move at four speeds, on purpose, because that is what tells them apart by ear. The chorus
  * wobbles fast and shallow and reads as *width*; the phaser sweeps slowly through the bell and reads as
- * *a sweep*; the tremolo pulses at note speed and reads as *rhythm*; the pan crosses the stereo field
+ * *a sweep*; the tremolo pulses four or five times a note and reads as *rhythm*; the pan crosses the field
  * once every eight seconds and is the only one you have to wait for. Set to the same rate they collapse
  * into one indistinct wobble, which is the mistake this preset exists to argue against.
  *
@@ -789,7 +789,9 @@ const spin: Preset = {
       osc('pad', 1, 1, {
         waveform: 'pulse',
         pulseWidth: 0.5,
-        steps: steps([note(0, 0), null, null, null, note(4, 0), null, null, null]),
+        // Every other step, so the releases overlap into one continuous thing. A movement effect works on
+        // what is sounding, so a pad with a gap in it is a demonstration with a gap in it.
+        steps: steps([note(0, 0), null, note(4, 0), null, note(2, 0), null, note(6, 0), null]),
         division: '1/8',
         gain: 0.18,
         attack: 240,
@@ -823,7 +825,12 @@ const spin: Preset = {
       // The bell, fired after the pad and much sparser, so the two slow effects on it have room.
       osc('bell', 1, 3, {
         waveform: 'triangle',
-        steps: steps([note(6, 1), null, null, null, null, null, null, null]),
+        /*
+         * Four steps at a quarter, which is the same length as the pad's eight at an eighth — deliberately.
+         * A branch that runs longer than the others holds the whole pass open behind it, and this one held
+         * it open through three seconds of silence before it was measured.
+         */
+        steps: steps([note(6, 1), null, note(4, 1), null]),
         division: '1/4',
         gain: 0.22,
         attack: 4,
@@ -858,22 +865,26 @@ const spin: Preset = {
 /**
  * Dirt, which is the other family that only makes sense heard against itself.
  *
- * Five ways to damage a signal, in the order they damage it: **Distortion** rounds the peaks off and
- * makes it louder and thicker; **Fold** turns the peaks back on themselves and makes it harmonically
- * wrong rather than merely loud; **Crush** throws away resolution and sample rate and makes it *cheap*;
- * **Octave** adds a rectified copy an octave down; **Ring** multiplies it by a sine and makes it
- * metallic, keeping none of the original pitch relationships. Played one after another on the same
- * three notes, the differences are obvious. Described in words they all sound like "distortion".
+ * Five ways to damage a signal: **Fold** turns the peaks back on themselves and makes it harmonically
+ * wrong rather than merely loud; **Distortion** rounds those peaks off and makes it louder and thicker;
+ * **Crush** throws away resolution and sample rate and makes it *cheap*; **Octave** adds a rectified
+ * copy an octave down; **Ring** multiplies it by a sine and makes it metallic, keeping none of the
+ * original pitch relationships. Heard one after another the differences are obvious. Described in words
+ * they all sound like "distortion".
  *
- * The order is the argument. Dirt is not commutative: fold *after* distortion has almost nothing left to
- * fold, because distortion has already flattened the peaks it needed, so the pair is worth much more the
- * way round it is wired here than the other. And every one of these is louder out than in, which is why
- * each stage's mix is short of the whole and the oscillator starts quiet.
+ * They arrive in two chains rather than one, and both facts are the argument. Dirt is **not
+ * commutative**: the folder needs peaks to fold, and a distortion in front of it has already flattened
+ * them — so fold comes first here, and swapping those two is audibly the worse patch rather than merely
+ * a different one. And the last two are on a **second voice** instead of the end of the first, because
+ * Octave and Ring both work on a clear pitch and what leaves the crusher no longer has one. Every stage
+ * is also louder out than in, which is why each mix is short of the whole and the oscillators start
+ * quiet.
  *
  * The lead is also where **per-step locks** earn themselves. Its sequence changes waveform, cutoff, gate
- * and decay step by step — a square that stabs, a saw that is left open, a noise burst — so what arrives
- * at the dirt is a different signal every step, and each effect can be heard doing a different thing to
- * each one. A single waveform through this chain teaches much less.
+ * and decay step by step — a saw left wide open for the folder, a stab of thirty-five milliseconds for
+ * the crusher, a burst of noise with no pitch in it at all — so what arrives at the dirt is a different
+ * signal every step, and each effect can be heard doing a different thing to each one. A single waveform
+ * through this chain teaches much less.
  */
 const grit: Preset = {
   id: 'grit',
@@ -903,11 +914,16 @@ const grit: Preset = {
             null,
           ]),
           {
-            // A saw left wide open, which the fold has the most to work with.
+            // A saw left wide open, which is the step the folder has the most peaks to work with.
             1: { waveform: 'sawtooth', cutoff: 7000, gate: 0.9, decay: 300 },
             // A short stab, so the crush is heard on a transient rather than on a held note.
             3: { gate: 0.12, decay: 40 },
-            // And a noise burst, which is where the ring modulator stops sounding like a pitch at all.
+            /*
+             * And a burst of noise, which is the one step with no pitch to damage. The ring modulator
+             * further down would be the obvious thing to say here and it is on the other voice entirely
+             * — what this step is for is hearing the folder and the crusher work on something that was
+             * never a note, which is how you tell how much of the rest of it was.
+             */
             6: { waveform: 'white', cutoff: 4000, gate: 0.2, decay: 90 },
           },
         ),
@@ -923,14 +939,14 @@ const grit: Preset = {
         keyTrack: 0.4,
         propagateMode: 'onStart',
       }),
-      fx('ds', 1, 1, {
+      fx('fd', 1, 1, { effect: 'fold', mix: 0.5, drive: 0.45, bias: 0.1, cutoff: 5000 }),
+      fx('ds', 2, 1, {
         effect: 'distortion',
         mix: 0.8,
         shape: 'overdrive',
         drive: 0.55,
         cutoff: 3800,
       }),
-      fx('fd', 2, 1, { effect: 'fold', mix: 0.5, drive: 0.45, bias: 0.1, cutoff: 5000 }),
       fx('cr', 3, 1, { effect: 'crush', mix: 0.45, bits: 7, reduction: 6, cutoff: 6000 }),
       /*
        * The last two hang off a second voice rather than off the end of the chain. Octave and Ring both
@@ -955,9 +971,9 @@ const grit: Preset = {
     [
       wire('i', 'lead'),
       wire('lead', 'sub'),
-      wire('lead', 'ds', 'audio'),
-      wire('ds', 'fd', 'audio'),
-      wire('fd', 'cr', 'audio'),
+      wire('lead', 'fd', 'audio'),
+      wire('fd', 'ds', 'audio'),
+      wire('ds', 'cr', 'audio'),
       wire('sub', 'oc', 'audio'),
       wire('oc', 'rg', 'audio'),
       wire('rg', 'rv', 'audio'),
@@ -978,8 +994,14 @@ const grit: Preset = {
  *
  * The EQ then takes back what the compressing cost. Squeezing the peaks flattens the top and bottom
  * along with them, so a little low and a little high after it is not decoration — it is putting back the
- * ends of the range that the middle just ate. Its **Mid Hz** is parked where the hats live rather than
- * at the default, and pulled down, which is how two bright things stop fighting.
+ * ends of the range that the middle just ate. The low shelf is under the kick and the high shelf is over
+ * the hats, which on this bus are the only two things there are.
+ *
+ * The **Mid Hz** is then parked at six thousand, right on the hats, and pulled down five — so the shelf
+ * gives them air and the bell takes the hardness back out of the same band. Worth knowing that this
+ * control is a *bell* and it does nothing wherever the signal has nothing: parked at its default it sat
+ * between a kick filtered down to four hundred and hats filtered up to six thousand, moving five decibels
+ * of an empty band. A cut has to be aimed at something.
  *
  * And the stutter is on the chord, alone, because it is the one effect here you are meant to notice. It
  * catches a slice and repeats it, so a chord that was held becomes a chord that was held *and then
@@ -1028,7 +1050,10 @@ const glue: Preset = {
       /*
        * Threshold well under the kick and ratio high enough to hear: a compressor set gently is a
        * compressor nobody can tell is on, which teaches nothing. The release is what makes it *pump* —
-       * long enough that the hats are still climbing back when the next kick lands.
+       * two hundred and twenty milliseconds against a shortest kick gap of five hundred and thirty-six, so
+       * the hats are heard climbing all the way back rather than snapping back, and they get there before
+       * the next one lands. Longer than the gap and it stops being a pump and starts being a duck that
+       * never lets go.
        */
       fx('cmp', 1, 1, {
         effect: 'compress',
@@ -1038,7 +1063,7 @@ const glue: Preset = {
         attack: 4,
         decay: 0.22,
       }),
-      fx('eq', 2, 1, { effect: 'eq', mix: 1, low: 4, mid: -5, high: 3, cutoff: 3200 }),
+      fx('eq', 2, 1, { effect: 'eq', mix: 1, low: 4, mid: -5, high: 3, cutoff: 6000 }),
       // The chord: held, straight, and given its rhythm entirely by the effect after it.
       osc('chord', 0, 3, {
         waveform: 'sawtooth',

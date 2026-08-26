@@ -42,8 +42,19 @@ export function Manual({ onClose }: { onClose: () => void }) {
   const results = useMemo(() => (searching ? findTerms(query) : []), [query, searching])
   const elsewhere = useMemo(() => (searching ? alsoMentionedIn(query) : []), [query, searching])
 
+  /*
+   * Focus lands on the way in, and **only** on the way in.
+   *
+   * It used to share an effect with the key handler below, which needs the current query — so adding
+   * the search meant `query` joined this effect's dependencies and every keystroke pulled the caret out
+   * of the box and onto CLOSE. Typing two letters took three clicks. Two concerns in one effect, and
+   * the dependency list is where that stops being free.
+   */
   useEffect(() => {
     closer.current?.focus()
+  }, [])
+
+  useEffect(() => {
     function onKey(event: KeyboardEvent) {
       /*
        * Escape lets go of one thing at a time, outermost last: the search, then the page, then the

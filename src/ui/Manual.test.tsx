@@ -259,3 +259,24 @@ describe('searching the manual', () => {
     expect(screen.queryByText(/Nothing by that name/i)).toBeNull()
   })
 })
+
+describe('typing in the search box', () => {
+  it('keeps the caret where it was typed', () => {
+    /*
+     * Reported, and it made the box unusable: a letter, then the focus jumped to CLOSE, then a click to
+     * get back, then another letter. The cause was two concerns sharing one effect — the focus-on-open
+     * and the Escape handler — so adding a search put `query` in the dependency list of both, and the
+     * focus ran on every keystroke.
+     */
+    render(<Manual onClose={() => {}} />)
+    const box = screen.getByLabelText('Search the manual')
+    box.focus()
+
+    fireEvent.change(box, { target: { value: 'r' } })
+    expect(document.activeElement, 'focus left after one letter').toBe(box)
+
+    fireEvent.change(box, { target: { value: 're' } })
+    fireEvent.change(box, { target: { value: 'rep' } })
+    expect(document.activeElement, 'focus left once results appeared').toBe(box)
+  })
+})

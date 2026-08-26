@@ -64,11 +64,13 @@ import {
   MAX_SLOP,
   MAX_EVERY,
   MIN_NOTE,
+  MAX_FM_HZ,
   DEFAULT_IGNITE,
   type Step,
   type IgniteBehaviour,
   type IgniteTrigger,
   type ModParams,
+  type FmMode,
   type FmParams,
   type FollowParams,
   type HoldParams,
@@ -1452,9 +1454,25 @@ export function Inspector() {
 
   if (node.type === 'fm') {
     const fmParams = node.data.params as FmParams
+    const linear = fmParams.mode === 'linear'
     const carrier = usePatchStore
       .getState()
       .edges.some((e) => e.source === node.id && e.data?.kind === 'mod')
+    /*
+     * Which waveform it is pointed at, for the one thing linear FM cannot do. A noise voice is a buffer
+     * being played and has no frequency to add hertz to, so the cable would be drawn, charged for and
+     * silent — the failure this panel already warns about for a filter that is switched off.
+     */
+    const carrierWave = usePatchStore
+      .getState()
+      .edges.filter((e) => e.source === node.id && e.data?.kind === 'mod')
+      .map(
+        (e) =>
+          (usePatchStore.getState().nodes.find((n) => n.id === e.target)?.data.params as OscParams)
+            ?.waveform,
+      )
+      .find((wave) => wave !== undefined)
+    const mute = linear ? silentBecause('fmHz', { nodeType: 'osc', waveform: carrierWave }) : null
 
     return (
       <Panel>
@@ -1462,15 +1480,47 @@ export function Inspector() {
           FM <span className="node-ordinal">{ordinal}</span>
         </h2>
 
-        {/* One control, so no group: a heading over a single slider names a group of one. The same
-            reason Pitch stands alone above the WARP's groups. */}
+        {/*
+         * Two controls, so still no group: the mode is what the index is *in*, and a heading over a
+         * number and its units would be naming the panel twice.
+         *
+         * The mode sits above the index for the same reason Mix sits above an effect's own controls —
+         * changing it changes what the number below means, and a control that reinterprets its
+         * neighbour belongs on the side the eye reaches first.
+         */}
+        <label className="inspector-field">
+          <span className="inspector-label">
+            Mode
+            <em>{linear ? 'hertz' : 'cents'}</em>
+          </span>
+          <select
+            aria-label="Mode"
+            value={linear ? 'linear' : 'exponential'}
+            onChange={(e) => {
+              const mode = e.target.value as FmMode
+              /*
+               * The index is rescaled rather than carried across, because the two numbers are not the
+               * same quantity: 400 is a major third in cents and an inaudible nudge on a bass note in
+               * hertz. Kept as the same *share of its own span*, so switching mode holds roughly the
+               * character it had instead of dropping to nothing or jumping to a siren.
+               */
+              const share = (fmParams.index ?? 0) / (linear ? MAX_FM_HZ : MAX_FM_CENTS)
+              const span = mode === 'linear' ? MAX_FM_HZ : MAX_FM_CENTS
+              updateParams(node.id, { mode, index: Math.round(share * span) })
+            }}
+          >
+            <option value="exponential">Exponential</option>
+            <option value="linear">Linear</option>
+          </select>
+        </label>
+
         <TypedSlider
           label="Index"
           value={Math.round(fmParams.index ?? 0)}
-          min={-MAX_FM_CENTS}
-          max={MAX_FM_CENTS}
+          min={linear ? -MAX_FM_HZ : -MAX_FM_CENTS}
+          max={linear ? MAX_FM_HZ : MAX_FM_CENTS}
           step={10}
-          suffix=" cents"
+          suffix={linear ? ' Hz' : ' cents'}
           onChange={(index) => updateParams(node.id, { index })}
         />
 
@@ -1496,9 +1546,12 @@ export function Inspector() {
           The modulator’s own level scales it, so its envelope is the shape of the index: a short
           decay on the modulator is a bell, a long one is a growl that opens.
         </p>
+        {mute && <p className="inspector-warn">Hearing nothing: {mute}.</p>}
+
         <p className="inspector-empty">
-          It bends in cents rather than in hertz, so the carrier drifts upward as the index opens.
-          That is the difference from classic FM, and on most patches it is a feature.
+          {linear
+            ? 'Linear bends the frequency, in hertz and symmetrically, so the pitch centre holds however far the index is pushed. This is what an FM synthesiser means by FM — a bell that stays in tune as it brightens — and the one waveform it cannot reach is a noise, which has no frequency to bend.'
+            : 'Exponential bends the pitch, in cents, so the carrier drifts upward as the index opens and the sound sharpens as it brightens. It works on every waveform, noises included, and on most patches the drift is a feature.'}
         </p>
       </Panel>
     )

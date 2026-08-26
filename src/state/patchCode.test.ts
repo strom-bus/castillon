@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { defaultFxParams, defaultOscParams, defaultHoldParams } from '../nodes/registry'
-import { MAX_EVERY } from '../types/patch'
+import { MAX_EVERY, MAX_FM_HZ } from '../types/patch'
+import { MAX_FM_CENTS } from '../audio/modulation'
 import type {
+  FmParams,
   WarpParams,
   FxParams,
   ModParams,
@@ -1063,6 +1065,89 @@ describe('a MIDI binding', () => {
     }
     const back = decodePatch(encodePatch(patch))!
     expect((back.nodes[0].params as StartParams).binding).toEqual({ source: 'key', code: 'KeyA' })
+  })
+})
+
+describe('which way an FM node measures', () => {
+  const oscNode = (id: string): PatchNode => ({
+    id,
+    type: 'osc',
+    position: { x: 40, y: 0 },
+    params: defaultOscParams(),
+  })
+
+  /** A patch with one FM node, whose mode is the thing under test. */
+  const withFm = (params: FmParams) =>
+    patchOf(
+      [
+        { id: 's', type: 'start', position: { x: 0, y: 0 }, params: {} },
+        oscNode('carrier'),
+        oscNode('mod'),
+        { id: 'f', type: 'fm', position: { x: 40, y: 40 }, params },
+      ],
+      [
+        { id: 'e1', kind: 'event', source: 's', target: 'carrier' },
+        { id: 'e2', kind: 'event', source: 'carrier', target: 'mod' },
+        { id: 'e3', kind: 'mod', source: 'f', target: 'carrier' },
+      ],
+    )
+
+  it('costs an exponential patch nothing at all', () => {
+    /*
+     * The reason the mode is behind a header flag. This format has twice had to migrate live data by
+     * hand because a field was appended where a reader could not tell it was there — so a patch that
+     * does not use the new thing must produce the code it always produced, to the character.
+     *
+     * Both codes here are written by *this* build, which is what makes the comparison meaningful: with
+     * the flag clear no mode bit is written and the index keeps its old span, so an exponential FM node
+     * occupies exactly the bits it did before the mode existed.
+     */
+    const plain = encodePatch(withFm({ index: 400 }))
+    const stated = encodePatch(withFm({ index: 400, mode: 'exponential' }))
+    expect(stated).toBe(plain)
+  })
+
+  it('carries the linear mode and its own units', () => {
+    const back = decodePatch(encodePatch(withFm({ index: 640, mode: 'linear' })))
+    const fm = back!.nodes.find((node) => node.type === 'fm')!.params as FmParams
+    expect(fm.mode).toBe('linear')
+    // Hertz, at the resolution the field gives: the span is four thousand across fourteen bits.
+    expect(fm.index).toBeCloseTo(640, 0)
+  })
+
+  it('reads an index against the span of the mode it came with', () => {
+    /*
+     * The fault this shape avoids. One span for both units would store 640 hertz as a share of ±4800 and
+     * read it back as 640 *cents* — a number that is not wrong by a little, it is a different parameter.
+     * So the two are encoded against their own ceilings, and the mode is written first.
+     */
+    const linear = decodePatch(encodePatch(withFm({ index: MAX_FM_HZ, mode: 'linear' })))!
+    const exponential = decodePatch(encodePatch(withFm({ index: MAX_FM_CENTS })))!
+    const of = (patch: Patch) =>
+      (patch.nodes.find((node) => node.type === 'fm')!.params as FmParams).index!
+
+    expect(of(linear)).toBeCloseTo(MAX_FM_HZ, 0)
+    expect(of(exponential)).toBeCloseTo(MAX_FM_CENTS, 0)
+    // And neither reaches the other's ceiling, which is what a shared span would have let happen.
+    expect(of(linear)).toBeLessThan(MAX_FM_CENTS)
+  })
+
+  it('keeps two FM nodes in different modes apart', () => {
+    // The flag is per patch and the bit is per node: one linear node must not relabel the others.
+    const patch = withFm({ index: 400 })
+    patch.nodes.push({
+      id: 'f2',
+      type: 'fm',
+      position: { x: 80, y: 40 },
+      params: { index: 900, mode: 'linear' },
+    })
+    patch.edges.push({ id: 'e4', kind: 'mod', source: 'f2', target: 'mod' })
+
+    const back = decodePatch(encodePatch(patch))!
+    const modes = back.nodes
+      .filter((node) => node.type === 'fm')
+      .map((node) => (node.params as FmParams).mode)
+    expect(modes).toEqual(['exponential', 'linear'])
   })
 })
 

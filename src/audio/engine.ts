@@ -374,6 +374,19 @@ function voiceParam(voice: Voice, key: string): AudioParam | null {
     const source = voice.source as unknown as { detune?: AudioParam }
     return source.detune ?? null
   }
+  /*
+   * Linear FM, which is the same idea through the other parameter: hertz added to the frequency rather
+   * than cents added to the detune.
+   *
+   * `frequency` belongs to an `OscillatorNode` and not to the union, so a noise voice answers null and
+   * the connection is never made. That is the one waveform this mode cannot reach, and `silentBecause`
+   * says so in the panel before a cable is drawn — here it is simply absent, which is what the caller
+   * already handles.
+   */
+  if (key === 'fmHz') {
+    const source = voice.source as unknown as { frequency?: AudioParam }
+    return source.frequency ?? null
+  }
   // Only a pulse voice built for sweeping has one, which is why this is on the voice and not worked out
   // from the waveform: the same oscillator plays a swept pulse and a baked one on different notes.
   if (key === 'width') return voice.width

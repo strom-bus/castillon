@@ -254,9 +254,64 @@ input[type='checkbox']:focus-visible {
   color: var(--text);
 }
 
+/*
+ * A slider, drawn rather than borrowed.
+ *
+ * `accent-color` was the whole of this, and it only ever colours the *filled* half: the rest arrived
+ * from the operating system as a grey capsule with a rounded border, which is the one shape §8 forbids
+ * everywhere else and the only rounded thing left in the interface once the BETA stamp is excused.
+ *
+ * So `appearance: none` and two pseudo-elements. A hairline for the rail and a thin bar for the handle —
+ * a fader index on a line, which is what a value on a range is. No fill behind the handle: filling it
+ * would say the number twice, and every slider in this panel already has its value written beside its
+ * name, tabular, to the digit.
+ */
 input[type='range'] {
-  accent-color: var(--accent);
+  appearance: none;
   width: 96px;
+  /* The height is the hit area rather than the rail, which is two pixels. Twelve is what a pointer is
+     asked to hit; the rail is what the eye is asked to read. */
+  height: 12px;
+  background: transparent;
+  cursor: pointer;
+}
+
+input[type='range']::-webkit-slider-runnable-track {
+  height: 2px;
+  background: var(--border-strong);
+}
+
+input[type='range']::-moz-range-track {
+  height: 2px;
+  background: var(--border-strong);
+}
+
+input[type='range']::-webkit-slider-thumb {
+  appearance: none;
+  width: 5px;
+  height: 12px;
+  /* Centred on a 2px rail: half the handle, less half the rail. */
+  margin-top: -5px;
+  border: none;
+  border-radius: 0;
+  background: var(--text);
+}
+
+input[type='range']::-moz-range-thumb {
+  width: 5px;
+  height: 12px;
+  border: none;
+  border-radius: 0;
+  background: var(--text);
+}
+
+/* The rail answers a hover, since the handle is already as bright as the interface goes. */
+input[type='range']:hover::-webkit-slider-runnable-track {
+  background: var(--muted);
+}
+
+input[type='range']:hover::-moz-range-track {
+  background: var(--muted);
 }
 
 /* Mirrors `.palette` so the two read as one line across the top of the canvas, and matches a

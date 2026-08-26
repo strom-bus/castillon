@@ -1,6 +1,7 @@
 import { MAX_FM_CENTS, resolveTarget, type ModTargetKey } from './modulation'
 import { wouldFeedBack } from '../state/connections'
 import { defaultFmParams, defaultFollowParams } from '../nodes/registry'
+import { MAX_FM_HZ } from '../types/patch'
 import type { FmParams, FxParams, ModParams, NodeId, Patch, FollowParams } from '../types/patch'
 
 /**
@@ -220,15 +221,22 @@ export function graphOf(patch: Patch): AudioGraph {
         : undefined
 
     /*
-     * An FM node names no target: it has one, and the cable is what says so. Its index is in cents and
-     * the depth every cable carries is a share of the target's own span, so the conversion happens here
-     * — the one place that knows both numbers — rather than as a second range inside the engine.
+     * An FM node names no target: it has one, and the cable is what says so. Which of the two it is comes
+     * from the node's mode — cents into the detune, or hertz into the frequency — and either way the
+     * depth a cable carries is a share of that target's own span, so the conversion happens here, in the
+     * one place that knows both numbers, rather than as a second range inside the engine.
+     *
+     * The span is the mode's own. Sharing one would make the index mean two different things at the same
+     * number, which is exactly what the two units already are.
      */
     if (fm) {
-      const target = resolveTarget('fm', destination, undefined, 'fm')
-      if (target !== 'fm') continue
-      const index = Math.min(MAX_FM_CENTS, Math.max(-MAX_FM_CENTS, fm.index ?? 0))
-      mods.set(sendKey(edge.source, edge.target), { target, depth: index / MAX_FM_CENTS })
+      const linear = fm.mode === 'linear'
+      const key = linear ? 'fmHz' : 'fm'
+      const target = resolveTarget(key, destination, undefined, 'fm')
+      if (target !== key) continue
+      const span = linear ? MAX_FM_HZ : MAX_FM_CENTS
+      const index = Math.min(span, Math.max(-span, fm.index ?? 0))
+      mods.set(sendKey(edge.source, edge.target), { target, depth: index / span })
       continue
     }
     if (!params) continue

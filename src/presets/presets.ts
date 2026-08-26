@@ -13,6 +13,7 @@
 import { defaultFxParams, defaultHoldParams, defaultOscParams } from '../nodes/registry'
 import { stressPatch } from '../tools/stressPatch'
 import type {
+  FmMode,
   FxParams,
   ModParams,
   OscParams,
@@ -132,11 +133,18 @@ const follow = (id: string, column: number, row: number, params: FollowParams): 
   params,
 })
 
-const fm = (id: string, column: number, row: number, index: number): PatchNode => ({
+/** The index is in cents by default and in hertz where the mode says linear — see `FmParams`. */
+const fm = (
+  id: string,
+  column: number,
+  row: number,
+  index: number,
+  mode: FmMode = 'exponential',
+): PatchNode => ({
   id,
   type: 'fm',
   position: at(column, row),
-  params: { index },
+  params: { index, mode },
 })
 
 const warp = (id: string, column: number, row: number, params: WarpParams): PatchNode => ({
@@ -1191,6 +1199,116 @@ const sweep: Preset = {
 }
 
 /**
+ * The two kinds of FM, alternating on the same note, which is the only way to hear which one you want.
+ *
+ * Both bells are identical: a sine carrier, a sine modulator at the same pitch, a short decay on the
+ * modulator so the index closes as the note rings. The only difference is the mode of the FM node
+ * between them, and they play the same four notes in turn — A, A, C, C, E, E, A, A — so the comparison
+ * arrives inside a second rather than as a memory of the last time you switched a dropdown.
+ *
+ * What you hear is not that one is better. Each holds still what the other lets move:
+ *
+ * **Exponential** measures in cents, which is a ratio, so with the modulator tracking the carrier the
+ * *index is constant across the keyboard* — the low bell and the high bell have the same timbre. What
+ * moves is the pitch: a symmetric swing in cents is asymmetric in hertz and its average sits above
+ * where it started, so the bell reads sharp, and further sharp the harder it is driven.
+ *
+ * **Linear** measures in hertz, symmetrically, so *the pitch centre does not move* however far it is
+ * pushed. What moves is the timbre: a hundred and forty hertz is a large deviation against a low note
+ * and a small one against a high note, so the low bell is the brighter of the two and the top of the
+ * figure thins out.
+ *
+ * That is the actual trade, and it is why this shipped as a mode rather than as a replacement. The two
+ * indices are matched by ear near the middle of the figure rather than by number: nine hundred and
+ * fifty cents and a hundred and forty hertz are not the same quantity, and no arithmetic makes them
+ * comparable — one is a ratio and the other is a distance.
+ */
+const peal: Preset = {
+  id: 'peal',
+  name: 'PEAL',
+  about:
+    'The same bell in both kinds of FM, note against note: one drifts sharp, the other thins out.',
+  patch: patchOf(
+    76,
+    [
+      ignite('i', 1, 0),
+      /*
+       * The exponential pair. Carrier and modulator on the same notes, which fixes the ratio at one to
+       * one — the condition under which exponential FM holds its timbre across the range, so the only
+       * thing left to hear is the drift.
+       */
+      osc('bellA', 1, 1, {
+        waveform: 'sine',
+        steps: steps([note(0, 0), null, note(2, 0), null, note(4, 0), null, note(0, 1), null]),
+        division: '1/8',
+        gain: 0.3,
+        attack: 2,
+        decay: 620,
+        release: 520,
+        gate: 0.85,
+        filterType: 'off',
+        propagateMode: 'onStart',
+      }),
+      osc('modA', 0, 1, {
+        waveform: 'sine',
+        steps: steps([note(0, 0), null, note(2, 0), null, note(4, 0), null, note(0, 1), null]),
+        division: '1/8',
+        // Silent as a voice: this one is here to be used rather than heard, so the two bells are the
+        // only things in the comparison.
+        gain: 0.02,
+        attack: 1,
+        decay: 150,
+        release: 130,
+        gate: 0.5,
+        filterType: 'off',
+      }),
+      fm('fA', 2, 1, 950),
+      /*
+       * The linear pair, one step behind so each note is played twice: once each way. Everything else is
+       * the same to the millisecond, because a comparison with two differences in it is not one.
+       */
+      osc('bellB', 1, 3, {
+        waveform: 'sine',
+        steps: steps([null, note(0, 0), null, note(2, 0), null, note(4, 0), null, note(0, 1)]),
+        division: '1/8',
+        gain: 0.3,
+        attack: 2,
+        decay: 620,
+        release: 520,
+        gate: 0.85,
+        filterType: 'off',
+      }),
+      osc('modB', 0, 3, {
+        waveform: 'sine',
+        steps: steps([null, note(0, 0), null, note(2, 0), null, note(4, 0), null, note(0, 1)]),
+        division: '1/8',
+        gain: 0.02,
+        attack: 1,
+        decay: 150,
+        release: 130,
+        gate: 0.5,
+        filterType: 'off',
+      }),
+      fm('fB', 2, 3, 140, 'linear'),
+      // One room for both, so nothing about the space can be mistaken for a difference between them.
+      fx('rv', 3, 2, { effect: 'reverb', mix: 0.3, decay: 3.6, cutoff: 3400 }),
+    ],
+    [
+      wire('i', 'bellA'),
+      wire('bellA', 'modA'),
+      wire('bellA', 'bellB'),
+      wire('bellB', 'modB'),
+      wire('modA', 'fA', 'audio'),
+      wire('fA', 'bellA', 'mod'),
+      wire('modB', 'fB', 'audio'),
+      wire('fB', 'bellB', 'mod'),
+      wire('bellA', 'rv', 'audio'),
+      wire('bellB', 'rv', 'audio'),
+    ],
+  ),
+}
+
+/**
  * Two oscillators firing each other, which is a **cycle** — and cycles are allowed here.
  *
  * Nothing else in the box shows this, and it is one of the load-bearing decisions in the instrument: the
@@ -2094,6 +2212,7 @@ export const PRESETS: Preset[] = [
   grit,
   glue,
   sweep,
+  peal,
   shadow,
   iron,
   mask,

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { defaultFxParams, defaultOscParams } from '../nodes/registry'
-import type { FxParams, ModParams, Patch, PatchEdge, PatchNode } from '../types/patch'
+import { MAX_FM_HZ } from '../types/patch'
+import type { FmParams, FxParams, ModParams, Patch, PatchEdge, PatchNode } from '../types/patch'
+import { MAX_FM_CENTS } from './modulation'
 import { diff, EMPTY_GRAPH, graphOf, sendKey, type AudioGraph } from './router'
 
 function osc(id: string): PatchNode {
@@ -285,6 +287,56 @@ describe('modulation in the graph', () => {
     )
     expect(graph.sends.has('a>f')).toBe(true)
     expect(graph.sends.has('m>a')).toBe(false)
+  })
+})
+
+describe('which parameter an FM cable carries', () => {
+  const fmNode = (id: string, params: FmParams): PatchNode => ({
+    id,
+    type: 'fm',
+    position: { x: 0, y: 0 },
+    params,
+  })
+
+  const modEdge = (source: string, target: string): PatchEdge => ({
+    id: `${source}~${target}`,
+    kind: 'mod',
+    source,
+    target,
+  })
+
+  const cable = (params: FmParams) =>
+    graphOf(patchOf([fmNode('f', params), osc('c')], [modEdge('f', 'c')])).mods.get('f>c')
+
+  it('carries the detune in the exponential mode', () => {
+    expect(cable({ index: 950 })?.target).toBe('fm')
+    expect(cable({ index: 950, mode: 'exponential' })?.target).toBe('fm')
+  })
+
+  it('carries the frequency in the linear mode', () => {
+    /*
+     * The router is the only place that knows the mode, so this is where a mode that is read and then
+     * ignored would leave no trace: the cable would be built, connected and audible, and it would be
+     * the other kind of FM at a number that means something else.
+     */
+    expect(cable({ index: 140, mode: 'linear' })?.target).toBe('fmHz')
+  })
+
+  it('scales the index against the span of its own mode', () => {
+    /*
+     * The depth a cable carries is a share of its target's span, and the two spans differ — so one span
+     * for both units reads 140 hertz as 140/4800 of four octaves, which is a twelfth of the modulation
+     * that was asked for. Silent, plausible, and wrong.
+     */
+    expect(cable({ index: MAX_FM_HZ, mode: 'linear' })?.depth).toBeCloseTo(1, 6)
+    expect(cable({ index: MAX_FM_CENTS })?.depth).toBeCloseTo(1, 6)
+    expect(cable({ index: 140, mode: 'linear' })?.depth).toBeCloseTo(140 / MAX_FM_HZ, 6)
+    expect(cable({ index: 140 })?.depth).toBeCloseTo(140 / MAX_FM_CENTS, 6)
+  })
+
+  it('clamps to its own ceiling rather than to the other one', () => {
+    // Asking for four thousand hertz is asking for twice the linear ceiling, not most of the cents one.
+    expect(cable({ index: 4000, mode: 'linear' })?.depth).toBeCloseTo(1, 6)
   })
 })
 

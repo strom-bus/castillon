@@ -536,7 +536,7 @@ refused, since between an oscillator and an effect there is only one direction t
 - **A patch gallery**, a window over the canvas rather than a page — so choosing a patch loads it into
   the instrument already underneath. Cards draw their own cascade, and stars decay with age so the
   popular sort does not freeze on whatever was published first. Two tabs: the patches people have
-  shared, and **twenty-one presets** that come with the machine.
+  shared, and **twenty-two presets** that come with the machine.
 
   Six are built around one idea that is hard to arrive at by rolling and small enough to read at a
   glance — the plain cascade, why there is no clock, one phrase driving another note by note, a figure
@@ -611,7 +611,7 @@ it`, `0.5 · where a line sounds played`, `1 · legato: each note reaches the ne
   looking for a filter — and the filter was fifth, the EQ fourteenth. The grouping is read off each
   effect rather than written out beside the list, and a family with nothing in it is not rendered, so
   removing the last of a kind cannot leave a heading over an empty shelf.
-  Sixteen chapters and a hundred and eighty-six entries, written for whoever is using the instrument
+  Sixteen chapters and a hundred and eighty-seven entries, written for whoever is using the instrument
   rather than for whoever built it: no entry explains how something is implemented, and every one says
   what a control does to the sound and when you would reach for it. One chapter per module, each in
   the order its own panel is in and under the panel's own group headings, so reading the manual and

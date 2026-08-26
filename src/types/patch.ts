@@ -558,20 +558,51 @@ export interface HoldParams {
  * smoothed into a control — where this uses **the waveform itself**, at audio rate, unchanged. One is a
  * gesture and the other is a timbre.
  *
- * One control, because there is one thing to say. Where a MOD chooses among a destination's parameters,
- * an FM node has exactly one meaning — the carrier's pitch — so the cable is the setting and the number
- * is how far.
+ * Two controls, because there is one thing to say and two ways to say it. Where a MOD chooses among a
+ * destination's parameters, an FM node has exactly one meaning — the carrier's pitch — so the cable is
+ * the setting, the number is how far, and the mode is in what units.
  */
 export interface FmParams {
   /**
-   * How far the modulator bends the carrier, in cents, at the modulator's full level.
+   * How far the modulator bends the carrier at the modulator's full level.
+   *
+   * In **cents** when the mode is exponential and in **hertz** when it is linear, which is the whole of
+   * the difference between the two and the reason they cannot share a number: 400 is a musical interval
+   * in one and a barely audible wobble on a bass note in the other.
    *
    * A ceiling rather than a fixed amount: what arrives is the modulator's audio, so its own envelope and
    * its own Level scale this from moment to moment. That is not a compromise — an index shaped by the
    * modulator's envelope is what makes FM sound played rather than switched on.
    */
   index?: number
+  /**
+   * Which way the deviation is measured, and therefore what FM this is.
+   *
+   * **Exponential** bends the pitch: the deviation is in cents, so the swing is wider upward in hertz
+   * than downward and the carrier's perceived pitch *rises* as the index opens. It is the cheaper thing
+   * to build, it shares the vibrato's own parameter, and it works on every waveform including the noises.
+   *
+   * **Linear** bends the frequency: the deviation is in hertz, symmetric, so the pitch centre does not
+   * move however far the index is pushed. This is what an FM synthesiser means by FM, and it is why a
+   * classic FM bell stays in tune while an exponential one sharpens as it gets brighter.
+   *
+   * Absent means exponential, so every patch written before the mode existed is exactly what it was.
+   */
+  mode?: FmMode
 }
+
+/** The two ways an FM node can measure its deviation. See `FmParams.mode`. */
+export type FmMode = 'exponential' | 'linear'
+
+/**
+ * How far a linear FM node can bend a carrier, in hertz either way.
+ *
+ * Two kilohertz, which is about twice the highest note this instrument plays. The sidebands that make
+ * FM a sound appear once the deviation is comparable to the *modulator's* frequency, and a modulator
+ * here is an oscillator playing its own sequence anywhere in the range — so the ceiling has to allow an
+ * index of several against a modulator up near the top, not merely against a bass note.
+ */
+export const MAX_FM_HZ = 2000
 
 /**
  * A follower: the one node whose input is audio and whose output is modulation.

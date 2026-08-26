@@ -13,7 +13,7 @@
 
 import { MAX_BITS, MAX_REDUCTION, MAX_REPEATS, MIN_BITS, MIN_REDUCTION, MIN_REPEATS } from './dsp'
 import { effectOr } from './effects'
-import { MAX_PULSE_WIDTH, MIN_PULSE_WIDTH } from './waveforms'
+import { isNoise, MAX_PULSE_WIDTH, MIN_PULSE_WIDTH } from './waveforms'
 import { MAX_CUTOFF, MAX_RESONANCE, MIN_CUTOFF, MIN_RESONANCE } from './filter'
 import {
   MAX_COMPRESS_ATTACK,
@@ -27,8 +27,10 @@ import {
   MIN_THRESHOLD,
   MIN_RATE as MIN_RATE_FX,
   MIN_SWEEP,
+  MAX_FM_HZ,
   type EffectKind,
   type FxParams,
+  type Waveform,
 } from '../types/patch'
 
 export type ModKind = 'lfo' | 'env'
@@ -569,6 +571,35 @@ const FM: ModTarget = {
 }
 
 /**
+ * The same job through the carrier's **frequency** rather than its detune, which is linear FM.
+ *
+ * A detune is exponential by definition — cents are a ratio — so a symmetric swing reaches further up in
+ * hertz than down, and because that curve is convex the *average* frequency rises with the index. The
+ * carrier sharpens as it gets brighter. Nobody asks for that, and every FM synthesiser ever built avoids
+ * it by adding hertz instead.
+ *
+ * `frequency` is an a-rate `AudioParam` on an `OscillatorNode`, so this is one connection and no extra
+ * nodes — the same price as the exponential path, which is why it is a mode and not a project.
+ *
+ * What it costs is the noises. An `AudioBufferSourceNode` has a detune and no frequency, so a noise
+ * carrier has nothing here to write to. That is stated in `silentBecause` rather than left to be
+ * discovered, because a cable that is drawn and does nothing is the quietest kind of wrong.
+ */
+const FM_LINEAR: ModTarget = {
+  key: 'fmHz',
+  label: 'Index',
+  min: -MAX_FM_HZ,
+  max: MAX_FM_HZ,
+  via: 'audio',
+  perVoice: true,
+  only: 'fm',
+  // The same as the exponential path's, and for the same reason: an oscillator reading an a-rate
+  // frequency recomputes its phase increment, which is the one multiply either way.
+  surcharge: 0.5,
+  hint: 'How far the modulator bends the carrier, in hertz. Symmetric, so the pitch centre holds however far the index is pushed.',
+}
+
+/**
  * The duty cycle of a pulse wave, which is the one waveform parameter that can be *moved*.
  *
  * Its span is the width's own range rather than nought to one: at either extreme the wave is a sliver
@@ -602,6 +633,7 @@ const OSC_TARGETS: readonly ModTarget[] = [
   LEVEL,
   PITCH,
   FM,
+  FM_LINEAR,
   WIDTH,
   {
     ...FX_PARAM_TARGETS.cutoff,
@@ -621,6 +653,14 @@ export interface Destination {
   effect?: EffectKind
   /** An oscillator's filter type. `off` skips the biquad, so no voice builds one to sweep. */
   filterType?: string
+  /**
+   * An oscillator's waveform, which one target depends on and no other does.
+   *
+   * Linear FM writes to a frequency, and a noise voice is a buffer being played rather than an
+   * oscillator running — it has a detune and no frequency at all. Asked here because the alternative is
+   * a cable that is drawn, charged for, and silent.
+   */
+  waveform?: string
 }
 
 /**
@@ -637,8 +677,23 @@ export interface Destination {
  */
 export function silentBecause(target: ModTargetKey, destination: Destination): string | null {
   if (destination.nodeType !== 'osc') return null
-  if (target !== 'cutoff' && target !== 'resonance') return null
-  return destination.filterType === 'off' ? 'the oscillator’s filter is off' : null
+  if (target === 'cutoff' || target === 'resonance') {
+    return destination.filterType === 'off' ? 'the oscillator’s filter is off' : null
+  }
+  /*
+   * Linear FM into a noise carrier. A noise voice is a buffer being played, with a detune and no
+   * frequency — so there is nothing for hertz to be added to, and the exponential mode is the one that
+   * works on every waveform.
+   *
+   * Reported by waveform rather than by trying and finding nothing, so the panel can say it before the
+   * cable is drawn and the dice never draws it at all.
+   */
+  if (target === 'fmHz' && destination.waveform !== undefined) {
+    return isNoise(destination.waveform as Waveform)
+      ? 'linear FM needs a frequency and a noise carrier has none — use exponential'
+      : null
+  }
+  return null
 }
 
 /**

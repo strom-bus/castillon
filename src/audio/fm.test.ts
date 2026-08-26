@@ -1,9 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import { defaultFmParams, defaultOscParams } from '../nodes/registry'
-import type { FmParams, Patch, PatchEdge, PatchNode } from '../types/patch'
-import { AudioEngine } from './engine'
+import {
+  MAX_FM_HZ,
+  type FmParams,
+  type Patch,
+  type PatchEdge,
+  type PatchNode,
+} from '../types/patch'
+import { AudioEngine, type NoteRequest } from './engine'
 import { fakeAudio, type FakeAudio } from './fakeAudio'
-import { amountFor, MAX_FM_CENTS, targetOf, targetsFrom } from './modulation'
+import { amountFor, MAX_FM_CENTS, silentBecause, targetOf, targetsFrom } from './modulation'
 import { diff, EMPTY_GRAPH, graphOf } from './router'
 
 /**
@@ -109,17 +115,65 @@ describe('an FM node in the graph', () => {
     expect(amountFor(index, 1) / amountFor(vibrato, 1)).toBe(48)
   })
 
-  it('is offered to nothing but an FM node', () => {
-    // Sitting in a MOD's list beside Pitch, it would be a siren offered as a vibrato.
+  it('is offered to nothing but an FM node, in both modes', () => {
+    // Sitting in a MOD's list beside Pitch, either of them would be a siren offered as a vibrato.
     const forMod = targetsFrom('mod', 'osc').map((one) => one.key)
     const forSense = targetsFrom('follow', 'osc').map((one) => one.key)
     const forFm = targetsFrom('fm', 'osc').map((one) => one.key)
 
-    expect(forMod).not.toContain('fm')
-    expect(forSense).not.toContain('fm')
-    expect(forFm).toEqual(['fm'])
+    for (const list of [forMod, forSense]) {
+      expect(list).not.toContain('fm')
+      expect(list).not.toContain('fmHz')
+    }
+    // Two entries and one node: which of them a cable carries is the node's mode, decided in the router.
+    expect(forFm).toEqual(['fm', 'fmHz'])
+  })
+
+  it('measures the linear mode in hertz, symmetrically', () => {
+    /*
+     * The whole reason the mode exists. Cents are a ratio, so a symmetric swing in cents is asymmetric in
+     * hertz and its average is above where it started — the carrier sharpens as the index opens. Hertz
+     * are hertz in both directions.
+     */
+    const linear = targetOf('fmHz', 'osc')!
+    expect(amountFor(linear, 1)).toBe(MAX_FM_HZ)
+    expect(amountFor(linear, -1)).toBe(-MAX_FM_HZ)
+    expect(linear.min).toBe(-linear.max)
+  })
+
+  it('says so rather than going quiet on a noise carrier', () => {
+    /*
+     * A noise voice is a buffer being played: it has a detune and no frequency, so there is nothing for
+     * hertz to be added to. Exponential works on every waveform, which is what makes this a mode worth
+     * warning about rather than a mode worth removing.
+     */
+    expect(silentBecause('fmHz', { nodeType: 'osc', waveform: 'white' })).toContain('noise carrier')
+    expect(silentBecause('fmHz', { nodeType: 'osc', waveform: 'sine' })).toBeNull()
+    // And the exponential mode is fine with noise, which is the asymmetry the warning is about.
+    expect(silentBecause('fm', { nodeType: 'osc', waveform: 'white' })).toBeNull()
   })
 })
+
+/** One note on the carrier, so a per-voice target has a voice to reach. */
+function sounding(): NoteRequest {
+  return {
+    nodeId: 'c',
+    time: 1,
+    freq: 440,
+    waveform: 'sine',
+    pulseWidth: 0.5,
+    duration: 1,
+    gain: 0.5,
+    attack: 5,
+    decay: 0,
+    release: 50,
+    glide: 0,
+    velocity: 1,
+    filterType: 'off',
+    cutoff: 1000,
+    resonance: 2,
+  }
+}
 
 describe('an FM node in the engine', () => {
   /** An engine with one FM node built, plus the two gains it builds, in order. */
@@ -177,29 +231,52 @@ describe('an FM node in the engine', () => {
      * and connect it to nothing — silent, with every other assertion still passing.
      */
     const { fake, engine } = built()
-    engine.playNote({
-      nodeId: 'c',
-      time: 1,
-      freq: 440,
-      waveform: 'sine',
-      pulseWidth: 0.5,
-      duration: 1,
-      gain: 0.5,
-      attack: 5,
-      decay: 0,
-      release: 50,
-      glide: 0,
-      velocity: 1,
-      filterType: 'off',
-      cutoff: 1000,
-      resonance: 2,
-    })
+    engine.playNote(sounding())
 
     const before = fake.drivers('detune').length
     engine.connectMod('f', 'c', 'fm', 1)
     const amount = fake.nodes('gain').at(-1)
     expect(fake.drivers('detune').length).toBe(before + 1)
     expect(fake.drivers('detune')).toContain(amount)
+  })
+
+  it('drives the frequency in the linear mode, and not the detune', () => {
+    /*
+     * The whole of the mode, at the level where it could fail silently. Both targets are per-voice, both
+     * build the same chain, and both look identical from every angle except which parameter the last
+     * gain is connected to — so a lookup that answered `detune` for `fmHz` would be exponential FM
+     * wearing a label that says linear, at a hundred and forty *cents* instead of hertz.
+     */
+    const { fake, engine } = built()
+    engine.playNote(sounding())
+
+    const detunes = fake.drivers('detune').length
+    engine.connectMod('f', 'c', 'fmHz', 1)
+    const amount = fake.nodes('gain').at(-1)
+
+    /*
+     * `oscFrequency` rather than `frequency`, which is the stub's own name for it: a biquad has a
+     * `frequency` too, and naming them apart is what keeps a filter sweep from reading as a pitch one.
+     */
+    expect(fake.drivers('oscFrequency')).toContain(amount)
+    expect(fake.drivers('detune').length, 'the linear mode reached the detune').toBe(detunes)
+    // And at the linear span, which is a different number from the exponential one on purpose.
+    expect((amount as { gain: { value: number } }).gain.value).toBe(MAX_FM_HZ)
+  })
+
+  it('connects nothing at all on a noise carrier', () => {
+    /*
+     * A noise voice is a buffer being played: it has a detune and no frequency. There is nothing to add
+     * hertz to, so the chain is built and reaches no parameter — which is why the panel says so before a
+     * cable is drawn. What matters here is that it does not instead land on something else.
+     */
+    const { fake, engine } = built()
+    engine.playNote({ ...sounding(), waveform: 'white' })
+
+    const before = fake.drivers('detune').length
+    engine.connectMod('f', 'c', 'fmHz', 1)
+    expect(fake.drivers('oscFrequency')).toHaveLength(0)
+    expect(fake.drivers('detune').length, 'linear FM fell back to the detune').toBe(before)
   })
 
   it('lets go of everything when it is disposed', () => {

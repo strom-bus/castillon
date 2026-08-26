@@ -2309,10 +2309,33 @@ export const MANUAL: Section[] = [
         title: 'THE PANEL',
         terms: [
           {
+            term: { en: 'Mode', es: 'Mode' },
+            text: {
+              en: 'Which way the bending is measured, and therefore which FM this is. **Exponential** bends the pitch, in cents: the swing reaches further up in hertz than down, so the carrier drifts sharp as the index opens and the sound sharpens as it brightens. **Linear** bends the frequency, in hertz and symmetrically, so the pitch centre does not move however far the index is pushed — this is what an FM synthesiser means by FM, and it is why a classic FM bell stays in tune. Changing the mode changes what Index is in, so the number is rescaled to keep roughly the character it had.',
+              es: 'De qué manera se mide el doblado, y por tanto qué FM es esto. **Exponential** dobla la altura, en centésimas: el vaivén llega más arriba en hercios que abajo, así que la portadora se va hacia agudo a medida que abres el índice y el sonido se afila al abrillantarse. **Linear** dobla la frecuencia, en hercios y de forma simétrica, así que el centro de la altura no se mueve por mucho que empujes el índice — esto es lo que un sintetizador FM entiende por FM, y es por lo que una campana FM clásica se mantiene afinada. Cambiar el modo cambia en qué va el Index, así que el número se reescala para conservar más o menos el carácter que tenía.',
+            },
+            examples: [
+              {
+                at: 'Exponential',
+                is: {
+                  en: 'works on every waveform, noises included',
+                  es: 'funciona en toda onda, ruidos incluidos',
+                },
+              },
+              {
+                at: 'Linear',
+                is: {
+                  en: 'stays in tune; does nothing on a noise carrier',
+                  es: 'no se desafina; nada sobre una portadora de ruido',
+                },
+              },
+            ],
+          },
+          {
             term: { en: 'Index', es: 'Index' },
             text: {
-              en: 'How far the modulator bends the carrier, in cents, at the modulator’s full level — up to 4800 either way, which is four octaves. It goes below zero, which inverts the modulator: on a sine that sounds the same, and on anything lopsided it does not.',
-              es: 'Cuánto dobla el modulador a la portadora, en centésimas, cuando el modulador está a pleno nivel — hasta 4800 a cada lado, que son cuatro octavas. Baja de cero, lo que invierte el modulador: en una sinusoide suena igual, en cualquier cosa asimétrica no.',
+              en: 'How far the modulator bends the carrier at the modulator’s full level. In **cents** when the mode is exponential — up to 4800 either way, which is four octaves — and in **hertz** when it is linear, up to 2000. The same number means quite different things in the two: 400 is a major third in cents and barely a wobble on a bass note in hertz. It goes below zero, which inverts the modulator: on a sine that sounds the same, and on anything lopsided it does not.',
+              es: 'Cuánto dobla el modulador a la portadora cuando el modulador está a pleno nivel. En **centésimas** si el modo es exponential — hasta 4800 a cada lado, que son cuatro octavas — y en **hercios** si es linear, hasta 2000. El mismo número significa cosas bien distintas en los dos: 400 es una tercera mayor en centésimas y apenas un temblor sobre una nota grave en hercios. Baja de cero, lo que invierte el modulador: en una sinusoide suena igual, en cualquier cosa asimétrica no.',
             },
             examples: [
               {

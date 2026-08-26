@@ -62,6 +62,7 @@ import {
   type FollowParams,
   type FmParams,
   type HoldParams,
+  MAX_FM_HZ,
 } from '../types/patch'
 import {
   MAX_BITS,
@@ -157,12 +158,25 @@ const HOLD_CHANCE_BITS = 7
 /** And what it counts: passes, or the triggers reaching it. */
 const HOLD_COUNTS_BITS = 1
 /**
- * An FM node's index, in whole cents, offset so the sign travels without a bit of its own.
+ * An FM node's index, offset so the sign travels without a bit of its own.
  *
  * Fourteen bits hold the whole span either way with room to spare, and one node's worth of bits is not
- * worth being clever about.
+ * worth being clever about. It holds whole cents in the exponential mode and whole hertz in the linear
+ * one — the span is the mode's, and the mode is read before this is, which is the only reason one width
+ * can serve two units.
  */
 const FM_INDEX_BITS = 14
+
+/**
+ * Which way an FM node measures, written only when one of them measures the new way.
+ *
+ * The fourth header flag, and the same trick the Ignite's trigger and the climbing cables use: with the
+ * flag clear no FM node writes a mode bit and none reads one, so every code already published — and
+ * every new code whose FM nodes are all exponential — is byte for byte the code it always was. The
+ * migration this format has twice had to do by hand is the reason the trick exists.
+ */
+const FLAG_LINEAR_FM = 8
+const FM_MODE_BITS = 1
 
 /**
  * And its wait, in whole milliseconds.
@@ -996,10 +1010,14 @@ export function encodePatch(patch: Patch): string {
         node.type === 'mod' || node.type === 'warp' || node.type === 'follow' || node.type === 'fm',
     ) || patch.edges.some((e) => e.kind === 'mod' || e.kind === 'warp')
   const anyClimbing = patch.edges.some((e) => e.kind === 'event' && e.up === true)
+  const anyLinearFm = patch.nodes.some(
+    (node) => node.type === 'fm' && (node.params as FmParams).mode === 'linear',
+  )
   writer.write(
     (anyBound ? FLAG_IGNITE_TRIGGER : 0) |
       (anyModulation ? FLAG_MODULATION : 0) |
-      (anyClimbing ? FLAG_CLIMBING : 0),
+      (anyClimbing ? FLAG_CLIMBING : 0) |
+      (anyLinearFm ? FLAG_LINEAR_FM : 0),
     HEADER_FLAG_BITS,
   )
 
@@ -1034,8 +1052,11 @@ export function encodePatch(patch: Patch): string {
     } else if (node.type === 'follow') {
       writeFollow(writer, node.params as FollowParams)
     } else if (node.type === 'fm') {
-      const { index } = { ...defaultFmParams(), ...(node.params as FmParams) }
-      writer.write(quantise(index + MAX_FM_CENTS, 1, 0, MAX_FM_CENTS * 2), FM_INDEX_BITS)
+      const { index, mode } = { ...defaultFmParams(), ...(node.params as FmParams) }
+      // The mode first, because it decides what the number after it means.
+      if (anyLinearFm) writer.write(mode === 'linear' ? 1 : 0, FM_MODE_BITS)
+      const span = mode === 'linear' ? MAX_FM_HZ : MAX_FM_CENTS
+      writer.write(quantise(index + span, 1, 0, span * 2), FM_INDEX_BITS)
     }
   }
 
@@ -1079,6 +1100,7 @@ export function decodePatch(code: string): Patch | null {
     const ignitesCarryTrigger = (flags & FLAG_IGNITE_TRIGGER) !== 0
     const hasModulation = (flags & FLAG_MODULATION) !== 0
     const hasClimbing = (flags & FLAG_CLIMBING) !== 0
+    const fmCarriesMode = (flags & FLAG_LINEAR_FM) !== 0
 
     const nodeCount = reader.readVarint()
     if (nodeCount > 5000) return null
@@ -1112,7 +1134,9 @@ export function decodePatch(code: string): Patch | null {
       } else if (type === 'follow') {
         params = readFollow(reader)
       } else if (type === 'fm') {
-        params = { index: reader.read(FM_INDEX_BITS) - MAX_FM_CENTS }
+        const mode = fmCarriesMode && reader.read(FM_MODE_BITS) === 1 ? 'linear' : 'exponential'
+        const span = mode === 'linear' ? MAX_FM_HZ : MAX_FM_CENTS
+        params = { index: reader.read(FM_INDEX_BITS) - span, mode }
       }
 
       nodes.push({ id: `n${i}`, type, position: { x, y }, params })

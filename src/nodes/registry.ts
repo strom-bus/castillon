@@ -851,8 +851,11 @@ export function defaultFmParams(): Required<FmParams> {
    *
    * Four hundred cents: enough that the first note after wiring it is audibly not the note it was, low
    * enough to still be a timbre rather than a siren.
+   *
+   * Exponential, because that is what every FM node in every patch written before the mode existed is,
+   * and a default that silently reinterpreted them would be a format change dressed as a preference.
    */
-  return { index: 400 }
+  return { index: 400, mode: 'exponential' }
 }
 
 /**

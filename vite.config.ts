@@ -2,6 +2,7 @@ import { defineConfig, type Plugin } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import { build } from 'esbuild'
 import { resolve } from 'node:path'
+import { execSync } from 'node:child_process'
 
 const WORKLET_PREFIX = 'virtual:worklet/'
 
@@ -74,8 +75,36 @@ function vendorChunk(id: string): string | undefined {
 }
 
 // https://vite.dev/config/
+/**
+ * Which build this is, so a bug report can name one.
+ *
+ * The commit's own sha and date rather than the time it was compiled. A timestamp would change the
+ * bundle on every build even with nothing edited, which is the opposite of what the chunk splitting is
+ * for — two vendor chunks exist so a release of app code leaves them in cache, and a define that moved
+ * every time would invalidate the app chunk for no reason at all.
+ *
+ * `GITHUB_SHA` first because CI has it without asking git, then git, then `dev` — a checkout with no
+ * history is a legitimate way to run this and not a reason to fail a build.
+ */
+function buildId(): string {
+  const sha = (process.env.GITHUB_SHA ?? '').slice(0, 7) || run('git rev-parse --short=7 HEAD')
+  const date = run('git show -s --format=%cs HEAD')
+  if (!sha) return 'dev'
+  return date ? `${sha} · ${date}` : sha
+}
+
+function run(command: string): string {
+  try {
+    return execSync(command, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim()
+  } catch {
+    return ''
+  }
+}
+
 export default defineConfig({
   plugins: [react(), worklets()],
+  // A string, so it is inlined wherever it is read and costs nothing at runtime.
+  define: { __BUILD__: JSON.stringify(buildId()) },
   // Relative paths: it serves the same from the root of its own domain as from a GitHub Pages
   // subpath (user.github.io/castillon/).
   base: './',

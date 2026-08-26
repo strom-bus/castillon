@@ -2717,6 +2717,13 @@ export const MANUAL: Section[] = [
             },
           },
           {
+            term: { en: 'Which build this is', es: 'Qué build es este' },
+            text: {
+              en: `This one is **${__BUILD__}** — the commit it was made from and the day it was made. It is here rather than on the screen because it is worth exactly one thing: if you find something wrong, saying which build you were on turns a report into something that can be reproduced. Send it with the patch code, which is the other half — the code carries the whole patch, so whoever reads it is looking at what you were looking at.`,
+              es: `Este es el **${__BUILD__}** — el commit del que salió y el día en que se hizo. Está aquí y no en pantalla porque sirve para exactamente una cosa: si encuentras algo que va mal, decir en qué build estabas convierte un aviso en algo que se puede reproducir. Mándalo con el código del patch, que es la otra mitad — el código lleva el patch entero, así que quien lo lea está viendo lo que tú veías.`,
+            },
+          },
+          {
             term: { en: 'Typing a number', es: 'Escribir un número' },
             text: {
               en: 'Where a control shows its value as a field rather than as plain text, you can type into it. Out-of-range typing is held while you finish the word and clamped when you leave the field, so a value on the way to 180 is not clamped at 1.',

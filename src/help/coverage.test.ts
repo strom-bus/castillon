@@ -71,6 +71,41 @@ const NOT_A_CONTROL = new Set([
   'STP',
 ])
 
+describe('the build the manual names', () => {
+  /**
+   * The one line in the manual that is not written by hand.
+   *
+   * It exists so that a report can name a build, which means the failure mode is not a wrong answer but
+   * a *placeholder* — a substitution that stopped happening leaves the manual telling a stranger that
+   * this build is called `__BUILD__`, and nothing else in the project would notice. Every other test
+   * here reads prose that a person typed.
+   */
+  const entry = MANUAL.at(-1)!
+    .detail?.flatMap((group) => group.terms)
+    .find((term) => term.term.en === 'Which build this is')
+
+  it('is in the manual at all', () => {
+    expect(entry, 'the last chapter no longer names the build').toBeTruthy()
+  })
+
+  it('was substituted, in both languages', () => {
+    for (const text of [entry!.text.en, entry!.text.es]) {
+      expect(text).not.toContain('__BUILD__')
+      expect(text).not.toContain('${')
+    }
+  })
+
+  it('names something rather than nothing', () => {
+    /*
+     * `dev` is a legitimate answer — a checkout with no history is a real way to run this — so what is
+     * asserted is that the name is *there*, not what it says. An empty one would read as "This one is
+     * ** —" and mean nothing to whoever was asked to read it out.
+     */
+    const named = /\*\*(.+?)\*\*/.exec(entry!.text.en)?.[1] ?? ''
+    expect(named.length).toBeGreaterThan(2)
+  })
+})
+
 describe('the manual against the panel', () => {
   const written = MANUAL.flatMap((section) => [
     ...section.body.map((passage) => passage.en),

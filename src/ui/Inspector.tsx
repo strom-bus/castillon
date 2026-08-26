@@ -27,7 +27,7 @@ import {
   sliderToCutoff,
 } from '../audio/filter'
 import { MAX_PULSE_WIDTH, MIN_PULSE_WIDTH, WAVEFORM_NAMES, WAVEFORMS } from '../audio/waveforms'
-import { DEFAULT_STEP_COUNT, MAX_STEPS, MIN_STEPS } from '../nodes/registry'
+import { DEFAULT_STEP_COUNT, lockedFor, MAX_STEPS, MIN_STEPS } from '../nodes/registry'
 import {
   LFO_SHAPE_LABELS,
   LFO_SHAPES,
@@ -182,6 +182,7 @@ function Locked({
   max,
   step,
   onChange,
+  onLock,
   onRelease,
   children,
 }: {
@@ -196,6 +197,8 @@ function Locked({
   max?: number
   step?: number
   onChange?: (value: number) => void
+  /** Take the value it is showing — the oscillator's — and make it this step's. */
+  onLock: () => void
   onRelease: () => void
   /** A control of its own, where a slider is the wrong shape — a waveform is a list, not a range. */
   children?: ReactNode
@@ -214,20 +217,29 @@ function Locked({
      */
     <div className={`inspector-field locked${inherited ? ' inherited' : ''}`}>
       <span className="inspector-label">
-        {/* A button rather than a checkbox: it has one job, releasing, and a checkbox would imply that
-            ticking it is how you lock — which is not the gesture. It is only reachable while locked,
-            since releasing something that follows the node already does nothing. */}
-        <button
-          type="button"
-          className="lock-dot"
-          disabled={inherited}
-          onClick={onRelease}
+        {/*
+         * A checkbox, which this was argued out of once: it had one job, releasing, and a box implies
+         * that ticking it is how you lock — where the gesture is to move the control.
+         *
+         * The gesture is still the gesture and still locks. What the argument missed is that a gesture
+         * nobody is told about is not discoverable by having been well chosen, and there was nothing on
+         * this row to try: a dot that did nothing until you had already done the thing it was there to
+         * undo. A box says both halves at once, and now ticking it does lock — at the value the row is
+         * showing, which is the oscillator's, so the step starts from where it already was and the tick
+         * changes nothing you can hear until you move it.
+         */}
+        <input
+          type="checkbox"
+          className="lock-check"
+          checked={!inherited}
+          onChange={(e) => (e.target.checked ? onLock() : onRelease())}
+          // One name whatever the state, since the state is what the box itself says.
+          aria-label={`${label} on this step only`}
           title={
             inherited
-              ? 'Follows the oscillator. Move it to give this step its own.'
-              : 'This step overrules the oscillator. Click to let it follow again.'
+              ? 'Follows the oscillator. Tick to give this step its own.'
+              : 'This step overrules the oscillator. Untick to let it follow again.'
           }
-          aria-label={inherited ? `${label} follows the oscillator` : `Release ${label}`}
         />
         {label}
         <em>{readout}</em>
@@ -688,6 +700,14 @@ function StepPanel({
   const updateStep = usePatchStore((s) => s.updateStep)
   const select = usePatchStore((s) => s.select)
   const set = (partial: Partial<Step>) => updateStep(nodeId, index, partial)
+  /*
+   * What this step plays right now in each of the four, whether the value is its own or the node's.
+   *
+   * Asked of the same function the engine asks, rather than repeating four `??` chains down the panel:
+   * ticking a box has to write exactly the value the row was already showing, or the tick is audible —
+   * and a second copy of "what a step plays" is the way that goes quietly wrong.
+   */
+  const playing = lockedFor(params, step)
 
   return (
     <Panel>
@@ -814,6 +834,7 @@ function StepPanel({
           label="Wave"
           readout=""
           inherited={step.waveform === undefined}
+          onLock={() => set({ waveform: playing.waveform })}
           onRelease={() => set({ waveform: undefined })}
         >
           <select
@@ -834,6 +855,7 @@ function StepPanel({
           value={Math.round(step.cutoff ?? params.cutoff ?? 2000)}
           readout={formatCutoff(step.cutoff ?? params.cutoff ?? 2000)}
           inherited={step.cutoff === undefined}
+          onLock={() => set({ cutoff: playing.cutoff })}
           min={MIN_CUTOFF}
           max={MAX_CUTOFF}
           step={10}
@@ -846,6 +868,7 @@ function StepPanel({
           value={step.gate ?? params.gate}
           readout={String(step.gate ?? params.gate)}
           inherited={step.gate === undefined}
+          onLock={() => set({ gate: playing.gate })}
           min={0.05}
           max={1}
           step={0.05}
@@ -858,6 +881,7 @@ function StepPanel({
           value={Math.round(step.decay ?? params.decay ?? 0)}
           readout={`${Math.round(step.decay ?? params.decay ?? 0)} ms`}
           inherited={step.decay === undefined}
+          onLock={() => set({ decay: playing.decay })}
           min={0}
           max={2000}
           step={10}
@@ -866,8 +890,8 @@ function StepPanel({
         />
 
         <p className="inspector-empty">
-          A control here follows the oscillator until you move it, and then this step keeps its own
-          — the dot beside the name says which, and clicking it hands the control back.
+          A control here follows the oscillator until you move it, and then this step keeps its own.
+          The box beside the name says which, and unticking it hands the control back.
         </p>
       </Group>
     </Panel>

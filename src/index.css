@@ -43,6 +43,11 @@
      and two copies of a number are two numbers that drift. */
   --gap-run: 8px;
 
+  /* Between a tickbox and the word it belongs to. Mute and Glide sit at this, and so does the box that
+     says a step has taken a control over from its oscillator — three boxes in one panel, and the eye
+     reads a different gap as a different kind of thing. */
+  --gap-tick: 9px;
+
   font-family: ui-monospace, 'SF Mono', Menlo, monospace;
   color-scheme: dark;
 }

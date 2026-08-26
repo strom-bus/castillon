@@ -1400,37 +1400,26 @@ button.step-lock:focus-visible {
  * something that already follows does nothing — and a control that can be pressed to no effect is worse
  * than one that visibly cannot.
  */
-.lock-dot {
+/* The size and the tick are the shared checkbox rule's: Mute and Glide are two rows above in the same
+   panel, and a box that is nearly the same as those reads as a mistake rather than as a distinction. */
+.lock-check {
   position: relative;
-  width: 6px;
-  height: 6px;
-  padding: 0;
-  margin-right: 6px;
+  margin-right: var(--gap-tick);
   flex-shrink: 0;
   align-self: center;
-  border: 1px solid var(--muted);
-  border-radius: 50%;
-  background: var(--accent);
-  cursor: pointer;
 }
 
 /*
- * The target, which is three times the mark.
+ * The target, wider than the box, and drawn on `::before` because `::after` is the tick.
  *
- * Six pixels is the right size for something that has to sit inside a line of type without becoming
- * furniture, and it is a hopeless thing to aim at — the panel says elsewhere that a five-pixel box is a
- * poor thing to point at, and then this was six. So the circle stays six and the area that answers a
- * click is eighteen, which is what a pointer is actually asked to hit.
+ * Worth saying which, since the first attempt reached for `::after` and got both: unticked it was a
+ * generous hit area, ticked it was that same area painted in the accent colour — a mark five times the
+ * box it belonged to. The two pseudo-elements do different jobs here and only one of them was free.
  */
-.lock-dot::after {
+.lock-check::before {
   content: '';
   position: absolute;
-  inset: -6px;
-}
-
-.lock-dot:disabled::after {
-  /* Nothing to press, so nothing reaches out for the pointer either. */
-  content: none;
+  inset: -4px;
 }
 
 .lock-dot:disabled {
@@ -1483,7 +1472,7 @@ button.step-lock:focus-visible {
 .inspector-check {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: var(--gap-tick);
   margin-bottom: 14px;
   color: var(--muted);
   letter-spacing: 0.06em;

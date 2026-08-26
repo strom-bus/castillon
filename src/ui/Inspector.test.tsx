@@ -609,9 +609,37 @@ describe('a step that overrules its oscillator', () => {
     render(<Inspector />)
     // What the control shows is what the note will use, which at rest is the node's own value.
     expect(stepOne(id).cutoff).toBeUndefined()
-    expect((screen.getByLabelText('Cutoff follows the oscillator') as HTMLElement).tagName).toBe(
-      'BUTTON',
+    expect((screen.getByLabelText('Cutoff on this step only') as HTMLInputElement).checked).toBe(
+      false,
     )
+  })
+
+  it('takes the oscillator\u2019s own value when the box is ticked, so ticking is silent', () => {
+    /*
+     * The half a checkbox adds, and the half that could go wrong quietly: ticking must write *the value
+     * the row is showing*. Write a default instead and a step somebody only meant to unlink jumps to
+     * some other cutoff the moment the box is ticked — a gesture that says "this one is mine" and
+     * changes the sound while saying it.
+     */
+    const id = selectStep()
+    const node = usePatchStore.getState().nodes.find((n) => n.id === id)!
+    const oscCutoff = (node.data.params as OscParams).cutoff
+    render(<Inspector />)
+
+    fireEvent.click(screen.getByLabelText('Cutoff on this step only'))
+    expect(stepOne(id).cutoff).toBe(oscCutoff)
+    expect((screen.getByLabelText('Cutoff on this step only') as HTMLInputElement).checked).toBe(
+      true,
+    )
+  })
+
+  it('ticks itself the moment a control is moved, without being asked', () => {
+    // The old gesture still is the gesture. The box reports it rather than replacing it.
+    const id = selectStep()
+    render(<Inspector />)
+    fireEvent.change(screen.getByLabelText('Gate'), { target: { value: '0.9' } })
+    expect((screen.getByLabelText('Gate on this step only') as HTMLInputElement).checked).toBe(true)
+    expect(stepOne(id).gate).toBe(0.9)
   })
 
   it('locks the value on that step alone when it is moved', () => {
@@ -629,13 +657,13 @@ describe('a step that overrules its oscillator', () => {
     expect(after.steps[1]!.cutoff).toBeUndefined()
   })
 
-  it('hands the control back when the dot is clicked', () => {
+  it('hands the control back when the box is unticked', () => {
     const id = selectStep()
     render(<Inspector />)
     fireEvent.change(screen.getByLabelText('Cutoff'), { target: { value: '5000' } })
     expect(stepOne(id).cutoff).toBe(5000)
 
-    fireEvent.click(screen.getByLabelText('Release Cutoff'))
+    fireEvent.click(screen.getByLabelText('Cutoff on this step only'))
     expect(stepOne(id).cutoff).toBeUndefined()
   })
 
@@ -655,22 +683,24 @@ describe('a step that overrules its oscillator', () => {
      * page, which is Wave — this passed green against a row whose lock was never set, which is a test
      * checking nothing while reporting that it checked the thing.
      */
-    const row = screen.getByLabelText('Release Cutoff').closest('.inspector-field')!
+    const row = screen.getByLabelText('Cutoff on this step only').closest('.inspector-field')!
     fireEvent.click(row.querySelector('.inspector-label')!)
     expect(stepOne(id).cutoff, 'clicking the name released the lock').toBe(5000)
 
-    // And the dot itself still does, which is the half that must not be lost fixing the other one.
-    fireEvent.click(screen.getByLabelText('Release Cutoff'))
+    // And the box itself still does, which is the half that must not be lost fixing the other one.
+    fireEvent.click(screen.getByLabelText('Cutoff on this step only'))
     expect(stepOne(id).cutoff).toBeUndefined()
   })
 
-  it('offers no release while the control already follows', () => {
-    // A button that can be pressed to no effect is worse than one that visibly cannot.
-    selectStep()
+  it('leaves the other three alone when one box is ticked', () => {
+    // Four boxes, four independent facts. One `??` chain reaching for the wrong key would tie them.
+    const id = selectStep()
     render(<Inspector />)
-    expect(
-      (screen.getByLabelText('Cutoff follows the oscillator') as HTMLButtonElement).disabled,
-    ).toBe(true)
+    fireEvent.click(screen.getByLabelText('Gate on this step only'))
+    expect(stepOne(id).gate).toBeDefined()
+    expect(stepOne(id).cutoff).toBeUndefined()
+    expect(stepOne(id).decay).toBeUndefined()
+    expect(stepOne(id).waveform).toBeUndefined()
   })
 
   it('takes each of the four independently', () => {

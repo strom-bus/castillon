@@ -29,8 +29,20 @@ const DIST = 'dist/assets'
  * rescuing is a byte budget doing nothing.
  */
 const FIRST_PAINT_LIMIT = 175
-/** Gzipped kilobytes for any one chunk fetched later, each of which is one interaction's wait. */
-const DEFERRED_LIMIT = 60
+/**
+ * Gzipped kilobytes for any one chunk fetched later, each of which is one interaction's wait.
+ *
+ * Raised from sixty when the manual's entries grew example rows, and raised **with a condition attached**
+ * rather than because it failed — a budget moved to fit what happened to it is not a budget.
+ *
+ * The condition: about half of what this chunk carries is a language the reader will never see, since
+ * every passage holds both. That is the real waste and it has a real fix — load the language being read
+ * — which is worth doing at eighty and is not worth doing at sixty, because the chunk is fetched once,
+ * on a deliberate click, and then cached while somebody reads for minutes. So eighty is the line where
+ * the answer stops being "raise it" and becomes "split it", and this comment is here so that the next
+ * person to hit it does the second thing.
+ */
+const DEFERRED_LIMIT = 80
 
 /** Chunks that are fetched only when somebody opens the thing they belong to. */
 const DEFERRED = ['Manual', 'Gallery']

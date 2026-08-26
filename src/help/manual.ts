@@ -522,6 +522,17 @@ export const MANUAL: Section[] = [
               en: 'Switches on a per-step probability, which then appears in each step. Off, every step plays. On, a step you set to sixty per cent plays about six passes in ten — which is how a sixteen-step line stops repeating itself without you writing a variation.',
               es: 'Enciende una probabilidad por paso, que luego aparece en cada paso. Apagado, todos los pasos suenan. Encendido, un paso al sesenta por ciento suena unas seis pasadas de cada diez — así es como una línea de dieciséis pasos deja de repetirse sin que escribas una variación.',
             },
+            examples: [
+              {
+                at: '100%',
+                is: { en: 'every pass, which is off', es: 'todas las pasadas, que es apagado' },
+              },
+              {
+                at: '60%',
+                is: { en: 'usually there, sometimes not', es: 'casi siempre está, a veces no' },
+              },
+              { at: '20%', is: { en: 'an accident you wait for', es: 'un accidente que esperas' } },
+            ],
           },
           {
             term: { en: 'Ratchets', es: 'Ratchets' },
@@ -1227,6 +1238,26 @@ export const MANUAL: Section[] = [
               en: 'All clean at one end, all effect at the other. On a reverb or an echo you usually want a little; on a filter or a bitcrusher you usually want all of it, because half a filter is just a quieter version of the unfiltered sound sitting underneath.',
               es: 'Todo limpio en un extremo, todo efecto en el otro. En un reverb o un eco normalmente quieres poco; en un filtro o un bitcrusher normalmente quieres todo, porque medio filtro es solo una versión más suave del sonido sin filtrar que sigue debajo.',
             },
+            examples: [
+              {
+                at: '0',
+                is: { en: 'the effect is there and inaudible', es: 'el efecto está y no se oye' },
+              },
+              {
+                at: '0.25',
+                is: {
+                  en: 'reverb and echo usually live here',
+                  es: 'reverb y eco viven normalmente aquí',
+                },
+              },
+              {
+                at: '1',
+                is: {
+                  en: 'all effect — where a filter belongs',
+                  es: 'todo efecto — donde vive un filtro',
+                },
+              },
+            ],
           },
         ],
       },
@@ -1239,6 +1270,23 @@ export const MANUAL: Section[] = [
               en: 'Puts the sound in a room. Decay is how big that room is, in seconds, and Tone darkens the tail so it sits behind the dry sound instead of on top of it. It is by far the most expensive thing here and it grows with Decay, so a long tail is the first place to look when the meter is high.',
               es: 'Pone el sonido en una sala. Decay es lo grande que es esa sala, en segundos, y Tone oscurece la cola para que se quede detrás del sonido seco en vez de encima. Es de largo lo más caro de aquí y crece con el Decay, así que una cola larga es lo primero que hay que mirar cuando el medidor está alto.',
             },
+            examples: [
+              {
+                at: 'decay 0.6 s',
+                is: { en: 'a room, not a hall', es: 'una habitación, no una sala' },
+              },
+              {
+                at: 'decay 3 s',
+                is: { en: 'a hall the patch sits in', es: 'una sala en la que vive el patch' },
+              },
+              {
+                at: 'decay 10 s',
+                is: {
+                  en: 'never quite ends — and costs the most',
+                  es: 'no acaba nunca — y es lo más caro',
+                },
+              },
+            ],
           },
           {
             term: { en: 'Distortion', es: 'Distortion' },
@@ -1253,6 +1301,23 @@ export const MANUAL: Section[] = [
               en: 'Two kinds of digital damage in one. Bits throws away resolution, which adds grit that gets louder as the sound gets quieter; Decimate throws away sample rate, which adds a metallic ring and eventually turns the pitch to nonsense. Tone rounds off what the two of them do.',
               es: 'Dos tipos de daño digital en uno. Bits tira resolución, lo que añade una arenilla que se oye más cuanto más suave es el sonido; Decimate tira frecuencia de muestreo, lo que añade un timbre metálico y al final vuelve absurda la afinación. Tone redondea lo que hacen los dos.',
             },
+            examples: [
+              {
+                at: '12 bits',
+                is: { en: 'a hiss under the quiet parts', es: 'un siseo bajo las partes suaves' },
+              },
+              {
+                at: '6 bits',
+                is: { en: 'plainly broken, still musical', es: 'claramente roto, todavía musical' },
+              },
+              {
+                at: '2 bits',
+                is: {
+                  en: 'the note is gone, the rhythm is not',
+                  es: 'la nota se fue, el ritmo no',
+                },
+              },
+            ],
           },
           {
             term: { en: 'Echo', es: 'Echo' },
@@ -1323,6 +1388,20 @@ export const MANUAL: Section[] = [
               en: 'Which note the resonator rings at, said as a note because it has to agree with the sequence and nobody agrees with a sequence in hertz. Whole semitones only — a resonator between two of them is out of tune with everything rather than interestingly detuned. It reaches from C1 to C7. Wire a MOD to it and the resonator bends, which is the best thing this effect does.',
               es: 'En qué nota suena el resonador, dicho como nota porque tiene que estar de acuerdo con la secuencia y nadie está de acuerdo con una secuencia en hercios. Solo semitonos enteros — un resonador entre dos está desafinado con todo, no interesantemente desafinado. Llega de C1 a C7. Cablea un MOD y el resonador se dobla, que es lo mejor que hace este efecto.',
             },
+            examples: [
+              {
+                at: '36',
+                is: {
+                  en: 'a low string, long and woody',
+                  es: 'una cuerda grave, larga y de madera',
+                },
+              },
+              {
+                at: '57',
+                is: { en: 'where a plucked note sits', es: 'donde vive una nota punteada' },
+              },
+              { at: '84', is: { en: 'a small bright ping', es: 'un pin brillante y pequeño' } },
+            ],
           },
           {
             term: { en: 'Ring', es: 'Ring' },
@@ -1330,6 +1409,17 @@ export const MANUAL: Section[] = [
               en: 'How long it goes on sounding after it is struck, in seconds. A time and not an amount of feedback, which is not the same thing: one trip round a resonator is one cycle of the note, so a fixed feedback would ring eight times longer at the bottom of the range than at the top. Asking for a time means retuning it does not change the length of the note.',
               es: 'Cuánto sigue sonando después del golpe, en segundos. Un tiempo y no una cantidad de realimentación, que no es lo mismo: una vuelta al resonador es un ciclo de la nota, así que una realimentación fija sonaría ocho veces más en la parte baja del rango que en la alta. Pedir un tiempo hace que reafinarlo no cambie la duración de la nota.',
             },
+            examples: [
+              { at: '0.3 s', is: { en: 'a knock, not a note', es: 'un golpe, no una nota' } },
+              { at: '2 s', is: { en: 'a plucked string', es: 'una cuerda pulsada' } },
+              {
+                at: '10 s',
+                is: {
+                  en: 'a bell that outlasts the pass',
+                  es: 'una campana que dura más que la pasada',
+                },
+              },
+            ],
           },
           {
             term: { en: 'Compress', es: 'Compress' },
@@ -1344,6 +1434,26 @@ export const MANUAL: Section[] = [
               en: 'Threshold is how loud something has to get before it is held back, and Ratio is how firmly. At a ratio of one nothing happens whatever the threshold says, which is where it starts. Past about eight to one it stops compressing and starts limiting — the same thing the master bus does to keep a heavy patch from clipping. The knee is fixed and soft: it is the one control of the five that nobody moves.',
               es: 'Threshold es cuán fuerte tiene que ponerse algo antes de que se lo retenga, y Ratio con cuánta firmeza. Con ratio uno no pasa nada diga lo que diga el threshold, que es donde empieza. Pasado ocho a uno deja de comprimir y empieza a limitar — lo mismo que hace el bus de master para que un patch cargado no recorte. El knee es fijo y suave: es el único de los cinco controles que nadie mueve.',
             },
+            examples: [
+              {
+                at: '-12 / 3:1',
+                is: {
+                  en: 'evens a line out, still breathing',
+                  es: 'empareja una línea, sigue respirando',
+                },
+              },
+              {
+                at: '-24 / 6:1',
+                is: {
+                  en: 'a line that holds one loudness',
+                  es: 'una línea que sostiene un volumen',
+                },
+              },
+              {
+                at: '-30 / 20:1',
+                is: { en: 'limiting, not compressing', es: 'limitando, no comprimiendo' },
+              },
+            ],
           },
           {
             term: { en: 'Attack and Release', es: 'Attack y Release' },
@@ -1365,6 +1475,26 @@ export const MANUAL: Section[] = [
               en: 'How much is captured, as a beat division. It follows the tempo, so moving the BPM does not put the repeats out of step — and since it is a length of *audio* rather than a gap, the shorter divisions are where it stops sounding like a repeat and starts sounding like a pitch.',
               es: 'Cuánto se captura, como división del pulso. Sigue al tempo, así que mover el BPM no descoloca las repeticiones — y como es una duración de *audio* y no un hueco, en las divisiones más cortas deja de sonar a repetición y empieza a sonar a altura.',
             },
+            examples: [
+              {
+                at: '1/4',
+                is: {
+                  en: 'a beat repeating: plainly a stutter',
+                  es: 'un pulso repitiéndose: claramente un stutter',
+                },
+              },
+              {
+                at: '1/16',
+                is: { en: 'a lurch inside the bar', es: 'un tirón dentro del compás' },
+              },
+              {
+                at: '1/64',
+                is: {
+                  en: 'short enough to be heard as a pitch',
+                  es: 'tan corta que se oye como una altura',
+                },
+              },
+            ],
           },
           {
             term: { en: 'Repeats', es: 'Repeats' },
@@ -1372,6 +1502,26 @@ export const MANUAL: Section[] = [
               en: 'How many times each slice is played before the next one is taken, and the whole model of the effect. At one it is a wire — every slice live, nothing repeated — which is also why it needs no on-off switch of its own: wire a MOD here and *that* is the momentary control every beat-repeat has. A square LFO turns it on and off in time; a slow shape makes it come and go.',
               es: 'Cuántas veces se toca cada porción antes de tomar la siguiente, y todo el modelo del efecto. En uno es un cable — cada porción en directo, nada repetido — que es también por qué no necesita interruptor propio: cablea un MOD aquí y *ese* es el control momentáneo que tiene todo beat-repeat. Un LFO cuadrado lo enciende y apaga a tiempo; una forma lenta lo hace ir y venir.',
             },
+            examples: [
+              {
+                at: '1',
+                is: { en: 'a wire: every slice live', es: 'un cable: cada porción en directo' },
+              },
+              {
+                at: '2',
+                is: {
+                  en: 'every other slice is the one before',
+                  es: 'una porción sí y otra la anterior',
+                },
+              },
+              {
+                at: '8',
+                is: {
+                  en: 'a bar becomes an eighth of itself',
+                  es: 'un compás se vuelve un octavo de sí mismo',
+                },
+              },
+            ],
           },
           {
             term: { en: 'EQ', es: 'EQ' },
@@ -1386,6 +1536,23 @@ export const MANUAL: Section[] = [
               en: 'Each band in decibels, nought being flat — and flat is exactly a wire, so an EQ dropped into a patch is not a change until you ask it to be. Fifteen either way, which is more than an EQ usually offers: the extra few are what let it be used as a blunt filter rather than only as a correction. All three take a MOD, and they are the cheapest destinations in the instrument — a slow shape on the top band is a tremolo that touches only the air.',
               es: 'Cada banda en decibelios, cero es plano — y plano es exactamente un cable, así que un EQ metido en un patch no es un cambio hasta que se lo pidas. Quince a cada lado, que es más de lo que suele ofrecer un EQ: esos de más son los que permiten usarlo como filtro bruto y no solo como corrección. Las tres aceptan un MOD, y son los destinos más baratos del instrumento — una forma lenta en la banda alta es un trémolo que solo toca el aire.',
             },
+            examples: [
+              {
+                at: '±3 dB',
+                is: {
+                  en: 'a nudge you feel in the mix',
+                  es: 'un empujón que se siente en la mezcla',
+                },
+              },
+              {
+                at: '±8 dB',
+                is: { en: 'plainly a different balance', es: 'claramente otro equilibrio' },
+              },
+              {
+                at: '-15 dB',
+                is: { en: 'a band taken out, not turned down', es: 'una banda quitada, no bajada' },
+              },
+            ],
           },
           {
             term: { en: 'Mid Hz', es: 'Mid Hz' },
@@ -1407,6 +1574,23 @@ export const MANUAL: Section[] = [
               en: 'How far off centre the signal is pushed before it folds, and the reason the effect is worth having. Folded down the middle, both halves reflect alike and you get odd harmonics only — hollow, reedy, the same tone however hard you drive it. Off centre they fold differently, and that difference is even harmonics. Wire a MOD to it and you are moving *which* harmonics are there rather than how loud or how bright the sound is, which nothing else here does.',
               es: 'Cuánto se desplaza la señal del centro antes de plegarse, y la razón por la que el efecto merece la pena. Plegada por el medio, las dos mitades se reflejan igual y salen solo armónicos impares — hueco, de caña, el mismo timbre por mucho que lo empujes. Descentrada se pliegan distinto, y esa diferencia son armónicos pares. Cablea un MOD y estás moviendo *qué* armónicos hay, no cuánto suena ni cuán brillante es, que no lo hace nada más aquí.',
             },
+            examples: [
+              {
+                at: '0',
+                is: {
+                  en: 'folded down the middle: hollow, reedy',
+                  es: 'plegada por el medio: hueca, de caña',
+                },
+              },
+              {
+                at: '0.3',
+                is: {
+                  en: 'even harmonics arrive — it turns brassy',
+                  es: 'llegan los armónicos pares — se vuelve metálica',
+                },
+              },
+              { at: '1', is: { en: 'lopsided and raw', es: 'desigual y cruda' } },
+            ],
           },
           {
             term: { en: 'Damping', es: 'Damping' },
@@ -1414,6 +1598,20 @@ export const MANUAL: Section[] = [
               en: 'A low-pass *inside* the loop, so every trip round loses a little more of its top. That is the whole difference between a struck string and a metallic buzz, and it shortens the note as well as darkening it — which is what a real string does too. Open at the top of the control, where the resonator keeps whatever brightness it was given.',
               es: 'Un pasa-bajos *dentro* del bucle, así que cada vuelta pierde un poco más de agudo. Esa es toda la diferencia entre una cuerda pulsada y un zumbido metálico, y acorta la nota además de oscurecerla — que es lo que hace también una cuerda de verdad. Abierto arriba del control, donde el resonador conserva el brillo que se le dio.',
             },
+            examples: [
+              {
+                at: '500 Hz',
+                is: { en: 'a struck string, gone quickly', es: 'una cuerda pulsada, se va rápido' },
+              },
+              { at: '4 kHz', is: { en: 'bright and ringing', es: 'brillante y resonante' } },
+              {
+                at: '16 kHz+',
+                is: {
+                  en: 'no damping: a metallic buzz',
+                  es: 'sin amortiguar: un zumbido metálico',
+                },
+              },
+            ],
           },
         ],
       },
@@ -1426,6 +1624,17 @@ export const MANUAL: Section[] = [
               en: 'All four are a frequency, and each effect calls it what it means there. Tone is a tone control on a shaping effect; Cutoff is a filter’s corner; Centre is where a phaser sweeps around; Freq is the tone a ring modulator multiplies by. The same number does a different job in each.',
               es: 'Los cuatro son una frecuencia, y cada efecto la llama por lo que significa ahí. Tone es un control de timbre en un efecto de modelado; Cutoff es la esquina de un filtro; Centre es alrededor de dónde barre un phaser; Freq es el tono por el que multiplica un modulador de anillo. El mismo número hace un trabajo distinto en cada uno.',
             },
+            examples: [
+              {
+                at: '200 Hz',
+                is: { en: 'only the body survives', es: 'solo sobrevive el cuerpo' },
+              },
+              {
+                at: '1.5 kHz',
+                is: { en: 'the middle of most decisions', es: 'el medio de casi toda decisión' },
+              },
+              { at: '10 kHz', is: { en: 'air, and little else', es: 'aire, y poco más' } },
+            ],
           },
           {
             term: { en: 'Rate and Depth', es: 'Rate y Depth' },
@@ -1433,6 +1642,20 @@ export const MANUAL: Section[] = [
               en: 'Wherever an effect moves something by itself, Rate is how fast and Depth is how far. Slow and deep is a shape you hear as movement; fast and shallow is a texture you hear as part of the tone.',
               es: 'Donde un efecto mueve algo por su cuenta, Rate es lo rápido y Depth lo lejos. Lento y profundo es una forma que oyes como movimiento; rápido y superficial es una textura que oyes como parte del timbre.',
             },
+            examples: [
+              {
+                at: '0.3 Hz',
+                is: { en: 'a slow drift you follow', es: 'una deriva lenta que sigues' },
+              },
+              {
+                at: '2 Hz',
+                is: { en: 'a wobble, plainly a wobble', es: 'un temblor, claramente un temblor' },
+              },
+              {
+                at: '12 Hz+',
+                is: { en: 'a texture inside the tone', es: 'una textura dentro del timbre' },
+              },
+            ],
           },
           {
             term: { en: 'Feedback', es: 'Feedback' },
@@ -1440,6 +1663,23 @@ export const MANUAL: Section[] = [
               en: 'How much of the effect’s output goes back into it. On an echo that is the number of repeats; on a chorus or a phaser it sharpens the effect towards a ring. Everywhere, high values are where an effect stops being polite.',
               es: 'Cuánto de la salida del efecto vuelve a entrar en él. En un eco eso es el número de repeticiones; en un chorus o un phaser afila el efecto hacia un timbre resonante. En todos, los valores altos son donde un efecto deja de ser educado.',
             },
+            examples: [
+              {
+                at: '0.2',
+                is: { en: 'a few repeats, politely', es: 'unas pocas repeticiones, con educación' },
+              },
+              {
+                at: '0.6',
+                is: {
+                  en: 'a tail you can hear decide to end',
+                  es: 'una cola que oyes decidir terminar',
+                },
+              },
+              {
+                at: '0.95',
+                is: { en: 'almost never dies — the ceiling', es: 'casi no muere nunca — el techo' },
+              },
+            ],
           },
         ],
       },

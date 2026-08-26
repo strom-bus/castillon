@@ -25,10 +25,36 @@ export interface Passage {
   es: string
 }
 
+/**
+ * One setting and what it gets you.
+ *
+ * The readings a control's prose used to carry inside it, taken out and stood in a row — because they
+ * are the part a reader **scans** and prose is the part they read. Somebody with the panel open and a
+ * slider under the pointer wants to know what 300 Hz sounds like, and finding that in the middle of a
+ * sentence means reading the sentence first.
+ *
+ * `at` is not translated: it is a number and a unit, and the unit is printed on the control in English
+ * whichever language the manual is set to. Only the consequence has a language.
+ */
+export interface Example {
+  /** The setting, spelled as the control spells it — `300 Hz`, `0.5`, `1/16`. */
+  at: string
+  /** What you get there. A few words, not a sentence: this is a row to be scanned down. */
+  is: Passage
+}
+
 /** A named thing and what it is: the manual is a reference, and a reference is scanned rather than read. */
 export interface Term {
   term: Passage
   text: Passage
+  /**
+   * Two or three readings across the range, where a control has one worth giving.
+   *
+   * Not every entry earns them. A switch has no range to read across, and a control whose whole story is
+   * "on or off" would get a row of examples that repeat its own text — which teaches a reader that the
+   * rows are decoration and to stop looking at them.
+   */
+  examples?: Example[]
 }
 
 /**
@@ -427,9 +453,26 @@ export const MANUAL: Section[] = [
           {
             term: { en: 'Gate', es: 'Gate' },
             text: {
-              en: 'What share of its step each note holds, from 0.05 to 1. At **0.1** the note is a tenth of its slot — a click with silence after it. At **0.5** it is half, which is where a line sounds played. At **1** each note lasts until the next begins and the line is legato. On a slow division a low gate leaves audible silence between notes; on a fast one it is the difference between a pluck and a pad.',
-              es: 'Qué parte de su paso ocupa cada nota, de 0.05 a 1. En **0.1** la nota es una décima de su hueco — un clic con silencio detrás. En **0.5** es la mitad, que es donde una línea suena tocada. En **1** cada nota dura hasta que empieza la siguiente y la línea queda ligada. Con una división lenta un gate bajo deja silencio audible entre notas; con una rápida es la diferencia entre un punteo y un pad.',
+              en: 'What share of its step each note holds, from 0.05 to 1. It is the difference between a plucked line and a legato one — and on a slow division a low gate leaves audible silence between notes.',
+              es: 'Qué parte de su paso ocupa cada nota, de 0.05 a 1. Es la diferencia entre una línea punteada y una ligada — y con una división lenta un gate bajo deja silencio audible entre notas.',
             },
+            examples: [
+              {
+                at: '0.1',
+                is: { en: 'a click, with silence after it', es: 'un clic, con silencio detrás' },
+              },
+              {
+                at: '0.5',
+                is: { en: 'where a line sounds played', es: 'donde una línea suena tocada' },
+              },
+              {
+                at: '1',
+                is: {
+                  en: 'legato: each note reaches the next',
+                  es: 'ligada: cada nota llega a la siguiente',
+                },
+              },
+            ],
           },
           {
             term: { en: 'Swing on an odd length', es: 'Swing en una longitud impar' },
@@ -502,9 +545,29 @@ export const MANUAL: Section[] = [
           {
             term: { en: 'Pulse width', es: 'Pulse width' },
             text: {
-              en: 'Only on Pulse, and it is the reason to choose Pulse over Square. It sets how lopsided the wave is, from 0.05 to 0.95. At **0.5** it *is* a square — hollow and even. At **0.25** it thins and turns reedy, like a clarinet with an attitude. At **0.1** it is nasal and small and sits a long way back in a mix. The two ends sound the same as each other, since a pulse and its mirror image are the same wave upside down. This is where it rests; point a MOD at Width to sweep it while the note is sounding, which is the classic way to make one voice sound like two.',
-              es: 'Solo en Pulse, y es la razón de elegir Pulse en vez de Square. Fija lo desigual que es la onda, de 0.05 a 0.95. En **0.5** *es* una cuadrada — hueca y pareja. En **0.25** adelgaza y se vuelve aguda, como un clarinete con mala leche. En **0.1** es nasal y pequeña y se queda muy atrás en una mezcla. Los dos extremos suenan igual entre sí, porque un pulso y su espejo son la misma onda del revés. Aquí es donde descansa; apunta un MOD a Width para barrerlo mientras la nota suena, que es la manera clásica de hacer que una voz suene como dos.',
+              en: 'Only on Pulse, and it is the reason to choose Pulse over Square. It sets how lopsided the wave is, from 0.05 to 0.95. The two ends sound the same as each other, since a pulse and its mirror image are the same wave upside down. This is where it rests; point a MOD at Width to sweep it while the note is sounding, which is the classic way to make one voice sound like two.',
+              es: 'Solo en Pulse, y es la razón de elegir Pulse en vez de Square. Fija lo desigual que es la onda, de 0.05 a 0.95. Los dos extremos suenan igual entre sí, porque un pulso y su espejo son la misma onda del revés. Aquí es donde descansa; apunta un MOD a Width para barrerlo mientras la nota suena, que es la manera clásica de hacer que una voz suene como dos.',
             },
+            examples: [
+              {
+                at: '0.5',
+                is: { en: 'a square: hollow and even', es: 'una cuadrada: hueca y pareja' },
+              },
+              {
+                at: '0.25',
+                is: {
+                  en: 'reedy, like a clarinet with an attitude',
+                  es: 'aguda, como un clarinete con mala leche',
+                },
+              },
+              {
+                at: '0.1',
+                is: {
+                  en: 'nasal and small, far back in a mix',
+                  es: 'nasal y pequeña, muy atrás en la mezcla',
+                },
+              },
+            ],
           },
           {
             term: { en: 'Detune', es: 'Detune' },
@@ -516,9 +579,32 @@ export const MANUAL: Section[] = [
           {
             term: { en: 'Gain', es: 'Gain' },
             text: {
-              en: 'How loud this oscillator is against the others, from 0 to 1. Most voices in a patch of several sit between **0.15 and 0.35** — anything at 1 is asking to be the only thing you hear, which is what a lead does and a pad should not. At **0** the oscillator still runs and still costs its place in the budget; it is simply silent. It is the balance control: reach for it when one voice is burying another, and leave the master volume for how loud the whole thing is in the room.',
-              es: 'Lo fuerte que suena este oscilador frente a los demás, de 0 a 1. En un patch de varias voces casi todas viven entre **0.15 y 0.35** — algo en 1 está pidiendo ser lo único que oigas, que es lo que hace un lead y lo que un pad no debería. En **0** el oscilador sigue corriendo y sigue costando su sitio en el presupuesto; simplemente no suena. Es el control de balance: úsalo cuando una voz esté enterrando a otra, y deja el volumen general para lo fuerte que suena todo en la sala.',
+              en: 'How loud this oscillator is against the others, from 0 to 1. It is the balance control: reach for it when one voice is burying another, and leave the master volume for how loud the whole thing is in the room. At nought the oscillator still runs and still costs its place in the budget — it is simply silent.',
+              es: 'Lo fuerte que suena este oscilador frente a los demás, de 0 a 1. Es el control de balance: úsalo cuando una voz esté enterrando a otra, y deja el volumen general para lo fuerte que suena todo en la sala. En cero el oscilador sigue corriendo y sigue costando su sitio en el presupuesto — simplemente no suena.',
             },
+            examples: [
+              {
+                at: '0.1',
+                is: {
+                  en: 'under the others, felt not heard',
+                  es: 'debajo de las demás, se siente y no se oye',
+                },
+              },
+              {
+                at: '0.25',
+                is: {
+                  en: 'where most voices in a full patch sit',
+                  es: 'donde vive casi toda voz en un patch lleno',
+                },
+              },
+              {
+                at: '1',
+                is: {
+                  en: 'asking to be the only thing you hear',
+                  es: 'pidiendo ser lo único que oigas',
+                },
+              },
+            ],
           },
         ],
       },
@@ -528,30 +614,113 @@ export const MANUAL: Section[] = [
           {
             term: { en: 'Attack', es: 'Attack' },
             text: {
-              en: 'How long a note takes to arrive at full volume, from 1 to 500 ms. At **1–5 ms** the note simply appears: a hard edge, a percussive hit. At **40 ms** the front is rounded off and the line sounds blown rather than struck. At **300 ms** it is a swell with no attack you can point to. On a fast division a long attack means no note ever reaches full loudness — a usable sound rather than a mistake.',
-              es: 'Cuánto tarda una nota en llegar a su volumen pleno, de 1 a 500 ms. En **1–5 ms** la nota simplemente aparece: un canto duro, un golpe percusivo. En **40 ms** el frente se redondea y la línea suena soplada y no golpeada. En **300 ms** es un crescendo sin ataque que puedas señalar. Con una división rápida un ataque largo significa que ninguna nota llega nunca a sonar del todo — un sonido utilizable y no un error.',
+              en: 'How long a note takes to arrive at full volume, from 1 to 500 ms. On a fast division a long attack means no note ever reaches full loudness — a usable sound rather than a mistake.',
+              es: 'Cuánto tarda una nota en llegar a su volumen pleno, de 1 a 500 ms. Con una división rápida un ataque largo significa que ninguna nota llega nunca a sonar del todo — un sonido utilizable y no un error.',
             },
+            examples: [
+              {
+                at: '1–5 ms',
+                is: {
+                  en: 'the note simply appears: a hard edge',
+                  es: 'la nota simplemente aparece: canto duro',
+                },
+              },
+              { at: '40 ms', is: { en: 'blown rather than struck', es: 'soplada y no golpeada' } },
+              {
+                at: '300 ms',
+                is: {
+                  en: 'a swell with no attack to point at',
+                  es: 'un crescendo sin ataque que señalar',
+                },
+              },
+            ],
           },
           {
             term: { en: 'Decay', es: 'Decay' },
             text: {
-              en: 'How long it takes to fall away *while the note is still held*, from 0 to 2000 ms. At **0** a note sits at full level for its whole gate — a held tone. At **150 ms** it plucks: loud at the front, gone by the middle. At **800 ms** it leans gently and still has body when the gate closes. Past a second or so it barely falls at all within a fast step, so the number stops meaning anything until the division slows down.',
-              es: 'Cuánto tarda en caer *mientras la nota sigue sostenida*, de 0 a 2000 ms. En **0** la nota se queda a nivel pleno todo su gate — un tono sostenido. En **150 ms** puntea: fuerte al principio, ida por la mitad. En **800 ms** se inclina suave y aún tiene cuerpo cuando el gate se cierra. Pasado el segundo apenas cae dentro de un paso rápido, así que el número deja de significar nada hasta que la división se hace lenta.',
+              en: 'How long it takes to fall away *while the note is still held*, from 0 to 2000 ms. It is what makes a line sound plucked rather than blown. Past a second or so it barely falls at all inside a fast step, so the number stops meaning anything until the division slows down.',
+              es: 'Cuánto tarda en caer *mientras la nota sigue sostenida*, de 0 a 2000 ms. Es lo que hace que una línea suene punteada y no soplada. Pasado el segundo apenas cae dentro de un paso rápido, así que el número deja de significar nada hasta que la división se hace lenta.',
             },
+            examples: [
+              {
+                at: '0',
+                is: { en: 'a held tone at full level', es: 'un tono sostenido a nivel pleno' },
+              },
+              {
+                at: '150 ms',
+                is: {
+                  en: 'plucked: loud at the front, gone by the middle',
+                  es: 'punteada: fuerte al principio, ida por la mitad',
+                },
+              },
+              {
+                at: '800 ms',
+                is: {
+                  en: 'leans gently, still has body at the end',
+                  es: 'se inclina suave, aún con cuerpo al final',
+                },
+              },
+            ],
           },
           {
             term: { en: 'Release', es: 'Release' },
             text: {
-              en: 'How long a note takes to die after its gate closes, from 5 to 2000 ms. At **20 ms** each note stops where it ends and the line is dry and separated. At **300 ms** notes bleed into the ones after them and the sequence starts to sound like one instrument rather than a row of hits. At **1500 ms** four or five notes are sounding at once and a line becomes a chord. That is also where the budget goes: every note still fading is still a voice.',
-              es: 'Cuánto tarda una nota en morir después de que su gate se cierra, de 5 a 2000 ms. En **20 ms** cada nota para donde acaba y la línea queda seca y separada. En **300 ms** las notas se derraman sobre las siguientes y la secuencia empieza a sonar a un instrumento en vez de a una fila de golpes. En **1500 ms** hay cuatro o cinco notas sonando a la vez y una línea se vuelve un acorde. Ahí es también donde se va el presupuesto: cada nota que aún se apaga sigue siendo una voz.',
+              en: 'How long a note takes to die after its gate closes, from 5 to 2000 ms. Long releases are what make a sequence sound like a chord. That is also where the budget goes: every note still fading is still a voice.',
+              es: 'Cuánto tarda una nota en morir después de que su gate se cierra, de 5 a 2000 ms. Los release largos son lo que hace que una secuencia suene a acorde. Ahí es también donde se va el presupuesto: cada nota que aún se apaga sigue siendo una voz.',
             },
+            examples: [
+              {
+                at: '20 ms',
+                is: {
+                  en: 'dry and separated: each note stops where it ends',
+                  es: 'seca y separada: cada nota para donde acaba',
+                },
+              },
+              {
+                at: '300 ms',
+                is: {
+                  en: 'notes bleed into the ones after them',
+                  es: 'las notas se derraman sobre las siguientes',
+                },
+              },
+              {
+                at: '1500 ms',
+                is: {
+                  en: 'four or five at once — a line becomes a chord',
+                  es: 'cuatro o cinco a la vez — la línea se vuelve acorde',
+                },
+              },
+            ],
           },
           {
             term: { en: 'Glide', es: 'Glide' },
             text: {
-              en: 'How long a slide between two notes takes, from 0 to 1000 ms. At **30 ms** it is a scoop you feel rather than hear. At **120 ms** it is the classic slide, arriving just as the note settles. Past **400 ms** the note spends most of its life travelling and never really lands, which is a sound of its own. On its own the number does nothing: it is the *time*, and which notes slide is a switch on each step. Set it here, then tick Glide on the steps you want to arrive from below — that split is what lets one line have both slides and stabs.',
-              es: 'Cuánto tarda un deslizamiento entre dos notas, de 0 a 1000 ms. En **30 ms** es un quiebro que se siente más que se oye. En **120 ms** es el deslizamiento clásico, que llega justo cuando la nota se asienta. Pasados **400 ms** la nota se pasa la vida viajando y no llega a posarse nunca, que es un sonido en sí mismo. Por sí solo el número no hace nada: es el *tiempo*, y qué notas se deslizan es un interruptor de cada paso. Ponlo aquí y luego marca Glide en los pasos que quieras que lleguen desde abajo — ese reparto es lo que permite que una línea tenga deslizamientos y golpes a la vez.',
+              en: 'How long a slide between two notes takes, from 0 to 1000 ms. On its own the number does nothing: it is the *time*, and which notes slide is a switch on each step. Set it here, then tick Glide on the steps you want to arrive from below — that split is what lets one line have both slides and stabs.',
+              es: 'Cuánto tarda un deslizamiento entre dos notas, de 0 a 1000 ms. Por sí solo el número no hace nada: es el *tiempo*, y qué notas se deslizan es un interruptor de cada paso. Ponlo aquí y luego marca Glide en los pasos que quieras que lleguen desde abajo — ese reparto es lo que permite que una línea tenga deslizamientos y golpes a la vez.',
             },
+            examples: [
+              {
+                at: '30 ms',
+                is: {
+                  en: 'a scoop you feel rather than hear',
+                  es: 'un quiebro que se siente más que se oye',
+                },
+              },
+              {
+                at: '120 ms',
+                is: {
+                  en: 'the classic slide, arriving as the note settles',
+                  es: 'el deslizamiento clásico, llega al asentarse',
+                },
+              },
+              {
+                at: '400 ms+',
+                is: {
+                  en: 'always travelling, never quite landing',
+                  es: 'siempre viajando, sin llegar a posarse',
+                },
+              },
+            ],
           },
         ],
       },
@@ -568,16 +737,47 @@ export const MANUAL: Section[] = [
           {
             term: { en: 'Cutoff', es: 'Cutoff' },
             text: {
-              en: 'Where the filter acts, from 20 Hz to 18 kHz. On a Low pass, everything above it is taken away: at **300 Hz** only the body of the note is left and the line sounds muffled and far away; at **2 kHz** it is present but tamed; above **8 kHz** almost everything passes and you can barely tell the filter is there. The useful stretch on most patches is **400 Hz to 3 kHz**, which is where a sweep is heard as a sweep. The slider moves in octaves rather than in a straight line, which is why the low end has as much travel as the top.',
-              es: 'Dónde actúa el filtro, de 20 Hz a 18 kHz. En un Low pass se quita todo lo que esté por encima: en **300 Hz** solo queda el cuerpo de la nota y la línea suena sorda y lejana; en **2 kHz** está presente pero domada; por encima de **8 kHz** pasa casi todo y apenas se nota que hay filtro. El tramo útil en casi todos los patches va de **400 Hz a 3 kHz**, que es donde un barrido se oye como un barrido. El slider se mueve en octavas y no en línea recta, y por eso la zona baja tiene tanto recorrido como la alta.',
+              en: 'Where the filter acts, from 20 Hz to 18 kHz. On a Low pass everything above it is taken away, and the useful stretch on most patches is 400 Hz to 3 kHz — which is where a sweep is heard as a sweep. The slider moves in octaves rather than in a straight line, which is why the low end has as much travel as the top.',
+              es: 'Dónde actúa el filtro, de 20 Hz a 18 kHz. En un Low pass se quita todo lo que esté por encima, y el tramo útil en casi todos los patches va de 400 Hz a 3 kHz — que es donde un barrido se oye como un barrido. El slider se mueve en octavas y no en línea recta, y por eso la zona baja tiene tanto recorrido como la alta.',
             },
+            examples: [
+              {
+                at: '300 Hz',
+                is: {
+                  en: 'muffled and far away: only the body is left',
+                  es: 'sorda y lejana: solo queda el cuerpo',
+                },
+              },
+              { at: '2 kHz', is: { en: 'present but tamed', es: 'presente pero domada' } },
+              { at: '8 kHz+', is: { en: 'almost everything passes', es: 'pasa casi todo' } },
+            ],
           },
           {
             term: { en: 'Resonance', es: 'Resonance' },
             text: {
-              en: 'How much the filter emphasises the cutoff itself, from 0.1 to 24. Below **2** it is a tilt you would not name. Around **6** it adds the vocal edge that makes a sweep audible as a sweep. Past **15** the filter whistles at its own cutoff and starts to sound like a second oscillator — the most recognisable sound a synthesiser has, and also where a resonant sweep can get loud enough to want the Gain pulled down. Combine it with a MOD on the cutoff before you try anything else.',
-              es: 'Cuánto realza el filtro su propio corte, de 0.1 a 24. Por debajo de **2** es una inclinación que ni nombrarías. Cerca de **6** añade el canto vocal que hace que un barrido se oiga como un barrido. Pasado **15** el filtro pita en su propio corte y empieza a sonar como un segundo oscilador — el sonido más reconocible que tiene un sintetizador, y también donde un barrido resonante puede subir lo bastante como para querer bajarle el Gain. Combínalo con un MOD en el corte antes de probar otra cosa.',
+              en: 'How much the filter emphasises the cutoff itself, from 0.1 to 24. High settings are also where a resonant sweep can get loud enough to want the Gain pulled down. Combine it with a MOD on the cutoff before you try anything else.',
+              es: 'Cuánto realza el filtro su propio corte, de 0.1 a 24. Arriba del todo es también donde un barrido resonante puede subir lo bastante como para querer bajarle el Gain. Combínalo con un MOD en el corte antes de probar otra cosa.',
             },
+            examples: [
+              {
+                at: 'under 2',
+                is: { en: 'a tilt you would not name', es: 'una inclinación que ni nombrarías' },
+              },
+              {
+                at: '6',
+                is: {
+                  en: 'the vocal edge that makes a sweep audible',
+                  es: 'el canto vocal que hace audible un barrido',
+                },
+              },
+              {
+                at: '15+',
+                is: {
+                  en: 'whistles: a second oscillator at the cutoff',
+                  es: 'pita: un segundo oscilador en el corte',
+                },
+              },
+            ],
           },
           {
             term: { en: 'Key follow', es: 'Key follow' },

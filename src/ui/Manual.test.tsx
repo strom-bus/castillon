@@ -280,3 +280,29 @@ describe('typing in the search box', () => {
     expect(document.activeElement, 'focus left once results appeared').toBe(box)
   })
 })
+
+describe('the readings under an entry', () => {
+  it('draws them as rows, on the page and in a search result alike', () => {
+    /*
+     * The same shape wherever an entry appears. A reader who has learned to scan the left-hand column in
+     * one place should not have to learn again in another — which is the whole reason the entry is one
+     * component rather than three copies.
+     */
+    render(<Manual onClose={() => {}} />)
+    fireEvent.change(screen.getByLabelText('Search the manual'), { target: { value: 'gate' } })
+
+    const rows = document.querySelectorAll('.manual-examples li')
+    expect(rows.length).toBeGreaterThan(1)
+    // The setting first and what it gets you after it, which is the order the eye reads down.
+    expect(rows[0]!.querySelector('b')?.textContent).toBeTruthy()
+    expect(rows[0]!.textContent).toContain('click')
+  })
+
+  it('leaves an entry that has none untouched', () => {
+    // Not every control has a range worth reading across, and a row of examples that repeat the entry's
+    // own text teaches a reader that the rows are decoration.
+    render(<Manual onClose={() => {}} />)
+    fireEvent.change(screen.getByLabelText('Search the manual'), { target: { value: 'ping-pong' } })
+    expect(document.querySelectorAll('.manual-examples')).toHaveLength(0)
+  })
+})

@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { LANGUAGE_LABELS, LANGUAGES, useLanguage } from '../help/language'
-import { MANUAL } from '../help/manual'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { LANGUAGE_LABELS, LANGUAGES, useLanguage, type Language } from '../help/language'
+import { MANUAL, type Term } from '../help/manual'
 import { alsoMentionedIn, findTerms, MIN_QUERY } from '../help/search'
 
 /**
@@ -14,6 +14,46 @@ import { alsoMentionedIn, findTerms, MIN_QUERY } from '../help/search'
  * technical, and translating `DIV` would make it longer without making it clearer. Prose is the part
  * that needs a language, so prose is the part that has one.
  */
+/**
+ * One entry: what it is called, what it is, and two or three readings across its range.
+ *
+ * The same shape wherever an entry appears — a chapter's front page, its detail page, or a search
+ * result — because a reader who has learned to scan the rows in one place should not have to learn
+ * again in another.
+ */
+function Entry({
+  term,
+  language,
+  beside,
+}: {
+  term: Term
+  language: Language
+  /** Anything that belongs next to the name — in a search result, the chapter it came from. */
+  beside?: ReactNode
+}) {
+  return (
+    <>
+      <dt>
+        {term.term[language]}
+        {beside}
+      </dt>
+      <dd>
+        {term.text[language]}
+        {term.examples && term.examples.length > 0 && (
+          <ul className="manual-examples">
+            {term.examples.map((example, i) => (
+              <li key={i}>
+                <b>{example.at}</b>
+                {example.is[language]}
+              </li>
+            ))}
+          </ul>
+        )}
+      </dd>
+    </>
+  )
+}
+
 export function Manual({ onClose }: { onClose: () => void }) {
   const language = useLanguage((s) => s.language)
   const setLanguage = useLanguage((s) => s.set)
@@ -151,22 +191,24 @@ export function Manual({ onClose }: { onClose: () => void }) {
               <dl>
                 {results.map((hit, i) => (
                   <div key={i}>
-                    <dt>
-                      {hit.term.term[language]}
-                      {/* Where it came from, which is the reader's way on: a term is often clearer with
-                          the page around it, and this is how to go and get it. */}
-                      <button
-                        type="button"
-                        className="manual-from"
-                        onClick={() => {
-                          setOpened(hit.sectionId)
-                          setQuery('')
-                        }}
-                      >
-                        {hit.sectionTitle[language]}
-                      </button>
-                    </dt>
-                    <dd>{hit.term.text[language]}</dd>
+                    <Entry
+                      term={hit.term}
+                      language={language}
+                      /* Where it came from, which is the reader's way on: a term is often clearer with
+                         the page around it, and this is how to go and get it. */
+                      beside={
+                        <button
+                          type="button"
+                          className="manual-from"
+                          onClick={() => {
+                            setOpened(hit.sectionId)
+                            setQuery('')
+                          }}
+                        >
+                          {hit.sectionTitle[language]}
+                        </button>
+                      }
+                    />
                   </div>
                 ))}
               </dl>
@@ -207,8 +249,7 @@ export function Manual({ onClose }: { onClose: () => void }) {
                   <dl>
                     {group.terms.map((term, i) => (
                       <div key={i}>
-                        <dt>{term.term[language]}</dt>
-                        <dd>{term.text[language]}</dd>
+                        <Entry term={term} language={language} />
                       </div>
                     ))}
                   </dl>
@@ -226,8 +267,7 @@ export function Manual({ onClose }: { onClose: () => void }) {
                   <dl>
                     {one.terms.map((term, i) => (
                       <div key={i}>
-                        <dt>{term.term[language]}</dt>
-                        <dd>{term.text[language]}</dd>
+                        <Entry term={term} language={language} />
                       </div>
                     ))}
                   </dl>

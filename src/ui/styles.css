@@ -882,6 +882,37 @@ input[type='range'] {
  * Narrow on purpose: it takes a word, not a sentence. A box as wide as the header would promise
  * full-text search of a book that answers by name, and the promise is the part that disappoints.
  */
+/*
+ * The readings under an entry: one setting a line, the setting itself set apart from what it gets you.
+ *
+ * A row to be scanned rather than a sentence to be read, which is the whole reason they are out of the
+ * prose. Somebody with the panel open and a slider under the pointer is looking for one number, and
+ * finding it inside a paragraph means reading the paragraph first.
+ */
+.manual-examples {
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+  border-left: 1px solid var(--border);
+}
+
+.manual-examples li {
+  display: flex;
+  gap: 10px;
+  padding: 2px 0 2px 12px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+/* The setting in a fixed column, so the numbers line up down the left and the eye can drop through
+   them without reading. The interface's own face, which is already monospaced for this exact reason. */
+.manual-examples b {
+  flex: 0 0 84px;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
 .manual-search {
   flex: 0 1 190px;
   min-width: 90px;

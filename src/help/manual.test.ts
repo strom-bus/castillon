@@ -101,3 +101,72 @@ describe('the language it opens in', () => {
     localStorage.clear()
   })
 })
+
+/**
+ * The readings under an entry.
+ *
+ * They are the part a reader *scans*, which is exactly why they rot differently from prose: a row that
+ * says nothing still looks like a row, and three of them teach somebody that the rows are decoration.
+ */
+describe('the examples under a control', () => {
+  const withExamples = MANUAL.flatMap((section) =>
+    [...(section.terms ?? []), ...detailTerms(section)]
+      .filter((term) => term.examples?.length)
+      .map((term) => ({ section: section.id, term })),
+  )
+
+  it('has some, or this checks nothing', () => {
+    expect(withExamples.length).toBeGreaterThan(5)
+  })
+
+  it('gives every reading both languages', () => {
+    // The same hole the prose has, in a place easier to forget: a row is three words and skipping the
+    // translation of three words is not something anybody notices.
+    for (const { section, term } of withExamples) {
+      for (const example of term.examples!) {
+        expect(example.at.trim().length, `${section}/${term.term.en}: a setting with no value`)
+          .toBeGreaterThan(0)
+        expect(example.is.en.trim().length, `${section}/${term.term.en}: no English`).toBeGreaterThan(0)
+        expect(example.is.es.trim().length, `${section}/${term.term.en}: no Spanish`).toBeGreaterThan(0)
+      }
+    }
+  })
+
+  it('gives at least two, since one reading is not a range', () => {
+    // A single row says "here is a value" and answers nothing about what the control *does*. The point
+    // is the contrast between the ends.
+    for (const { section, term } of withExamples) {
+      expect(term.examples!.length, `${section}/${term.term.en} has one example`).toBeGreaterThan(1)
+    }
+  })
+
+  it('keeps them short enough to scan', () => {
+    // A sentence in a row is prose that has escaped into the wrong column, and it stops the row being
+    // scannable — which was the entire reason for taking these out of the paragraph.
+    for (const { section, term } of withExamples) {
+      for (const example of term.examples!) {
+        expect(example.is.en.length, `${section}/${term.term.en}: "${example.is.en}"`).toBeLessThan(60)
+        expect(example.is.es.length, `${section}/${term.term.en}: "${example.is.es}"`).toBeLessThan(60)
+        expect(example.at.length, `${section}/${term.term.en}: "${example.at}"`).toBeLessThan(12)
+      }
+    }
+  })
+
+  it('does not repeat the number in the prose beside it', () => {
+    /*
+     * The readings were in the paragraph before they were rows. Leaving them in both is two places to
+     * keep in step, and the one nobody edits is the one that goes wrong — the same fault this repository
+     * keeps finding in its own tables.
+     */
+    for (const { section, term } of withExamples) {
+      for (const example of term.examples!) {
+        const bare = example.at.replace(/[^0-9.]/g, '')
+        if (bare.length < 2) continue
+        expect(
+          term.text.en.includes(`**${bare}`),
+          `${section}/${term.term.en} says ${bare} in its prose and in its rows`,
+        ).toBe(false)
+      }
+    }
+  })
+})

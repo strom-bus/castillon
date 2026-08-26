@@ -581,6 +581,18 @@ refused, since between an oscillator and an effect there is only one direction t
   it longer without making it clearer. Both languages live adjacent in one file so a half-finished
   edit shows up in the diff rather than as a blank paragraph months later.
 
+- **The readings live in rows, not in the paragraph.** A control's entry says what the thing is; two or
+  three examples underneath say what you get at particular settings — `0.1 · a click, with silence after
+it`, `0.5 · where a line sounds played`, `1 · legato: each note reaches the next`. The prose is read
+  and the rows are _scanned_, and somebody with the panel open and a slider under the pointer is
+  scanning: finding "300 Hz" in the middle of a sentence means reading the sentence first.
+
+  The setting is not translated — it is a number and a unit, and the unit is printed on the control in
+  English whichever language the manual is in. Only the consequence has a language. Guarded four ways: a
+  reading in both languages, at least two per entry since one reading is not a range, short enough to
+  scan, and never repeating a figure the prose beside it still carries — which is the two-places-to-keep-
+  in-step fault this repository keeps finding in its own tables.
+
 - **Looking a term up**, which is a different act from reading and gets a different view. A box at the
   top of the manual searches the **names of things** rather than the prose: type REPS and the entry
   called REPS comes back whole, with the chapter it came from beside it as the way on. The question

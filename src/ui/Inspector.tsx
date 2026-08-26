@@ -201,7 +201,18 @@ function Locked({
   children?: ReactNode
 }) {
   return (
-    <label className={`inspector-field locked${inherited ? ' inherited' : ''}`}>
+    /*
+     * A div rather than a label, for the reason already written twenty lines below about the typed
+     * slider: it holds two controls, and a label binds to whichever comes first. Here that is the dot,
+     * so the row's own text was a second way to press it — click the word "Cutoff" and the step quietly
+     * handed the control back — and a click on the dot itself arrived twice, once as the button and once
+     * as the label forwarding to it. The `preventDefault` below was the patch over that.
+     *
+     * It cost the slider nothing: each one already names itself, since the label's text by then also
+     * holds the readout and the accessible name of a control should be what it is called rather than
+     * what it currently says.
+     */
+    <div className={`inspector-field locked${inherited ? ' inherited' : ''}`}>
       <span className="inspector-label">
         {/* A button rather than a checkbox: it has one job, releasing, and a checkbox would imply that
             ticking it is how you lock — which is not the gesture. It is only reachable while locked,
@@ -210,10 +221,7 @@ function Locked({
           type="button"
           className="lock-dot"
           disabled={inherited}
-          onClick={(e) => {
-            e.preventDefault()
-            onRelease()
-          }}
+          onClick={onRelease}
           title={
             inherited
               ? 'Follows the oscillator. Move it to give this step its own.'
@@ -237,7 +245,7 @@ function Locked({
           onChange={(e) => onChange?.(Number(e.target.value))}
         />
       )}
-    </label>
+    </div>
   )
 }
 

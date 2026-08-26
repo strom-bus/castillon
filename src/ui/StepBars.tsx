@@ -128,7 +128,7 @@ export function StepBars({
                 (chance < 1 ? ` · ${Math.round(chance * 100)}% of the time` : '') +
                 (hits > 1 ? ` · ${hits} hits` : '') +
                 (step.slide ? ' · glides in' : '') +
-                (locked ? ' · has its own settings' : '')
+                (locked ? ' · has its own settings — release them in the panel' : '')
               }
             >
               {/* A roll draws as that many stacked pieces, which is what a roll is: the step divided.
@@ -136,7 +136,11 @@ export function StepBars({
               {guides.map((at) => (
                 <span key={at} className="step-guide" style={{ bottom: `${at}%` }} />
               ))}
-              {/* Above the bar rather than on it, so it is legible whatever the note's height. */}
+              {/* Above the bar rather than on it, so it is legible whatever the note's height. It takes
+                no pointer of its own: the bar under it is the target, and clicking anywhere on a bar is
+                already what opens the step in the panel — where the four can be released one at a time.
+                A mark that answered a click would have to decide which of the four it was releasing, and
+                it is one mark precisely because that question belongs to the panel. */}
               {locked && <span className="step-locked" />}
               <div className="step-bar" style={{ height: `${Math.round(ratio * 100)}%` }}>
                 {hits > 1 &&

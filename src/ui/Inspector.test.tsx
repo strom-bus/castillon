@@ -639,6 +639,31 @@ describe('a step that overrules its oscillator', () => {
     expect(stepOne(id).cutoff).toBeUndefined()
   })
 
+  it('does not hand it back when the row\u2019s own name is clicked', () => {
+    /*
+     * The row used to be a `<label>`, which binds to the first control inside it — and the first control
+     * here is the release. So the word "Cutoff" was a second, unmarked way to press it: a click anywhere
+     * on the name gave the oscillator its control back, and a click on the dot arrived twice, once as
+     * the button and once as the label forwarding to it.
+     */
+    const id = selectStep()
+    render(<Inspector />)
+    fireEvent.change(screen.getByLabelText('Cutoff'), { target: { value: '5000' } })
+
+    /*
+     * Reached from the release button rather than by taking the first `.inspector-field.locked` on the
+     * page, which is Wave — this passed green against a row whose lock was never set, which is a test
+     * checking nothing while reporting that it checked the thing.
+     */
+    const row = screen.getByLabelText('Release Cutoff').closest('.inspector-field')!
+    fireEvent.click(row.querySelector('.inspector-label')!)
+    expect(stepOne(id).cutoff, 'clicking the name released the lock').toBe(5000)
+
+    // And the dot itself still does, which is the half that must not be lost fixing the other one.
+    fireEvent.click(screen.getByLabelText('Release Cutoff'))
+    expect(stepOne(id).cutoff).toBeUndefined()
+  })
+
   it('offers no release while the control already follows', () => {
     // A button that can be pressed to no effect is worse than one that visibly cannot.
     selectStep()

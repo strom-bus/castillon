@@ -65,9 +65,35 @@ export interface EffectChain {
   paramFor?(key: string): AudioParam | AudioParam[] | null
 }
 
+/**
+ * The shelves the effect list is read from, in the order they are offered.
+ *
+ * Sixteen effects in one flat list was sixteen effects **in the order they were built** — a fact about
+ * this repository's history, offered to somebody looking for a filter. The order now says something a
+ * reader can use: what a thing does to the sound, coarsest question first.
+ *
+ * Tone before space before movement before dirt, because that is roughly how often each is reached for,
+ * and the two most reached-for effects in any instrument — a filter and an EQ — were at positions five
+ * and fourteen.
+ */
+export const EFFECT_FAMILIES = [
+  { key: 'tone', label: 'Tone' },
+  { key: 'space', label: 'Space' },
+  { key: 'movement', label: 'Movement' },
+  { key: 'dirt', label: 'Dirt' },
+  { key: 'other', label: 'Other' },
+] as const
+
+export type EffectFamily = (typeof EFFECT_FAMILIES)[number]['key']
+
 export interface EffectDescriptor {
   kind: EffectKind
   label: string
+  /**
+   * Which shelf it is offered from. Presentation rather than behaviour, and it lives here for the same
+   * reason the label does: what a thing is called and where it is found are facts about the thing.
+   */
+  family: EffectFamily
   /**
    * The parameters the inspector shows beneath Mix, in order. Mix is not listed: every effect has
    * it, and it belongs to the node rather than to the chain.
@@ -146,6 +172,7 @@ function setTone(filter: BiquadFilterNode, params: FxParams, at: number): void {
 
 const reverb: EffectDescriptor = {
   kind: 'reverb',
+  family: 'space',
   // 12.5 per second of tail offline, and 20 in realtime — a hundred reverbs saturate the audio thread
   // where the model expected a hundred and fifty-eight. Convolution is where an offline render is most
   // optimistic, and for a reason: it walks a long impulse against the input, which a batch render
@@ -253,6 +280,7 @@ function impulseFor(ctx: BaseAudioContext, decay: number, random: () => number):
 
 const distortion: EffectDescriptor = {
   kind: 'distortion',
+  family: 'dirt',
   // Four-times oversampling means the shaper and two resampling filters. Arithmetic guessed 3.5, the
   // offline harness said 15, and a sweep against a real dropout settled it at 10.9 — so the guess was
   // directionally right and three times low, and the render was half again too high.
@@ -304,6 +332,7 @@ const distortion: EffectDescriptor = {
 
 const crush: EffectDescriptor = {
   kind: 'crush',
+  family: 'dirt',
   // Not oversampled, so a plain table lookup plus the tone filter. Measured 2.4.
   // Measured at 2.21 *with* the decimator in the chain, against 2.4 without one — the same number
   // A worklet is far dearer than the native nodes around it, which the offline harness could not see:
@@ -385,6 +414,7 @@ const MAX_ECHO_SECONDS = 4
 
 const echo: EffectDescriptor = {
   kind: 'echo',
+  family: 'space',
   // Two delay lines, a feedback gain, two panners and the tone filter. Measured 5.7.
   // Two delays, two pans and a feedback path. Measured 1.13 light against a broken ceiling.
   cost: () => 7.4,
@@ -477,6 +507,7 @@ const echo: EffectDescriptor = {
  */
 const filter: EffectDescriptor = {
   kind: 'filter',
+  family: 'tone',
   // One biquad and the wet/dry pair, which is the cheapest an effect gets here. Offline said 2; realtime
   // says 4.5, averaged over the two readings a sweep takes of this one. A biquad's memory traffic is the
   // part a render does not charge for.
@@ -543,6 +574,7 @@ const MAX_CHORUS_FEEDBACK = 0.7
  */
 const chorus: EffectDescriptor = {
   kind: 'chorus',
+  family: 'movement',
   // Modulated delay lines: the modulation is what costs, not the delay. Read 0.96 against a broken
   // ceiling once 5 had come down to 4.3, so this one is settled.
   cost: () => 4.3,
@@ -618,6 +650,7 @@ const MAX_PHASER_FEEDBACK = 0.6
  */
 const phaser: EffectDescriptor = {
   kind: 'phaser',
+  family: 'movement',
   // Four all-pass stages with an LFO on every one of them. 13.5 offline and 15.5 in realtime, and the
   // gap between those two is the same 13 % a per-voice biquad shows — which is what identified the
   // correction as a property of biquads rather than of any one effect.
@@ -701,6 +734,7 @@ const phaser: EffectDescriptor = {
  */
 const tremolo: EffectDescriptor = {
   kind: 'tremolo',
+  family: 'movement',
   // An LFO into a gain, and the gain is barely anything. Measured 2.5.
   cost: () => 2.5,
   label: 'Tremolo',
@@ -751,6 +785,7 @@ const tremolo: EffectDescriptor = {
  */
 const ring: EffectDescriptor = {
   kind: 'ring',
+  family: 'dirt',
   // An audio-rate oscillator into a gain. Measured 2.5 — the same as a tremolo, which is what it
   // is, only faster.
   cost: () => 2.5,
@@ -803,6 +838,7 @@ const MAX_WIDTH_SECONDS = 0.02
  */
 const pan: EffectDescriptor = {
   kind: 'pan',
+  family: 'movement',
   /*
    * A panner, a delay for the width and the merge. Measured 4.15 on one instrument and confirmed on
    * another: a sweep after the probe was fixed read it at 0.97x, which is three per cent from priced
@@ -871,6 +907,7 @@ const pan: EffectDescriptor = {
  */
 const octave: EffectDescriptor = {
   kind: 'octave',
+  family: 'dirt',
   // A worklet costs far more than the native nodes it sits among — JavaScript on the audio thread, every
   // block, which an offline render charges almost nothing for. 2.5 was the render's answer; 7.1 was an
   // overshoot correcting it, and 4.8 is where two sweeps agree.
@@ -922,6 +959,7 @@ const octave: EffectDescriptor = {
 
 const comb: EffectDescriptor = {
   kind: 'comb',
+  family: 'other',
   /*
    * A worklet, so it is priced with the other one rather than with the native nodes: JavaScript on the
    * audio thread every block, which an offline render charges almost nothing for and a live one pays in
@@ -1003,6 +1041,7 @@ const comb: EffectDescriptor = {
 
 const fold: EffectDescriptor = {
   kind: 'fold',
+  family: 'dirt',
   /*
    * The same parts as the distortion — a shaper at four-times oversampling, a high-pass and the tone
    * filter — so it starts at the distortion's measured 10.9 rather than at a guess. Folding aliases
@@ -1085,6 +1124,7 @@ const EQ_MID_Q = 0.9
 
 const eq: EffectDescriptor = {
   kind: 'eq',
+  family: 'tone',
   /*
    * Three biquads and the wet/dry pair. Derived from the filter effect rather than guessed: that one is
    * *one* biquad plus the same two gains and measures 1.8, and the identical node costs `FILTER_COST` —
@@ -1159,6 +1199,7 @@ const eq: EffectDescriptor = {
 
 const stutterFx: EffectDescriptor = {
   kind: 'stutter',
+  family: 'other',
   /*
    * A worklet, so priced with the other three rather than with the native nodes. The work per sample is
    * the least of any of them — one buffer read or write and a counter, against the resonator's
@@ -1235,6 +1276,7 @@ const stutterFx: EffectDescriptor = {
 
 const compress: EffectDescriptor = {
   kind: 'compress',
+  family: 'other',
   /*
    * One `DynamicsCompressorNode` and the wet/dry pair, which is the same shape as the filter effect — and
    * the same node the master bus has used as a limiter since the engine was written.

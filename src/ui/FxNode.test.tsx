@@ -1,7 +1,7 @@
 import { ReactFlowProvider } from '@xyflow/react'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { EFFECTS } from '../audio/effects'
+import { EFFECT_FAMILIES, EFFECTS } from '../audio/effects'
 import { diff, graphOf } from '../audio/router'
 import { canConnect } from '../state/connections'
 import { toPatch, usePatchStore } from '../state/patchStore'
@@ -325,7 +325,33 @@ describe('the FX inspector', () => {
     const { container } = render(<Inspector />)
 
     const offered = [...container.querySelectorAll('option')].map((o) => o.textContent)
-    expect(offered).toEqual(EFFECTS.map((e) => e.label))
+    expect([...offered].sort()).toEqual(EFFECTS.map((e) => e.label).sort())
+  })
+
+  it('offers them on shelves, and every effect on exactly one', () => {
+    /*
+     * The order used to be the order they were built in, which is a fact about this repository handed to
+     * somebody looking for a filter. What is checked is not the arrangement but that the arrangement is
+     * *complete*: an effect whose family nobody set would vanish from the list entirely, and the test
+     * above would still pass on a sorted comparison if it were the only one.
+     */
+    usePatchStore.getState().select(addFx())
+    const { container } = render(<Inspector />)
+
+    const groups = [...container.querySelectorAll('optgroup')]
+    expect(groups.length).toBeGreaterThan(1)
+    expect(groups.every((g) => g.querySelectorAll('option').length > 0)).toBe(true)
+
+    // Every effect appears once, under a heading, and no effect appears loose.
+    const inGroups = groups.flatMap((g) =>
+      [...g.querySelectorAll('option')].map((o) => o.textContent),
+    )
+    expect(inGroups.sort()).toEqual(EFFECTS.map((e) => e.label).sort())
+
+    // And the family headings are the ones the table declares, in its order.
+    const headings = groups.map((g) => g.getAttribute('label'))
+    const declared = EFFECT_FAMILIES.filter((f) => EFFECTS.some((e) => e.family === f.key))
+    expect(headings).toEqual(declared.map((f) => f.label))
   })
 
   it('changes the mix without rewiring anything', () => {

@@ -581,7 +581,25 @@ refused, since between an oscillator and an effect there is only one direction t
   it longer without making it clearer. Both languages live adjacent in one file so a half-finished
   edit shows up in the diff rather than as a blank paragraph months later.
 
-  Fifteen chapters and a hundred and eighty-one entries, written for whoever is using the instrument
+- **Looking a term up**, which is a different act from reading and gets a different view. A box at the
+  top of the manual searches the **names of things** rather than the prose: type REPS and the entry
+  called REPS comes back whole, with the chapter it came from beside it as the way on. The question
+  behind a lookup is "what is this called thing", and a list of every paragraph containing those letters
+  would have found it and buried it.
+
+  Words that name nothing — "darker", "loud" — land under _Also mentioned in_, a short list of chapters
+  that use them: somewhere to look rather than an answer, and kept apart on purpose. Names rank in three
+  bands, the same name before one that begins with it before one that merely contains it, so Swing does
+  not answer with "Swing on an odd length" first. Either language, accents optional. And Escape lets go
+  of one thing at a time — the search, then the page, then the manual — so a mistyped word never costs
+  the book.
+
+- **The effect list is grouped by what an effect does**: Tone, Space, Movement, Dirt, Other. It was
+  sixteen effects in the order they were built, which is a fact about this repository handed to somebody
+  looking for a filter — and the filter was fifth, the EQ fourteenth. The grouping is read off each
+  effect rather than written out beside the list, and a family with nothing in it is not rendered, so
+  removing the last of a kind cannot leave a heading over an empty shelf.
+  Sixteen chapters and a hundred and eighty-five entries, written for whoever is using the instrument
   rather than for whoever built it: no entry explains how something is implemented, and every one says
   what a control does to the sound and when you would reach for it. One chapter per module, each in
   the order its own panel is in and under the panel's own group headings, so reading the manual and

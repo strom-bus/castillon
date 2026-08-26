@@ -14,7 +14,7 @@ import {
   MIN_REDUCTION,
   MIN_REPEATS,
 } from '../audio/dsp'
-import { EFFECTS, effectOr } from '../audio/effects'
+import { EFFECT_FAMILIES, EFFECTS, effectOr } from '../audio/effects'
 import {
   cutoffToSlider,
   FILTER_NAMES,
@@ -1106,11 +1106,23 @@ export function Inspector() {
             value={fxParams.effect ?? 'gain'}
             onChange={(e) => setEffect(node.id, e.target.value as EffectKind)}
           >
-            {EFFECTS.map((effect) => (
-              <option key={effect.kind} value={effect.kind}>
-                {effect.label}
-              </option>
-            ))}
+            {/* Grouped rather than listed, and the grouping is read off each effect rather than written
+                out here — sixteen in one flat list was sixteen in the order they were built, which is a
+                fact about this repository offered to somebody looking for a filter. A family with
+                nothing in it is not rendered, so removing the last of a kind cannot leave a heading
+                over an empty shelf. */}
+            {EFFECT_FAMILIES.map(({ key, label }) => {
+              const shelf = EFFECTS.filter((effect) => effect.family === key)
+              return shelf.length === 0 ? null : (
+                <optgroup key={key} label={label}>
+                  {shelf.map((effect) => (
+                    <option key={effect.kind} value={effect.kind}>
+                      {effect.label}
+                    </option>
+                  ))}
+                </optgroup>
+              )
+            })}
           </select>
         </label>
 

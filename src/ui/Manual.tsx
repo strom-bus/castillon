@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { LANGUAGE_LABELS, LANGUAGES, useLanguage } from '../help/language'
 import { MANUAL } from '../help/manual'
+import { alsoMentionedIn, findTerms, MIN_QUERY } from '../help/search'
 
 /**
  * The manual, as a window over the app.
@@ -29,18 +30,33 @@ export function Manual({ onClose }: { onClose: () => void }) {
   const [opened, setOpened] = useState<string | null>(null)
   const section = opened ? MANUAL.find((one) => one.id === opened) : null
 
+  /**
+   * Looking something up, which is a different act from reading and gets a different view.
+   *
+   * It takes over the body rather than filtering the page underneath, because the two are answers to
+   * different questions and showing both at once would answer neither: a reader who typed a word wants
+   * that word, and a page that merely dimmed everything else still has everything else on it.
+   */
+  const [query, setQuery] = useState('')
+  const searching = query.trim().length >= MIN_QUERY
+  const results = useMemo(() => (searching ? findTerms(query) : []), [query, searching])
+  const elsewhere = useMemo(() => (searching ? alsoMentionedIn(query) : []), [query, searching])
+
   useEffect(() => {
     closer.current?.focus()
     function onKey(event: KeyboardEvent) {
-      // Escape steps back out of a section first, and only closes the manual from the list. Otherwise
-      // reading one page costs the whole manual to leave.
+      /*
+       * Escape lets go of one thing at a time, outermost last: the search, then the page, then the
+       * manual. A key that closed everything would make a mistyped word cost the whole book.
+       */
       if (event.key !== 'Escape') return
-      if (opened) setOpened(null)
+      if (query) setQuery('')
+      else if (opened) setOpened(null)
       else onClose()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onClose, opened])
+  }, [onClose, opened, query])
 
   // Back to the top on the way in and on the way out: arriving halfway down a page nobody scrolled is
   // disorienting, and returning to the list at the depth of a page that is gone is worse.
@@ -48,7 +64,7 @@ export function Manual({ onClose }: { onClose: () => void }) {
     // Assigned rather than scrolled: `scrollTo` is not on every element everywhere, and this needs no
     // animation — the page it would animate across has already been replaced.
     if (body.current) body.current.scrollTop = 0
-  }, [opened])
+  }, [opened, searching])
 
   return (
     // The backdrop closes on its own click, but not on one that started inside.
@@ -62,6 +78,17 @@ export function Manual({ onClose }: { onClose: () => void }) {
       >
         <header className="gallery-head">
           <h2>MANUAL</h2>
+          {/* In the header for the same reason BACK is: the header does not scroll and the body does, so
+              a box in the body would be reachable at the top of a page and gone by the bottom — which is
+              where somebody who has read enough and wants to look one thing up actually is. */}
+          <input
+            type="search"
+            className="manual-search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder={language === 'es' ? 'Buscar un término' : 'Look up a term'}
+            aria-label={language === 'es' ? 'Buscar en el manual' : 'Search the manual'}
+          />
           {/* A toggle rather than two buttons: choosing a language is one decision with two answers,
               and two full-sized buttons gave it the weight of a section heading. */}
           <div className="language-toggle" role="group" aria-label="Manual language">
@@ -85,7 +112,7 @@ export function Manual({ onClose }: { onClose: () => void }) {
               would be the only two symbols in the interface, and an unlabelled icon asks the reader to
               guess, which is a poor thing to ask of the beginner this page exists for. The arrow stays
               in front of it: direction from the symbol, certainty from the word. */}
-          {section && (
+          {section && !searching && (
             <button type="button" className="manual-back" onClick={() => setOpened(null)}>
               {language === 'es' ? '\u2190 VOLVER' : '\u2190 BACK'}
             </button>
@@ -98,7 +125,63 @@ export function Manual({ onClose }: { onClose: () => void }) {
         {/* `lang` on the scrolling body rather than on every paragraph: it is what tells a screen
             reader which voice to read in, and hyphenation which rules to use. */}
         <div className="manual-body" lang={language} ref={body}>
-          {section ? (
+          {searching ? (
+            <section className="manual-results">
+              {results.length === 0 && elsewhere.length === 0 && (
+                <p className="manual-empty">
+                  {language === 'es'
+                    ? 'Nada con ese nombre. Prueba con la palabra que aparece en el panel.'
+                    : 'Nothing by that name. Try the word as the panel spells it.'}
+                </p>
+              )}
+
+              {/* The answers: the entry itself, whole, because the question was "what is this thing" and
+                  a link to a chapter is not a reply to that. */}
+              <dl>
+                {results.map((hit, i) => (
+                  <div key={i}>
+                    <dt>
+                      {hit.term.term[language]}
+                      {/* Where it came from, which is the reader's way on: a term is often clearer with
+                          the page around it, and this is how to go and get it. */}
+                      <button
+                        type="button"
+                        className="manual-from"
+                        onClick={() => {
+                          setOpened(hit.sectionId)
+                          setQuery('')
+                        }}
+                      >
+                        {hit.sectionTitle[language]}
+                      </button>
+                    </dt>
+                    <dd>{hit.term.text[language]}</dd>
+                  </div>
+                ))}
+              </dl>
+
+              {/* And the chapters that merely use the word — somewhere to look, kept apart from the
+                  answers so one exact hit is never buried under every paragraph that mentions it. */}
+              {elsewhere.length > 0 && (
+                <div className="manual-elsewhere">
+                  <h4>{language === 'es' ? 'También se menciona en' : 'Also mentioned in'}</h4>
+                  {elsewhere.map((one) => (
+                    <button
+                      key={one.id}
+                      type="button"
+                      className="manual-more"
+                      onClick={() => {
+                        setOpened(one.id)
+                        setQuery('')
+                      }}
+                    >
+                      {one.title[language]}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </section>
+          ) : section ? (
             <section>
               <h3>{section.title[language]}</h3>
               {/* Grouped under the same headings the panel uses, which is what makes reading the manual

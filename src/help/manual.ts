@@ -910,6 +910,13 @@ export const MANUAL: Section[] = [
             },
           },
           {
+            term: { en: 'The five shelves', es: 'Los cinco estantes' },
+            text: {
+              en: 'The list is grouped by what an effect does to the sound rather than run flat. **Tone** shapes what is already there — the Filter and the EQ. **Space** puts it somewhere: Reverb and Echo. **Movement** makes it wander — Chorus, Phaser, Tremolo and Pan. **Dirt** damages it on purpose: Distortion, Bitcrusher, Wavefolder, Octave and Ring. **Other** is the three that answer to no family — the Comb resonator, which plays a pitch of its own; the Stutter, which is about rhythm; and the Compressor, which is about level. If you do not know which you want, the order is roughly how often each is reached for.',
+              es: 'La lista va agrupada por lo que un efecto le hace al sonido, en vez de ir en fila. **Tone** moldea lo que ya hay — el Filter y el EQ. **Space** lo pone en algún sitio: Reverb y Echo. **Movement** lo hace vagar — Chorus, Phaser, Tremolo y Pan. **Dirt** lo estropea a propósito: Distortion, Bitcrusher, Wavefolder, Octave y Ring. **Other** son los tres que no responden a ninguna familia — el resonador Comb, que toca una altura propia; el Stutter, que va de ritmo; y el Compressor, que va de nivel. Si no sabes cuál quieres, el orden es más o menos lo a menudo que se echa mano de cada uno.',
+            },
+          },
+          {
             term: { en: 'Mix in a chain', es: 'Mix en una cadena' },
             text: {
               en: 'Each stage crossfades between what reached it and what it made of that — so in a chain, the second effect’s Mix is against the *first effect’s output*, not against the bare oscillator. That is exactly how a row of pedals behaves, and it means you can put a stage in a chain at a low Mix and hear it as a colour on what came before rather than as a replacement for it.',
@@ -1784,6 +1791,47 @@ export const MANUAL: Section[] = [
             text: {
               en: 'REPS is how many times the cascade repeats in the rendered file. It is counted in passes rather than in seconds because a pass has no fixed length — asking for eight seconds would mean measuring the patch yourself first, and the answer would change the moment you lengthened a branch.',
               es: 'REPS es cuántas veces se repite la cascada en el archivo renderizado. Se cuenta en pasadas y no en segundos porque una pasada no tiene duración fija — pedir ocho segundos significaría medir el patch tú antes, y la respuesta cambiaría en cuanto alargaras una rama.',
+            },
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'looking-up',
+    title: { en: 'Looking something up', es: 'Buscar una cosa' },
+    body: [
+      {
+        en: 'There are two ways to use this book and they are different acts. Reading it starts at the beginning. **Looking something up** starts with a word on the screen you do not recognise, and for that there is a box at the top of this window.',
+        es: 'Hay dos maneras de usar este libro y son actos distintos. Leerlo empieza por el principio. **Buscar una cosa** empieza por una palabra en la pantalla que no reconoces, y para eso está la caja de arriba de esta ventana.',
+      },
+      {
+        en: 'It searches **names**, not paragraphs. Type REPS and you get the entry called REPS, whole, with the chapter it came from beside it. That is deliberate: the question behind a lookup is "what is this called thing", and the entry is the answer — a list of every paragraph containing those letters would have found it and buried it.',
+        es: 'Busca **nombres**, no párrafos. Escribe REPS y obtienes la entrada llamada REPS, entera, con el capítulo del que viene al lado. Es a propósito: la pregunta detrás de una búsqueda es "qué es esta cosa que se llama así", y la entrada es la respuesta — una lista de todos los párrafos que contienen esas letras la habría encontrado y sepultado.',
+      },
+    ],
+    detail: [
+      {
+        terms: [
+          {
+            term: { en: 'When nothing is named that', es: 'Cuando nada se llama así' },
+            text: {
+              en: 'Words that are not the name of anything — "darker", "loud" — turn up under *Also mentioned in*, which is a short list of chapters that use the word. Somewhere to look rather than an answer, and kept apart from the answers on purpose so one exact hit is never lost among them.',
+              es: 'Las palabras que no son el nombre de nada — "oscuro", "fuerte" — salen bajo *También se menciona en*, que es una lista corta de capítulos que usan la palabra. Un sitio donde mirar y no una respuesta, y va aparte de las respuestas a propósito, para que un acierto exacto no se pierda entre ellas.',
+            },
+          },
+          {
+            term: { en: 'Either language', es: 'Cualquier idioma' },
+            text: {
+              en: 'A name is found whichever of the two the manual is set to, and accents are optional — most names are the interface’s own word and identical in both, and demanding the accent would fail exactly the readers the Spanish half is for.',
+              es: 'Un nombre se encuentra esté el manual en el idioma que esté, y los acentos son opcionales — casi todos los nombres son la palabra de la interfaz y son idénticos en los dos, y exigir el acento fallaría justo a los lectores para los que existe la mitad en español.',
+            },
+          },
+          {
+            term: { en: 'Escape lets go once', es: 'Escape suelta una cosa' },
+            text: {
+              en: 'Pressing it clears the search, then leaves the page you were on, then closes the manual — one thing at a time. A mistyped word never costs you the book.',
+              es: 'Pulsarlo borra la búsqueda, luego sale de la página en la que estabas, y luego cierra el manual — una cosa cada vez. Una palabra mal escrita nunca te cuesta el libro.',
             },
           },
         ],

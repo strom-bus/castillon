@@ -876,6 +876,79 @@ input[type='range'] {
 
 /* The close button, matched to the toggle beside it: same border, same padding, same lettering. Two
    controls of different sizes side by side read as two different kinds of thing, which they are not. */
+/*
+ * Looking one thing up, in the header beside the way out.
+ *
+ * Narrow on purpose: it takes a word, not a sentence. A box as wide as the header would promise
+ * full-text search of a book that answers by name, and the promise is the part that disappoints.
+ */
+.manual-search {
+  flex: 0 1 190px;
+  min-width: 90px;
+  padding: 4px 7px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+
+.manual-search::placeholder {
+  color: var(--muted);
+  letter-spacing: 0.04em;
+}
+
+.manual-search:focus-visible {
+  outline: 1px solid var(--text);
+  outline-offset: -1px;
+}
+
+/* The chapter an answer came from, on the same line as the name it answers. A button rather than a
+   heading because it is the way on, and quiet because the answer is the point and this is the door. */
+.manual-from {
+  margin-left: 10px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.manual-from:hover {
+  color: var(--text);
+}
+
+/* Chapters that use the word without defining it. Set apart, and after, so one exact answer is never
+   buried under every paragraph that happens to mention it. */
+.manual-elsewhere {
+  margin-top: 26px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.manual-elsewhere h4 {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.manual-elsewhere .manual-more {
+  display: block;
+  margin: 0 0 6px;
+}
+
+.manual-empty {
+  color: var(--muted);
+  line-height: 1.6;
+}
+
 .manual-close {
   padding: 3px 9px;
   border: 1px solid var(--border);

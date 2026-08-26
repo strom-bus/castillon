@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { EFFECTS, effectOr } from './effects'
+import { EFFECT_FAMILIES, EFFECTS, effectOr } from './effects'
 import { planRender } from './render'
 import { PRESETS } from '../presets/presets'
 import { MAX_DECAY, type FxParams, type Patch, type PatchNode } from '../types/patch'
@@ -165,5 +165,43 @@ describe('an export waiting for an effect', () => {
         needed,
       )
     }
+  })
+})
+
+/**
+ * The shelf each effect is offered from.
+ *
+ * A presentation fact, and it fails like one: an effect whose family is not a family the list knows
+ * about is not rendered wrongly, it is **not rendered at all** — built, reachable by a patch code, and
+ * absent from the only place anybody can choose it.
+ */
+describe('what shelf an effect is on', () => {
+  it('gives every effect a family the list actually offers', () => {
+    const shelves = new Set(EFFECT_FAMILIES.map((one) => one.key))
+    for (const descriptor of EFFECTS) {
+      expect(shelves.has(descriptor.family), `${descriptor.kind} is on no shelf`).toBe(true)
+    }
+  })
+
+  it('leaves no shelf standing empty', () => {
+    // The other direction: a heading with nothing under it is a promise of effects that do not exist.
+    for (const family of EFFECT_FAMILIES) {
+      expect(
+        EFFECTS.some((descriptor) => descriptor.family === family.key),
+        `the ${family.label} shelf is empty`,
+      ).toBe(true)
+    }
+  })
+
+  it('puts the two most reached-for effects first', () => {
+    /*
+     * Not decoration. The list was sixteen effects in the order they happened to be built, which put the
+     * filter fifth and the EQ fourteenth — the two things anybody looks for first, found by scrolling
+     * past a bitcrusher. Tone is the first shelf and it holds both.
+     */
+    expect(EFFECT_FAMILIES[0]!.key).toBe('tone')
+    const tone = EFFECTS.filter((one) => one.family === 'tone').map((one) => one.kind)
+    expect(tone).toContain('filter')
+    expect(tone).toContain('eq')
   })
 })

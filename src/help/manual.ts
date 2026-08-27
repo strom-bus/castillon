@@ -2717,6 +2717,13 @@ export const MANUAL: Section[] = [
             },
           },
           {
+            term: { en: 'On a phone', es: 'En el móvil' },
+            text: {
+              en: 'A narrow screen gets the instrument as a **player**: the cascade, Play, the tempo, the volume, the manual, the gallery, and the field a shared code arrives in. The palette and the node panel are not there, because building a patch means dragging a cable between two ports a few pixels across — and on a touch screen that is the same gesture as moving the canvas. Open a link on a phone to hear it; open it on a computer to change it.',
+              es: 'Una pantalla estrecha recibe el instrumento como **reproductor**: la cascada, Play, el tempo, el volumen, el manual, la galería, y el campo donde entra un código compartido. La paleta y el panel de nodo no están, porque construir un patch es arrastrar un cable entre dos puertos de unos pocos píxeles — y en una pantalla táctil ese es el mismo gesto que mover el lienzo. Abre un enlace en el móvil para oírlo; ábrelo en un ordenador para cambiarlo.',
+            },
+          },
+          {
             term: { en: 'Which build this is', es: 'Qué build es este' },
             text: {
               en: `This one is **${__BUILD__}** — the commit it was made from and the day it was made. It is here rather than on the screen because it is worth exactly one thing: if you find something wrong, saying which build you were on turns a report into something that can be reproduced. Send it with the patch code, which is the other half — the code carries the whole patch, so whoever reads it is looking at what you were looking at.`,

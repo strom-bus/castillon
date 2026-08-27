@@ -2393,3 +2393,56 @@ button.step-lock:focus-visible {
   color: var(--muted);
   line-height: 1.45;
 }
+
+/* ---------------------------------------------------------------------------
+   A narrow screen, where this is a player and not an editor.
+   --------------------------------------------------------------------------- */
+
+/*
+ * The decision this whole block rests on, stated once so nobody has to infer it: **a phone opens
+ * patches, it does not build them.**
+ *
+ * Not a limitation admitted reluctantly. Wiring a cascade means dragging a cable between two ports a
+ * few pixels across, and on a touch screen that gesture is the same one that pans the canvas — making
+ * it work would mean enlarging every port, resolving the conflict, turning the inspector into a sheet
+ * and the palette into a menu. That is a second interface to maintain for a medium this instrument is
+ * not for, and a half-built version of it is worse than none: it invites the attempt and then loses it.
+ *
+ * So the editing affordances are *removed* rather than shrunk, which is also why there is no notice
+ * telling anybody what they cannot do here. A control that is gone asks no questions. What is left is
+ * the case that actually happens on a phone — somebody was sent a link, and wants to hear it.
+ *
+ * Seven hundred pixels because that is where the fixed inspector stops leaving the canvas a workspace:
+ * below it the panel takes more of the screen than the patch does. An iPad in portrait is 768 and keeps
+ * the whole instrument; a phone in landscape is wider still on its long edge and keeps it too.
+ */
+@media (max-width: 700px) {
+  /* The two that are only for building: a panel of controls for a node you cannot wire, and a row of
+     buttons that add nodes you cannot connect. */
+  .inspector,
+  .palette {
+    display: none;
+  }
+
+  /*
+   * Everything left in these two rows is playing or reading — play, loop, tempo, volume, the code field
+   * that a link arrives as, the manual, the gallery — so they wrap instead of overflowing. A row that
+   * runs off the side of a phone hides whichever control happened to be last, which on the transport is
+   * the one that takes a shared code.
+   */
+  .titlebar,
+  .transport {
+    flex-wrap: wrap;
+  }
+
+  /* It exists to push what follows it to the far side of a wide row. On a wrapped one it only forces a
+     break in the middle of a group. */
+  .spacer {
+    display: none;
+  }
+
+  /* Thirty-two pixels of margin around a window is generous at 1440 and a third of the screen at 390. */
+  .modal-backdrop {
+    padding: 12px;
+  }
+}

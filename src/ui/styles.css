@@ -456,16 +456,35 @@ input[type='range']:hover::-moz-range-track {
  * settling rather than a panel sliding. Any further and the pips leave the square they belong to; any
  * flatter and it reads as a rendering fault rather than as a movement.
  */
-.btn-icon.dice-button:hover,
-.btn-icon.dice-button:focus-visible {
-  color: var(--brand-lit);
-}
-
 .btn-icon.dice-button svg {
   transition: transform 200ms cubic-bezier(0.34, 1.4, 0.64, 1);
 }
 
-.btn-icon.dice-button:hover svg,
+/*
+ * Only where there is a real pointer — the same reason the gallery button's label is gated, written out
+ * there and then not applied here, one screen away.
+ *
+ * On a touch screen `:hover` sticks after a tap. Every hover in this sheet does that and most of them
+ * only change a colour, which reads as "this one is selected" and is survivable. This one *moves*: tap
+ * the die on a phone and it stays tilted twelve degrees and orange, for ever, which is exactly what it
+ * looks like — a die that jammed. Reported from a phone before it was noticed here, and blamed on
+ * Safari, which had nothing to do with it.
+ */
+@media (hover: hover) {
+  .btn-icon.dice-button:hover {
+    color: var(--brand-lit);
+  }
+
+  .btn-icon.dice-button:hover svg {
+    transform: rotate(-12deg);
+  }
+}
+
+/* Outside it, since a keyboard reaches this button on every device and a focus ring is not a hover. */
+.btn-icon.dice-button:focus-visible {
+  color: var(--brand-lit);
+}
+
 .btn-icon.dice-button:focus-visible svg {
   transform: rotate(-12deg);
 }
@@ -2439,6 +2458,28 @@ button.step-lock:focus-visible {
      break in the middle of a group. */
   .spacer {
     display: none;
+  }
+
+  /*
+   * The code cluster, which was the one thing still running off the side.
+   *
+   * `flex-wrap` on the transport wraps *between* its items, and this is one item — a label, a field of a
+   * fixed 190px and three buttons, about four hundred and sixty pixels that refuse to shrink. So the row
+   * wrapped everything else neatly and left this hanging over the edge with SHARE against it, which is
+   * how it was reported.
+   *
+   * It refuses to shrink on a wide row so the field is never squeezed to nothing, and that refusal is
+   * exactly what has to go here. The field takes what is left and the buttons wrap under it.
+   */
+  .patch-code {
+    flex: 1 1 auto;
+    flex-wrap: wrap;
+  }
+
+  .patch-code input {
+    flex: 1 1 120px;
+    width: auto;
+    min-width: 0;
   }
 
   /* Thirty-two pixels of margin around a window is generous at 1440 and a third of the screen at 390. */

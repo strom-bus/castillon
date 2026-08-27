@@ -56,6 +56,18 @@ describe('a narrow screen', () => {
     expect(block).toMatch(/\.titlebar,\s*\.transport\s*\{\s*flex-wrap:\s*wrap/)
   })
 
+  it('lets the code cluster wrap, since it is one item and wider than a phone', () => {
+    /*
+     * `flex-wrap` on the transport wraps *between* its items, and the code cluster is one of them — a
+     * label, a field of a fixed 190px and three buttons, about four hundred and sixty pixels that
+     * refuse to shrink. So everything else wrapped neatly and that one hung over the edge with SHARE
+     * against it, which is how it was reported from a phone.
+     */
+    expect(block).toMatch(/\.patch-code\s*\{[^}]*flex-wrap:\s*wrap/)
+    // And the field gives up its fixed width, or the buttons wrap under a bar that still overflows.
+    expect(block).toMatch(/\.patch-code input\s*\{[^}]*flex:\s*1 1/)
+  })
+
   it('is the only place the layout is told about a screen width', () => {
     /*
      * One breakpoint, so "what a phone gets" is a paragraph somebody can read rather than a behaviour

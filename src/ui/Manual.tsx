@@ -140,6 +140,17 @@ export function Manual({ onClose }: { onClose: () => void }) {
             placeholder={language === 'es' ? 'Buscar un término' : 'Look up a term'}
             aria-label={language === 'es' ? 'Buscar en el manual' : 'Search the manual'}
           />
+          {/* Which build this is, beside the toggle rather than in the last chapter alone. Labelled,
+              because a bare `4b3935d · 2026-08-26` in the corner of a window is a string somebody has to
+              guess the purpose of — and the word is translated like BACK beside it, since everything in
+              this header that is a word rather than a name already is.
+              It is the answer to a question somebody else asks — "what were you running?" — so it has to
+              be readable without knowing where to look for it. Dim and small: it is a serial number, and
+              it is worth exactly nothing until something has gone wrong. */}
+          <span className="manual-build">
+            {language === 'es' ? 'versión: ' : 'version: '}
+            {__BUILD__}
+          </span>
           {/* A toggle rather than two buttons: choosing a language is one decision with two answers,
               and two full-sized buttons gave it the weight of a section heading. */}
           <div className="language-toggle" role="group" aria-label="Manual language">

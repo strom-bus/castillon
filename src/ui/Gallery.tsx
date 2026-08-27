@@ -3,6 +3,7 @@ import { gallery, galleryIsShared } from '../gallery/client'
 import { countryOf, relativeAge } from '../gallery/format'
 import type { GalleryEntry, GallerySort } from '../gallery/types'
 import { decodePatch } from '../state/patchCode'
+import { GALLERY_VIEWS, useGalleryWindow, type GalleryView } from '../gallery/window'
 import { usePatchStore } from '../state/patchStore'
 import { shortCodeFor } from '../state/shortCode'
 import { PRESETS } from '../presets/presets'
@@ -20,21 +21,22 @@ import { StarIcon } from './StarIcon'
  * ossifies: whatever went up first collects the stars and nothing new is ever seen (§12.7).
  */
 
-/** The two things this window holds: what came with the machine, and what people made with it. */
-const VIEWS = ['presets', 'gallery'] as const
-type View = (typeof VIEWS)[number]
-
-const VIEW_LABELS: Record<View, string> = { presets: 'PRESETS', gallery: 'GALLERY' }
+const VIEW_LABELS: Record<GalleryView, string> = { presets: 'PRESETS', gallery: 'GALLERY' }
 
 export function Gallery({ onClose }: { onClose: () => void }) {
   /**
-   * Presets first, and open on them.
+   * Whichever half the thing that opened the window asked for, which is the presets unless it said.
    *
-   * The gallery is a network request that may be empty, slow, or unreachable; the presets are three
-   * patches that are always there. Opening on the half that can fail — and, on a fresh browser, fails by
-   * being empty — is the wrong first impression of a window whose job is to show what the machine does.
+   * The default is what it always was and for the reason it always was: the gallery is a network request
+   * that may be empty, slow or unreachable, and opening on the half that can fail — and on a fresh
+   * browser fails by being empty — is the wrong first impression of a window whose job is to show what
+   * the machine does.
+   *
+   * Publishing is the exception, and it was arriving here on the presets: you had just put something in
+   * the gallery and were shown the half that has nothing to do with it. Read once, at mount, because the
+   * window is unmounted when it closes — so opening it again asks again.
    */
-  const [view, setView] = useState<View>('presets')
+  const [view, setView] = useState<GalleryView>(useGalleryWindow.getState().view)
   const [sort, setSort] = useState<GallerySort>('recent')
   const [page, setPage] = useState(0)
   /*
@@ -152,7 +154,7 @@ export function Gallery({ onClose }: { onClose: () => void }) {
               half the window. The same control as the manual's language toggle, doing the same job: one
               decision with two answers, in one bordered box rather than as two competing buttons. */}
           <div className="tab-toggle" role="group" aria-label="What to show">
-            {VIEWS.map((option) => (
+            {GALLERY_VIEWS.map((option) => (
               <button
                 key={option}
                 type="button"

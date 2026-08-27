@@ -1008,7 +1008,19 @@ button.step-lock:focus-visible {
 /* ---------- Inspector ---------- */
 
 .inspector {
-  width: 264px;
+  /*
+   * Wide enough for the controls, plus a gutter for the scrollbar to live in.
+   *
+   * At 264 a horizontal bar appeared and could move the panel about eight pixels, which is a control
+   * offered for a job not worth doing — it read as something being cut off rather than as something
+   * scrollable. Widening fixed that and uncovered the next one: the vertical bar sits *over* the right
+   * edge on macOS, so the readouts ran underneath it and `0 ¢` lost its symbol.
+   *
+   * So the panel is twenty-four wider than it was and the body gives twelve of them back as a gutter.
+   * The controls have exactly the room they had at 276 and the bar has somewhere of its own to be. The
+   * canvas loses twenty-four pixels of a workspace it can pan and zoom anyway.
+   */
+  width: 288px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -1022,6 +1034,15 @@ button.step-lock:focus-visible {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  /* And never sideways. The width above is what stops anything overflowing; this is what stops a stray
+     wide control from turning the whole panel into something that slides. */
+  overflow-x: hidden;
+  /*
+   * The gutter the scrollbar sits in. An overlay scrollbar takes no width of its own — it is drawn on
+   * top of whatever is at the right edge — so nothing but this keeps it off the numbers, which are the
+   * one thing in the panel that lives against that edge.
+   */
+  padding-right: 12px;
 }
 
 /* Sits at the foot of the panel whatever the panel holds. */
@@ -1088,9 +1109,13 @@ button.step-lock:focus-visible {
   border: 1px solid var(--border);
 }
 
-.language-toggle {
-  margin-left: auto;
-}
+/*
+ * The push right now belongs to the build id beside it, which is the first of the three.
+ *
+ * Two `margin-left: auto` in one flex row do not both win — the free space splits between them, and the
+ * build id would float somewhere in the middle of the header instead of sitting against the toggle. So
+ * there is one, on whichever of them comes first.
+ */
 
 /* The close button, matched to the toggle beside it: same border, same padding, same lettering. Two
    controls of different sizes side by side read as two different kinds of thing, which they are not. */
@@ -1591,6 +1616,22 @@ button.step-lock:focus-visible {
 .inspector select,
 .inspector input[type='range'] {
   width: 100%;
+}
+
+/*
+ * The build's own name, beside the language toggle.
+ *
+ * As quiet as the interface goes and pushed to the right, so it sits with the two controls rather than
+ * competing with the search box. Monospaced like everything else, and it never wraps: a serial number
+ * broken across two lines is a serial number nobody can read out.
+ */
+.manual-build {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  user-select: all;
 }
 
 /* ---------- HOLD ---------- */

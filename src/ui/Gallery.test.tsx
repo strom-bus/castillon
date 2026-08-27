@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { gallery } from '../gallery/client'
+import { useGalleryWindow } from '../gallery/window'
 import { encodePatch } from '../state/patchCode'
 import { toPatch, usePatchStore } from '../state/patchStore'
 import { Gallery } from './Gallery'
@@ -34,6 +35,7 @@ beforeEach(() => {
   localStorage.clear()
   closed = 0
   usePatchStore.getState().resetPatch()
+  useGalleryWindow.setState({ open: false, view: 'presets' })
 })
 
 async function publishCurrentPatch(name: string): Promise<void> {
@@ -119,6 +121,33 @@ describe('Gallery', () => {
  * one is what came with the machine and the other is what people made with it. Two windows would have
  * been two answers a person has to know to look for separately.
  */
+describe('which half it opens on', () => {
+  /*
+   * The window is unmounted when it closes, so it asks the store afresh every time it opens — which is
+   * what lets the two openers disagree. The titlebar button wants the presets, because the gallery can
+   * be empty; publishing wants the gallery, because it just stopped being able to be.
+   *
+   * Read at the tabs rather than at the store, since the store is already tested on its own: what could
+   * still be wrong here is a window that asks and then ignores the answer.
+   */
+  const active = () =>
+    ['PRESETS', 'GALLERY'].find((name) =>
+      screen.getByRole('button', { name }).className.includes('on'),
+    )
+
+  it('opens on the presets when that is what the store says', () => {
+    useGalleryWindow.setState({ open: true, view: 'presets' })
+    render(<Gallery onClose={close} />)
+    expect(active()).toBe('PRESETS')
+  })
+
+  it('opens on the gallery when that is what the store says', () => {
+    useGalleryWindow.setState({ open: true, view: 'gallery' })
+    render(<Gallery onClose={close} />)
+    expect(active()).toBe('GALLERY')
+  })
+})
+
 describe('presets', () => {
   it('is what the window opens on', () => {
     /*

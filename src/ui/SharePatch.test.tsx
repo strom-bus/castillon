@@ -17,7 +17,7 @@ let closed = 0
 beforeEach(() => {
   localStorage.clear()
   closed = 0
-  useGalleryWindow.setState({ open: false })
+  useGalleryWindow.setState({ open: false, view: 'presets' })
 })
 
 function fill(name: string, nickname: string): void {
@@ -37,6 +37,20 @@ describe('SharePatch', () => {
     // And gets out of the way, rather than stacking a window on a window.
     expect(closed).toBe(1)
     expect((await gallery.list('recent', 0)).entries[0].name).toBe('Two cascades')
+  })
+
+  it('opens it on the gallery and not on the presets', () => {
+    /*
+     * The window opens on the presets by default, because the gallery is a network request that may be
+     * empty, slow or unreachable. Arriving from a publish that reasoning is inverted: it has just stopped
+     * being able to be empty, and what somebody wants to see after adding a patch is the patch they
+     * added. It opened on the presets for as long as publishing existed.
+     */
+    render(<SharePatch code={CODE} onClose={() => (closed += 1)} />)
+    fill('Two cascades', 'nick')
+    fireEvent.click(screen.getByText('PUBLISH'))
+
+    return waitFor(() => expect(useGalleryWindow.getState().view).toBe('gallery'))
   })
 
   it('remembers the nickname, since typing it every time is a chore', async () => {

@@ -46,7 +46,9 @@ export function SharePatch({ code, onClose }: { code: string; onClose: () => voi
       await gallery.publish({ code, name, author })
       localStorage.setItem(NICKNAME_KEY, author.trim())
       onClose()
-      showGallery()
+      // On the gallery, not the presets: it cannot be empty now, and what somebody wants to see after
+      // adding a thing is the thing they added.
+      showGallery('gallery')
     } catch (thrown) {
       setError(thrown instanceof Error ? thrown.message : 'That could not be published.')
     } finally {

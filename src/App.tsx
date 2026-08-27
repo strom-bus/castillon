@@ -118,7 +118,8 @@ export default function App() {
             of the instrument. It is still plain text, so it is still read out — which is right: what it
             says is true and somebody using a reader should hear it. */}
         <span className="beta">BETA</span>
-        <GalleryButton onClick={showGallery} />
+        {/* Called rather than handed over: React would pass the click event as the view. */}
+        <GalleryButton onClick={() => showGallery()} />
       </header>
       <Transport />
       <Suspense fallback={null}>
